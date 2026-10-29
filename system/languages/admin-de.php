@@ -355,6 +355,7 @@ return [
     'A scheduled run works through the requests %s.' => 'Ein geplanter Lauf arbeitet die Aufträge %s ab.',
     'A second main heading' => 'Eine zweite Hauptüberschrift',
     'A section or an element of a page' => 'Ein Abschnitt oder ein Element einer Seite',
+    'A shared component cannot contain a form – forms belong to one site. Keep the component for this site only, or put the form on the page.' => 'Eine gemeinsame Komponente kann kein Formular enthalten – Formulare gehören zu einer Website. Behalten Sie die Komponente nur für diese Website oder setzen Sie das Formular auf die Seite.',
     'A shared fact is the same on every site of this account. Unchecked, the fact belongs to this site only; unchecking a shared fact gives this site its own copy and leaves the shared one to the other sites.' => 'Eine geteilte Angabe ist auf jeder Website dieses Kontos gleich. Ohne Häkchen gehört die Angabe nur zu dieser Website; wer das Häkchen bei einer geteilten Angabe entfernt, gibt dieser Website eine eigene Kopie und lässt die geteilte den anderen Websites.',
     'A shared fact with this key already exists.' => 'Eine geteilte Angabe mit diesem Schlüssel gibt es schon.',
     'A short description of the service and who it is for.' => 'Eine kurze Beschreibung der Leistung und für wen sie gedacht ist.',

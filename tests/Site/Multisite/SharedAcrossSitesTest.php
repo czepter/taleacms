@@ -115,6 +115,53 @@ final class SharedAcrossSitesTest extends SiteTestCase
         $this->assertTrue(array_values(array_filter($site->mcpResult('list_components'), fn (array $c): bool => $c['name'] === 'From Claude'))[0]['shared']);
     }
 
+    public function testRenamingAClassLeavesTheOtherSitesComponentsAlone(): void
+    {
+        $site = $this->site();
+        $build = '{"v":1,"children":[{"id":"a1","type":"section","tag":"section","content":{},"classes":["tile"]}]}';
+        $this->firstPost('/admin.php?module=components&action=save', ['name' => 'Own with tile']);
+        $this->firstPost('/admin.php?module=components&action=save', ['name' => 'Shared with tile', 'shared' => '1']);
+        $this->secondPost('/admin.php?module=components&action=save', ['name' => 'Second with tile']);
+        foreach (['Own with tile', 'Shared with tile', 'Second with tile'] as $name) {
+            $site->exec('UPDATE tl_components SET build = ? WHERE name = ?', [$build, $name]);
+        }
+
+        $usage = json_decode($this->firstPost('/admin.php?module=pages&action=build_class', ['name' => 'tile', 'usage' => '1'])->body, true)['usage'];
+        $this->assertEqualsCanonicalizing(['component Own with tile', 'component Shared with tile'], array_values(array_filter($usage, fn (string $u): bool => str_contains($u, 'with tile'))), 'the places named are this site\'s own and the shared ones');
+
+        $this->assertTrue(json_decode($this->firstPost('/admin.php?module=pages&action=build_class', ['name' => 'tile', 'new_name' => 'panel'])->body, true)['ok']);
+        $classes = fn (string $name): string => (string) $site->value('SELECT build FROM tl_components WHERE name = ?', [$name]);
+        $this->assertStringContainsString('"panel"', $classes('Own with tile'));
+        $this->assertStringContainsString('"tile"', $classes('Shared with tile'), 'a shared component is not rewritten for one site');
+        $this->assertStringContainsString('"tile"', $classes('Second with tile'), 'nor is another site\'s own');
+    }
+
+    public function testAFormCannotLiveInASharedComponent(): void
+    {
+        $site = $this->site();
+        $form = '{"v":1,"children":[{"id":"fm1","type":"form","tag":"form","content":{}}]}';
+        $this->firstPost('/admin.php?module=components&action=save', ['name' => 'Holds a form']);
+        $site->exec('UPDATE tl_components SET build_draft = ? WHERE name = ?', [$form, 'Holds a form']);
+        $own = $site->publicId('components', (int) $site->value("SELECT component_id FROM tl_components WHERE name = 'Holds a form'"));
+
+        // sharing it is refused, from the admin and over MCP
+        $this->firstPost('/admin.php?module=components&action=save', ['component_id' => $own, 'name' => 'Holds a form', 'shared' => '1']);
+        $this->assertSame(1, (int) $site->value("SELECT site_id FROM tl_components WHERE name = 'Holds a form'"));
+        $this->assertStringContainsString('cannot contain a form', $site->mcpText('save_component', ['id' => $own, 'shared' => true]));
+        $this->assertSame(1, (int) $site->value("SELECT site_id FROM tl_components WHERE name = 'Holds a form'"));
+
+        // and a form cannot be saved or published into one that is already shared
+        $shared = $site->publicId('components', (int) $site->value("SELECT component_id FROM tl_components WHERE name = 'Shared card'"));
+        $saved = $this->firstPost('/admin.php?module=components&action=build_save&id=' . $shared, ['build' => $form]);
+        $this->assertSame(422, $saved->status);
+        $this->assertStringContainsString('cannot contain a form', $saved->body);
+        $this->assertStringContainsString('cannot contain a form', $site->mcpText('save_build', ['component' => $shared, 'build' => json_decode($form, true)]));
+        $this->assertStringNotContainsString('"form"', implode(' ', array_map('strval', $site->rows("SELECT build, build_draft FROM tl_components WHERE name = 'Shared card'")[0])), 'nothing of it was stored');
+
+        // a component of this site only takes one, and the form then belongs to this site
+        $this->assertStringNotContainsString('cannot contain a form', $site->mcpText('save_build', ['component' => $own, 'build' => json_decode($form, true)]));
+    }
+
     public function testASharedFactIsTheSameOnBothSitesUntilOneOverridesIt(): void
     {
         $site = $this->site();

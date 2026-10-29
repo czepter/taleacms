@@ -82,6 +82,9 @@ final class Components extends Module
         if ($id > 0 && $before === null) {
             return $this->error('The component does not exist.', 404); // also another site's own component
         }
+        if ($shared === true && $before !== null && !KomponentyStavby::isShared($before) && ($refusal = KomponentyStavby::formRefusal($before['build'], $before['build_draft'])) !== null) {
+            return $this->back($refusal, 'edit', ['id' => $this->publicId($id)], 'error');
+        }
         if ($before !== null) {
             $this->db->update('components', $data, ['component_id' => $id]);
             if ($shared === true && !KomponentyStavby::isShared($before)) {
@@ -149,6 +152,11 @@ final class Components extends Module
             'row' => $k, 'build' => $k['build'], 'draft' => $k['build_draft'], 'language' => Language::defaults($this->app->settings()),
             'title' => t('Component: %s', $k['name']), 'revisions' => ['part' => 'component:' . (int) $k['component_id']], 'params' => ['id' => $k['public_id']],
         ];
+    }
+
+    protected function buildRefusal(array $target, ?string $json): ?string
+    {
+        return KomponentyStavby::isShared($target['row']) ? KomponentyStavby::formRefusal($json) : null;
     }
 
     protected function saveDraft(array $target, ?string $draft): void

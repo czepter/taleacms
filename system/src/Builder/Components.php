@@ -76,6 +76,22 @@ final class Components
         $db->update('components', ['site_id' => null], ['component_id' => $idm]);
     }
 
+    /**
+     * Why a build may not be in a shared component, or null: forms belong to one site (their records, enquiries and recipients are
+     * that site's), so a Form or form_embed element in a component every site uses would point at rows the other sites do not have.
+     * The texts are for t(); the MCP handlers say them in English.
+     */
+    public static function formRefusal(?string ...$builds): ?string
+    {
+        foreach ($builds as $json) {
+            if ($json !== null && preg_match('/"type":"(?:' . Elements\Form::TYPE . '|' . Elements\FormEmbed::TYPE . ')"/', $json) === 1) {
+                return 'A shared component cannot contain a form – forms belong to one site. Keep the component for this site only, or put the form on the page.';
+            }
+        }
+
+        return null;
+    }
+
     private static function extract(array $r): array
     {
         $r['properties'] = json_decode((string) $r['properties'], true) ?: [];

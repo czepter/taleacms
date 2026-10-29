@@ -353,6 +353,7 @@ return [
     'A scheduled run works through the requests %s.' => 'Plánovaný běh vyřizuje požadavky %s.',
     'A second main heading' => 'Druhý hlavní nadpis',
     'A section or an element of a page' => 'Sekce nebo prvek stránky',
+    'A shared component cannot contain a form – forms belong to one site. Keep the component for this site only, or put the form on the page.' => 'Sdílená komponenta nemůže obsahovat formulář – formuláře patří jednomu webu. Nechte komponentu jen pro tento web, nebo formulář vložte na stránku.',
     'A shared fact is the same on every site of this account. Unchecked, the fact belongs to this site only; unchecking a shared fact gives this site its own copy and leaves the shared one to the other sites.' => 'Sdílený údaj je stejný na každém webu tohoto účtu. Bez zaškrtnutí patří údaj jen tomuto webu; odškrtnutím sdíleného údaje dostane tento web vlastní kopii a sdílený zůstane ostatním webům.',
     'A shared fact with this key already exists.' => 'Sdílený údaj s tímto klíčem už existuje.',
     'A short description of the service and who it is for.' => 'Krátký popis služby a pro koho je.',

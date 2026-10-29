@@ -274,6 +274,9 @@ trait BuilderTools
         if ($shared === false && $current !== null && \Talea\Builder\Components::isShared($current)) {
             throw new \DomainException('A shared component stays shared – other sites may use it. delete_component removes it for all of them.');
         }
+        if ($shared === true && $current !== null && !\Talea\Builder\Components::isShared($current) && ($refusal = \Talea\Builder\Components::formRefusal($current['build'], $current['build_draft'])) !== null) {
+            throw new \DomainException($refusal);
+        }
         if ($current !== null) {
             $db->update('components', $data, ['component_id' => $id]);
             if ($shared === true && !\Talea\Builder\Components::isShared($current)) {

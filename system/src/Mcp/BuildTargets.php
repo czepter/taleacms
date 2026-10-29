@@ -198,6 +198,9 @@ trait BuildTargets
         } elseif ($target['kind'] === 'popup') {
             $db->update('popups', ['build_draft' => Build::toJson($build)], ['popup_id' => $r['popup_id']]);
         } elseif ($target['kind'] === 'component') {
+            if (\Talea\Builder\Components::isShared((array) $r) && ($refusal = \Talea\Builder\Components::formRefusal(Build::toJson($build))) !== null) {
+                throw new \DomainException($refusal);
+            }
             $db->update('components', ['build_draft' => Build::toJson($build)], ['component_id' => $r['component_id']]);
         } elseif ($target['kind'] === 'form') {
             $db->update('forms', ['build_draft' => Build::toJson($build), 'updated_at' => date('Y-m-d H:i:s')], ['form_id' => $r['form_id']]);
