@@ -566,7 +566,7 @@ site is set up and how much space it takes.
 - **Shared and own:** media, users, components and facts are shared by default across sites; a component or fact can be shared with
   every site or kept for one.
 - **Claude:** one connection works on all sites. A tool acts on the site the connection calls, or on another site when you pass its id as
-  `site` (`list_owner_sites` lists them); `create_site`, `update_site`, `add_site_domain`, `update_site_domain` and `remove_site_domain` manage them
+  `site` (`list_owner_sites` lists them); `create_site`, `update_site`, `trash_site`, `restore_site`, `add_site_domain`, `update_site_domain` and `remove_site_domain` manage them
   (administrators with a full-access connection only; a connection limited to drafts or to reading cannot change sites).
 - **Backups and imports:** a backup holds every site and a restore puts all of them back. A Talea archive can be imported only while
   the install has one site.

@@ -1554,6 +1554,19 @@
             "openWorldHint": false
         }
     },
+    "restore_site": {
+        "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "run_destructive_tool": {
         "parameters": {
             "arguments": "object",
@@ -1985,6 +1998,19 @@
             "openWorldHint": false
         }
     },
+    "trash_site": {
+        "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "triage_enquiries": {
         "parameters": {
             "limit": "integer"
@@ -2236,9 +2262,7 @@
             "id": "string",
             "name": "string",
             "redirect_to": "string",
-            "restore": "boolean",
-            "status": "string",
-            "trash": "boolean"
+            "status": "string"
         },
         "required": [
             "id"

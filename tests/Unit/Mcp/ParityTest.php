@@ -125,7 +125,7 @@ final class ParityTest extends TestCase
                 'use' => 'admin: the onboarding uses a look with the owner\'s palette and fonts, switches on the features and adds starter pages (#46) – Claude uses apply_look (palette, fonts), update_settings (extensions) and create_page',
                 'plan' => 'admin: the wizard asks the owner questions and plans with the owner\'s own AI key (#31) – Claude builds a site with the *_build tools, apply_look and apply_blueprint itself',
                 'apply' => 'admin: the wizard makes the drafts the owner reviewed (#31) – Claude uses create_page, save_build, apply_look and apply_blueprint'],
-            'sites' => ['list' => 'list_owner_sites', 'new' => $readOnly, 'edit' => $readOnly, 'create' => 'create_site', 'save' => 'update_site', 'trash' => 'update_site', 'restore' => 'update_site',
+            'sites' => ['list' => 'list_owner_sites', 'new' => $readOnly, 'edit' => $readOnly, 'create' => 'create_site', 'save' => 'update_site', 'trash' => 'trash_site', 'restore' => 'restore_site',
                 'domain_add' => 'add_site_domain', 'domain_remove' => 'remove_site_domain', 'domain_primary' => 'update_site_domain', 'domain_redirect' => 'update_site_domain',
                 'handoff' => 'admin: a one-time sign-in link to another site belongs to the person opening it in the browser – it is never a tool'],
             'fleet' => ['list' => 'list_sites', 'detail' => 'get_site', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)',

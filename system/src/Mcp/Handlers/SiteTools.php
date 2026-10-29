@@ -27,9 +27,12 @@ trait SiteTools
                 $s([])],
             ['create_site', 'Creates a further site (multisite, administrators): empty, or a copy of another site with clone_of (its content and look, never its visitors\' data). It starts paused and is set up in the background within a few minutes; add a host name with add_site_domain and set it live with update_site.',
                 $s(['name' => $text('name of the site'), 'clone_of' => $pid('site id from list_owner_sites to copy (omit for an empty site)')], ['name'])],
-            ['update_site', 'Renames a site, sets its state (live | paused | archived; an archived site may redirect to another with redirect_to), puts it into the trash (kept 30 days) or takes it out (multisite, administrators). Never the first site into the trash, nor the site this connection calls.',
-                $s(['id' => $pid('site id from list_owner_sites'), 'name' => $text('new name'), 'status' => $text('live | paused | archived'), 'redirect_to' => $pid('site id an archived site redirects to; empty = none'),
-                    'trash' => ['type' => 'boolean', 'description' => 'true = move the site to the trash'], 'restore' => ['type' => 'boolean', 'description' => 'true = take a trashed site out of the trash (it comes back paused)']], ['id'])],
+            ['update_site', 'Renames a site or sets its state (live | paused | archived; an archived site may redirect to another with redirect_to) (multisite, administrators). Putting a site into the trash is trash_site.',
+                $s(['id' => $pid('site id from list_owner_sites'), 'name' => $text('new name'), 'status' => $text('live | paused | archived'), 'redirect_to' => $pid('site id an archived site redirects to; empty = none')], ['id'])],
+            ['trash_site', 'Puts a site into the trash (multisite, administrators, only on the user\'s explicit request): it stops answering, and its tables are deleted for good after 30 days; restore_site brings it back until then. Never the first site, nor the site this connection calls.',
+                $s(['id' => $pid('site id from list_owner_sites')], ['id'])],
+            ['restore_site', 'Takes a site out of the trash (multisite, administrators); it comes back paused.',
+                $s(['id' => $pid('trashed site id from list_owner_sites')], ['id'])],
             ['add_site_domain', 'Gives a site a host name such as www.example.com (multisite, administrators; lower-case, no scheme, port or path). The first host of a site is its primary one.',
                 $s(['id' => $pid('site id from list_owner_sites'), 'host' => $text('host name'), 'primary' => ['type' => 'boolean', 'description' => 'true = make it the primary host name'],
                     'redirect_to_primary' => ['type' => 'boolean', 'description' => 'true = this host answers with a 301 to the primary host (not for the primary one)']], ['id', 'host'])],
@@ -69,7 +72,7 @@ trait SiteTools
     {
         $site = is_string($id) && $id !== '' ? $this->app->db()->byPublicId('sites', $id) : null;
         if ($site === null || ($site['status'] === 'trashed') !== $trashed) {
-            throw new \InvalidArgumentException($site === null ? 'No such site. list_owner_sites gives the ids.' : ($trashed ? 'This site is not in the trash.' : 'This site is in the trash – restore it first (update_site with restore).'));
+            throw new \InvalidArgumentException($site === null ? 'No such site. list_owner_sites gives the ids.' : ($trashed ? 'This site is not in the trash.' : 'This site is in the trash – restore it first (restore_site).'));
         }
 
         return $site;
@@ -120,29 +123,39 @@ trait SiteTools
             'next' => 'The site is set up in the background within a few minutes (ready: true in list_owner_sites) and starts paused. Add a host name with add_site_domain, then set it live with update_site.'];
     }
 
+    /** trash_site */
+    private function toolTrashSite(string $name, array $a): mixed
+    {
+        $this->siteAdmin();
+        $db = $this->app->db();
+        $site = $this->siteByPublicId($a['id'] ?? null);
+        if ((int) $site['site_id'] === Sites::currentId($db) && (int) $site['site_id'] !== 1) {
+            throw new \DomainException('This connection works on this site right now – use another site\'s host name or trash it from there.');
+        }
+        $error = Sites::trash($db, (int) $site['site_id']);
+        if ($error !== null) {
+            throw new \DomainException($error);
+        }
+
+        return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id'])), 'next' => 'The site is in the trash and is deleted for good after ' . Sites::TRASH_DAYS . ' days; restore_site brings it back.'];
+    }
+
+    /** restore_site */
+    private function toolRestoreSite(string $name, array $a): mixed
+    {
+        $this->siteAdmin();
+        $site = $this->siteByPublicId($a['id'] ?? null, true);
+        Sites::restore($this->app->db(), (int) $site['site_id']);
+
+        return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id'])), 'next' => 'The site is back, paused.'];
+    }
+
     /** update_site */
     private function toolUpdateSite(string $name, array $a): mixed
     {
         $this->siteAdmin();
         $db = $this->app->db();
-        if (($a['restore'] ?? false) === true) {
-            $site = $this->siteByPublicId($a['id'] ?? null, true);
-            Sites::restore($db, (int) $site['site_id']);
-
-            return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id'])), 'next' => 'The site is back, paused.'];
-        }
         $site = $this->siteByPublicId($a['id'] ?? null);
-        if (($a['trash'] ?? false) === true) {
-            if ((int) $site['site_id'] === Sites::currentId($db) && (int) $site['site_id'] !== 1) {
-                throw new \DomainException('This connection works on this site right now – use another site\'s host name or trash it from there.');
-            }
-            $error = Sites::trash($db, (int) $site['site_id']);
-            if ($error !== null) {
-                throw new \DomainException($error);
-            }
-
-            return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id'])), 'next' => 'The site is in the trash and is deleted for good after ' . Sites::TRASH_DAYS . ' days; update_site with restore brings it back.'];
-        }
         $redirect = $site['redirect_to_site_id'] === null ? null : (int) $site['redirect_to_site_id'];
         if (array_key_exists('redirect_to', $a)) {
             $redirect = $a['redirect_to'] === null || $a['redirect_to'] === '' ? null : (int) $this->siteByPublicId($a['redirect_to'])['site_id'];

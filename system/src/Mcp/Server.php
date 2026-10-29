@@ -38,8 +38,8 @@ final class Server
     {
         $r = $this->app->request;
         \Talea\Extension\Registry::boot($this->app); // add-ons may add tools (3.0)
-        if (!Extensions::isEnabled($this->app->settings(), 'claude')) {
-            return Response::json(['error' => 'The Claude connection is switched off (Extensions menu).'], 404);
+        if (($gate = self::siteGate($this->app, false)) !== null) {
+            return Response::json(['error' => $gate[1]], $gate[0]);
         }
         $isLocal = in_array((string) parse_url($r->origin(), PHP_URL_HOST), ['localhost', '127.0.0.1'], true);
         if (!$r->isHttps() && !$isLocal) {
@@ -57,8 +57,8 @@ final class Server
         $this->user = $user;
         $this->app->auth()->signInAs($user);
         $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
-        if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
-            return Response::json(['error' => 'The site requires two-factor sign-in. Turn it on in the admin under My account – the connection does not work until then.'], 403);
+        if (($gate = self::siteGate($this->app, true)) !== null) {
+            return Response::json(['error' => $gate[1]], $gate[0]);
         }
 
         $message = json_decode((string) file_get_contents('php://input'), true);
@@ -81,6 +81,23 @@ final class Server
         }
 
         return Response::json(array_is_list($message) ? $responses : $responses[0]);
+    }
+
+    /**
+     * What a site requires of a connection, from that site's own settings: the Claude extension must be on (before the sign-in, $user false)
+     * and the two-factor sign-in it requires must be set up for the signed-in user ($user true). One place for handle() and onSite(),
+     * so the `site` argument never skips a gate of the site it runs on.
+     *
+     * @return array{0: int, 1: string}|null HTTP status and message of the refusal
+     */
+    private static function siteGate(App $app, bool $user): ?array
+    {
+        if (!$user) {
+            return Extensions::isEnabled($app->settings(), 'claude') ? null : [404, 'The Claude connection is switched off (Extensions menu).'];
+        }
+
+        return $app->auth()->isMissingRequired2fa($app->settings())
+            ? [403, 'The site requires two-factor sign-in. Turn it on in the admin under My account – the connection does not work until then.'] : null;
     }
 
     /** @param array<string, mixed> $z @return array<string, mixed>|null null = notification without a response */
@@ -278,7 +295,7 @@ final class Server
             throw new \InvalidArgumentException('Unknown site. list_owner_sites gives the ids of the sites of this installation.');
         }
         if ($row['status'] === 'trashed') {
-            throw new \InvalidArgumentException('This site is in the trash. Restore it first (update_site with restore).');
+            throw new \InvalidArgumentException('This site is in the trash. Restore it first (restore_site).');
         }
         if ($row['ready_at'] === null) {
             throw new \InvalidArgumentException('This site is still being set up. Try again in a few minutes.');
@@ -297,6 +314,11 @@ final class Server
         $app->auth()->signInAs((array) $this->user);
         $conn = (array) $this->app->auth()->connection();
         $app->auth()->useConnection((string) ($conn['name'] ?? ''), (string) ($conn['access'] ?? 'read'), (string) ($conn['tool_set'] ?? 'all'));
+        foreach ([false, true] as $signedIn) {
+            if (($gate = self::siteGate($app, $signedIn)) !== null) {
+                throw new \DomainException('The site ' . $row['public_id'] . ' refuses this connection: ' . $gate[1]);
+            }
+        }
         $origin = $app->settings()->get('site_url');
         $host = \Talea\Core\Sites::primaryHost($db, (int) $row['site_id']);
         $request->setOrigin($origin !== '' ? $origin : ($host !== null ? \Talea\Core\Sites::originOn($this->app->request, $host) : ''));

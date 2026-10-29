@@ -91,7 +91,7 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
 - **Undo:** `agent_journal.site_prefix` (owner table, '' = the owner's own site) records the site an entry belongs to; `AgentJournal::undo`
   writes each row back on that site (same connection), so a session spanning several sites is taken back in one step.
 - **Site tools** (`Mcp\Handlers\SiteTools`, only with the flag, administrators only, access "write" so a drafts-only or read-only connection cannot use
-  them): `list_owner_sites` (read), `create_site`, `update_site` (name, status, redirect target, trash, restore), `add_site_domain`,
+  them): `list_owner_sites` (read), `create_site`, `update_site` (name, status, redirect target), `trash_site` (destructive: `claude_destructive = 0` refuses it, and it routes through `run_destructive_tool`), `restore_site`, `add_site_domain`,
   `update_site_domain` (primary, redirect), `remove_site_domain` (destructive). `list_sites` and `get_site` belong to the fleet console.
   Results carry public ids only. The server instructions mention the `site` argument.
 

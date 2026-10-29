@@ -87,11 +87,11 @@ final class McpSitesTest extends SiteTestCase
 
         $third = $site->mcpResult('create_site', ['name' => 'Third'])['site']['id'];
         $this->assertStringContainsString('still being set up', $this->call('list_pages', ['site' => $third])['text'], 'not ready');
-        $site->mcpResult('update_site', ['id' => $third, 'trash' => true]);
+        $site->mcpResult('trash_site', ['id' => $third]);
         $this->assertStringContainsString('in the trash', $this->call('list_pages', ['site' => $third])['text']);
-        $site->mcpResult('update_site', ['id' => $third, 'restore' => true]);
+        $site->mcpResult('restore_site', ['id' => $third]);
         $this->assertSame('paused', $site->mcpResult('list_owner_sites')['sites'][2]['status']);
-        $site->mcpResult('update_site', ['id' => $third, 'trash' => true]);
+        $site->mcpResult('trash_site', ['id' => $third]);
     }
 
     public function testACallOnTheSiblingIsUndoneOnTheSibling(): void
@@ -121,7 +121,7 @@ final class McpSitesTest extends SiteTestCase
         $this->assertSame(['www.second.test'], array_column($r['site']['domains'], 'host'));
         $site->mcpResult('add_site_domain', ['id' => self::$second, 'host' => 'second.test', 'primary' => true]);
 
-        $this->assertStringContainsString('first site', $this->call('update_site', ['id' => $site->mcpResult('list_owner_sites')['sites'][0]['id'], 'trash' => true])['text']);
+        $this->assertStringContainsString('first site', $this->call('trash_site', ['id' => $site->mcpResult('list_owner_sites')['sites'][0]['id']])['text']);
         $archived = $site->mcpResult('update_site', ['id' => self::$second, 'status' => 'archived', 'redirect_to' => $site->mcpResult('list_owner_sites')['sites'][0]['id']]);
         $this->assertSame(['archived', $site->mcpResult('list_owner_sites')['sites'][0]['id']], [$archived['site']['status'], $archived['site']['redirect_to']]);
         $site->mcpResult('update_site', ['id' => self::$second, 'status' => 'live', 'redirect_to' => '']);
@@ -132,7 +132,7 @@ final class McpSitesTest extends SiteTestCase
         $site = $this->site();
         $token = 'talea_' . bin2hex(random_bytes(24));
         $site->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, access, created_at) SELECT user_id, 'drafts', ?, 'drafts', NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', $token)]);
-        foreach ([['create_site', ['name' => 'Nope']], ['update_site', ['id' => self::$second, 'status' => 'paused']], ['add_site_domain', ['id' => self::$second, 'host' => 'nope.test']],
+        foreach ([['create_site', ['name' => 'Nope']], ['update_site', ['id' => self::$second, 'status' => 'paused']], ['trash_site', ['id' => self::$second]], ['restore_site', ['id' => self::$second]], ['add_site_domain', ['id' => self::$second, 'host' => 'nope.test']],
             ['update_site_domain', ['id' => self::$second, 'host' => 'second.test', 'primary' => true]], ['remove_site_domain', ['id' => self::$second, 'host' => 'second.test']]] as [$tool, $args]) {
             $r = $this->call($tool, $args, $token);
             $this->assertTrue($r['error'], $tool);
@@ -148,6 +148,60 @@ final class McpSitesTest extends SiteTestCase
         $editor = 'talea_' . bin2hex(random_bytes(24));
         $site->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'editor', ?, NOW() FROM tl_users WHERE username = 'editor2'", [hash('sha256', $editor)]);
         $this->assertStringContainsString('for administrators', $this->call('list_owner_sites', [], $editor)['text']);
+    }
+
+    private function setSecond(string $name, ?string $value): void
+    {
+        $this->site()->exec('DELETE FROM tl2_settings WHERE name = ?', [$name]);
+        if ($value !== null) {
+            $this->site()->exec('INSERT INTO tl2_settings (name, value) VALUES (?, ?)', [$name, $value]);
+        }
+    }
+
+    public function testTheSiblingsOwnGatesAndGuardrailsHoldForTheCall(): void
+    {
+        $site = $this->site();
+        $page = ['title' => 'Gate probe', 'visible' => false, 'site' => self::$second];
+        $extensions = (string) $site->value("SELECT value FROM tl2_settings WHERE name = 'extensions'");
+
+        // the Claude extension is off on the sibling
+        $this->setSecond('extensions', 'news');
+        $r = $this->call('create_page', $page);
+        $this->assertTrue($r['error']);
+        $this->assertStringContainsString('switched off', $r['text']);
+        $this->setSecond('extensions', $extensions === '' ? null : $extensions);
+
+        // the sibling requires two-factor sign-in and the user has none
+        $this->setSecond('require_2fa', 'everyone');
+        $r = $this->call('create_page', $page);
+        $this->assertTrue($r['error']);
+        $this->assertStringContainsString('two-factor', $r['text']);
+        $this->setSecond('require_2fa', null);
+
+        // a drafts-only connection stays drafts-only on the sibling
+        $token = 'talea_' . bin2hex(random_bytes(24));
+        $site->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, access, created_at) SELECT user_id, 'drafts2', ?, 'drafts', NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', $token)]);
+        $r = $this->call('update_settings', ['settings' => ['site_name' => 'Hijacked'], 'site' => self::$second], $token);
+        $this->assertTrue($r['error']);
+        $this->assertStringContainsString('only save drafts', $r['text']);
+        $this->assertFalse($this->call('create_page', $page, $token)['error'], 'a draft is fine');
+
+        // the guardrail setting of the sibling, not of the first site, decides on the sibling
+        $this->setSecond('claude_destructive', '0');
+        $r = $this->call('trash_page', ['id' => $site->mcpResult('create_page', ['title' => 'To trash', 'visible' => false, 'site' => self::$second])['id'], 'site' => self::$second]);
+        $this->assertTrue($r['error']);
+        $this->assertStringContainsString('switched off deleting', $r['text']);
+        $this->setSecond('claude_destructive', null);
+
+        // trash_site is destructive: refused with deleting switched off, and annotated
+        $site->setting('claude_destructive', '0');
+        $r = $this->call('trash_site', ['id' => self::$second]);
+        $this->assertTrue($r['error']);
+        $this->assertStringContainsString('switched off deleting', $r['text']);
+        $site->setting('claude_destructive', '1');
+        $tools = array_column((array) $site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}')['result']['tools'], 'annotations', 'name');
+        $this->assertTrue($tools['trash_site']['destructiveHint']);
+        $this->assertFalse($tools['restore_site']['destructiveHint']);
     }
 
     public function testAnArchiveImportIsRefusedWhileThereAreSeveralSites(): void
