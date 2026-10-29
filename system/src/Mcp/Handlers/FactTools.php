@@ -75,6 +75,10 @@ trait FactTools
     /** find_claims */
     private function toolFindClaims(string $name, array $a): mixed
     {
+        // reads sentences from every page, news item and collection item (drafts, hidden, gated), so it needs the same right as the other fact tools
+        if (!$this->app->auth()->hasModule('business')) {
+            throw new \DomainException('The claims inventory reads all content: it is for people with access to Business details.');
+        }
         $text = trim((string) ($a['text'] ?? ''));
         $limit = max(1, min(300, (int) ($a['limit'] ?? 100)));
         $found = $text !== '' ? Facts::occurrences($this->app->db(), $text, $limit) : Facts::claims($this->app->db(), $limit);
