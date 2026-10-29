@@ -174,6 +174,7 @@ final class Settings
         'alerts_cursor' => '',         // the last event reported (internal)
         'alerts_last_sent' => '0',     // when the last alert went out (internal)
         'report_monthly' => '0',       // monthly report by e-mail (2.9, Core\MonthlyReport) – off, so an update never starts e-mailing by itself
+        'report_all_sites' => '0',     // multisite, site 1 only: its monthly report carries a section for each further site (Core\AllSitesReport)
         'report_recipients' => '',     // where to, comma or line separated (at most 10); empty = the site e-mail
         'report_last_month' => '',     // the month (Y-m) whose report went out last (internal)
         'trusted_proxy' => '',         // '' | cloudflare – where the visitor's address comes from (Core\Antispam::visitorIp)

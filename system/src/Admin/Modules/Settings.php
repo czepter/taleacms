@@ -126,7 +126,7 @@ class Settings extends Module
             }
         }
 
-        return $field;
+        return $tab === 'reports' && \Talea\Core\AllSitesReport::available($this->app) ? $field + ['report_all_sites' => 'flag'] : $field; // multisite: site 1 only
     }
 
     /** @return array<string, string> address => name of every collection, for the screen mode checkboxes */

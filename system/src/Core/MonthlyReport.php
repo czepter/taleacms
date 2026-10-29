@@ -143,6 +143,7 @@ final class MonthlyReport
             'claude' => $claude ? $section(fn (): array => self::claude($db, $from, $to)) : null,
             'security' => $section(fn (): array => self::security($db, $from, $to)),
             'audit' => $section(fn (): array => self::audit($app, $monthStart)),
+            'sites' => AllSitesReport::collect($app, $monthStart), // multisite, report_all_sites: one section per further site
             'bookings' => Extensions::isEnabled($s, 'bookings') ? $section(fn (): array => [
                 'total' => $count('SELECT COUNT(*) FROM {bookings} WHERE created_at >= ? AND created_at < ?', [$from, $to]),
                 'statuses' => array_map('intval', $db->pairs('SELECT status, COUNT(*) FROM {bookings} WHERE created_at >= ? AND created_at < ? GROUP BY status ORDER BY status', [$from, $to])),
@@ -465,6 +466,15 @@ final class MonthlyReport
                 $section(t('Work on the site'), $table($rows), $plainRows($pairs));
             }
 
+            // multisite (AllSitesReport): the other sites of the owner, one section each
+            foreach ((array) ($data['sites'] ?? []) as $site) {
+                $rows = [$row(e(t('Visits')), e($change((int) $site['visits'], (int) $site['previous_visits']))), $row(e(t('Page views')), e($change((int) $site['views'], (int) $site['previous_views']))),
+                    $row(e(t('Enquiries received')), $n((int) $site['enquiries'])), $row(e(t('Newsletter sign-ups')), $n((int) $site['signups'])), $row(e(t('Bookings')), $n((int) $site['bookings']))];
+                $pairs = [[t('Visits'), $change((int) $site['visits'], (int) $site['previous_visits'])], [t('Page views'), $change((int) $site['views'], (int) $site['previous_views'])],
+                    [t('Enquiries received'), $n((int) $site['enquiries'])], [t('Newsletter sign-ups'), $n((int) $site['signups'])], [t('Bookings'), $n((int) $site['bookings'])]];
+                $section(t('Site: %s', $mask((string) $site['name'])), $table($rows), $plainRows($pairs));
+            }
+
             // care of the site: backups, changes, security
             $rows = [];
             $pairs = [];
@@ -592,6 +602,9 @@ final class MonthlyReport
         $s = $app->settings();
         if (!$s->bool('report_monthly') || Demo::active()) {
             return 'off';
+        }
+        if (AllSitesReport::coveredBySiteOne($app)) {
+            return 'in the report of site 1';
         }
         $month = self::previousMonth(new \DateTimeImmutable());
         if ($s->get('report_last_month') === $month->format('Y-m')) {
