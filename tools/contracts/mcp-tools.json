@@ -1939,6 +1939,28 @@
             "openWorldHint": false
         }
     },
+    "try_form": {
+        "parameters": {
+            "answers": "object",
+            "collection": "string",
+            "component": "string",
+            "element": "string",
+            "id": "string",
+            "language": "string",
+            "part": "string",
+            "popup": "string",
+            "published": "boolean",
+            "variant": "string"
+        },
+        "required": [
+            "element"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "undo_agent_session": {
         "parameters": {
             "confirm": "boolean",

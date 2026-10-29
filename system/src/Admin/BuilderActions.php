@@ -489,6 +489,20 @@ trait BuilderActions
         return Response::json(['ok' => true] + $diff);
     }
 
+    /** Runs the logic of a form element of the draft with answers by field key (JSON): the same answer as MCP try_form. */
+    protected function actionBuildFormTry(): Response
+    {
+        $target = $this->loadBuildTarget();
+        $answers = json_decode($this->request->get('answers'), true);
+        try {
+            $build = $target === null ? throw new \InvalidArgumentException(t('Page does not exist.')) : (Build::fromJson($target['draft'] ?? $target['build']) ?? ['v' => Build::VERSION, 'children' => []]);
+
+            return Response::json(\Talea\Builder\Elements\Form::tryOut($build, $this->request->get('element'), is_array($answers) ? $answers : []));
+        } catch (\InvalidArgumentException $e) {
+            return Response::json(['ok' => false, 'error' => $e->getMessage()], 404);
+        }
+    }
+
     /** An older version is loaded into the draft; it is published only with the Publish button. */
     protected function actionBuildRestore(): Response
     {

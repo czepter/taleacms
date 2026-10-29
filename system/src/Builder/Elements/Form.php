@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Builder\Elements;
 
 use Talea\Core\Antispam;
+use Talea\Builder\Build;
 use Talea\Builder\Context;
 use Talea\Builder\Element;
 use Talea\Builder\FormLogic;
@@ -19,7 +20,7 @@ final class Form extends Element
     public const string TYPE = 'form';
     public const string EXTENSION = 'enquiries';
     public const string NAME = 'Form';
-    public const string DESCRIPTION = 'An enquiry or question – submitted messages are in Enquiries and arrive by email.';
+    public const string DESCRIPTION = 'An enquiry or question – submitted messages are in Enquiries and arrive by email. Also a quiz or a quote calculator: options of radio, select and checkboxes fields may carry an amount ("Label | 1200"), a number field a unit_price, an estimate field adds them up to a total with an optional range (range_below/range_above in percent), rounding (round_to) and a minimum. "logic" holds rules and result variants: {"rules":[{"label":"…","match":"all|any","when":[{"field":"<field key>","op":"is|is_not|contains|not_contains|gt|lt|between|weekday|month|empty|not_empty","value":"…","to":"… (between)"}],"then":[{"do":"add|quantity|multiply|skip|show_when|result", …}]}],"results":[{"key":"…","heading":"…","text":"…","show_amount":true,"button_text":"","button_link":""}]} – add: {"do":"add","amount":100}, quantity (amount × the number in a field): {"do":"quantity","field":"<key>","amount":10}, multiply: {"do":"multiply","by":1.3}, skip: {"do":"skip","field":"<key>"} (the field is hidden when the rule holds), show_when: {"do":"show_when","field":"<key>"} (the field shows only when the rule holds), result: {"do":"result","variant":"<result key>"}. Fields are named by their key (get_build shows it), never by label. calculation "after_contact" shows the estimate only after the visitor sent their contact details (no amount is then in the page). Run it with try_form.';
     public const string ICON = 'form';
     public const string GROUP = 'Dynamic';
     public const array HTML_TAGS = ['form'];
@@ -78,7 +79,7 @@ final class Form extends Element
             ]],
             // rules and result variants (Builder\FormLogic); edited in its own overlay, not as a field
             'calculation' => ['type' => 'choice', 'label' => 'Show the estimate', 'default' => 'live', 'options' => ['live' => 'while answering', 'after_contact' => 'after the visitor sent their contact details']],
-            'logic' => ['type' => 'form_logic', 'label' => 'Logic', 'default' => ['rules' => [], 'results' => []]],
+            'logic' => ['type' => 'form_logic', 'label' => 'Logic (rules and result variants, see the element description)', 'default' => ['rules' => [], 'results' => []]],
             'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Send enquiry'), 'max' => 80],
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
             'recipient' => ['type' => 'text', 'label' => 'Notification e-mails (several separated by commas; empty = site e-mail from Settings)', 'default' => '', 'max' => 190],
@@ -92,6 +93,37 @@ final class Form extends Element
             'next_steps' => ['type' => 'lines', 'label' => 'What happens next (one step per line, shown with the thank-you)', 'default' => '', 'max' => 2000],
             'reply_within_hours' => ['type' => 'number', 'label' => 'We reply within (working hours by the opening hours in Business details; 0 = not shown)', 'default' => 0, 'min' => 0, 'max' => \Talea\Front\NextSteps::MAX_HOURS],
             'who_replies' => ['type' => 'text', 'label' => 'Who replies (e.g. “Jana from the office”)', 'default' => '', 'max' => 120],
+        ];
+    }
+
+    /**
+     * Runs the logic of the form element $elementId of a build with answers given by field key (what try_form and the builder's try do).
+     *
+     * @param array<string, string|list<string>> $answers field key => answer (a list for checkboxes, "HH:MM-HH:MM" for a time range)
+     * @return array{visible: list<string>, lines: list<array{label: string, amount: float}>, total: float, shown: string, variant: string, unknown_keys: list<string>}
+     */
+    public static function tryOut(array $build, string $elementId, array $answers): array
+    {
+        $form = Build::elementsOfType($build, static fn (string $class): bool => $class === self::class)[$elementId]
+            ?? throw new \InvalidArgumentException('The form element is not in the build. Element ids are in get_build.');
+        $content = $form['content'] ?? [];
+        $keys = array_column($content['fields'] ?? [], 'key');
+        $byIndex = [];
+        $unknown = [];
+        foreach ($answers as $key => $answer) {
+            $index = array_search((string) $key, $keys, true);
+            if ($index === false) {
+                $unknown[] = (string) $key;
+            } else {
+                $byIndex[$index] = is_array($answer) ? array_map('strval', array_values($answer)) : (string) $answer;
+            }
+        }
+        $result = FormLogic::evaluate($content, $byIndex);
+
+        return [
+            'visible' => array_values(array_map(static fn (int $i): string => (string) $keys[$i], array_keys(array_filter($result['visible'])))),
+            'lines' => array_map(static fn (array $line): array => ['label' => $line[0], 'amount' => $line[1]], $result['lines']),
+            'total' => $result['total'], 'shown' => $result['shown'], 'variant' => $result['variant'], 'unknown_keys' => $unknown,
         ];
     }
 
