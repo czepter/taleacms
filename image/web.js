@@ -509,11 +509,12 @@
 	});
 	if (new URLSearchParams(location.search).get('subscription') === 'ok') { track({ event: 'sign_up', method: 'newsletter_signup' }); }
 
-	/* the values of the answer fields (p0, p1[] …): a string, or a list for checkboxes and the two times of a time range */
+	/* the values of the answer fields (p0, p1[] …): a string, or a list for checkboxes and the two times of a time range; a hidden
+	   field is the page's own (a collection item's value, the basket) and is never stored or brought back */
 	function snapshot(f) {
 		var values = {};
 		Array.prototype.forEach.call(f.elements, function (p) {
-			if (!/^p\d+(\[\])?$/.test(p.name) || p.type === 'file') { return; }
+			if (!/^p\d+(\[\])?$/.test(p.name) || p.type === 'file' || p.type === 'hidden') { return; }
 			var many = /\[\]$/.test(p.name), name = p.name.replace(/\[\]$/, '');
 			if ((p.type === 'checkbox' || p.type === 'radio') && !p.checked) { return; }
 			if (many) { (values[name] = values[name] || []).push(p.value); } else { values[name] = p.value; }
@@ -523,7 +524,7 @@
 	function restore(f, stored) {
 		var seen = {};
 		Array.prototype.forEach.call(f.elements, function (p) {
-			if (!/^p\d+(\[\])?$/.test(p.name) || p.type === 'file') { return; }
+			if (!/^p\d+(\[\])?$/.test(p.name) || p.type === 'file' || p.type === 'hidden') { return; }
 			var many = /\[\]$/.test(p.name), name = p.name.replace(/\[\]$/, ''), value = stored[name];
 			if (value === undefined) { if (p.type === 'checkbox' || p.type === 'radio') { p.checked = false; } return; }
 			if (many !== Array.isArray(value)) { return; }
@@ -736,7 +737,7 @@
 			layout();
 			reach(i + 1);
 			// focus follows the visitor to the new step (Next, Back and the browser Back alike); the button that held it may be gone
-			var first = steps[current].querySelector('input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+			var first = steps[current].querySelector('input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled])');
 			if (first) { first.focus(); }
 		}
 		function forward() {
@@ -744,6 +745,7 @@
 			if (invalid) { invalid.reportValidity(); return; }
 			var target = path().filter(function (i) { return i > current; })[0];
 			if (target === undefined) { return; }
+			reach(1); // a later step is never counted without the first
 			try { history.pushState({ tlForm: id, tlStep: target, tlFrom: current }, ''); } catch (error) { /* nothing */ }
 			enter(target);
 		}

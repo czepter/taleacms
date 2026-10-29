@@ -1,13 +1,13 @@
 // Talea – form logic in Chrome (run by tests/Browser/BrowserWalkTest.php::testFormLogicMatchesTheServer): the script must hide the same
 // questions and compute the same total and estimate as the server, and the quiz flow (move on after a tile, Back, resume, step beacons)
-// must work. Env: BASE, CHROME, NODE_PATH, CASES (JSON file: {cases: [...], quiz: {slug}}).
+// must work. Env: BASE, CHROME, NODE_PATH, CASES (JSON file: {cases: [...], quiz: {slug}, basket: {slug}}).
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 
 const require = createRequire(`${process.env.NODE_PATH}/`);
 const { chromium } = require('playwright-core');
 const { BASE, CHROME, CASES } = process.env;
-const { cases, quiz } = JSON.parse(readFileSync(CASES, 'utf8'));
+const { cases, quiz, basket } = JSON.parse(readFileSync(CASES, 'utf8'));
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 const context = await browser.newContext({ viewport: { width: 1000, height: 900 }, locale: 'en-GB' });
@@ -78,6 +78,21 @@ await page.reload({ waitUntil: 'networkidle' });
 check(await page.locator('input[name="p0"][value="Flat"]').isChecked(), 'quiz: a reload keeps the tile');
 check(await page.locator('input[name="p2"]').inputValue() === 'abc', 'quiz: a reload keeps the text');
 console.log(`  ${failures.length ? 'FAIL' : 'ok  '}  quiz flow`);
+
+// a hidden field is the page's own (a collection item's value, the basket): answers kept for the same form element never restore it
+await page.goto(`${BASE}/${basket.slug}`, { waitUntil: 'networkidle' });
+await page.evaluate(() => {
+  const id = document.querySelector('form[data-form]').dataset.form;
+  sessionStorage.setItem(`tl-form-${id}`, JSON.stringify({ p0: '[{"c":"ghost","i":"ghost","n":"Ghost product","v":"","q":1}]', p1: 'kept' }));
+});
+await page.reload({ waitUntil: 'networkidle' });
+check(await page.locator('input[name="p1"]').inputValue() === 'kept', 'basket: a reload keeps the text');
+check(await page.locator('input[name="p0"]').inputValue() === '[]', `basket: the hidden field keeps its own value, got ${await page.locator('input[name="p0"]').inputValue()}`);
+check(!(await page.locator('[data-basket-list]').textContent()).includes('Ghost'), 'basket: a stored hidden value does not bring a product back');
+await page.fill('input[name="p1"]', 'typed');
+const stored = await page.evaluate(() => JSON.parse(sessionStorage.getItem(`tl-form-${document.querySelector('form[data-form]').dataset.form}`)));
+check(stored.p1 === 'typed' && !('p0' in stored), `basket: the hidden field is not stored, got ${JSON.stringify(stored)}`);
+console.log(`  ${failures.length ? 'FAIL' : 'ok  '}  hidden field not stored or restored`);
 
 await browser.close();
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }

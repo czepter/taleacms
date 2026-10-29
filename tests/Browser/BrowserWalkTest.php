@@ -224,8 +224,14 @@ final class BrowserWalkTest extends TestCase
                 ['key' => 'kmai0', 'label' => 'Email', 'type' => 'email'],
             ], 'logic' => ['rules' => [['label' => 'Flat', 'match' => 'all', 'when' => [['field' => 'kroo0', 'op' => 'is', 'value' => 'Flat']], 'then' => [['do' => 'skip', 'field' => 'kdet0']]]], 'results' => []]]);
 
+            // a form with a hidden field of its own (the basket): the stored answers never bring back its value
+            $publish('basket', ['name' => 'Basket form', 'fields' => [
+                ['key' => 'kbas0', 'label' => 'Products', 'type' => 'basket'],
+                ['key' => 'knot0', 'label' => 'Note', 'type' => 'text'],
+            ]]);
+
             $file = sys_get_temp_dir() . '/talea-form-logic-' . getmypid() . '.json';
-            file_put_contents($file, json_encode(['cases' => $cases, 'quiz' => ['slug' => 'quiz']]));
+            file_put_contents($file, json_encode(['cases' => $cases, 'quiz' => ['slug' => 'quiz'], 'basket' => ['slug' => 'basket']]));
             $project = dirname(__DIR__, 2);
             $process = proc_open(['node', $project . '/tools/test-form-logic.mjs'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $project,
                 array_merge(getenv(), ['BASE' => $site->base, 'CHROME' => $chrome, 'NODE_PATH' => $modules . '/node_modules', 'CASES' => $file]));
