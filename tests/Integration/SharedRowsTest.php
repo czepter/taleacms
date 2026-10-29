@@ -226,6 +226,12 @@ final class SharedRowsTest extends DatabaseTestCase
         $db->insert('experiments', ['name' => 'Test', 'kind' => 'element', 'page_id' => $pageId, 'element_id' => 'x1', 'variant_component_id' => $a, 'goal_type' => 'click', 'previous_build' => $build($b), 'created_at' => date('Y-m-d H:i:s')]);
         $db->insert('facts', ['fact_key' => 'own_fact', 'language' => '', 'label' => 'Own', 'type' => 'text', 'value' => 'v', 'updated_at' => date('Y-m-d H:i:s'), 'site_id' => 1]);
         $this->component($db->forSite('tl2_'), 'Belongs to site two');
+        // the versions of a component and the forms placed in it are keyed by its number; external connections are not copied at all
+        $db->insert('build_revisions', ['part' => 'component:' . $a, 'build' => $build(), 'created_at' => date('Y-m-d H:i:s')]);
+        $db->insert('build_revisions', ['part' => 'component:' . $sharedId, 'build' => $build(), 'created_at' => date('Y-m-d H:i:s')]);
+        $db->insert('forms', ['name' => 'In card A', 'origin' => 'component:' . $a . '|abc12', 'created_at' => date('Y-m-d H:i:s')]);
+        $db->insert('connectors', ['service' => 'sheets', 'account' => 'owner@example.com']);
+        $db->insert('agent_schedules', ['name' => 'Weekly review', 'task' => 'review', 'text' => '', 'cadence' => 'weekly', 'created_at' => date('Y-m-d H:i:s')]);
 
         Sites::provision($db, (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', ['tl3_']));
         Sites::forgetCurrent();
@@ -249,6 +255,16 @@ final class SharedRowsTest extends DatabaseTestCase
         $experiment = (array) $copy->one('SELECT variant_component_id, previous_build FROM {experiments}');
         $this->assertSame([$own['Card A'], [$own['Card B']]], [(int) $experiment['variant_component_id'], $ids($experiment['previous_build'])], 'the variant B of a test is the copy, not the source\'s component');
         $this->assertSame($a, (int) $db->value('SELECT variant_component_id FROM {experiments}'), 'the source\'s test keeps its own');
+
+        $parts = array_column($copy->all("SELECT part FROM {build_revisions} WHERE part LIKE 'component:%'"), 'part');
+        sort($parts);
+        $expected = ['component:' . $own['Card A'], 'component:' . $sharedId];
+        sort($expected);
+        $this->assertSame($expected, $parts, 'the versions follow the copy; a shared component keeps its key');
+        $this->assertSame(0, (int) $copy->value('SELECT COUNT(*) FROM {build_revisions} WHERE part = ?', ['component:' . $a]));
+        $this->assertSame('component:' . $own['Card A'] . '|abc12', $copy->value('SELECT origin FROM {forms}'), 'the form placed in card A now comes from the copy');
+        $this->assertSame('component:' . $a . '|abc12', $db->value('SELECT origin FROM {forms}'));
+        $this->assertSame([0, 0], [(int) $copy->value('SELECT COUNT(*) FROM {connectors}'), (int) $copy->value('SELECT COUNT(*) FROM {agent_schedules}')], 'a clone has no external connections');
 
         // the source is untouched
         $this->assertSame([$a, $b, $sharedId], $ids((string) $db->value('SELECT build FROM {pages} WHERE slug = ?', ['cards'])));

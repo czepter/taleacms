@@ -21,7 +21,7 @@ final class Sites
         'member_sessions', 'member_tokens', 'enquiries', 'requests', 'request_messages', 'bookings', 'booking_proposals', 'subscribers', 'members',
         'member_group_links', 'consents', 'change_log', 'events', 'not_found', 'search_stats', 'monthly_reports', 'testimonial_requests',
         'document_downloads', 'draft_comments', 'notice_log', 'connector_log', 'google_reviews', 'broken_links', 'import_map', 'agent_runs',
-        'form_steps', 'fleet_pairing',
+        'form_steps', 'fleet_pairing', 'connectors', 'agent_schedules', 'fleet_sites', // external connections: a copy would act in the clone's name
     ];
 
     /** A trashed site is dropped for good after this many days. */
@@ -89,11 +89,11 @@ final class Sites
     /** The number of the site a connection works on (its prefix in {sites}); 1 for the owner's prefix and while the registry does not exist; an unregistered further prefix throws. */
     public static function currentId(Db $db): int
     {
-        if ($db->prefix === $db->ownerPrefix || !$db->tableExists('sites')) {
-            return 1;
-        }
         if (isset(self::$current[$db->prefix])) {
             return self::$current[$db->prefix];
+        }
+        if ($db->prefix === $db->ownerPrefix || !$db->tableExists('sites')) {
+            return 1;
         }
         $id = $db->value('SELECT site_id FROM {sites} WHERE prefix = ?', [$db->prefix]);
         if ($id === null || $id === false) {
@@ -188,7 +188,12 @@ final class Sites
      */
     public static function add(Db $db, string $name, string $slug, int $source = 1, bool $clone = false): string
     {
-        $prefix = self::prefixFor($db->ownerPrefix, (int) $db->value('SELECT MAX(site_id) FROM {sites}') + 1);
+        // the next number whose prefix has no tables yet: after restoring an older backup or on a database shared with something else
+        // the tables of a site that is not registered may still exist, and a new site must not take them over
+        $n = (int) $db->value('SELECT MAX(site_id) FROM {sites}') + 1;
+        while ($db->dialect()->dumpTables($db->pdo(), $prefix = self::prefixFor($db->ownerPrefix, $n)) !== []) {
+            $n++;
+        }
         self::forgetCurrent(); // a dropped site's prefix may be handed out again with a new number
         $db->insert('sites', ['name' => $name, 'slug' => $slug, 'prefix' => $prefix, 'status' => 'paused', 'source_site_id' => $source, 'clone' => $clone, 'created_at' => date('Y-m-d H:i:s')]);
 
@@ -245,6 +250,25 @@ final class Sites
     public static function readyPrefixes(Db $db): array
     {
         return array_map('strval', array_column($db->all('SELECT prefix FROM {sites} WHERE ready_at IS NOT NULL ORDER BY site_id'), 'prefix'));
+    }
+
+    /**
+     * The other sites that are set up and not in the trash, as name => connection (empty with one site or while multisite is off). For
+     * what lives once per owner but is used per site: a media file is in use when any site uses it.
+     *
+     * @return array<string, Db>
+     */
+    public static function otherReady(Db $db): array
+    {
+        if (!self::enabled() || !$db->tableExists('sites')) {
+            return [];
+        }
+        $others = [];
+        foreach ($db->all("SELECT name, prefix FROM {sites} WHERE ready_at IS NOT NULL AND status <> 'trashed' AND prefix <> ? ORDER BY site_id", [$db->prefix]) as $r) {
+            $others[(string) $r['name']] = $db->forSite((string) $r['prefix']);
+        }
+
+        return $others;
     }
 
     /**
@@ -367,6 +391,18 @@ final class Sites
         }
         if ($ids === []) {
             return;
+        }
+        // the versions of a component and the forms placed in one are keyed by the component's number ('component:<id>', 'component:<id>|<element>')
+        // (the copies' numbers are new, above every number there is, so a part is never moved twice)
+        foreach ($new->all("SELECT DISTINCT part FROM {build_revisions} WHERE part LIKE 'component:%'") as $r) {
+            if (preg_match('/^component:(\d+)$/D', (string) $r['part'], $m) === 1 && isset($ids[(int) $m[1]])) {
+                $new->update('build_revisions', ['part' => 'component:' . $ids[(int) $m[1]]], ['part' => $r['part']]);
+            }
+        }
+        foreach ($new->all("SELECT form_id, origin FROM {forms} WHERE origin LIKE 'component:%'") as $r) {
+            if (preg_match('/^component:(\d+)(\|.*)$/Ds', (string) $r['origin'], $m) === 1 && isset($ids[(int) $m[1]])) {
+                $new->update('forms', ['origin' => 'component:' . $ids[(int) $m[1]] . $m[2]], ['form_id' => (int) $r['form_id']]);
+            }
         }
         $map = fn (string $table, mixed $id): string|int => $table === 'components' && isset($ids[(int) $id]) ? $ids[(int) $id] : (is_scalar($id) ? $id : '');
         $rewrite = function (Db $d, string $table, array $columns, string $kind) use ($map): void {

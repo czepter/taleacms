@@ -36,7 +36,7 @@ final class Collections
     /** An item link (2.10) stores the address (seo_link) of the linked item – the same in every language version. */
     public const string ITEM_LINK_PATTERN = '/^[a-z0-9][a-z0-9-]{0,119}$/';
 
-    /** @var array<string, array<string, array{0: string, 1: string}>> linked items for this request: "collection|language" => slug => [name, path] */
+    /** @var array<string, array<string, array{0: string, 1: string}>> linked items for this request: "prefix|collection|language" => slug => [name, path] */
     private static array $linked = [];
 
     /** Built-in values of every item – custom fields must not use them. */
@@ -566,7 +566,7 @@ final class Collections
     public static function linked(Db $db, string $collectionSlug, ?string $language = null): array
     {
         $language ??= \Talea\Core\Language::siteColumn();
-        $key = $collectionSlug . '|' . $language;
+        $key = $db->prefix . '|' . $collectionSlug . '|' . $language; // per site: an MCP call on a sibling shares the process
         if (isset(self::$linked[$key])) {
             return self::$linked[$key];
         }

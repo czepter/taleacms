@@ -125,14 +125,8 @@ final class Media extends Module
         }
     }
 
-    /**
-     * Media used outside the news usage table: builds of pages, site parts, collection item templates and components (drafts
-     * too), text pages, collection items, classes (background image) and settings (logo, icon, sharing image).
-     * Computed when shown – so the overview is always up to date without tracking on every save.
-     *
-     * @return array<int, list<string>> media_id => descriptions of the places
-     */
-    public static function findUsagesElsewhere(\Talea\Core\Db $db): array
+    /** @return list<array{string, string}> kind and SQL (used_in, content) of every place outside the news usage table that can hold a media path; $news adds the news items (another site's usage table) */
+    private static function usageSources(\Talea\Core\Db $db, bool $news): array
     {
         $sources = [
             [t('page'), 'SELECT title AS used_in, CONCAT_WS(\' \', text, build, build_draft, image) AS content FROM {pages}'],
@@ -151,12 +145,35 @@ final class Media extends Module
             [t('newsletter'), 'SELECT subject AS used_in, CONCAT_WS(\' \', intro, button_url, html) AS content FROM {newsletters}'],
             [t('menu'), 'SELECT location AS used_in, items AS content FROM {menus}'], // an SVG from Media as a menu icon
         ];
+        if ($news) {
+            $sources[] = [t('news item'), 'SELECT n.title AS used_in, o.image_path AS content FROM {media_usage} u JOIN {news} n ON n.news_id = u.news_id JOIN {media} o ON o.media_id = u.media_id'];
+        }
+
+        return $sources;
+    }
+
+    /**
+     * Media used outside the news usage table: builds of pages, site parts, collection item templates and components (drafts
+     * too), text pages, collection items, classes (background image) and settings (logo, icon, sharing image).
+     * Computed when shown – so the overview is always up to date without tracking on every save.
+     *
+     * @return array<int, list<string>> media_id => descriptions of the places
+     */
+    public static function findUsagesElsewhere(\Talea\Core\Db $db): array
+    {
+        // the media are shared by every site of the owner: a file used on any ready site is in use (the news usage of the others too)
+        $dbs = [['', $db]];
+        foreach (\Talea\Core\Sites::otherReady($db) as $name => $other) {
+            $dbs[] = [' (' . $name . ')', $other];
+        }
         $usages = [];
-        foreach ($sources as [$kind, $sql]) {
-            foreach ($db->all($sql) as $r) {
-                // paths also in JSON (media\/2026\/…), with and without the site URL; a variant (-1200, .webp) counts as the original
-                foreach (\Talea\Core\MediaHygiene::paths((string) $r['content']) as $path) {
-                    $usages[$path][$kind . ' ' . $r['used_in']] = true;
+        foreach ($dbs as [$suffix, $d]) {
+            foreach (self::usageSources($d, $suffix !== '') as [$kind, $sql]) {
+                foreach ($d->all($sql) as $r) {
+                    // paths also in JSON (media\/2026\/…), with and without the site URL; a variant (-1200, .webp) counts as the original
+                    foreach (\Talea\Core\MediaHygiene::paths((string) $r['content']) as $path) {
+                        $usages[$path][$kind . ' ' . $r['used_in'] . $suffix] = true;
+                    }
                 }
             }
         }
