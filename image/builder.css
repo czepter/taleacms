@@ -292,3 +292,67 @@ body.bd-placing .bd-node { cursor: copy; }
 .bd-sd-recommended { color: var(--text-weak); }
 .bd-sd-ok { color: var(--text-weak); list-style: none; margin-left: -18px; }
 .bd-sd-preview { max-height: 260px; overflow: auto; margin: 4px 0 0; padding: 8px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--base); font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+
+/* a property the inspector does not offer in the current mode says why in its place */
+.bd-field-note { margin: 0 0 12px; font-size: 12px; color: var(--text-weak); }
+/* a form field's picture or icon per option */
+.bd-option-media-rows { display: grid; gap: 6px; }
+.bd-option-media-row { display: grid; grid-template-columns: minmax(0, 7rem) minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.bd-option-media-row > span { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
+/* the logic overlay of a form (builder/form-logic.js): questions on the left, Rules · Results · Try it on the right */
+.bd-logic-summary { margin: 0; font-size: 12px; color: var(--text-weak); }
+.bd-logic-field > .bd-btn { justify-self: start; }
+.bd-dialog.bd-logic { width: min(1100px, calc(100vw - 32px)); height: min(860px, calc(100dvh - 32px)); }
+.bd-dialog.bd-logic[open] { display: grid; grid-template-rows: auto 1fr auto; }
+.bd-logic-head { padding-bottom: 0; border-bottom: 1px solid var(--line); }
+.bd-logic-head h2 { margin-bottom: 4px; }
+.bd-logic-head .bd-tabs { justify-content: flex-start; padding: 0; }
+.bd-logic-head .bd-tabs button { flex: 0 0 auto; padding-inline: 14px; }
+.bd-dialog > .bd-logic-body { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; min-height: 0; padding-block: 0; }
+.bd-logic-questions { overflow: auto; padding-block: 16px; border-inline-end: 1px solid var(--line); padding-inline-end: 12px; }
+.bd-logic-questions ol { margin: 6px 0 0; padding: 0; list-style: none; }
+.bd-dialog .bd-logic-questions li { display: block; padding: 0; border: 0; }
+.bd-logic-questions button { width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius); background: none; text-align: start; cursor: pointer; }
+.bd-logic-questions button:hover { background: var(--base); }
+.bd-logic-pane { overflow: auto; padding-block: 16px; }
+.bd-logic-title { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--text-weak); }
+.bd-logic-hint { margin: 0 0 12px; font-size: 12px; color: var(--text-weak); }
+.bd-logic-rules { display: grid; gap: 10px; margin: 0 0 12px; padding: 0; list-style: none; }
+.bd-dialog .bd-logic-rule { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--surface); }
+.bd-logic-rule.bd-logic-broken { border-color: var(--error); }
+.bd-logic-rule-head { display: flex; align-items: center; gap: 8px; }
+.bd-logic-grip { cursor: grab; color: var(--text-weak); user-select: none; }
+.bd-logic-sentence { flex: 1; min-width: 0; margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.bd-logic-warning { margin: 0; font-size: 12px; color: var(--error); }
+.bd-logic-label { display: grid; gap: 4px; }
+.bd-logic-label > span { font-size: 12px; color: var(--text-weak); }
+.bd-logic-part { display: grid; gap: 6px; justify-items: start; }
+.bd-logic-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.bd-logic-between { display: inline-flex; align-items: center; gap: 6px; }
+.bd-logic input:not([type=checkbox]), .bd-logic select, .bd-logic textarea { min-width: 0; padding: 6px 8px; border: 1px solid var(--line-field); border-radius: var(--radius); background: var(--surface); }
+.bd-logic-row input[type=number] { width: 8rem; }
+.bd-logic-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: 12px; margin-bottom: 12px; }
+.bd-logic-result { display: grid; align-content: start; margin: 0; padding: 10px 12px; border: 1px solid var(--card-line); border-radius: var(--radius); }
+.bd-logic-result legend { padding-inline: 4px; font-weight: 600; }
+.bd-logic-result textarea { font-family: inherit; font-size: inherit; }
+.bd-logic-result > .bd-btn { justify-self: start; }
+.bd-logic-try-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.bd-logic-try { display: grid; gap: 10px; }
+.bd-logic-try-q { display: grid; gap: 4px; margin: 0; padding: 0; border: 0; font-size: 13px; }
+.bd-logic-try-q[hidden] { display: none; }
+.bd-logic-try-q > span, .bd-logic-try-q > legend { font-size: 12px; font-weight: 600; color: var(--text-weak); }
+.bd-logic-try-q .bd-tick { margin-bottom: 0; }
+.bd-logic-try-out { position: sticky; top: 0; padding: 12px; border-radius: var(--radius); background: var(--base); }
+.bd-logic-try-out[aria-busy="true"] { opacity: .6; }
+.bd-logic-shown { display: block; margin-bottom: 8px; font-size: 20px; font-weight: 700; }
+.bd-dialog .bd-logic-lines { max-height: none; margin-bottom: 8px; font-size: 13px; }
+.bd-dialog .bd-logic-lines li { padding: 4px 0; }
+.bd-dialog .bd-logic-lines .bd-logic-total { font-weight: 700; border-bottom: 0; }
+.bd-logic-variant { margin: 0 0 8px; font-weight: 600; }
+.bd-logic > footer { align-items: center; border-top: 1px solid var(--line); }
+.bd-logic > footer .bd-logic-hint { flex: 1; margin: 0; }
+@media (max-width: 760px) {
+	.bd-dialog > .bd-logic-body, .bd-logic-try-grid { grid-template-columns: 1fr; }
+	.bd-logic-questions { display: none; }
+}

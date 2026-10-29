@@ -148,6 +148,8 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   builder for administrators).
 - **Forms** (element `form`, `Front\Forms`, `POST /form`): fields and recipient are read from the PUBLISHED build by `source` + element id,
   never from the request; `Core\Antispam` (signed time, honeypot, per-IP limit) without cookies; the result is only a code in the URL.
+  The script of forms (steps, rules, the live estimate, the step beacon `POST /form-step`) is `image/forms.js`, only on pages with a form;
+  rules and results are edited in the builder's logic overlay (`image/builder/form-logic.js`, logic in `Builder\FormLogic`).
 - **HTML to build** (`Builder\HtmlConverter`): semantic HTML + a `<style>` with single-class rules become elements and classes.
 
 ## Content and services

@@ -145,15 +145,18 @@ final class PageFrame
             $html = (string) preg_replace('/<body[^>]*>/', '$0' . $this->previewBar(), $html, 1);
         }
         $html = $this->localizeSystemLinks($html);
-        // image/web.js only on pages that need it (gallery and photos in text, video, sharing, tabs, carousel, before and after, modal, form,
+        // image/web.js only on pages that need it (gallery and photos in text, video, sharing, tabs, carousel, before and after, modal, a sent form,
         // counter, countdown, submenu – Esc closes it, popups, language versions – browser language on the first visit,
         // collection lists with filters or pages – swapped without a reload, the store locator – search, nearest, map, the
         // enquiry basket and comparing products). Contact clicks (2.12, Core\Conversions): a phone number, an e-mail address
         // or a WhatsApp link anywhere on the page – a footer with the phone number is enough – keeps the script too, but only
         // when a click would be counted (the statistics are on, a visitor, no preview: the same switch as the speed beacon)
         $countsClicks = !empty($meta['vitals']) && preg_match(\Talea\Core\Conversions::LINK_PATTERN, $html);
-        if (!$countsClicks && !preg_match('/data-(insert|share|copy|tabs|carousel|before-after|form|booking|sent|counter|countdown|theme-option|collection|locator|product|basket|recaptcha)|popover role="dialog"|gallery|class="(?:text|lead)[" ][\s\S]*?<img|cookies-|<li class="submenu|data-popup=|id="tl-experiments"|rel="alternate" hreflang=/', $html)) {
+        if (!$countsClicks && !preg_match('/data-(insert|share|copy|tabs|carousel|before-after|booking|form|sent|counter|countdown|theme-option|collection|locator|product|basket|recaptcha)|popover role="dialog"|gallery|class="(?:text|lead)[" ][\s\S]*?<img|cookies-|<li class="submenu|data-popup=|id="tl-experiments"|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
+        }
+        if (!str_contains($html, ' data-form="')) { // image/forms.js only with a form (Builder\Elements\Form)
+            $html = (string) preg_replace('#<script src="[^"]*/image/forms\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
         $html = \Talea\Extension\Registry::applyFilter('page.html', $html); // add-ons (3.0), before the page is cached
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they

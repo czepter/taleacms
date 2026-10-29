@@ -131,7 +131,8 @@ final class MediaUsersTest extends SiteTestCase
 
         // a phone number or e-mail anywhere on the page keeps web.js for the click counter while the statistics are on – off, the page does without it
         $this->statsFeature(false);
-        $this->assertStringNotContainsString('image/web.js', $this->site()->client()->get('/about-us')->body, 'web.js only where it is needed (a page without a form)');
+        $aboutUs = $this->site()->client()->get('/about-us')->body;
+        $this->assertSame([false, false], [str_contains($aboutUs, 'image/web.js'), str_contains($aboutUs, 'image/forms.js')], 'web.js and forms.js only where they are needed (a page without a form)');
         $this->assertPage('/admin.php?module=settings&tab=analytics', 200, [], message: '3.2: Analytics tab with the feature off');
         $off = $this->site()->admin()->get('/admin.php?module=settings&tab=analytics');
         $this->assertMatchesRegularExpression('~Built-in statistics</span></td>\s*<td><span class="status status-off">Off~', $off->body, '3.2: with the Statistics feature off the Analytics overview says so and links to Features');

@@ -107,6 +107,29 @@ final class Library
                 $s($n('form'), ['base' => ['margin_top' => 'm']]),
             ])],
 
+            'quick-check' => ['name' => t('Quick check with estimate'), 'description' => t('A short quiz in three steps; the visitor leaves contact details and then sees an estimate. Fill in the questions and amounts.'), 'build' => fn (): array => $n('section', ['width' => 'narrow'], [
+                $z($n('heading', ['text' => t('[Your quick check]')]), 'h2'),
+                $t($n('text', ['html' => '<p>' . t('[One sentence: what the visitor gets at the end]') . '</p>']), 'subtitle'),
+                $s($n('form', [
+                    'name' => t('Quick check'), 'calculation' => 'after_contact', 'button_text' => t('Show my estimate'),
+                    'fields' => [
+                        ['label' => t('[Question 1]'), 'type' => 'radio', 'required' => true, 'display' => 'icon_tiles', 'advance' => true,
+                            'choices' => implode("\n", [t('[Answer 1]'), t('[Answer 2]'), t('[Answer 3]')]), 'option_media' => "home\nstar\ncheck"],
+                        ['label' => t('[Question 2]'), 'type' => 'step'],
+                        ['label' => t('[Question 2]'), 'type' => 'number', 'required' => true, 'display' => 'slider', 'min' => '1', 'max' => '10', 'step' => '1'],
+                        ['label' => t('[Question 3]'), 'type' => 'step'],
+                        ['label' => t('[Question 3]'), 'type' => 'radio', 'required' => true, 'display' => 'icon_tiles',
+                            'choices' => implode("\n", [t('[Answer 1]'), t('[Answer 2]'), t('[Answer 3]')]), 'option_media' => "clock\nstar\ncheck"],
+                        ['label' => t('Where should we send your estimate?'), 'type' => 'step'],
+                        ['label' => t('Your name'), 'type' => 'text', 'required' => true],
+                        ['label' => t('Email'), 'type' => 'email', 'required' => true],
+                        ['label' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'checkbox', 'required' => true],
+                        ['label' => t('Your estimate'), 'type' => 'estimate', 'unit_suffix' => t('[unit]'), 'range_below' => 10, 'range_above' => 15, 'round_to' => 50],
+                    ],
+                    'logic' => ['rules' => [], 'results' => [['key' => 'va', 'heading' => t('[Heading]'), 'text' => t('[One or two sentences about what happens next]'), 'show_amount' => true]]],
+                ]), ['base' => ['margin_top' => 'm']]),
+            ])],
+
             'booking' => ['name' => t('Booking'), 'description' => t('A heading, a sentence and the booking form – appointments arrive in Bookings and by email.'), 'build' => fn (): array => $n('section', ['width' => 'narrow'], [
                 $z($n('heading', ['text' => t('Book an appointment')]), 'h2'),
                 $t($n('text', ['html' => '<p>' . t('Choose a service and a free time – the confirmation arrives by email.') . '</p>']), 'subtitle'),
@@ -610,7 +633,7 @@ final class Library
         'hero' => 'intro', 'hero-image' => 'intro', 'hero-centered' => 'intro', 'hero-dark' => 'intro', 'hero-video' => 'intro', 'page-title' => 'intro', 'imprint' => 'company',
         'testimonials' => 'trust', 'quote' => 'trust', 'reviews' => 'trust', 'logos' => 'trust', 'numbers' => 'trust', 'numbers-light' => 'trust', 'guarantees' => 'trust',
         'story' => 'company', 'team' => 'company', 'values' => 'company', 'history' => 'company', 'careers' => 'company', 'branches' => 'company',
-        'call-to-action' => 'action', 'cta-bar' => 'action', 'enquiry' => 'action', 'booking' => 'action', 'contact' => 'action', 'contact-form' => 'action', 'faq' => 'action', 'faq-columns' => 'action',
+        'call-to-action' => 'action', 'cta-bar' => 'action', 'enquiry' => 'action', 'quick-check' => 'action', 'booking' => 'action', 'contact' => 'action', 'contact-form' => 'action', 'faq' => 'action', 'faq-columns' => 'action',
     ];
 
     /**

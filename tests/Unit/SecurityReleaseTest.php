@@ -67,7 +67,8 @@ final class SecurityReleaseTest extends TestCase
     public function testCustomAttributes(): void
     {
         // every data-* attribute a script on the public page mentions must be refused as a custom attribute – a new hook in web.js fails here until it is reserved
-        $frontScripts = ['image/web.js' => (string) file_get_contents(TALEA_ROOT . '/image/web.js'), 'image/vitals.js' => (string) file_get_contents(TALEA_ROOT . '/image/vitals.js')];
+        $frontScripts = ['image/web.js' => (string) file_get_contents(TALEA_ROOT . '/image/web.js'), 'image/vitals.js' => (string) file_get_contents(TALEA_ROOT . '/image/vitals.js'),
+            'image/forms.js' => (string) file_get_contents(TALEA_ROOT . '/image/forms.js')];
         foreach (glob(TALEA_SYSTEM . '/views/front/*.php') ?: [] as $frontView) {
             preg_match_all('#<script>(.*?)</script>#s', (string) file_get_contents($frontView), $inlineScripts);
             $frontScripts['views/front/' . basename($frontView)] = implode("\n", $inlineScripts[1]);
@@ -90,7 +91,7 @@ final class SecurityReleaseTest extends TestCase
             }
         }
         $this->assertSame([true, [], []], [
-            count($frontScripts) > 5, $unreserved, $hidden], '3.3.2 N25: every data-* hook of the public scripts (web.js, vitals.js, inline scripts of the site views, editor.js on the page) is reserved; each is written in full');
+            count($frontScripts) > 5, $unreserved, $hidden], '3.3.2 N25: every data-* hook of the public scripts (web.js, vitals.js, forms.js, inline scripts of the site views, editor.js on the page) is reserved; each is written in full');
         [$n25Build, $n25Errors] = \Talea\Builder\Build::sanitize(['children' => [['type' => 'store_locator', 'attributes' => ['data-leaflet' => 'https://evil.example/', 'data-attribution' => '<img src=x onerror=alert(1)>',
             'data-basket' => 'javascript:alert(1)', 'data-compare-url' => 'javascript:alert(2)', 'data-product' => '{}', 'data-popup' => '1', 'data-collection' => 'x', 'data-locator' => '', 'data-track' => 'ok']]]], false);
         $this->assertSame([['data-track' => 'ok'], true], [

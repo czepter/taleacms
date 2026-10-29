@@ -32,6 +32,7 @@ final class ScriptsTest extends TestCase
             'image/editor.js' => ['system/views/admin'], 'image/admin.js' => ['system/views/admin', 'system/src/Admin'], 'image/helper.js' => ['system/views/admin'],
             'image/web.js' => ['system/views/front', 'system/src/Front', 'system/src/Builder/Elements'],
             'image/vitals.js' => ['system/src/Front'],
+            'image/forms.js' => ['system/src/Builder/Elements'],
             'image/print.js' => ['system/views/admin/settings'],
         ];
         foreach ($whereCreated as $script => $folders) {

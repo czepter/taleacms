@@ -137,6 +137,7 @@ All builder scripts become native ES modules (`<script type="module">`): no buil
 | `panels.js` | top bar (with the tour) and left panel (Add, Structure) |
 | `inspector.js` | right panel: properties, advanced (tag, classes, anchor), shared class editing, style editing |
 | `overlay.js`, `handles.js`, `keys.js`, `compose.js`, `structured.js` | today's `builder-overlay.js` … `builder-structured.js`, importing from `core.js` instead of reading `window.taleaBuilder` |
+| `form-logic.js` | the form calculator's logic overlay (rules, results, try it), imported by `inspector.js` like `structured.js` |
 
 `main.js` is separate from `core.js` so that the parts can import `core.js` without importing each other in a circle. The editor CSS
 (`builder.css`) does not move.

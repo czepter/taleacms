@@ -8,6 +8,7 @@
  *   inspector.js  the right panel: content, style, advanced, shared classes
  *   overlay.js, handles.js, keys.js, compose.js   direct manipulation on the canvas (docs/specs/visual-compose.md)
  *   structured.js the control of the schema.org element's data
+ *   form-logic.js the rules and results of a form (its logic overlay)
  *
  * The parts import core.js and each other without a circle; what core.js calls in them is registered here in `ui`.
  */

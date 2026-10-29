@@ -41,6 +41,29 @@ final class LibraryTest extends TestCase
         $this->assertFalse(in_array('html', array_column(\Talea\Builder\ElementSchema::schema(false)['elements'], 'type'), true), 'ElementSchema::schema: without custom HTML for non-administrators');
     }
 
+    public function testQuickCheckSectionSanitizesAndIsFlaggedAsSample(): void
+    {
+        $this->assertContains('quick-check', array_column(\Talea\Builder\Library::listAll(), 'key'));
+        $element = \Talea\Builder\Library::section('quick-check')['element'];
+        [$build, $errors] = \Talea\Builder\Build::sanitize(['v' => 1, 'children' => [$element]]);
+        $this->assertSame([], $errors);
+        $this->assertNotSame([], \Talea\Builder\SampleContent::find($build), 'the placeholders are found as sample content');
+        $form = array_values(array_filter($build['children'][0]['children'], fn (array $c): bool => $c['type'] === 'form'))[0]['content'];
+        $this->assertSame('after_contact', $form['calculation']);
+        // the first question opens the form without a step field of its own: a step field before it would make an empty first screen
+        $types = array_column($form['fields'], 'type');
+        $this->assertNotSame('step', $types[0], 'no empty first step');
+        $this->assertStringNotContainsString('step,step', implode(',', $types), 'no empty step between two steps');
+        $this->assertCount(3, array_keys($types, 'step', true), 'three questions and the contact step: three step fields after the first');
+        foreach (array_filter($form['fields'], fn (array $f): bool => ($f['display'] ?? '') === 'icon_tiles') as $tiles) {
+            $this->assertCount(3, \Talea\Builder\Elements\Form::optionPrices($tiles), 'three distinct options per tile question: ' . $tiles['label']);
+            $this->assertSame([0.0, 0.0, 0.0], array_values(\Talea\Builder\Elements\Form::optionPrices($tiles)), 'no made-up amounts');
+        }
+        $estimate = array_values(array_filter($form['fields'], fn (array $f): bool => $f['type'] === 'estimate'))[0];
+        $this->assertSame([10, 15, 50, '[unit]'], [$estimate['range_below'], $estimate['range_above'], $estimate['round_to'], $estimate['unit_suffix']]);
+        $this->assertCount(1, $form['logic']['results']);
+    }
+
     public function testDisabledExtensions(): void
     {
         // disabled extensions: the builder offers neither their elements nor sections using them

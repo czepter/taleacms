@@ -90,8 +90,10 @@
     "form": [
         "bcc",
         "button_text",
+        "calculation",
         "confirmation",
         "fields",
+        "logic",
         "name",
         "next_steps",
         "no_captcha",

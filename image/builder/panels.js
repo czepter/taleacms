@@ -80,6 +80,9 @@ function check() {
 			if (p.type === 'button' && (!o.link || o.link === '#')) { findings.push([p.id, T('The button “%s” leads nowhere – add a link.').replace('%s', o.text || '')]); }
 			if (p.type === 'image' && !o.src) { findings.push([p.id, T('No image selected – it will not appear on the site.')]); }
 			if (p.type === 'image' && o.src && !o.alt && !tags(o.src)) { findings.push([p.id, T('The image has no description for blind visitors (alt).')]); }
+			// a form rule kept with broken: true does nothing on the site until it is fixed – Builder\Check::builds
+			const broken = p.type === 'form' && o.logic && Array.isArray(o.logic.rules) ? o.logic.rules.map((r, n) => (r && r.broken ? (r.label ? '“' + String(r.label).slice(0, 40) + '”' : '#' + (n + 1)) : null)).filter(Boolean) : [];
+			if (broken.length) { findings.push([p.id, T('The form “%s” has rules that do nothing until you fix them in the form logic: %s.').replace('%s', () => o.name || '').replace('%s', () => broken.join(', '))]); }
 			// sample content: a placeholder in square brackets ([number], [Customer’s name]) – the same pattern as Builder\SampleContent::PLACEHOLDER
 			const sample = placeholder(o);
 			if (sample) { findings.push([p.id, T('Sample content “%s” – replace it with your own or delete it.').replace('%s', sample[0])]); }

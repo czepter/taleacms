@@ -26,7 +26,7 @@ final class Build
      * data-leaflet, data-attribution or data-basket makes a script load a file or build a link from the value (3.3.2, N25). The list is
      * checked by tests/Unit/SecurityReleaseTest.php against every data-* attribute those scripts mention; the renderer checks a stored build again.
      */
-    public const string ATTRIBUTE_PATTERN = '/^(data-(?!tl-|(?:accessibility|accessibility-option|address|admin-url|again|attribution|base|basket|basket-field|basket-list|basket-sent|before-after|book|booking|calendar|campaign|carousel|category|close|collection|compare|compare-url|confirmation|consent|conversion|cookies|copy|countdown|counter|currency|day|days|days-url|device|distance|done|draft|draft-url|editor|empty|enabled|end|estimate|experiment|file|form|frequency|fullscreen|gallery|gtm|image|insert|lat|leaflet|lng|locator|map|message|nearest|no-script|open|option|part|popup|price|price-per|product|recaptcha|referrer|request|restore|search|selected|self|sent|services|share|slideshow|slots|step|steps|tabs|text|text-declined|text-error|text-sorted|texts|theme|theme-default|theme-option|times|title|trigger|upload|utm|value|variant|variants|vitals|wait|when|when-value)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+    public const string ATTRIBUTE_PATTERN = '/^(data-(?!tl-|(?:accessibility|accessibility-option|address|admin-url|advance|again|attribution|base|basket|basket-field|basket-list|basket-sent|before-after|book|booking|calendar|campaign|carousel|category|close|collection|compare|compare-url|confirmation|consent|conversion|cookies|copy|countdown|counter|currency|day|days|days-url|device|distance|done|draft|draft-url|editor|empty|enabled|end|estimate|experiment|field|file|form|frequency|fullscreen|gallery|gtm|image|insert|lat|leaflet|lng|locator|logic|map|message|nearest|no-script|open|option|part|popup|price|price-per|product|recaptcha|referrer|request|restore|search|selected|self|sent|services|share|slideshow|slots|step|steps|tabs|text|text-declined|text-error|text-sorted|texts|theme|theme-default|theme-option|times|title|trigger|upload|utm|value|variant|variants|vitals|wait|when|when-value)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
 
     /** Registry of element types (order = the order in the Add panel). @var list<class-string<Element>> */
     public const array ELEMENTS = [
@@ -115,6 +115,7 @@ final class Build
             }
             $htmlTag = in_array($p['tag'] ?? null, $className::HTML_TAGS, true) ? $p['tag'] : $className::HTML_TAGS[0];
             $clean = ['id' => $id, 'type' => $className::TYPE, 'tag' => $htmlTag, 'content' => self::sanitizeContent($className::properties(), is_array($p['content'] ?? null) ? $p['content'] : [], $place . '.content', $errors)];
+            $clean['content'] = $className::sanitizeElement($clean['content'], $place . '.content', $errors);
             $style = Style::sanitize($p['style'] ?? [], $place . '.style', $errors);
             if (!$compose) {
                 // placement on the grid and layers (so overlap) exist only for the direct children of a Compose section
@@ -270,6 +271,9 @@ final class Build
         return array_diff(array_keys($conditions), ['languages']) !== [];
     }
 
+    /** An image property: an https:// address, a file from Media or a collection field. */
+    public const string IMAGE_PATTERN = '#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#';
+
     /** @param array<string, array<string, mixed>> $field */
     private static function sanitizeContent(array $field, array $content, string $path, array &$errors): array
     {
@@ -284,7 +288,9 @@ final class Build
                 'html' => WpContent::safeHtml(is_scalar($value) ? mb_substr((string) $value, 0, 200000) : ''),
                 'code' => CodeFilter::code(is_scalar($value) ? mb_substr((string) $value, 0, $max) : ''),
                 'link' => self::link(is_scalar($value) ? (string) $value : '', $path . '.' . $key, $errors),
-                'image' => is_string($value) && preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#', $value) ? $value : '',
+                'image' => is_string($value) && preg_match(self::IMAGE_PATTERN, $value) ? $value : '',
+                // the rules and results of a form: cleaned by Elements\Form::sanitizeElement (it knows the fields); here only the shape
+                'form_logic' => is_array($value) ? $value : ['rules' => [], 'results' => []],
                 'choice' => is_scalar($value) && isset($def['options'][(string) $value]) ? (string) $value : (string) $def['default'],
                 'number' => is_numeric($value) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $value)) : (int) $def['default'],
                 'boolean' => (bool) $value,
@@ -321,7 +327,8 @@ final class Build
         return trim(str_replace(['</p>', '<p>'], ['<br>', ''], $clean));
     }
 
-    private static function link(string $url, string $path, array &$errors): string
+    /** @param array<string, string> $errors */
+    public static function link(string $url, string $path, array &$errors): string
     {
         $url = trim($url);
         if ($url === '' || $url === '#' || preg_match('/^\{\{[a-z][a-z0-9_]{0,30}\}\}$/', $url)) {

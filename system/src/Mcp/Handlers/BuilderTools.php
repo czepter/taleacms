@@ -48,6 +48,15 @@ trait BuilderTools
                 + $this->checkTarget($target, $this->targetBuild($target)));
     }
 
+    /** try_form */
+    private function toolTryForm(string $name, array $a): mixed
+    {
+        $target = $this->loadBuildTarget($a);
+        $build = !empty($a['published']) ? (Build::fromJson($target['build']) ?? ['v' => Build::VERSION, 'children' => []]) : $this->targetBuild($target);
+
+        return \Talea\Builder\Elements\Form::tryOut($build, (string) ($a['element'] ?? ''), is_array($a['answers'] ?? null) ? $a['answers'] : []);
+    }
+
     /** edit_build */
     private function toolEditBuild(string $name, array $a): mixed
     {

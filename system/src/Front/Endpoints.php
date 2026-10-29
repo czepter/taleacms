@@ -126,6 +126,23 @@ final class Endpoints
         return new Response('', 204);
     }
 
+    /** POST /form-step */
+    public function formStep(): Response
+    {
+        $request = $this->app->request;
+        // drop-off counters of multi-step forms: which step was reached, without cookies and without data about the visitor;
+        // the per-IP limit comes first, before the published build is read
+        $antispam = new \Talea\Core\Antispam($this->app->db(), $this->app->settings());
+        $step = $request->postInt('step');
+        if ($step >= 1 && $step <= FormSteps::MAX_STEP && preg_match('/^[a-z0-9]{3,16}$/', $request->post('element')) && $antispam->count($request->ip(), 'form_step', 0, 60) < 120
+            && ($source = Forms::internalSource($this->app->db(), $request->post('source'))) !== '' && $step <= FormSteps::stepCount($this->app->db(), $source, $request->post('element'))) {
+            $antispam->write($request->ip(), 'form_step', 0);
+            FormSteps::record($this->app->db(), $source, $request->post('element'), $step);
+        }
+
+        return new Response('', 204);
+    }
+
     /** POST /fleet/pair, /fleet/heartbeat, /fleet/unpair and /fleet/kit */
     public function fleet(string $action): Response
     {

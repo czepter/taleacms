@@ -36,6 +36,7 @@ final class Catalog
         'builder_schema' => ['read', ''],
         'list_schema_types' => ['read', ''],
         'get_build' => ['read', ''],
+        'try_form' => ['read', ''],
         'edit_build' => ['draft', ''],
         'build_from_html' => ['draft', ''],
         'save_build' => ['draft', ''],
