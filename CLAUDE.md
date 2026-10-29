@@ -77,7 +77,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - Shared interactive pieces (gallery, photo viewer, video, outline, share, FAQ, edit-in-place) have style and script in
   `image/web.css` / `image/web.js` (added by `Seo::head()`); rules are in `:where()` so that a template overrides them.
 - **Right to left** (Arabic, `ar`): `Language::isRtl()/dir()/dirAttribute()` give `<html dir>` per page language; site CSS uses logical properties, rules they cannot say
-  live in `Element::rtlCss()` (added by `Build::css` only on RTL pages); `image/web.js` follows `document.documentElement.dir`; the admin stays LTR (`bdi()` isolates typed
+  live in `Element::rtlCss()` (added by `Renderer::css` only on RTL pages); `image/web.js` follows `document.documentElement.dir`; the admin stays LTR (`bdi()` isolates typed
   values in lists, content fields get `dir`); split lines with `\R/u`, never byte-wise. `slugify()` transliterates Arabic; a title with nothing to transliterate gets `Slug::fromId` (`page-12`).
 - Language versions: the column `language` ('' = default) on pages, categories and news; every public query filters by
   `Language::siteColumn()`; `App::url()` adds `/en/` only to addresses without an extension.
