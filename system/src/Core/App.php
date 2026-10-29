@@ -26,10 +26,14 @@ final class App
         Demo::configure($config['demo'] ?? null);
     }
 
-    /** Loads the configuration (environment or config.php, see Config); when there is none, the site is not installed yet. */
-    public static function boot(): self
+    /** Loads the configuration (environment or config.php, see Config); when there is none, the site is not installed yet. $sitePrefix: a further site's tables (multisite). */
+    public static function boot(?string $sitePrefix = null): self
     {
         $config = Config::load();
+        if ($config !== null && $sitePrefix !== null) {
+            $config['db']['site_prefix'] = $sitePrefix;
+            \Talea\Front\Cache::useSite($sitePrefix);
+        }
         if ($config === null) {
             $base = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
             header('Location: ' . $base . '/install.php');

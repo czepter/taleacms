@@ -59,6 +59,9 @@ final class Scheduler
 
     public const int FAILURES_TO_ALERT = 3;
 
+    /** Jobs over the owner's shared tables and files (multisite, docs/specs/multisite.md): they run with site 1 only. */
+    public const array OWNER_JOBS = ['backup', 'media_sync', 'media_staging', 'agent_journal', 'security'];
+
     /** Lock name per database and table prefix: GET_LOCK is server-wide, two sites on one MySQL server must not wait for each other's jobs. */
     private static function lockName(Db $db): string
     {
@@ -175,7 +178,7 @@ final class Scheduler
                 if (microtime(true) > $end) {
                     break; // the rest stays due for the next run
                 }
-                if (($where === 'cron' && $source !== 'cron') || !self::applies($name, $app->settings())) {
+                if (($where === 'cron' && $source !== 'cron') || !self::applies($name, $app->settings()) || (in_array($name, self::OWNER_JOBS, true) && $db->prefix !== $db->ownerPrefix)) {
                     continue;
                 }
                 $last = isset($state[$name]['last_run']) ? strtotime((string) $state[$name]['last_run']) : false;

@@ -20,26 +20,30 @@ use Talea\Builder\Build;
  */
 final class InternalLinks
 {
-    private const string CACHE = TALEA_ROOT . '/storage/cache/pages/orphan-links.html';
-
     private const int CACHE_SECONDS = 3600;
 
     /** Words shorter than this say nothing about a page. */
     private const int MIN_WORD = 4;
+
+    /** In the site's page cache folder (a change in the administration clears it with the pages). */
+    private static function cacheFile(): string
+    {
+        return \Talea\Front\Cache::folder() . '/orphan-links.html';
+    }
 
     /**
      * @return list<array{kind: string, id: int, title: string, path: string, edit: string, target: array<string, int|string>}>
      */
     public static function orphans(App $app): array
     {
-        if (is_file(self::CACHE) && filemtime(self::CACHE) >= time() - self::CACHE_SECONDS && ($json = file_get_contents(self::CACHE)) !== false && is_array($cached = json_decode($json, true))) {
+        if (is_file(self::cacheFile()) && filemtime(self::cacheFile()) >= time() - self::CACHE_SECONDS && ($json = file_get_contents(self::cacheFile())) !== false && is_array($cached = json_decode($json, true))) {
             return $cached;
         }
         $orphans = self::compute($app);
-        if (!is_dir(dirname(self::CACHE))) {
-            @mkdir(dirname(self::CACHE), 0775, true);
+        if (!is_dir(dirname(self::cacheFile()))) {
+            @mkdir(dirname(self::cacheFile()), 0775, true);
         }
-        @file_put_contents(self::CACHE, json_encode($orphans, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+        @file_put_contents(self::cacheFile(), json_encode($orphans, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
 
         return $orphans;
     }
@@ -84,7 +88,7 @@ final class InternalLinks
 
     public static function forget(): void
     {
-        @unlink(self::CACHE);
+        @unlink(self::cacheFile());
     }
 
     /** @return list<array{kind: string, id: int, title: string, path: string, edit: string, target: array<string, int|string>}> */

@@ -6,6 +6,7 @@ namespace Talea\Core;
 
 /**
  * Database backups to storage/backups/ (not accessible from the web). Without mysqldump or pg_dump - works on shared hosting too; an SQLite site gets the same kind of file.
+ * One file holds every site of the database (multisite: the owner prefix and each further site's, docs/specs/multisite.md).
  */
 final class Backup
 {
@@ -38,16 +39,22 @@ final class Backup
 
         $pdo = $db->pdo();
         $dialect = $db->dialect();
-        $tables = $dialect->dumpTables($pdo, $db->prefix);
-        $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n" . $dialect->dumpPrologue($tables));
-        foreach ($tables as $table) {
+        $sites = []; // real table name => the Db of its site
+        foreach (Sites::prefixes($db) as $prefix) {
+            foreach ($dialect->dumpTables($pdo, $prefix) as $table) {
+                $sites[$table] = $db->forSite($prefix);
+            }
+        }
+        $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n" . $dialect->dumpPrologue(array_keys($sites)));
+        foreach ($sites as $table => $site) {
+            $name = substr($table, strlen($site->prefix));
             // temporary data is not backed up
-            $structureOnly = in_array(substr($table, strlen($db->prefix)), ['stats_visitors', 'ip_checks'], true);
+            $structureOnly = in_array($name, ['stats_visitors', 'ip_checks'], true);
             $write($dialect->dumpStructure($pdo, $table));
             if ($structureOnly) {
                 continue;
             }
-            $columns = $db->columns(substr($table, strlen($db->prefix)));
+            $columns = $site->columns($name);
             $booleans = array_keys(array_intersect($columns, $dialect->dumpBooleanColumns($pdo, $table)));
             $head = $dialect->dumpInsert($table, $columns);
             $rows = $pdo->query('SELECT ' . implode(', ', array_map($dialect->quote(...), $columns)) . ' FROM ' . $dialect->quote($table), \PDO::FETCH_NUM);
@@ -101,15 +108,16 @@ final class Backup
         // the first pass only checks (header, only tables of this installation, a complete last statement) – the database is
         // touched only when the whole file is OK; a damaged or foreign backup thus does not leave the database half restored
         $dialect = $db->dialect();
-        $count = self::walk($path, $gz, $db->prefix, $dialect->name(), null);
+        $count = self::walk($path, $gz, $db, $dialect->name(), null);
         @set_time_limit(300);
         $pdo = $db->pdo();
         $tables = [];
         $dialect->restoreBegin($pdo);
         try {
-            self::walk($path, $gz, $db->prefix, $dialect->name(), function (string $statement) use ($pdo, &$tables, $db): mixed {
+            self::walk($path, $gz, $db, $dialect->name(), function (string $statement) use ($pdo, &$tables, $db): mixed {
                 if (preg_match('/^INSERT INTO [`"]([^`"]+)[`"]/', $statement, $m) === 1) {
-                    $tables[substr($m[1], strlen($db->prefix))] = true;
+                    $prefix = (string) self::prefixOf($db, $m[1]);
+                    $tables[$prefix][substr($m[1], strlen($prefix))] = true;
                 }
 
                 return $pdo->exec($statement);
@@ -119,13 +127,15 @@ final class Backup
             throw $e;
         }
         $dialect->restoreEnd($pdo, false);
-        $db->syncSequences(...array_keys($tables)); // rows came back with their own numbers
+        foreach ($tables as $prefix => $names) {
+            $db->forSite($prefix)->syncSequences(...array_keys($names)); // rows came back with their own numbers
+        }
 
         return $count;
     }
 
     /** @param (callable(string): mixed)|null $apply null = check only */
-    private static function walk(string $path, bool $gz, string $prefix, string $engine, ?callable $apply): int
+    private static function walk(string $path, bool $gz, Db $db, string $engine, ?callable $apply): int
     {
         $f = $gz ? gzopen($path, 'rb') : fopen($path, 'rb');
         $first = (string) ($gz ? gzgets($f) : fgets($f));
@@ -150,7 +160,7 @@ final class Backup
                 // a backup can contain only tables of this installation
                 if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO|TRUNCATE|DELETE FROM) ([^(;]+)/', $statement, $m) && preg_match_all('/[`"]([^`"]+)[`"]/', $m[2], $names) > 0) {
                     foreach ($names[1] as $name) {
-                        if (!str_starts_with($name, $prefix)) {
+                        if (self::prefixOf($db, $name) === null) {
                             throw new \RuntimeException('The backup contains a foreign table ' . $name . ' – the restore was stopped.');
                         }
                     }
@@ -168,6 +178,17 @@ final class Backup
         }
 
         return $count;
+    }
+
+    /** The table prefix of a real table name: the owner's (site 1) or a further site's (Sites::prefixFor), null for a foreign table. */
+    private static function prefixOf(Db $db, string $table): ?string
+    {
+        $owner = $db->ownerPrefix;
+        if (str_ends_with($owner, '_') && preg_match('/^' . preg_quote(substr($owner, 0, -1), '/') . '\d*_/', $table, $m) === 1) {
+            return $m[0];
+        }
+
+        return str_starts_with($table, $owner) ? $owner : null;
     }
 
     /** @return list<array{file:string, size:int, time:int}> newest first */

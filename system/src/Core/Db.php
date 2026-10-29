@@ -16,14 +16,23 @@ use Talea\Core\Dialect\Sqlite;
  * Table names are written in SQL in curly braces without a prefix:
  *   SELECT * FROM {news} WHERE id = ?
  * and on execution the prefix from the configuration is filled in (default "tl_").
+ *
+ * Multisite (docs/specs/multisite.md): a site's tables carry the site prefix ($prefix: "tl_" for site 1, "tl2_" …), the owner's
+ * shared tables (OWNER_TABLES) always the owner prefix. Queries do not change; {pages} and {users} land on the right table.
  */
 final class Db
 {
     /** Tables whose rows are addressed from outside by a public UUID v4 (column public_id); insert() fills it. The integer key never leaves the database layer. */
     /** table => primary key column of the same tables (the integer key that never leaves the database layer). */
-    public const array PRIMARY_KEYS = ['users' => 'user_id', 'categories' => 'category_id', 'news' => 'news_id', 'tags' => 'tag_id', 'media' => 'media_id', 'media_folders' => 'folder_id', 'pages' => 'page_id', 'collections' => 'collection_id', 'collection_items' => 'item_id', 'popups' => 'popup_id', 'components' => 'component_id', 'sections' => 'section_id', 'enquiries' => 'enquiry_id', 'subscribers' => 'subscriber_id', 'newsletters' => 'id', 'redirects' => 'redirect_id', 'api_tokens' => 'token_id', 'user_passkeys' => 'passkey_id', 'bookings' => 'id', 'booking_services' => 'id', 'booking_staff' => 'id', 'requests' => 'id', 'fleet_sites' => 'id', 'experiments' => 'experiment_id', 'members' => 'member_id', 'member_groups' => 'group_id', 'monthly_reports' => 'report_id'];
+    public const array PRIMARY_KEYS = ['users' => 'user_id', 'categories' => 'category_id', 'news' => 'news_id', 'tags' => 'tag_id', 'media' => 'media_id', 'media_folders' => 'folder_id', 'pages' => 'page_id', 'collections' => 'collection_id', 'collection_items' => 'item_id', 'popups' => 'popup_id', 'components' => 'component_id', 'sections' => 'section_id', 'enquiries' => 'enquiry_id', 'subscribers' => 'subscriber_id', 'newsletters' => 'id', 'redirects' => 'redirect_id', 'api_tokens' => 'token_id', 'user_passkeys' => 'passkey_id', 'bookings' => 'id', 'booking_services' => 'id', 'booking_staff' => 'id', 'requests' => 'id', 'fleet_sites' => 'id', 'experiments' => 'experiment_id', 'members' => 'member_id', 'member_groups' => 'group_id', 'monthly_reports' => 'report_id', 'sites' => 'site_id'];
 
-    public const array PUBLIC_ID_TABLES = ['users', 'categories', 'news', 'tags', 'media', 'media_folders', 'pages', 'collections', 'collection_items', 'popups', 'components', 'sections', 'enquiries', 'subscribers', 'newsletters', 'redirects', 'api_tokens', 'user_passkeys', 'bookings', 'booking_services', 'booking_staff', 'requests', 'fleet_sites', 'experiments', 'members', 'member_groups', 'monthly_reports'];
+    public const array PUBLIC_ID_TABLES = ['users', 'categories', 'news', 'tags', 'media', 'media_folders', 'pages', 'collections', 'collection_items', 'popups', 'components', 'sections', 'enquiries', 'subscribers', 'newsletters', 'redirects', 'api_tokens', 'user_passkeys', 'bookings', 'booking_services', 'booking_staff', 'requests', 'fleet_sites', 'experiments', 'members', 'member_groups', 'monthly_reports', 'sites'];
+
+    /** Tables shared by every site of the owner: always under the owner prefix. Every other table exists once per site prefix. */
+    public const array OWNER_TABLES = ['users', 'user_passkeys', 'user_permissions', 'user_remember_tokens', 'role', 'media', 'media_folders', 'components', 'facts', 'fact_history', 'api_tokens', 'oauth_clients', 'oauth_codes', 'agent_sessions', 'agent_journal', 'sites', 'site_domains'];
+
+    /** Prefix of the owner tables; the same as $prefix for site 1. */
+    public readonly string $ownerPrefix;
 
     private ?PDO $pdo = null;
     private ?Dialect $dialect = null;
@@ -44,16 +53,34 @@ final class Db
         private readonly string $user,
         private readonly string $password,
         public readonly string $prefix = 'tl_',
+        string $ownerPrefix = '',
     ) {
+        $this->ownerPrefix = $ownerPrefix !== '' ? $ownerPrefix : $prefix;
     }
 
-    /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string} $c driver: mysql (default) | pgsql | sqlite (name = the file) */
+    /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,site_prefix?:string} $c driver: mysql (default) | pgsql | sqlite (name = the file); prefix = the owner's (site 1), site_prefix = another site's */
     public static function fromConfig(array $c): self
     {
         $dialect = Dialect::forDriver($c['driver'] ?? 'mysql');
         $c['port'] ??= $dialect->defaultPort();
 
-        return new self($dialect->dsn($c), $c['username'] ?? '', $c['password'] ?? '', $c['prefix'] ?? 'tl_');
+        return new self($dialect->dsn($c), $c['username'] ?? '', $c['password'] ?? '', $c['site_prefix'] ?? $c['prefix'] ?? 'tl_', $c['prefix'] ?? 'tl_');
+    }
+
+    /** The tables of the site with this prefix, on the same connection. */
+    public function forSite(string $prefix): self
+    {
+        $db = new self($this->dsn, $this->user, $this->password, $prefix, $this->ownerPrefix);
+        $db->pdo = $this->pdo();
+        $db->dialect = $this->dialect;
+
+        return $db;
+    }
+
+    /** Real name of a table (name without prefix): the owner prefix for OWNER_TABLES, the site prefix for the rest. */
+    public function table(string $table): string
+    {
+        return (in_array($table, self::OWNER_TABLES, true) ? $this->ownerPrefix : $this->prefix) . $table;
     }
 
     /** The SQL differences of the engine this connection talks to (upsert, JSON, intervals, locks, full-text …). */
@@ -96,7 +123,7 @@ final class Db
 
         return $dialect->rewrite(preg_replace_callback(
             '/\{([a-z][a-z0-9_]*)\}/',
-            fn (array $m): string => $dialect->quote($this->prefix . $m[1]),
+            fn (array $m): string => $dialect->quote($this->table($m[1])),
             $sql,
         ) ?? $sql);
     }
@@ -214,7 +241,7 @@ final class Db
     /** Does the table (name without prefix) exist in the current database? */
     public function tableExists(string $table): bool
     {
-        return (int) $this->value($this->dialect()->tableExistsSql(), [$this->prefix . $table]) > 0;
+        return (int) $this->value($this->dialect()->tableExistsSql(), [$this->table($table)]) > 0;
     }
 
     /** Empties tables (names without prefix) whatever the foreign keys say; see Dialect::emptyTablesSql(). @param list<string> $tables */
@@ -243,7 +270,7 @@ final class Db
     /** Column names of a table (name without prefix) in their order. @return list<string> */
     public function columns(string $table): array
     {
-        return array_map('strval', array_column($this->all($this->dialect()->columnsSql(), [$this->prefix . $table]), 'name'));
+        return array_map('strval', array_column($this->all($this->dialect()->columnsSql(), [$this->table($table)]), 'name'));
     }
 
     /** Every unique key of a table (name without prefix), the primary key included: key name => columns in order. @return array<string, list<string>> */
@@ -256,14 +283,25 @@ final class Db
     public function dropUniqueKey(string $table, string $key): void
     {
         unset($this->keyMemo[$table]);
-        $this->run($this->dialect()->dropUniqueKeySql($table, $key));
+        $this->run($this->dialect()->dropUniqueKeySql($table, $this->keyName($table, $key)));
     }
 
     /** Adds a unique key; throws a PDOException when rows already break it. @param list<string> $columns */
     public function addUniqueKey(string $table, string $key, array $columns): void
     {
         unset($this->keyMemo[$table]);
-        $this->run($this->dialect()->addUniqueKeySql($table, $key, $columns));
+        $this->run($this->dialect()->addUniqueKeySql($table, $this->keyName($table, $key), $columns));
+    }
+
+    /** Stored name of an index: a further site's own tables carry the site prefix in front (MigrationSupport::indexName()). */
+    private function keyName(string $table, string $key): string
+    {
+        return $this->sitePrefixedKeys($table) ? $this->prefix . $key : $key;
+    }
+
+    private function sitePrefixedKeys(string $table): bool
+    {
+        return $this->prefix !== $this->ownerPrefix && !in_array($table, self::OWNER_TABLES, true);
     }
 
     /** The primary key columns of a table (name without prefix). @return list<string> */
@@ -278,8 +316,12 @@ final class Db
     private function keyRows(string $table, bool $primaryOnly): array
     {
         if (!isset($this->keyMemo[$table])) {
-            foreach ($this->all($this->dialect()->uniqueKeysSql(), [$this->prefix . $table]) as $r) {
-                $this->keyMemo[$table][(string) $r['key_name']] = ['primary' => (int) $r['is_primary'] === 1, 'columns' => [...($this->keyMemo[$table][(string) $r['key_name']]['columns'] ?? []), (string) $r['column_name']]];
+            foreach ($this->all($this->dialect()->uniqueKeysSql(), [$this->table($table)]) as $r) {
+                $name = (string) $r['key_name'];
+                if ($this->sitePrefixedKeys($table) && str_starts_with($name, $this->prefix)) {
+                    $name = substr($name, strlen($this->prefix)); // the name the migration gave it
+                }
+                $this->keyMemo[$table][$name] = ['primary' => (int) $r['is_primary'] === 1, 'columns' => [...($this->keyMemo[$table][$name]['columns'] ?? []), (string) $r['column_name']]];
             }
             $this->keyMemo[$table] ??= [];
         }
@@ -311,13 +353,13 @@ final class Db
             // the one INTEGER column of the primary key is the rowid; '' remembers that there is none
             return ($this->identity[$table] ??= (string) $this->value(
                 "SELECT MAX(name) FROM pragma_table_info(?) WHERE pk > 0 HAVING COUNT(*) = 1 AND MAX(upper(type)) = 'INTEGER'",
-                [$this->prefix . $table],
+                [$this->table($table)],
             )) ?: null;
         }
 
         return $this->identity[$table] ??= ($this->value(
             "SELECT a.attname FROM pg_attribute a WHERE a.attrelid = ?::regclass AND a.attidentity <> '' AND NOT a.attisdropped",
-            ['"' . $this->prefix . $table . '"'],
+            ['"' . $this->table($table) . '"'],
         ) ?: null);
     }
 

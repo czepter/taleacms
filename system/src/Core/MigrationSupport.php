@@ -26,6 +26,32 @@ final class MigrationSupport
         return $adapter->getOption('adapter') === 'sqlite';
     }
 
+    /** Multisite: a further site is being migrated (its prefix differs from the owner's, docs/specs/multisite.md). */
+    public static function siteRun(AdapterInterface $adapter): bool
+    {
+        $owner = (string) $adapter->getOption('owner_prefix');
+
+        return $owner !== '' && $owner !== (string) $adapter->getOption('table_prefix');
+    }
+
+    /**
+     * Multisite: is this an owner table (Db::OWNER_TABLES) while a further site is migrated? The owner run already changed it, and
+     * raw SQL with the table_prefix option would name a table that does not exist (PrefixAdapter skips the DSL writes itself).
+     */
+    public static function ownerTableInSiteRun(AdapterInterface $adapter, string $table): bool
+    {
+        return self::siteRun($adapter) && in_array($table, Db::OWNER_TABLES, true);
+    }
+
+    /**
+     * Name of an index: a further site's indexes carry its prefix, because PostgreSQL and SQLite want index names unique in the
+     * whole database (as foreign key names already are). Site 1 keeps the plain names. Db::keyName() reads them the same way.
+     */
+    public static function indexName(AdapterInterface $adapter, string $name): string
+    {
+        return self::siteRun($adapter) ? $adapter->getOption('table_prefix') . $name : $name;
+    }
+
     /**
      * Type and options of a public_id column (UUID v4): CHAR(36) with a generated default on MySQL, a native uuid on PostgreSQL.
      * Core\Uuid fills the column on insert; the default covers raw inserts. Use: ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
@@ -70,7 +96,7 @@ final class MigrationSupport
         $table->create();
         $real = (string) $adapter->getOption('table_prefix') . $name;
         foreach ($fulltext as $index => $columns) {
-            $migration->execute((new Postgres())->fulltextIndex($real, $index, $columns));
+            $migration->execute((new Postgres())->fulltextIndex($real, self::indexName($adapter, $index), $columns));
         }
     }
 
@@ -91,6 +117,7 @@ final class MigrationSupport
     public static function ignoreCase(AbstractMigration $migration, array $columns): void
     {
         $adapter = $migration->getAdapter();
+        $columns = array_filter($columns, fn (string $table): bool => !self::ownerTableInSiteRun($adapter, $table), ARRAY_FILTER_USE_KEY);
         if (self::isSqlite($adapter)) {
             foreach ($columns as $table => $names) {
                 $definitions = [];

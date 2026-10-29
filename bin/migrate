@@ -6,6 +6,7 @@
  * --if-installed: do nothing (exit 0) while the site is not installed yet - the installer creates the tables itself.
  * --backup: when migrations are pending, write a database backup first (storage/backups/, reason "before-update"): the rollback is
  *   "restore this dump and start the previous image" (docs/DEPLOYMENT.md). Nothing is written when there is nothing to apply.
+ *   The dump holds every site of the database (multisite: docs/specs/multisite.md).
  * Exit code 0 = up to date or migrated, 1 = failed. More (status, rollback, create) with `php vendor/bin/phinx` and phinx.php.
  */
 
@@ -34,9 +35,8 @@ if (!is_array($config) || !isset($config['db'])) {
 try {
     if (in_array('--backup', $argv, true)) {
         $db = \Talea\Core\Db::fromConfig($config['db']);
-        $pending = Migrator::pending($db);
-        if ($pending !== [] && $db->tableExists('settings')) {
-            echo 'Backing up the database before applying ' . count($pending) . " migration(s)...\n";
+        if (Migrator::anyPending($db) && $db->tableExists('settings')) {
+            echo "Backing up the database (every site) before applying migrations...\n";
             echo \Talea\Core\Backup::create($db, 'before-update') . "\n";
         }
     }
