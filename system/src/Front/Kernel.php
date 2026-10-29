@@ -10,23 +10,13 @@ use Talea\Core\Response;
 use Talea\Core\Extensions;
 
 /**
- * Public part of the site.
- *
- *   /                           home page ("Settings → General"), without it the news listing
- *   /news                    news listing
- *   /news/<seo-link>         news item (+ .md for language models)
- *   /<slug>.md               a page or a collection item as Markdown for language models
- *   /news/category/<seo>    news in a category
- *   /news/tag/<seo>       news with a tag
- *   /search?q=...              search
- *   /rss.xml                    RSS feed of news
- *   /<slug>                     page
- *   /screen/<secret>            screen mode for a TV in the reception (2.11, Front\Screen)
- *   robots.txt, sitemap.xml, llms.txt, feed.json... see Seo
+ * Public part of the site. handle() runs the guards (add-on hooks, redirects, demo, import, OAuth, maintenance, old WordPress links,
+ * waiting media, the page cache), then the route table routes(): the news (NewsPages), the addresses without the page frame
+ * (Endpoints), pages and previews (here) and collections (CollectionPages); every page goes through the page frame (PageFrame).
+ * The table is recorded in tools/contracts/routes.json.
  */
 final class Kernel
 {
-    private readonly NewsRepository $news;
     private readonly PageFrame $frame;
     private readonly NewsPages $newsPages;
     private readonly CollectionPages $collectionPages;
@@ -72,10 +62,10 @@ final class Kernel
         $app->request->setPath(\Talea\Core\Routes::pageLike($internal) ? (string) preg_replace('#\.html$#', '', $internal) : $internal);
         $this->startSitePreview();
         $this->frame = new PageFrame($app, $this, $this->sitePreview);
-        $this->news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
-        $this->newsPages = new NewsPages($app, $this->frame, $this->news, $this);
+        $news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
+        $this->newsPages = new NewsPages($app, $this->frame, $news, $this);
         $this->collectionPages = new CollectionPages($app, $this->frame, $this);
-        $this->endpoints = new Endpoints($app, $this->frame, $this->news, $this);
+        $this->endpoints = new Endpoints($app, $this->frame, $news, $this);
     }
 
     /** The maintenance notice (setting maintenance_text) with 503. */
@@ -118,37 +108,150 @@ final class Kernel
         return \Talea\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash'));
     }
 
+    /**
+     * The answer to a request: the guards that run before any address, in this order, then the route table (routes()), then 404.
+     */
     public function handle(): Response
     {
         $request = $this->app->request;
-        if ($this->early !== null) {
-            return $this->early;
-        }
-        if (($host = $this->hostRedirect()) !== null) {
-            return $host;
-        }
-        if ($this->redirect !== null) {
-            return $this->redirect;
-        }
-        // the public demo (2.6) offers no Claude connection: anyone could connect to the shared admin
-        if (\Talea\Core\Demo::active() && preg_match('#^/(mcp|oauth|\.well-known/oauth|\.well-known/openid)#', $request->path())) {
+
+        return $this->early // an add-on's early request hook refused the request
+            ?? $this->hostRedirect()
+            ?? $this->redirect
+            ?? $this->demoGuard()
+            ?? $this->importGuard()
+            // OAuth for the Claude connector (metadata, registration, tokens) – runs in maintenance mode too, just like /mcp
+            ?? (new OAuth($this->app))->handle($request->path())
+            ?? $this->maintenanceGuard()
+            ?? $this->wordPressLink()
+            ?? $this->stagedMedia()
+            ?? Cache::load($this->app)
+            ?? self::routes()->dispatch((string) ($request->serverValues()['REQUEST_METHOD'] ?? 'GET'), $request->path(), $this->app, [
+                self::class => $this, NewsPages::class => $this->newsPages, CollectionPages::class => $this->collectionPages, Endpoints::class => $this->endpoints,
+            ])
+            ?? $this->notFound();
+    }
+
+    /**
+     * The public addresses, tried top to bottom (Router): the first route that answers wins, so the order is behaviour. The core
+     * addresses come first, then a page by its slug, then the previews and the addresses of collections.
+     */
+    public static function routes(): Router
+    {
+        $setting = fn (string $key): \Closure => fn (App $app): bool => $app->settings()->bool($key);
+        $extension = fn (string $key): \Closure => fn (App $app): bool => Extensions::isEnabled($app->settings(), $key);
+        // the News extension is disabled: the data stay, but are not on the site
+        $newsOff = fn (App $app): bool => !Extensions::isEnabled($app->settings(), 'news');
+        // online booking (3.0, Front\Booking): the free days and times as JSON, the booking itself, the customer's cancel page and
+        // the .ics file – the links in the e-mails carry a token only the customer has. The booking itself and the free times
+        // only while the Bookings feature is on (3.2); the cancel page and the .ics file keep working when it is switched off,
+        // so people who booked can still cancel or add the appointment to their calendar (3.2.3)
+        $bookingsOn = fn (App $app): bool => \Talea\Core\Booking::isOn($app->settings());
+        // subscribe: sign-up from the element (only with Newsletter enabled); confirmation and unsubscribe by a link from the
+        // e-mail always work – even after the extension is disabled, unsubscribing from already sent e-mails must work
+        $subscribe = fn (App $app): bool => $app->request->get('confirm') !== '' || $app->request->get('unsubscribe') !== '' || Extensions::isEnabled($app->settings(), 'newsletter_signup');
+        $token = '{token:[a-f0-9]{32}}';
+        $collection = '{collection:[a-z0-9-]{1,110}}';
+        $item = '{item:[a-z0-9-]{1,160}}';
+
+        return (new Router())
+            ->add('ANY', '/', [self::class, 'home'])
+            ->add('ANY', '/index.php', [self::class, 'home'])
+            ->add('ANY', '/news{rest:(?:/.*)?}', [self::class, 'notFound'], $newsOff, 'extension:news off')
+            ->add('ANY', '/rss.xml', [self::class, 'notFound'], $newsOff, 'extension:news off')
+            ->add('ANY', '/feed.json', [self::class, 'notFound'], $newsOff, 'extension:news off')
+            ->add('ANY', '/news', [NewsPages::class, 'showNewsList'])
+            ->add('ANY', '/news/category/{slug}', [NewsPages::class, 'category'])
+            ->add('ANY', '/news/tag/{slug}', [NewsPages::class, 'tag'])
+            ->add('ANY', '/news/{slug}.md', [NewsPages::class, 'newsMarkdown'], $setting('markdown_versions'), 'setting:markdown_versions')
+            ->add('ANY', '/news/{slug}', [NewsPages::class, 'newsItem'])
+            ->add('ANY', '/{slug:[a-z0-9][a-z0-9/-]*}.md', [NewsPages::class, 'markdown'], $setting('markdown_versions'), 'setting:markdown_versions')
+            ->add('ANY', '/search', [NewsPages::class, 'search'])
+            ->add('ANY', '/rss.xml', [NewsPages::class, 'rss'])
+            ->add('ANY', '/manifest.webmanifest', [Endpoints::class, 'manifest'])
+            ->add('ANY', '/favicon.ico', [Endpoints::class, 'favicon'])
+            ->add('ANY', '/og/{hash:[a-f0-9]{32}}.png', [Endpoints::class, 'shareImage'])
+            ->add('ANY', '/robots.txt', [Endpoints::class, 'robots'])
+            ->add('ANY', '/sitemap.xml', [Endpoints::class, 'sitemap'])
+            ->add('ANY', '/feed.json', [Endpoints::class, 'jsonFeed'])
+            ->add('ANY', '/.well-known/security.txt', [Endpoints::class, 'securityTxt'], fn (App $app): bool => $app->settings()->get('security_contact') !== '', 'setting:security_contact')
+            ->add('ANY', '/llms.txt', [Endpoints::class, 'llmsTxt'], $setting('llms_txt'), 'setting:llms_txt')
+            ->add('ANY', '/{file:.+}.txt', [Endpoints::class, 'indexNowKey']) // only the file named after the setting indexnow_key answers
+            ->add('POST', '/consent', [Endpoints::class, 'consent'])
+            ->add('POST', '/popup', [Endpoints::class, 'popup'])
+            ->add('POST', '/fleet/{action:pair|heartbeat|unpair|kit}', [Endpoints::class, 'fleet'], $extension('fleet'), 'extension:fleet')
+            ->add('POST', '/vitals', [Endpoints::class, 'vitals'])
+            ->add('POST', '/conversion', [Endpoints::class, 'conversion'])
+            ->add('POST', '/experiment', [Endpoints::class, 'experiment'])
+            ->add('ANY', '/mcp', [Endpoints::class, 'mcp'])
+            ->add('ANY', '/download/{token:[A-Za-z0-9._-]{30,900}}', [Endpoints::class, 'download'])
+            ->add('ANY', '/subscribe', [Endpoints::class, 'subscribe'], $subscribe, 'extension:newsletter_signup or a subscription link')
+            ->add('ANY', '/member{rest:(?:/.*)?}', [self::class, 'memberArea'], $extension('members'), 'extension:members')
+            ->add('ANY', '/{prefix:[a-z][a-z0-9_-]{1,30}}{rest:.*}', [self::class, 'addOnRoute']) // only an add-on's own prefix answers (Api::route)
+            ->add('ANY', '/form', [Endpoints::class, 'form'], $extension('enquiries'), 'extension:enquiries')
+            ->add('POST', '/_booking', [Endpoints::class, 'booking'], $bookingsOn, 'extension:bookings')
+            ->add('ANY', '/_booking/{what:days|slots}', [Endpoints::class, 'bookingAvailability'], $bookingsOn, 'extension:bookings')
+            ->add('ANY', '/_booking/cancel/' . $token, [Endpoints::class, 'bookingCancel'])
+            ->add('ANY', '/_booking/choose/' . $token, [Endpoints::class, 'bookingChoose'])
+            ->add('ANY', '/_booking/ics/' . $token, [Endpoints::class, 'bookingIcs'])
+            ->add('ANY', '/health', [Endpoints::class, 'health'])
+            ->add('ANY', '/tasks', [Endpoints::class, 'tasks'])
+            ->add('ANY', '/screen/{secret:[a-f0-9]{32}}', [Endpoints::class, 'screen'])
+            ->add('ANY', '/status.json', [Endpoints::class, 'status'])
+            ->add('ANY', '/{slug:.*}', [self::class, 'pageAt']) // a page, when one has this address
+            ->add('ANY', '/_section/{key:[a-z0-9-]{1,40}}', [self::class, 'previewSection'], fn (App $app): bool => $app->auth()->hasModule('pages'), 'permission:pages')
+            ->add('ANY', '/_popup/{id:[a-f0-9-]{36}}', [self::class, 'previewPopup'])
+            ->add('ANY', '/_component/{id:[a-f0-9-]{36}}', [self::class, 'previewComponent'], fn (App $app): bool => $app->auth()->isAdmin(), 'administrator')
+            ->add('ANY', '/' . $collection . '.ics', [CollectionPages::class, 'calendarFile']) // only an events collection answers
+            ->add('ANY', '/' . $collection . '/' . $item . '.ics', [CollectionPages::class, 'calendarFile'])
+            ->add('ANY', '/_testimonial/' . $token, [CollectionPages::class, 'testimonialPage'])
+            ->add('POST', '/_comment', [Endpoints::class, 'comment'])
+            ->add('ANY', '/' . $collection . '/_compare', [CollectionPages::class, 'compareProducts'])
+            ->add('ANY', '/{collection:(?!news/)[a-z0-9-]{1,110}}/' . $item, [CollectionPages::class, 'showCollectionItem'])
+            ->add('ANY', '/{collection:(?!news/)[a-z0-9-]{1,110}}/' . $item . '/latest', [CollectionPages::class, 'latest']);
+    }
+
+    /** The public demo (2.6) offers no Claude connection: anyone could connect to the shared admin. */
+    private function demoGuard(): ?Response
+    {
+        if (\Talea\Core\Demo::active() && preg_match('#^/(mcp|oauth|\.well-known/oauth|\.well-known/openid)#', $this->app->request->path())) {
             return new Response('{"error":"The Claude connection is switched off in the public demo."}', 403, ['Content-Type' => 'application/json']);
         }
-        // a running Talea import (Core\SiteImport::work) replaces the content: everyone, signed in or not, and Claude (/mcp, OAuth) wait for it;
-        // the orchestrator probe and cron go on – cron carries the import forward
-        if (\Talea\Core\SiteImport::running() !== null && !in_array($request->path(), ['/health', '/tasks'], true)) {
+
+        return null;
+    }
+
+    /**
+     * A running Talea import (Core\SiteImport::work) replaces the content: everyone, signed in or not, and Claude (/mcp, OAuth) wait for it;
+     * the orchestrator probe and cron go on – cron carries the import forward.
+     */
+    private function importGuard(): ?Response
+    {
+        if (\Talea\Core\SiteImport::running() !== null && !in_array($this->app->request->path(), ['/health', '/tasks'], true)) {
             return $this->maintenance('60');
         }
-        // OAuth for the Claude connector (metadata, registration, tokens) – runs in maintenance mode too, just like /mcp
-        if (($oauth = (new OAuth($this->app))->handle($request->path())) !== null) {
-            return $oauth;
-        }
-        if ($this->app->settings()->bool('maintenance') && $request->path() !== '/mcp' && $this->app->auth()->user() === null) {
+
+        return null;
+    }
+
+    /** Maintenance mode (setting maintenance): visitors get the notice; /mcp and signed-in users go on. */
+    private function maintenanceGuard(): ?Response
+    {
+        if ($this->app->settings()->bool('maintenance') && $this->app->request->path() !== '/mcp' && $this->app->auth()->user() === null) {
             return $this->maintenance('3600');
         }
-        // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
-        // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache
-        // also Polylang's language home ?lang=en, stored as ?lang=en by the WordPress import
+
+        return null;
+    }
+
+    /**
+     * An old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect on a 404 error
+     * would never be reached – it is therefore looked up by the parameter, even before the cache; also Polylang's language home ?lang=en,
+     * stored as ?lang=en by the WordPress import.
+     */
+    private function wordPressLink(): ?Response
+    {
+        $request = $this->app->request;
         $lang = preg_match('/^' . Language::TAG . '$/D', $request->get('lang')) === 1 ? $request->get('lang') : '';
         if (($request->getInt('p') > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'redirects')) {
             $target = $this->app->db()->one('SELECT * FROM {redirects} WHERE from_path = ? AND active = TRUE', [$request->getInt('p') > 0 ? '?p=' . $request->getInt('p') : '?lang=' . $lang]);
@@ -156,145 +259,30 @@ final class Kernel
                 return $this->followRule($target + ['target' => $target['to_path']]);
             }
         }
-        // a file waiting for approval (#150, Core\MediaStaging): for signed-in users and draft previews; everyone else gets the
-        // usual 404, unless published content already uses it
+
+        return null;
+    }
+
+    /**
+     * A file waiting for approval (#150, Core\MediaStaging): for signed-in users and draft previews; everyone else gets the usual 404,
+     * unless published content already uses it.
+     */
+    private function stagedMedia(): ?Response
+    {
+        $request = $this->app->request;
         if (str_starts_with($request->path(), '/media/')
             && ($waiting = \Talea\Core\MediaStaging::serve($this->app, $request->path(), fn (): bool => $this->sitePreview || \Talea\Core\MediaStaging::hasPreview($this->app))) !== null) {
             return $waiting;
         }
-        if (($cached = Cache::load($this->app)) !== null) {
-            return $cached;
-        }
-        $path = $request->path();
-        if ($path === '/' || $path === '/index.php') {
-            return $this->home();
-        }
-        $withNews = Extensions::isEnabled($this->app->settings(), 'news');
-        if (!$withNews && ($path === '/news' || str_starts_with($path, '/news/') || $path === '/rss.xml' || $path === '/feed.json')) {
-            return $this->notFound(); // the News extension is disabled: the data stay, but are not on the site
-        }
-        if ($path === '/news') {
-            return $this->newsPages->showNewsList();
-        }
-        if (preg_match('#^/news/category/([a-z0-9-]+)$#', $path, $m)) {
-            return $this->newsPages->category($m[1]);
-        }
-        if (preg_match('#^/news/tag/([a-z0-9-]+)$#', $path, $m)) {
-            return $this->newsPages->tag($m[1]);
-        }
-        if (preg_match('#^/news/([a-z0-9-]+)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_versions')) {
-            return $this->newsPages->newsMarkdown($m[1]);
-        }
-        if (preg_match('#^/news/([a-z0-9-]+)$#', $path, $m)) {
-            return $this->newsPages->newsItem($m[1]);
-        }
-        if (preg_match('#^/([a-z0-9][a-z0-9/-]*)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_versions')) {
-            return $this->newsPages->markdown($m[1]);
-        }
-        if ($path === '/search') {
-            return $this->newsPages->search();
-        }
-        if ($path === '/rss.xml') {
-            return $this->newsPages->rss();
-        }
-        if ($path === '/manifest.webmanifest') {
-            return $this->endpoints->manifest();
-        }
-        if ($path === '/favicon.ico') {
-            return $this->endpoints->favicon();
-        }
-        if (preg_match('#^/og/([a-f0-9]{32})\.png$#', $path, $m)) {
-            return $this->endpoints->shareImage($m[1]);
-        }
-        if ($path === '/robots.txt') {
-            return $this->endpoints->robots();
-        }
-        if ($path === '/sitemap.xml') {
-            return $this->endpoints->sitemap();
-        }
-        if ($path === '/feed.json') {
-            return $this->endpoints->jsonFeed();
-        }
-        if ($path === '/.well-known/security.txt' && $this->app->settings()->get('security_contact') !== '') {
-            return $this->endpoints->securityTxt();
-        }
-        if ($path === '/llms.txt' && $this->app->settings()->bool('llms_txt')) {
-            return $this->endpoints->llmsTxt();
-        }
-        if (preg_match('#^/(.+)\.txt$#Ds', $path, $m) && ($key = $this->endpoints->indexNowKey($m[1])) !== null) {
-            return $key;
-        }
-        if ($path === '/consent' && $request->isPost()) {
-            return $this->endpoints->consent();
-        }
-        if ($path === '/popup' && $request->isPost()) {
-            return $this->endpoints->popup();
-        }
-        if (in_array($path, ['/fleet/pair', '/fleet/heartbeat', '/fleet/unpair', '/fleet/kit'], true) && $request->isPost() && Extensions::isEnabled($this->app->settings(), 'fleet')) {
-            return $this->endpoints->fleet(substr($path, 7));
-        }
-        if ($path === '/vitals' && $request->isPost()) {
-            return $this->endpoints->vitals();
-        }
-        if ($path === '/conversion' && $request->isPost()) {
-            return $this->endpoints->conversion();
-        }
-        if ($path === '/experiment' && $request->isPost()) {
-            return $this->endpoints->experiment();
-        }
-        if ($path === '/mcp') {
-            return $this->endpoints->mcp();
-        }
-        if (preg_match('#^/download/([A-Za-z0-9._-]{30,900})$#', $path, $m)) {
-            return $this->endpoints->download($m[1]);
-        }
-        $subscriptionLink = $request->get('confirm') !== '' || $request->get('unsubscribe') !== '';
-        if ($path === '/subscribe' && ($subscriptionLink || Extensions::isEnabled($this->app->settings(), 'newsletter_signup'))) {
-            return $this->endpoints->subscribe();
-        }
-        if (($path === '/member' || str_starts_with($path, '/member/')) && Extensions::isEnabled($this->app->settings(), 'members')) {
-            return $this->memberArea($path); // member login (Core\Members): sign-in link, sign-in, sign-out
-        }
-        if (($routed = \Talea\Extension\Registry::runRoute($this->app, $path)) !== null) {
-            // an address of an add-on (Api::route): private, no-store, noindex, never cached
-            return $routed instanceof Response ? new Response($routed->body, $routed->status, array_merge($routed->headers, ['Cache-Control' => 'private, no-store', 'X-Robots-Tag' => 'noindex'])) : $this->gatedPage($routed);
-        }
-        if ($path === '/form' && Extensions::isEnabled($this->app->settings(), 'enquiries')) {
-            return $this->endpoints->form();
-        }
-        // online booking (3.0, Front\Booking): the free days and times as JSON, the booking itself, the customer's cancel page and
-        // the .ics file – the links in the e-mails carry a token only the customer has. The booking itself and the free times
-        // only while the Bookings feature is on (3.2); the cancel page and the .ics file keep working when it is switched off,
-        // so people who booked can still cancel or add the appointment to their calendar (3.2.3)
-        $bookingsOn = \Talea\Core\Booking::isOn($this->app->settings());
-        if ($path === '/_booking' && $request->isPost() && $bookingsOn) {
-            return $this->endpoints->booking();
-        }
-        if (($path === '/_booking/days' || $path === '/_booking/slots') && $bookingsOn) {
-            return $this->endpoints->bookingAvailability(substr($path, 10));
-        }
-        if (preg_match('#^/_booking/cancel/([a-f0-9]{32})$#', $path, $m)) {
-            return $this->endpoints->bookingCancel($m[1]);
-        }
-        if (preg_match('#^/_booking/choose/([a-f0-9]{32})$#', $path, $m)) {
-            return $this->endpoints->bookingChoose($m[1]);
-        }
-        if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#', $path, $m)) {
-            return $this->endpoints->bookingIcs($m[1]);
-        }
-        if ($path === '/health') {
-            return $this->endpoints->health();
-        }
-        if ($path === '/tasks') {
-            return $this->endpoints->tasks();
-        }
-        if (preg_match('#^/screen/([a-f0-9]{32})$#', $path, $m)) {
-            return $this->endpoints->screen($m[1]);
-        }
-        if ($path === '/status.json') {
-            return $this->endpoints->status();
-        }
 
+        return null;
+    }
+
+    /** A page by its address (/<slug>, /services/kitchens); null when there is none, so the previews and collections can answer. */
+    public function pageAt(string $slug): ?Response
+    {
+        $request = $this->app->request;
+        $path = '/' . $slug;
         // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
         // (?preview_key=…, Core\Preview)
         $showHidden = $this->sitePreview || ($request->get('build') === 'draft' && ($this->app->auth()->hasModule('pages') || $request->get('preview_key') !== ''));
@@ -309,42 +297,25 @@ final class Kernel
 
             return $this->showPage($page, ltrim($path, '/'));
         }
-        if (preg_match('#^/_section/([a-z0-9-]{1,40})$#', $path, $m) && $this->app->auth()->hasModule('pages')) {
-            return $this->previewSection($m[1]);
-        }
-        if (preg_match('#^/_popup/([a-f0-9-]{36})$#', $path, $m)) {
-            return $this->previewPopup($this->app->db()->internalId('popups', $m[1]));
-        }
-        if (preg_match('#^/_component/([a-f0-9-]{36})$#', $path, $m) && $this->app->auth()->isAdmin()) {
-            return $this->previewComponent($this->app->db()->internalId('components', $m[1]));
-        }
-        if (preg_match('#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#', $path, $m) && ($calendar = $this->collectionPages->calendarFile($m[1], $m[2] ?? '')) !== null) {
-            return $calendar;
-        }
-        if (preg_match('#^/_testimonial/([a-f0-9]{32})$#', $path, $m)) {
-            return $this->collectionPages->testimonialPage($m[1]);
-        }
-        if ($path === '/_comment' && $request->isPost()) {
-            return $this->endpoints->comment();
-        }
-        if (preg_match('#^/([a-z0-9-]{1,110})/_compare$#', $path, $m)) {
-            return $this->collectionPages->compareProducts($m[1]);
-        }
-        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $path, $m) && $m[1] !== 'news') {
-            return $this->collectionPages->showCollectionItem($m[1], $m[2]);
-        }
-        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/latest$#', $path, $m) && $m[1] !== 'news') {
-            return $this->collectionPages->latest($m[1], $m[2]);
+
+        return null;
+    }
+
+    /** An address of an add-on (Api::route): private, no-store, noindex, never cached; null when no add-on owns the prefix. */
+    public function addOnRoute(string $prefix, string $rest): ?Response
+    {
+        if (($routed = \Talea\Extension\Registry::runRoute($this->app, '/' . $prefix . $rest)) !== null) {
+            return $routed instanceof Response ? new Response($routed->body, $routed->status, array_merge($routed->headers, ['Cache-Control' => 'private, no-store', 'X-Robots-Tag' => 'noindex'])) : $this->gatedPage($routed);
         }
 
-        return $this->notFound();
+        return null;
     }
 
     /**
      * Preview of a ready-made library section for the builder panel: only the section in the site's appearance, without
      * header and footer. Library classes are only rendered from their default style – nothing is written to the site.
      */
-    private function previewSection(string $key): Response
+    public function previewSection(string $key): Response
     {
         $section = \Talea\Builder\Library::section($key, Language::code());
         if ($section === null) {
@@ -367,8 +338,9 @@ final class Kernel
     }
 
     /** Canvas of the component editor (administrator only): the draft component with default property values. */
-    private function previewComponent(int $idm): Response
+    public function previewComponent(string $id): Response
     {
+        $idm = $this->app->db()->internalId('components', $id);
         $component = \Talea\Builder\Components::byId($this->app->db(), $idm);
         if ($component === null) {
             return $this->notFound();
@@ -382,7 +354,7 @@ final class Kernel
         return $this->frame->page($component['name'], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
     }
 
-    private function home(): Response
+    public function home(): Response
     {
         $page = ($id = $this->frame->homePageId()) > 0 ? $this->app->db()->one('SELECT * FROM {pages} WHERE page_id = ? AND visible = TRUE', [$id]) : null;
 
@@ -675,8 +647,9 @@ final class Kernel
      * Popup for the builder and a shared preview: with editor=1 (administrator) the popup stands on the canvas for editing,
      * otherwise the draft opens over an empty site page. Without administrator permission or a valid signed link, 404.
      */
-    private function previewPopup(int $idpp): Response
+    public function previewPopup(string $id): Response
     {
+        $idpp = $this->app->db()->internalId('popups', $id);
         $p = null;
         try {
             $p = \Talea\Builder\Popups::byId($this->app->db(), $idpp);
@@ -717,9 +690,10 @@ final class Kernel
         return $this->frame->page($answer[0], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $answer[1]]), ['build' => true, 'noindex' => true], $answer[2]);
     }
 
-    private function memberArea(string $path): Response
+    /** The member login (Core\Members): sign-in link, sign-in, sign-out; $rest is the path after /member. */
+    public function memberArea(string $rest): Response
     {
-        $answer = (new MemberArea($this->app))->handle($path);
+        $answer = (new MemberArea($this->app))->handle('/member' . $rest);
         if ($answer instanceof Response) {
             return new Response($answer->body, $answer->status, $answer->headers + ['Cache-Control' => 'private, no-store']);
         }

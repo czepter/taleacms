@@ -166,7 +166,7 @@ final class CollectionPages
      * iCalendar of an events collection (2.11, Core\Calendar): /<collection>.ics – upcoming events and those of the last
      * 30 days, to subscribe to; /<collection>/<item>.ics – one event to add. null = not an events collection.
      */
-    public function calendarFile(string $collectionSlug, string $itemSlug): ?Response
+    public function calendarFile(string $collectionSlug, string $itemSlug = ''): ?Response
     {
         $db = $this->app->db();
         $collection = \Talea\Builder\Collections::bySlug($db, $collectionSlug);
