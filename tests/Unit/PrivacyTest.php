@@ -39,7 +39,7 @@ final class PrivacyTest extends TestCase
     {
         $own = array_column(\Talea\Core\Privacy::OWN, 0);
         $set = [];
-        $files = [...glob(TALEA_ROOT . '/image/*.js') ?: [], ...glob(TALEA_ROOT . '/extensions/*/*.php') ?: [], ...glob(TALEA_ROOT . '/extensions/*/*/*.php') ?: []];
+        $files = [...glob(TALEA_ROOT . '/image/*.js') ?: [], ...glob(TALEA_ROOT . '/image/builder/*.js') ?: [], ...glob(TALEA_ROOT . '/extensions/*/*.php') ?: [], ...glob(TALEA_ROOT . '/extensions/*/*/*.php') ?: []];
         foreach (['system/src', 'system/views'] as $dir) {
             foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/' . $dir, \FilesystemIterator::SKIP_DOTS)) as $file) {
                 $files[] = (string) $file;
