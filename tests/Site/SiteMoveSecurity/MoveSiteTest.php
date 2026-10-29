@@ -141,6 +141,9 @@ final class MoveSiteTest extends SiteTestCase
         $this->assertSame(503, $new->client('import-visitor')->get('/')->status, 'a running import puts the site into maintenance');
         $this->assertSame(503, $admin->get('/')->status, 'signed-in people see the maintenance notice too');
         $this->assertSame(200, $new->client('import-probe')->get('/health')->status, 'the orchestrator probe still answers');
+        $cron = $new->client('import-cron')->get('/tasks?token=' . rawurlencode($new->settingValue('tasks_token')));
+        $this->assertSame(200, $cron->status, 'cron (/tasks) still answers while the import runs');
+        $this->assertStringContainsString('site_import: busy', $cron->body, 'cron carries the import forward and finds it busy while the test holds its lock');
         $this->assertStringContainsString('transfer/talea?file=' . rawurlencode($file), $admin->get('/admin.php?module=pages')->redirect, 'the administration is locked: every page leads to the progress');
         $this->assertStringContainsString('data-auto-submit', $admin->get('/admin.php?module=transfer&action=talea&file=' . rawurlencode($file))->body, 'the progress reloads itself');
         flock($lock, LOCK_UN);

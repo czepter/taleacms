@@ -254,4 +254,35 @@ final class AccountSecurityTest extends SiteTestCase
         $site->exec("UPDATE tl_users SET totp_secret = '', totp_backup_codes = NULL WHERE username = 'salesperson'");
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
     }
+
+    public function testResetMailsAreLimitedPerAccount(): void
+    {
+        $site = $this->site();
+        $site->exec("UPDATE tl_users SET email = 'sales@example.test' WHERE username = 'salesperson'");
+        $mails = fn (): string => (string) $site->value("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'sales@example.test'");
+        $before = (int) $mails();
+        $client = $site->client('reset-flood');
+        $hour = intdiv(time(), 3600);
+        $answers = [];
+        $tokens = [];
+        // user name and e-mail take turns: both name the same account and share its allowance
+        foreach (['salesperson', 'sales@example.test', 'salesperson', 'sales@example.test'] as $who) {
+            $csrf = $client->get('/admin.php?action=password')->csrf();
+            $answer = $client->post('/admin.php?action=password', ['_csrf' => $csrf, 'user_id' => $who]);
+            $answers[] = [$answer->status, $answer->contains('If such an account exists')];
+            $tokens[] = (string) $site->value("SELECT reset_token_hash FROM tl_users WHERE username = 'salesperson'");
+        }
+        if (intdiv(time(), 3600) !== $hour) {
+            $this->markTestSkipped('the requests fell into two counting windows');
+        }
+
+        $this->assertSame(array_fill(0, 4, [200, true]), $answers, 'reset: every request gets the same answer, past the account limit too');
+        $this->assertSame(3, (int) $mails() - $before, 'reset: at most 3 mails per account per hour, from the user name and the e-mail together');
+        $this->assertSame([false, true], [$tokens[1] === $tokens[2], $tokens[2] === $tokens[3]], 'reset: past the limit the last link sent stays valid');
+
+        $site->admin()->post('/admin.php?module=users&action=password_link', ['_csrf' => $site->csrf(),
+            'user_id' => (string) $site->value("SELECT public_id FROM tl_users WHERE username = 'salesperson'")]);
+        $this->assertSame(4, (int) $mails() - $before, 'reset: a link an administrator sends is not limited');
+        $site->exec("DELETE FROM tl_ip_checks WHERE type = 'reset'");
+    }
 }

@@ -642,7 +642,7 @@ final class Library
      */
     public static function listAll(?array $extensions = null): array
     {
-        $disabled = Build::disabledTypes($extensions);
+        $disabled = ElementSchema::disabledTypes($extensions);
         $section = array_filter(self::sections(), fn (string $key): bool => $disabled === [] || !self::containsType(self::create($key)['element'] ?? [], $disabled), ARRAY_FILTER_USE_KEY);
 
         return array_map(fn (string $key, array $s): array => ['key' => $key, 'name' => $s['name'], 'description' => $s['description'], 'category' => self::SECTION_CATEGORIES[$key] ?? 'content'],

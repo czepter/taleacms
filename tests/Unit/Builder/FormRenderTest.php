@@ -7,6 +7,7 @@ namespace Talea\Tests\Unit\Builder;
 use PHPUnit\Framework\TestCase;
 use Talea\Builder\Build;
 use Talea\Builder\Context;
+use Talea\Builder\Renderer;
 use Talea\Core\App;
 use Talea\Core\Request;
 use Talea\Core\Settings;
@@ -29,7 +30,7 @@ final class FormRenderTest extends TestCase
         (new \ReflectionProperty(Settings::class, 'values'))->setValue($settings, ['secret_key' => str_repeat('a', 64)]);
         (new \ReflectionProperty(App::class, 'settings'))->setValue($app, $settings);
 
-        return Build::html($build, new Context($app));
+        return Renderer::html($build, new Context($app));
     }
 
     /** The logic the page carries, decoded from the form's data-logic attribute. */

@@ -13,6 +13,7 @@ use Talea\Builder\Library;
 use Talea\Builder\Collections;
 use Talea\Builder\Publisher;
 use Talea\Builder\Build;
+use Talea\Builder\ElementSchema;
 use Talea\Builder\ElementClipboard;
 use Talea\Builder\Style;
 
@@ -68,7 +69,7 @@ trait BuilderActions
         $e = $this->describeTarget($target);
         $collections = array_map(fn (array $k): array => ['slug' => $k['slug'], 'name' => $k['name'], 'fields' => $k['fields'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
         $extensions = \Talea\Core\Extensions::enabled($app->settings());
-        $schema = Build::schema($app->auth()->isAdmin(), $target['language'], $e['parts'], $extensions);
+        $schema = ElementSchema::schema($app->auth()->isAdmin(), $target['language'], $e['parts'], $extensions);
         $components = \Talea\Admin\Modules\Components::listForEditor($this->db);
         foreach ($schema['elements'] as &$element) {
             if ($element['type'] === 'component') {
@@ -541,7 +542,7 @@ trait BuilderActions
 
     /**
      * Schema labels (names of elements, fields, style properties and their options) into the admin language. The default
-     * content of elements is not translated – it is in the page language (Build::schema).
+     * content of elements is not translated – it is in the page language (ElementSchema::schema).
      */
     private static function translateSchema(array $schema): array
     {

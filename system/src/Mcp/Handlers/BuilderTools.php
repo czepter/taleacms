@@ -17,6 +17,7 @@ use Talea\Builder\Library;
 use Talea\Builder\Collections;
 use Talea\Builder\Publisher;
 use Talea\Builder\Build;
+use Talea\Builder\ElementSchema;
 use Talea\Builder\HtmlConverter;
 
 /**
@@ -31,7 +32,7 @@ trait BuilderTools
     {
         $auth = $this->app->auth();
         $siteSettings = $this->app->settings();
-        $schema = Build::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->isAdmin(), \Talea\Core\Extensions::enabled($siteSettings));
+        $schema = ElementSchema::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->isAdmin(), \Talea\Core\Extensions::enabled($siteSettings));
 
         return $this->englishSchema($schema, $a);
     }

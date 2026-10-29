@@ -28,6 +28,6 @@ final class WebVitalsTest extends TestCase
         $script = (string) file_get_contents(TALEA_ROOT . '/image/vitals.js');
         $this->assertSame([true, true], [str_contains($script, 'e.startTime < firstHidden'), str_contains($script, 'navigation.activationStart')],
             'the beacon leaves out paints after the page was first hidden (a background tab) and counts a prerendered page from its activation');
-        $this->assertTrue(in_array('vitals', \Talea\Admin\Modules\Pages::RESERVED_SLUGS, true), '2.8: /vitals is a reserved address');
+        $this->assertTrue(in_array('vitals', \Talea\Front\Kernel::reservedSlugs(), true), '2.8: /vitals is a reserved address');
     }
 }

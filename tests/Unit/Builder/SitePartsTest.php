@@ -16,8 +16,8 @@ final class SitePartsTest extends TestCase
         [$headerBuild] = \Talea\Builder\Build::sanitize($headerBuild);
         $headerContext = new \Talea\Builder\Context($headerApp);
         $headerContext->source = 'part:header:';
-        $headerHtml = \Talea\Builder\Build::html($headerBuild, $headerContext);
-        $headerCss = \Talea\Builder\Build::css((new \ReflectionClass(\Talea\Core\Db::class))->newInstanceWithoutConstructor(), $headerContext);
+        $headerHtml = \Talea\Builder\Renderer::html($headerBuild, $headerContext);
+        $headerCss = \Talea\Builder\Renderer::css((new \ReflectionClass(\Talea\Core\Db::class))->newInstanceWithoutConstructor(), $headerContext);
         $this->assertSame([true, true, true, true, true], [
             (bool) preg_match('/<header id="s-hl1" class="tl-header-scroll tl-header-scroll--transparent">/', $headerHtml),
             (bool) preg_match('/#s-hl1 \{ [^}]*position: sticky;[^}]*background-color: var\(--tl-color-background\); position: fixed; top: 0; inset-inline: 0; animation: tl-header-light linear both, tl-header-smaller linear both; animation-timeline: scroll\(root\); animation-range: 0 120px; \}/', $headerContext->css),
@@ -25,13 +25,13 @@ final class SitePartsTest extends TestCase
         ], 'Sections on scroll: header classes, fixed position after the style (sticky), scroll animation, light text on top');
         $pageContext = new \Talea\Builder\Context($headerApp);
         $pageContext->source = 'page:5';
-        $this->assertSame([false, false, false], [str_contains(\Talea\Builder\Build::html($headerBuild, $pageContext), 'tl-header'), str_contains($pageContext->css, 'animation'),
-            str_contains(\Talea\Builder\Build::css((new \ReflectionClass(\Talea\Core\Db::class))->newInstanceWithoutConstructor(), $pageContext), 'tl-header')], 'Sections on scroll: outside the header nothing shows and no CSS is printed');
+        $this->assertSame([false, false, false], [str_contains(\Talea\Builder\Renderer::html($headerBuild, $pageContext), 'tl-header'), str_contains($pageContext->css, 'animation'),
+            str_contains(\Talea\Builder\Renderer::css((new \ReflectionClass(\Talea\Core\Db::class))->newInstanceWithoutConstructor(), $pageContext), 'tl-header')], 'Sections on scroll: outside the header nothing shows and no CSS is printed');
         $shrinkOnly = ['v' => 1, 'children' => [['id' => 'hl2', 'type' => 'section', 'content' => ['on_scroll' => 'shrink'], 'children' => []]]];
         $shrinkContext = new \Talea\Builder\Context($headerApp);
         $shrinkContext->source = 'part:header:kampan';
         $this->assertSame([true, false, true], [
-            str_contains(\Talea\Builder\Build::html(\Talea\Builder\Build::sanitize($shrinkOnly)[0], $shrinkContext), '<section id="s-hl2" class="tl-header-scroll">'),
+            str_contains(\Talea\Builder\Renderer::html(\Talea\Builder\Build::sanitize($shrinkOnly)[0], $shrinkContext), '<section id="s-hl2" class="tl-header-scroll">'),
             str_contains($shrinkContext->css, 'position: fixed'), str_contains($shrinkContext->css, '#s-hl2 { animation: tl-header-smaller linear both;'),
         ], 'Sections on scroll: only shrinking keeps the header in the flow (no position: fixed), an element without style still gets an id and a rule');
     }
@@ -43,8 +43,8 @@ final class SitePartsTest extends TestCase
         $wrapperContext = new \Talea\Builder\Context(new \Talea\Core\App([]));
         $wrapperContext->source = 'part:news_item:';
         $wrapperContext->content = '<p>[First paragraph]</p><p>[Second paragraph]</p>';
-        $wrapperHtml = \Talea\Builder\Build::html(\Talea\Builder\Build::sanitize($wrapperBuild)[0], $wrapperContext);
-        $wrapperCss = \Talea\Builder\Build::css((new \ReflectionClass(\Talea\Core\Db::class))->newInstanceWithoutConstructor(), $wrapperContext);
+        $wrapperHtml = \Talea\Builder\Renderer::html(\Talea\Builder\Build::sanitize($wrapperBuild)[0], $wrapperContext);
+        $wrapperCss = \Talea\Builder\Renderer::css((new \ReflectionClass(\Talea\Core\Db::class))->newInstanceWithoutConstructor(), $wrapperContext);
         preg_match_all('/^([^{}\n]*)\{[^}\n]*margin-block: 0;/m', $wrapperCss, $wrapperResets);
         $this->assertSame([true, [':where(.build) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr):not(:where(.content *))']], [
             (bool) preg_match('/class="wrap content"><p>\[First paragraph\]<\/p><p>\[Second paragraph\]<\/p>/', $wrapperHtml),

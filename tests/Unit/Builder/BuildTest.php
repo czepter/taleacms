@@ -61,16 +61,16 @@ final class BuildTest extends TestCase
         $conditionContext = new \Talea\Builder\Context($conditionApp);
         $conditionApp->languagePrefix = 'de';
         $this->assertSame([true, false, true], [
-            \Talea\Builder\Build::meetsConditions(['languages' => ['de']], $conditionContext), \Talea\Builder\Build::meetsConditions(['languages' => ['', 'en']], $conditionContext),
-            \Talea\Builder\Build::meetsConditions(['languages' => ['']], (function () use ($conditionApp) { $conditionApp->languagePrefix = ''; return new \Talea\Builder\Context($conditionApp); })()),
+            \Talea\Builder\Renderer::meetsConditions(['languages' => ['de']], $conditionContext), \Talea\Builder\Renderer::meetsConditions(['languages' => ['', 'en']], $conditionContext),
+            \Talea\Builder\Renderer::meetsConditions(['languages' => ['']], (function () use ($conditionApp) { $conditionApp->languagePrefix = ''; return new \Talea\Builder\Context($conditionApp); })()),
         ], '2.7: meetsConditions – language version of the visit');
         $this->assertSame([true, true, false, true, false, false], [
-            \Talea\Builder\Build::meetsConditions(['url_parameter' => ['name' => 'utm_campaign']], $conditionContext),
-            \Talea\Builder\Build::meetsConditions(['url_parameter' => ['name' => 'utm_campaign', 'value' => 'jaro']], $conditionContext),
-            \Talea\Builder\Build::meetsConditions(['url_parameter' => ['name' => 'utm_campaign', 'value' => 'leto']], $conditionContext),
-            \Talea\Builder\Build::meetsConditions(['url_parameter' => ['name' => 'variant']], $conditionContext), // ?variant without a value counts as present
-            \Talea\Builder\Build::meetsConditions(['url_parameter' => ['name' => 'missing']], $conditionContext),
-            \Talea\Builder\Build::meetsConditions(['url_parameter' => ['name' => 'utm_campaign'], 'languages' => ['de'], 'from' => '2000-01-01'], $conditionContext), // all must hold
+            \Talea\Builder\Renderer::meetsConditions(['url_parameter' => ['name' => 'utm_campaign']], $conditionContext),
+            \Talea\Builder\Renderer::meetsConditions(['url_parameter' => ['name' => 'utm_campaign', 'value' => 'jaro']], $conditionContext),
+            \Talea\Builder\Renderer::meetsConditions(['url_parameter' => ['name' => 'utm_campaign', 'value' => 'leto']], $conditionContext),
+            \Talea\Builder\Renderer::meetsConditions(['url_parameter' => ['name' => 'variant']], $conditionContext), // ?variant without a value counts as present
+            \Talea\Builder\Renderer::meetsConditions(['url_parameter' => ['name' => 'missing']], $conditionContext),
+            \Talea\Builder\Renderer::meetsConditions(['url_parameter' => ['name' => 'utm_campaign'], 'languages' => ['de'], 'from' => '2000-01-01'], $conditionContext), // all must hold
         ], '2.7: meetsConditions – URL parameter present, with and without an exact value');
         $this->assertSame([false, true, true, true], [
             \Talea\Builder\Build::conditionsBypassCache(['languages' => ['de']]), \Talea\Builder\Build::conditionsBypassCache(['url_parameter' => ['name' => 'utm_campaign']]),
@@ -104,7 +104,7 @@ final class BuildTest extends TestCase
             \Talea\Builder\Elements\Button::render(['content' => ['text' => 'Bez', 'link' => '/x', 'variant' => 'primary', 'new_window' => false]], '', '', (new \ReflectionClass(\Talea\Builder\Context::class))->newInstanceWithoutConstructor()) === '<a class="tl-button tl-button--primary" href="/x">Bez</a>',
         ], 'Button: icon after the text and to the left of the text');
         $this->assertSame($compactBuild, \Talea\Builder\Build::sanitize($compact)[0], 'Build::compact: the same build after sanitizing');
-        $overview = \Talea\Builder\Build::overview(\Talea\Builder\Build::schema());
-        $this->assertSame([true, true], [str_contains($overview['elements']['button'], 'variant:choice(primary*|'), strlen((string) json_encode($overview)) < strlen((string) json_encode(\Talea\Builder\Build::schema())) / 2], 'Build::overview: one element per line, the default option with an asterisk, a much smaller schema');
+        $overview = \Talea\Builder\ElementSchema::overview(\Talea\Builder\ElementSchema::schema());
+        $this->assertSame([true, true], [str_contains($overview['elements']['button'], 'variant:choice(primary*|'), strlen((string) json_encode($overview)) < strlen((string) json_encode(\Talea\Builder\ElementSchema::schema())) / 2], 'ElementSchema::overview: one element per line, the default option with an asterisk, a much smaller schema');
     }
 }
