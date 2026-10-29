@@ -142,6 +142,44 @@ final class DemoModeTest extends SiteTestCase
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_settings WHERE name = 'claude_instructions' AND value = 'Injected'"), 'Settings → AI cannot be saved');
     }
 
+    /** The shared account is an administrator, but in the demo nobody writes code: page text and a Custom HTML element are cleaned like an editor's. */
+    #[Depends('testTheDemoIsSwitchedOnAndSnapshotted')]
+    public function testTheDemoAdministratorWritesNoCodeIntoPages(): void
+    {
+        $site = $this->site();
+        $this->post('/admin.php?module=pages&action=save', ['title' => 'Demo code', 'slug' => 'demo-code', 'visible' => 1, 'text' => '<p>Plain</p><script>alert("demo-script")</script><img src="x.png" onerror="alert(\'demo-onerror\')">']);
+        $id = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'demo-code'");
+        $this->assertGreaterThan(0, $id, 'the page was saved');
+        $body = $this->assertPage('/demo-code', 200, 'Plain', $site->client('guest'), 'the page is public');
+        $this->assertStringNotContainsString('demo-script', $body->body, 'no <script> in the page text');
+        $this->assertStringNotContainsString('demo-onerror', $body->body, 'no on* attribute in the page text');
+
+        $publicId = $site->publicId('pages', $id);
+        $build = '{"v":1,"children":[{"id":"d1","type":"section","children":[{"id":"d2","type":"heading","content":{"text":"Built"}},{"id":"d3","type":"custom_html","content":{"code":"<p>demo-custom</p><script>alert(1)</script>"}}]}]}';
+        $this->post('/admin.php?module=pages&action=build_save&id=' . $publicId, ['build' => $build]);
+        $this->post('/admin.php?module=pages&action=build_publish&id=' . $publicId);
+        $body = $this->assertPage('/demo-code', 200, 'Built', $site->client('guest'), 'the built page is public');
+        $this->assertStringNotContainsString('demo-custom', $body->body, 'no Custom HTML element from the demo administrator');
+        $this->assertStringNotContainsString('alert(1)', $body->body, 'no script from a builder element');
+    }
+
+    /** A page package carries shared components: the demo administrator may create them, but without code. */
+    #[Depends('testTheDemoIsSwitchedOnAndSnapshotted')]
+    public function testTheDemoPageImportStoresNoCodeInComponents(): void
+    {
+        $site = $this->site();
+        $package = ['format' => 'talea-page', 'title' => 'Demo import', 'build' => ['v' => 1, 'children' => [['id' => 'i1', 'type' => 'component', 'content' => ['component' => 77]]]],
+            'components' => [['id' => 77, 'name' => 'Demo shared', 'properties' => [], 'build' => ['v' => 1, 'children' => [['id' => 'c1', 'type' => 'custom_html', 'content' => ['code' => '<p>demo-comp</p><script>alert(2)</script>']]]]]]];
+        $file = tempnam(sys_get_temp_dir(), 'pkg');
+        file_put_contents($file, json_encode($package));
+        $this->visitor()->upload('/admin.php?module=pages&action=import', ['_csrf' => $site->csrf($this->visitor())], ['file' => [$file, 'application/json', 'p.json']]);
+        unlink($file);
+        $stored = (string) $site->value("SELECT build FROM tl_components WHERE name LIKE 'Demo shared%'");
+        $this->assertNotSame('', $stored, 'the component was created');
+        $this->assertStringNotContainsString('script', $stored, 'no code in the imported component');
+        $this->assertStringNotContainsString('demo-comp', $stored, 'no Custom HTML in the imported component');
+    }
+
     /** The settings the demo saves are an allow-list: a script host, a tag manager and maintenance mode stay as they are. */
     #[Depends('testTheDemoIsSwitchedOnAndSnapshotted')]
     public function testTheDemoSavesOnlyAllowedSettings(): void

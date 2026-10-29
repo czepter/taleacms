@@ -16,6 +16,8 @@ services:
       - TALEA_SITE_URL=${SERVICE_URL_WEB}
       - TALEA_DB_DRIVER=sqlite
       - TALEA_AI_URL=${TALEA_AI_URL:-}
+      # must list only the proxy's addresses or network (docs/DEPLOYMENT.md)
+      - TALEA_TRUSTED_PROXIES=${TALEA_TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,fc00::/7,::1}
       - TALEA_SECRET_KEY=${SERVICE_PASSWORD_64_SECRET}
     volumes:
       - storage:/app/storage

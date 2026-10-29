@@ -59,7 +59,7 @@ final class ConnectionAccessTest extends SiteTestCase
         $this->assertStringContainsString('Can also publish', $page->body, 'publishing is one click away');
         $this->assertStringNotContainsString('class="menu-wrap"', $page->body, 'the consent screen has no admin menu');
         $this->assertStringNotContainsString('appearance-draft', $page->body, 'the consent screen has no draft-look bar with a Publish button');
-        $admin->post('/admin.php?action=oauth', ['_csrf' => $page->csrf(), 'allow' => '0']); // leave nothing pending
+        $admin->post('/admin.php?action=oauth', ['_csrf' => $page->csrf(), 'request' => $page->field('request'), 'allow' => '0']); // leave nothing pending
     }
 
     #[Depends('testTheConsentScreenStandsAloneAndStartsAtDraftsOnly')]
@@ -68,21 +68,21 @@ final class ConnectionAccessTest extends SiteTestCase
         $site = $this->site();
         $admin = $site->admin();
         $csrf = $admin->get('/admin.php?action=account')->csrf();
-        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude read', 'access' => 'read']);
+        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $site->password, 'name' => 'Claude read', 'access' => 'read']);
         self::$readToken = preg_match('/talea_[a-f0-9]{48}/', $created->body, $m) === 1 ? $m[0] : '';
-        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude drafts', 'access' => 'drafts']);
+        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $site->password, 'name' => 'Claude drafts', 'access' => 'drafts']);
         self::$draftToken = preg_match('/talea_[a-f0-9]{48}/', $created->body, $m) === 1 ? $m[0] : '';
 
         $this->assertSame('drafts,read', $site->value("SELECT GROUP_CONCAT(access ORDER BY name) FROM tl_api_tokens WHERE name IN ('Claude read', 'Claude drafts')"),
             'tokens from My account keep the chosen access');
 
-        $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude no choice']);
+        $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $site->password, 'name' => 'Claude no choice']);
         $this->assertSame('drafts', $site->value("SELECT access FROM tl_api_tokens WHERE name = 'Claude no choice'"), 'a token form without a choice gets drafts only');
 
         // one application with several consents shows its strongest live access, not the alphabetically largest ('read' sorts last)
         $site->exec("INSERT INTO tl_api_tokens (user_id, name, client_id, kind, access, token_hash, created_at, expires_at)
             SELECT user_id, 'Strongest', ?, 'refresh', 'read', ?, NOW(), ? FROM tl_users WHERE username = 'admin'", [self::$client, hash('sha256', 'strongest-access-test'), date('Y-m-d H:i:s', time() + 30 * 86400)]);
-        $apps = $admin->get('/admin.php?action=account')->body;
+        $apps = $admin->get('/admin.php?action=account&tab=claude')->body;
         $this->assertMatchesRegularExpression('~<span class="badge">Strongest</span> <span class="badge">Drafts only – you publish</span>~u', $apps, 'My account shows the application with its strongest access (drafts beats read)');
         $this->assertStringNotContainsString('<span class="badge">Strongest</span> <span class="badge">Read only</span>', $apps, 'and not as read only');
         $this->assertStringContainsString('Drafts only – you publish', $admin->get('/admin.php?module=claude')->body, 'the Claude connection says the same');

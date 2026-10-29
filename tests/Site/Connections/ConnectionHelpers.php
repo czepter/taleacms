@@ -65,8 +65,8 @@ trait ConnectionHelpers
     {
         $browser->get('/oauth/authorize?response_type=code&client_id=' . $client . '&redirect_uri=' . self::REDIRECT_URI
             . '&code_challenge=' . $this->pkceChallenge() . '&code_challenge_method=S256&state=' . $state);
-        $csrf = $browser->get('/admin.php?action=oauth')->csrf();
-        $redirect = $browser->post('/admin.php?action=oauth', ['_csrf' => $csrf, 'allow' => '1'] + $consent)->redirect;
+        $page = $browser->get('/admin.php?action=oauth');
+        $redirect = $browser->post('/admin.php?action=oauth', ['_csrf' => $page->csrf(), 'request' => $page->field('request'), 'allow' => '1', 'current_password' => $this->site()->password] + $consent)->redirect;
 
         return preg_match('/code=([a-f0-9]+)/', $redirect, $m) === 1 ? $m[1] : '';
     }

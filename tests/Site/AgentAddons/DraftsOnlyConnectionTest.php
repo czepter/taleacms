@@ -49,6 +49,25 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
         $this->assertSame($before, $this->sq('SELECT SHA2(CONCAT(name, data), 256) FROM tl_collection_items WHERE item_id = ?', [$live]), '3.2: a drafts-only connection cannot change a visible item');
     }
 
+    public function testABlankPublishAtNeverMakesADraftsOnlyItemPublic(): void
+    {
+        $token = $this->draftsToken();
+        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Guard', 'detail' => 1, 'fields' => [['label' => 'Role', 'type' => 'text']]], '/admin.php?module=collections');
+        $visitor = $this->site()->client('guard-visitor');
+
+        foreach ([' ', "\t", "\n"] as $i => $blank) {
+            $text = $this->mcpText('save_collection_item', ['collection' => 'guard', 'name' => 'Blank ' . $i, 'values' => ['role' => 'x'], 'publish_at' => $blank], $token);
+            $id = $this->site()->rowId((string) $this->pick(json_decode($text, true), 'id'));
+            $this->assertSame('0|', $this->sq("SELECT CONCAT(visible, '|', COALESCE(publish_at, '')) FROM tl_collection_items WHERE item_id = ?", [$id]), 'new item, publish_at ' . json_encode($blank) . ': stays hidden');
+            $this->assertSame(404, $visitor->get('/guard/blank-' . $i)->status, 'and is not served to visitors');
+        }
+
+        $existing = $this->site()->publicId('collection_items', (int) $this->sq("SELECT item_id FROM tl_collection_items WHERE name = 'Blank 0'"));
+        $this->mcpText('save_collection_item', ['collection' => 'guard', 'id' => $existing, 'publish_at' => ' '], $token);
+        $this->assertSame('0|', $this->sq("SELECT CONCAT(visible, '|', COALESCE(publish_at, '')) FROM tl_collection_items WHERE name = 'Blank 0'"), 'existing hidden item: stays hidden');
+        $this->assertSame(404, $visitor->get('/guard/blank-0')->status, 'and is not served to visitors');
+    }
+
     public function testEnquiriesOnlyTheTriageAndTheNotebook(): void
     {
         $token = $this->draftsToken();

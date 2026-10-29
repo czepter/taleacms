@@ -1,8 +1,17 @@
 # Uploaded files are only served – never run.
-<FilesMatch "(?i)\.(php\d?|phtml|phar|pl|py|cgi|sh|html?|js)$">
+<FilesMatch "(?i)\.(php\d?|phtml|phar|pl|py|cgi|sh|html?|shtml?|shtm|stm|js)$">
     Require all denied
 </FilesMatch>
-Options -Indexes -ExecCGI
+Options -Indexes -ExecCGI -Includes
+# whatever handler mapping the server has (AddHandler .php, mod_php), nothing in this folder is ever run
+RemoveHandler .php .php3 .php4 .php5 .php7 .php8 .phtml .phar .pht .phps
+RemoveType .php .php3 .php4 .php5 .php7 .php8 .phtml .phar .pht .phps
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
 <IfModule mod_headers.c>
     # browsers must not guess the file type; documents are offered for download instead of opening inside the site – in
     # any case of the extension (LOGO.SVG, route.GPX), as Apache's mod_mime reads it and as docker/Caddyfile matches it

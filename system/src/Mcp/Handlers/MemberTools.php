@@ -69,8 +69,18 @@ trait MemberTools
         $db = $this->app->db();
         $table = ['page' => ['pages', 'page_id'], 'item' => ['collection_items', 'item_id'], 'news' => ['news', 'news_id']][$type];
         $id = (int) ($a['id'] ?? 0);
-        if ($db->value('SELECT 1 FROM {' . $table[0] . '} WHERE ' . $table[1] . ' = ? AND deleted_at IS NULL', [$id]) === null) {
+        $row = $db->one('SELECT * FROM {' . $table[0] . '} WHERE ' . $table[1] . ' = ? AND deleted_at IS NULL', [$id]);
+        if ($row === null) {
             throw new \InvalidArgumentException('The ' . $type . ' does not exist.');
+        }
+        // gating decides who may read the content: same rights as editing it (an author only their own news, visible content only with the publishing permission)
+        $auth = $this->app->auth();
+        if ($type === 'news' && !$auth->canEditArticle($row)) {
+            throw new \DomainException('Only an editor or administrator can gate a published news item, and an author only their own.');
+        }
+        // a hidden item with publish_at goes public by itself, so it counts as visible
+        if ($type !== 'news' && (!empty($row['visible']) || ($row['publish_at'] ?? null) !== null) && !$auth->canPublish()) {
+            throw new \DomainException('Only editors and administrators can change who may read a visible or scheduled ' . $type . '.');
         }
         $groups = array_values(array_filter(array_map('intval', is_array($a['groups'] ?? null) ? $a['groups'] : [])));
         foreach ($groups as $groupId) {

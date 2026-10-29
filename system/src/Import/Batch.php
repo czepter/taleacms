@@ -471,9 +471,8 @@ final class Batch
         if ($old === '' || $old === $new) {
             return 0;
         }
-        Redirects::add($this->db, $old, $new);
 
-        return 1;
+        return Redirects::addImported($this->db, $old, $new) ? 1 : 0;
     }
 
     /* ---------- pass 3: images from the old site ---------- */

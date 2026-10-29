@@ -16,8 +16,9 @@
  * @var list<array<string, mixed>> $apps  apps connected via OAuth (Claude connector)
  * @var string $newToken  token just created (shown only once)
  * @var string $mcpUrl
+ * @var string $tab  the open screen (Admin\Account::TABS): only its forms are shown
  */
-$action = e($app->url('admin.php?action=account'));
+$action = e($app->url('admin.php?action=account&tab=' . $tab));
 ?>
 <?php if ($backupCodes !== []): ?>
 <div class="notice notice-ok">
@@ -26,13 +27,13 @@ $action = e($app->url('admin.php?action=account'));
 </div>
 <?php endif ?>
 
+<?php if ($tab === 'details'): ?>
 <form class="form" method="post" action="<?= $action ?>">
 <?= $csrf ?><input type="hidden" name="op" value="profile">
 <fieldset><legend><?= e(t('My details')) ?></legend>
 <div class="row"><span class="caption"><?= e(t('User name')) ?></span><div><?= e($username['username']) ?> <span class="help"><?= e(t('Changed by an administrator in Users.')) ?></span></div></div>
 <div class="row"><label for="name"><?= e(t('Name')) ?></label><div><input class="textfield wide" type="text" id="name" name="name" value="<?= e($username['name']) ?>" maxlength="100"><span class="help"><?= e(t('Shown with news items on the site.')) ?></span></div></div>
 <div class="row"><label for="email"><?= e(t('Email')) ?></label><input class="textfield wide" type="email" id="email" name="email" value="<?= e($username['email']) ?>" maxlength="190"></div>
-<div class="row"><label for="email-password"><?= e(t('Current password')) ?></label><div><input class="textfield" type="password" id="email-password" name="current_password" size="30" autocomplete="current-password"><span class="help"><?= e(t('Needed only when you change the e-mail – a password reset goes there. The old address gets a notice.')) ?></span></div></div>
 <div class="row"><label for="url"><?= e(t('My website')) ?></label><input class="textfield wide" type="url" id="url" name="url" value="<?= e($username['url']) ?>" maxlength="255" placeholder="https://"></div>
 <div class="row"><label for="position"><?= e(t('Position in the company')) ?></label><input class="textfield wide" type="text" id="position" name="position" value="<?= e($username['position']) ?>" maxlength="100" placeholder="<?= e(t('e.g. head of sales')) ?>"></div>
 <div class="row"><label for="photo"><?= e(t('My photo')) ?></label><div><input class="textfield wide" type="text" id="photo" name="photo" value="<?= e($username['photo']) ?>" maxlength="255" data-image><span class="help"><?= e(t('A square photo, 300 × 300 px is enough.')) ?></span></div></div>
@@ -54,8 +55,18 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <?php endif ?>
 </fieldset>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save details')) ?>"></p>
+<?php // a changed e-mail asks for the current password in this dialog when the form is sent (image/admin.js, data-reauth) ?>
+<dialog class="confirmation reauth" id="email-confirm" data-reauth="email" aria-labelledby="email-confirm-title" aria-describedby="email-confirm-text">
+	<h2 id="email-confirm-title"><?= e(t('Change your e-mail address')) ?></h2>
+	<p class="reauth-text" id="email-confirm-text"><?= str_replace('%s', '<strong data-reauth-value></strong>', e(t('Password resets will go to %s from now on, and the old address gets a notice.'))) ?></p>
+	<label for="email-password"><?= e(t('Current password')) ?></label>
+	<input class="textfield" type="password" id="email-password" name="current_password" autocomplete="current-password">
+	<div><button class="btn" type="submit"><?= e(t('Change e-mail')) ?></button> <button class="navigation" type="button" commandfor="email-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
+</dialog>
 </form>
+<?php endif ?>
 
+<?php if ($tab === 'password'): ?>
 <form class="form" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?><input type="hidden" name="op" value="password">
 <fieldset><legend><?= e(t('Change password')) ?></legend>
@@ -73,6 +84,18 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Change password')) ?>"></p>
 </form>
 
+<?php if ($remembered > 0): ?>
+<form class="form" method="post" action="<?= $action ?>">
+<?= $csrf ?><input type="hidden" name="op" value="remember_end">
+<fieldset><legend><?= e(t('Stay signed in')) ?></legend>
+<p><?= e(t('Other devices where you ticked “Stay signed in”: %d. They sign in again without the password until the 30 days are over.', $remembered)) ?></p>
+<p class="buttons"><button class="navigation danger" type="submit" data-confirm="<?= e(t('End “Stay signed in” on all other devices? They will have to sign in again once their current session ends.')) ?>"><?= e(t('End on all other devices')) ?></button></p>
+</fieldset>
+</form>
+<?php endif ?>
+<?php endif ?>
+
+<?php if ($tab === 'sign-in'): ?>
 <form class="form" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?>
 <fieldset><legend><?= e(t('Two-factor sign-in')) ?></legend>
@@ -95,6 +118,14 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <p><?= e(t('Your account is protected by a password only. With two-factor sign-in, nobody can sign in without your phone – even if they guess or steal the password.')) ?></p>
 <input type="hidden" name="op" value="totp_start">
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Turn on two-factor sign-in')) ?>"></p>
+<?php // the current password is asked for in this dialog when the form is sent (image/admin.js, data-reauth) ?>
+<dialog class="confirmation reauth" id="start-confirm" data-reauth="" aria-labelledby="start-confirm-title" aria-describedby="start-confirm-text">
+	<h2 id="start-confirm-title"><?= e(t('Turn on two-factor sign-in')) ?></h2>
+	<p class="reauth-text" id="start-confirm-text"><?= e(t('This starts the setup of an authenticator app. Confirm with the current password.')) ?></p>
+	<label for="start-password"><?= e(t('Current password')) ?></label>
+	<input class="textfield" type="password" id="start-password" name="current_password" autocomplete="current-password">
+	<div><button class="btn" type="submit"><?= e(t('Turn on two-factor sign-in')) ?></button> <button class="navigation" type="button" commandfor="start-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
+</dialog>
 <?php endif ?>
 </fieldset>
 </form>
@@ -131,18 +162,9 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 </form>
 <script src="<?= e($app->url('image/passkeys.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <?php endif ?>
-
-<?php if ($remembered > 0): ?>
-<form class="form" method="post" action="<?= $action ?>">
-<?= $csrf ?><input type="hidden" name="op" value="remember_end">
-<fieldset><legend><?= e(t('Stay signed in')) ?></legend>
-<p><?= e(t('Other devices where you ticked “Stay signed in”: %d. They sign in again without the password until the 30 days are over.', $remembered)) ?></p>
-<p class="buttons"><button class="navigation danger" type="submit" data-confirm="<?= e(t('End “Stay signed in” on all other devices? They will have to sign in again once their current session ends.')) ?>"><?= e(t('End on all other devices')) ?></button></p>
-</fieldset>
-</form>
 <?php endif ?>
 
-<?php if ($claude): ?>
+<?php if ($claude && $tab === 'claude'): ?>
 <?php // the buttons of the listed connections (switch, disconnect, revoke) belong to this form through their form attribute:
 // the form below then has "Create token" as its only button, so Enter in the token name creates the token ?>
 <form id="claude-connections" method="post" action="<?= $action ?>"><?= $csrf ?></form>
@@ -189,6 +211,14 @@ $toolSetSwitch = fn (string $set, string $target): string => '<button class="nav
 </select><span class="help"><?= e(t('An expired token stops working on its own; you then create a new one. A token nobody uses for %d days is reported in System status.', Talea\Core\SecurityHygiene::CONNECTION_DAYS)) ?></span></div></div>
 <?= $app->view->render('admin/connection-access', ['role' => t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? ''), 'selected' => 'drafts', 'toolSet' => 'all']) ?>
 <p class="buttons"><button class="btn" type="submit" name="op" value="token_new"><?= e(t('Create token')) ?></button></p>
+<?php // the current password is asked for in this dialog when the form is sent (image/admin.js, data-reauth) ?>
+<dialog class="confirmation reauth" id="token-confirm" data-reauth="" aria-labelledby="token-confirm-title" aria-describedby="token-confirm-text">
+	<h2 id="token-confirm-title"><?= e(t('Create a token')) ?></h2>
+	<p class="reauth-text" id="token-confirm-text"><?= e(t('A token gives a connection lasting access to this site. Confirm with the current password.')) ?></p>
+	<label for="token-password"><?= e(t('Current password')) ?></label>
+	<input class="textfield" type="password" id="token-password" name="current_password" autocomplete="current-password">
+	<div><button class="btn" type="submit" name="op" value="token_new"><?= e(t('Create token')) ?></button> <button class="navigation" type="button" commandfor="token-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
+</dialog>
 </fieldset>
 </form>
 <?php endif ?>

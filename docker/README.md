@@ -69,6 +69,7 @@ Each one also has a `_FILE` twin (`TALEA_DB_PASSWORD_FILE=/run/secrets/db`) for 
 | `TALEA_CRON` | on | `0` on every replica but one: the background-job loop must run once |
 | `TALEA_SECRET_KEY` | – | The site's secret, at least 32 characters (`openssl rand -hex 32`): encrypts the connector credentials and signs links, so a database dump alone holds no key. Without it the key stays in the database (System status warns). Keep it with your backups, see docs/DEPLOYMENT.md |
 | `TALEA_MULTISITE` | off | `1` serves several sites of one owner from this install, each on its own domain (docs/specs/multisite.md, docs/DEPLOYMENT.md, "Several sites"). The start refuses while the database holds more than one site and this is off. With `TALEA_SECRET_KEY` set, every further site signs links with a key of its own |
+| `TALEA_TRUSTED_PROXIES` | – | Comma-separated addresses or networks of the reverse proxies whose `X-Forwarded-For` is believed, so limits count the real visitor (docs/DEPLOYMENT.md). Unset = the header is ignored. Do not set it when the port is reachable from untrusted clients |
 | `TALEA_ERROR_DSN` | – | DSN of a Sentry or GlitchTip project: errors of the site, the admin, MCP, jobs and the admin's scripts are reported there, without personal data (docs/DEPLOYMENT.md, "Error tracking"). Test it with `php system/docker.php error-test` |
 | `TALEA_ERROR_ENVIRONMENT` | `production` | The environment the reports carry (`staging`, `test` …) |
 | `TALEA_ERROR_SAMPLE_RATE` | `1` | Share of the error events sent, 0–1 |

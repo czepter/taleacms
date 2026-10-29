@@ -25,7 +25,7 @@ final class ScheduledClaudeRunsTest extends SiteTestCase
         $page = $this->site()->admin()->get('/admin.php?module=schedules');
         $this->assertStringContainsString('get_due_agent_runs', $page->body, 'schedules: the Set up in Claude panel has the routine prompt');
         $this->assertStringContainsString("$base/mcp", $page->body, 'schedules: the panel has the MCP address');
-        $this->assertStringContainsString('/admin/account#claude', $page->body, 'schedules: the panel links the tokens');
+        $this->assertStringContainsString('/admin/account?tab=claude', $page->body, 'schedules: the panel links the tokens');
 
         $csrf = $page->csrf();
         $admin = $this->site()->admin();
@@ -54,6 +54,19 @@ final class ScheduledClaudeRunsTest extends SiteTestCase
 
         $again = $this->mcpData('get_due_agent_runs', [], $token);
         $this->assertSame(self::$run . '|1|running|Claude drafts', $this->pick($again, 'runs', 0, 'id') . '|' . $this->sq("SELECT CONCAT(COUNT(*), '|', MAX(status), '|', MAX(connection)) FROM tl_agent_runs WHERE schedule_id = ?", [self::$schedule]), 'schedules: a second call returns the same open run - one row, running, the connection remembered');
+    }
+
+    public function testAReadOnlyConnectionCannotHandARunOut(): void
+    {
+        // handing out records a running run (and a later missed-run alert depends on it): not a read
+        $admin = $this->site()->admin();
+        $csrf = $admin->get('/admin.php?action=account')->csrf();
+        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'current_password' => $this->site()->password, 'name' => 'Claude read', 'access' => 'read']);
+        preg_match('/talea_[a-f0-9]{48}/', $created->body, $m);
+        $before = $this->sq('SELECT COUNT(*) FROM tl_agent_runs');
+        $this->assertStringContainsString('can only read the site', $this->mcpRawText('get_due_agent_runs', [], $m[0]), 'schedules: a read-only connection is refused');
+        $this->mcpRawText('run_read_tool', ['tool' => 'get_due_agent_runs', 'arguments' => new \stdClass()], $m[0]);
+        $this->assertSame($before, $this->sq('SELECT COUNT(*) FROM tl_agent_runs'), 'schedules: neither call recorded a run');
     }
 
     public function testTheRunIsReportedOnceAndTheScheduleMovesOn(): void

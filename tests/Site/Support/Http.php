@@ -38,6 +38,20 @@ final class Http
         return $cookies;
     }
 
+    /** Puts a cookie into the jar of this browser, as if the site had set it. */
+    public function setCookie(string $name, string $value): void
+    {
+        $host = (string) parse_url($this->base, PHP_URL_HOST);
+        file_put_contents($this->jar, "{$host}\tFALSE\t/\tFALSE\t" . (time() + 86400) . "\t{$name}\t{$value}\n", FILE_APPEND);
+    }
+
+    /** Removes a cookie from the jar of this browser. */
+    public function dropCookie(string $name): void
+    {
+        $lines = is_file($this->jar) ? file($this->jar, FILE_IGNORE_NEW_LINES) : [];
+        file_put_contents($this->jar, implode("\n", array_filter($lines, static fn (string $line): bool => !str_contains($line, "\t{$name}\t"))) . "\n");
+    }
+
     /** The PHP session id of this browser ('' before the first page). */
     public function sessionId(): string
     {

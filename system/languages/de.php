@@ -771,6 +771,7 @@ Der Link gilt %d Tage.
     'Sign out' => 'Abmelden',
     'Sign-in to the administration – only after signing in, never for visitors' => 'Anmeldung in der Verwaltung – nur nach dem Anmelden, nie für Besucher',
     'Sign-in to the administration: "Stay signed in" – only when a user ticks it, never for visitors' => 'Anmeldung in der Verwaltung: „Angemeldet bleiben“ – nur wenn ein Benutzer es ankreuzt, nie für Besucher',
+    'Sign-in to the administration: recognises a browser that signed in before, so a locked account still opens for its owner – only after a sign-in, never for visitors' => 'Anmeldung in der Verwaltung: erkennt einen Browser, der sich schon einmal angemeldet hat, damit sich ein gesperrtes Konto für seinen Inhaber weiterhin öffnen lässt – nur nach dem Anmelden, nie für Besucher',
     'Signpost' => 'Wegweiser',
     'Skip' => 'Überspringen',
     'Skip to content' => 'Zum Inhalt springen',

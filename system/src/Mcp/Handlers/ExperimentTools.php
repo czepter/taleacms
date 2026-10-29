@@ -34,7 +34,7 @@ trait ExperimentTools
             throw new \InvalidArgumentException($x);
         }
         if (!empty($a['start'])) {
-            $problem = Experiments::start($this->app->db(), $x);
+            $problem = Experiments::start($this->app->db(), $x, $this->app->auth()->canPublish());
             if ($problem !== null) {
                 throw new \DomainException('The experiment was created but did not start: ' . $problem . ' (id ' . $this->pid('experiments', (int) $x['experiment_id']) . ')');
             }
@@ -62,7 +62,7 @@ trait ExperimentTools
         $x = $this->experimentRow($a);
         $action = (string) ($a['action'] ?? '');
         $problem = match ($action) {
-            'start' => Experiments::start($db, $x),
+            'start' => Experiments::start($db, $x, $this->app->auth()->canPublish()),
             'stop' => (function () use ($db, $x): ?string {
                 Experiments::stop($db, $x);
 

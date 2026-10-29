@@ -812,8 +812,7 @@ final class WpImport
         $count = 0;
         foreach (array_unique([self::oldPath($p['link']), $p['id'] > 0 ? '?p=' . (int) $p['id'] : '']) as $old) {
             if ($old !== '' && $old !== $newVersion) {
-                Redirects::add($this->db, $old, $newVersion);
-                $count++;
+                $count += Redirects::addImported($this->db, $old, $newVersion) ? 1 : 0;
             }
         }
 
