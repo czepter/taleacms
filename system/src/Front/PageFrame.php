@@ -225,7 +225,7 @@ final class PageFrame
         }
         $parts = ['header' => $render('header'), 'footer' => $render('footer')];
         // on a page's canvas the site header and footer (a part or the built-in one) are marked by two comments with the address
-        // of their builder: the canvas overlay (image/builder-overlay.js) offers "Edit site header" on hover; the layout is not touched
+        // of their builder: the canvas overlay (image/builder/overlay.js) offers "Edit site header" on hover; the layout is not touched
         if ($editor && $preview === '' && $this->app->auth()->hasModule('parts')) {
             foreach (['header', 'footer'] as $type) {
                 $variant = \Talea\Builder\SiteParts::pageVariant($db, $type, $language, $ids);
