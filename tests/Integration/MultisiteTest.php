@@ -137,6 +137,15 @@ final class MultisiteTest extends DatabaseTestCase
         } finally {
             @unlink($staged);
             @unlink(TALEA_ROOT . '/' . $path);
+            // remove the folders the test created, bottom-up; rmdir leaves non-empty ones alone
+            $folder = dirname($staged);
+            for ($i = 0; $i < 3; $i++, $folder = dirname($folder)) {
+                @rmdir($folder);
+            }
+            @rmdir(MediaStaging::root(true));
+            $folder = dirname(TALEA_ROOT . '/' . $path);
+            @rmdir($folder);
+            @rmdir(dirname($folder));
         }
     }
 
@@ -157,6 +166,7 @@ final class MultisiteTest extends DatabaseTestCase
             $this->assertSame('two', $site->value('SELECT value FROM {settings} WHERE name = ?', ['multisite_backup']));
             $this->assertSame(['tl_', 'tl2_'], Sites::prefixes($this->db()));
         } finally {
+            set_time_limit(0); // Backup::restore() set a 300 s limit on this process; the worker runs more test classes after this one
             @unlink(Backup::FOLDER . '/' . $file);
         }
     }
