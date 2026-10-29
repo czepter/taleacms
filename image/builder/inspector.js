@@ -160,7 +160,53 @@ function valueField(p) {
 	return wrapper;
 }
 
+/** A placed form (Elements\FormEmbed): open the form in the form builder, or make a new one; the way back leads to this builder. */
+function openForm(p, isNew) {
+	const back = window.location.pathname + window.location.search; // the forms module only takes an address of this administration
+	const url = D.urls.admin + '/forms/' + (isNew ? 'new' : 'builder/' + p.content.form) + '?back=' + encodeURIComponent(back);
+	save().then((ok) => { if (ok) { window.location.href = url; } });
+}
+
+/**
+ * The width of each field of the placed form on this page, in columns of six (full, two thirds, half, one third). The order is the
+ * form's; the rows show where a field shares a line and how much of a line is left free.
+ */
+function formWidthsField(def, value, change, p) {
+	const wrapper = el('div', { class: 'bd-field' }, el('span', {}, T(def.label)));
+	const form = (D.forms || []).find((f) => f.id === p.content.form);
+	if (!form) { wrapper.append(el('p', { class: 'bd-empty' }, T('Choose a form first.'))); return wrapper; }
+	const widths = Object.assign({}, value && !Array.isArray(value) ? value : {});
+	const names = { 6: T('Full width'), 4: T('Two thirds'), 3: T('Half'), 2: T('One third') };
+	const free = { 1: T('one sixth free'), 2: T('one third free'), 3: T('half free'), 4: T('two thirds free') };
+	const set = (key, span) => { if (span === 6) { delete widths[key]; } else { widths[key] = span; } change(Object.assign({}, widths)); redrawRight(); };
+	const list = el('div', { class: 'bd-form-widths' });
+	let used = 6;
+	let row = null;
+	const close = () => { if (row && used < 6) { row.append(el('small', { class: 'bd-field-note' }, free[6 - used])); } };
+	form.fields.forEach((f) => {
+		if (f.type === 'step') { close(); row = null; used = 6; list.append(el('strong', { class: 'bd-form-step' }, f.label || T('New step'))); return; }
+		const span = widths[f.key] || 6;
+		if (!row || used + span > 6) { close(); row = el('div', { class: 'bd-form-row' }); list.append(row); used = 0; }
+		used += span;
+		row.append(el('label', { class: 'bd-form-width' }, el('span', {}, f.label || T('(no label)')),
+			el('select', { 'aria-label': T('Width of %s').replace('%s', f.label || ''), onchange: (e) => set(f.key, parseInt(e.target.value, 10)) },
+				Object.entries(names).reverse().map(([k, v]) => el('option', { value: k, selected: Number(k) === span }, v)))));
+	});
+	close();
+	wrapper.append(list, el('p', { class: 'bd-field-note' }, T('The order comes from the form. Phones show every field at full width.')),
+		Object.keys(widths).length ? el('button', { type: 'button', class: 'bd-btn', onclick: () => { Object.keys(widths).forEach((k) => delete widths[k]); change({}); redrawRight(); } }, T('All full width')) : '');
+	return wrapper;
+}
+
 function contentPanel(panel, p, s) {
+	if (p.type === 'form_embed' && D.urls.form) {
+		const form = (D.forms || []).find((f) => f.id === p.content.form);
+		panel.append(el('div', { class: 'bd-component-card bd-form-card' },
+			el('p', {}, form ? (form.published ? T('Fields, e-mails and spam protection are set in the form and apply wherever it is placed.') : T('This form has not been published yet – visitors see nothing here.'))
+				: T('Choose a form below, or make a new one.')),
+			form ? el('button', { type: 'button', class: 'bd-btn bd-btn-main', onclick: () => openForm(p, false) }, icon('edit'), T('Edit form')) : null,
+			el('button', { type: 'button', class: 'bd-btn', onclick: () => openForm(p, true) }, icon('plus'), T('New form'))));
+	}
 	if (p.type === 'component') {
 		if (p.content.component && D.urls.component) {
 			panel.append(el('div', { class: 'bd-component-card' },
@@ -244,6 +290,8 @@ function field(def, value, change, options) {
 			return structuredField(def, value, change, { page: D.page });
 		case 'form_logic': // rules and results of a form: a summary and the button of the logic overlay (form-logic.js)
 			return options && options.element ? formLogicField(def, value, change, { element: options.element }) : wrapper;
+		case 'form_widths': // the widths of a placed form's fields on this page
+			return options && options.element ? formWidthsField(def, value, change, options.element) : wrapper;
 		case 'items':
 			return itemField(def, Array.isArray(value) ? value : [], change, options);
 		default:

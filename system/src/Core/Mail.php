@@ -168,8 +168,10 @@ final class Mail
 
             return false;
         }
-        unset($headers['Bcc']);
-        $name = $siteSettings->get('mail_from_name') !== '' ? $siteSettings->get('mail_from_name') : $siteSettings->get('site_name');
+        // From-Name: the sender name of this message only (a form's thank-you e-mail); the address stays the site's, so it is not taken for spam
+        $ownName = trim((string) preg_replace('/[\x00-\x1F\x7F"<>]+/u', ' ', (string) ($headers['From-Name'] ?? '')));
+        unset($headers['Bcc'], $headers['From-Name']);
+        $name = $ownName !== '' ? mb_substr($ownName, 0, 120) : ($siteSettings->get('mail_from_name') !== '' ? $siteSettings->get('mail_from_name') : $siteSettings->get('site_name'));
         $h = ['From' => self::mailbox($name, $from), 'MIME-Version' => '1.0'] + $headers;
         if ($siteSettings->get('mail_reply_to') !== '') {
             $h['Reply-To'] ??= self::mailbox($siteSettings->get('mail_reply_to_name'), $siteSettings->get('mail_reply_to')); // a form's own Reply-To (the visitor) wins

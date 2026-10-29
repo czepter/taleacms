@@ -31,18 +31,15 @@ use Talea\Builder\Style;
 final class SiteImport
 {
     /** Tables in the order of import (a folder before media, a collection before its items). */
-    public const array TABLES = ['categories', 'tags', 'popups', 'pages', 'news', 'redirects', 'classes', 'site_parts', 'components', 'sections', 'menus',
+    public const array TABLES = ['categories', 'tags', 'popups', 'pages', 'news', 'redirects', 'classes', 'site_parts', 'components', 'forms', 'sections', 'menus',
         'collections', 'collection_templates', 'collection_items', 'document_versions', 'media_folders', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook',
         'booking_services', 'booking_staff', 'booking_staff_services', 'booking_hours', 'booking_off'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['news_tags', 'news_revisions', 'news_drafts', 'page_revisions', 'build_revisions', 'media_usage', 'broken_links',
-        'collection_items', 'collection_templates', 'collections', 'news', 'categories', 'tags', 'pages', 'redirects', 'classes', 'site_parts', 'components', 'sections',
+        'collection_items', 'collection_templates', 'collections', 'news', 'categories', 'tags', 'pages', 'redirects', 'classes', 'site_parts', 'components', 'forms', 'sections',
         'menus', 'popups', 'media', 'media_folders', 'import_map', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads', 'notice_log', 'blueprints', 'notebook', 'draft_comments',
         'booking_staff_services', 'booking_hours', 'booking_off', 'booking_staff', 'booking_services']; // the bookings themselves stay: personal data of this site's customers
-
-    /** Files that may come from the archive into media/ (images and the attachments Media accepts). */
-    private const array MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'ico'];
 
     private const int BATCH = 300;
     private const int MEDIA_BATCH = 100;
@@ -213,7 +210,7 @@ final class SiteImport
             fclose($out);
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $name = (string) $zip->getNameIndex($i);
-                $target = self::archiveTarget($zip, $name);
+                $target = ArchiveMedia::target($zip, $name);
                 if ($target !== null) {
                     $mediaCount++;
                     if ($target !== $name) {
@@ -248,7 +245,7 @@ final class SiteImport
      * content.json as written by SiteExport has one row per line – read as a stream. Any other layout (e.g. formatted by hand)
      * is read whole, when it is not too large.
      *
-     * @param array<string, string> $renamed media saved under another name (archive name => saved name, archiveTarget())
+     * @param array<string, string> $renamed media saved under another name (archive name => saved name, ArchiveMedia::target())
      * @return array{0: array<string, mixed>, 1: array<string, int>} header with settings, rows per table
      */
     private static function split(string $json, string $work, array $renamed = []): array
@@ -260,7 +257,7 @@ final class SiteImport
             if (!in_array($table, self::TABLES, true)) {
                 return;
             }
-            $row = self::renameMedia($row, $renamed);
+            $row = ArchiveMedia::rename($row, $renamed);
             $parts[$table] ??= fopen($work . '/' . $table . '.ndjson', 'wb');
             fwrite($parts[$table], json_encode($row, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) . "\n");
             $counts[$table] = ($counts[$table] ?? 0) + 1;
@@ -317,7 +314,7 @@ final class SiteImport
         }
         file_put_contents($work . '/ids.json', (string) json_encode($ids === [] ? new \stdClass() : $ids));
         if (is_array($header['settings'] ?? null)) {
-            file_put_contents($work . '/settings.json', (string) json_encode(self::renameMedia($header['settings'], $renamed), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            file_put_contents($work . '/settings.json', (string) json_encode(ArchiveMedia::rename($header['settings'], $renamed), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
 
         return [is_array($header) ? $header : [], $counts];
@@ -406,6 +403,7 @@ final class SiteImport
             'classes' => $this->sharedClass($r),
             'site_parts' => $this->sitePart($r),
             'components' => $this->component($r),
+            'forms' => $this->formRow($r),
             'sections' => $this->section($r),
             'menus' => $this->menu($r),
             'collections' => $this->collection($r),
@@ -781,6 +779,16 @@ final class SiteImport
             'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
     }
 
+    /** A form (docs/specs/form-builder.md): its build is its one Form element, through the same validator as every build. */
+    private function formRow(array $r): ?array
+    {
+        $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 120);
+        $form = fn (?string $json): ?string => $json === null ? null : Build::toJson(\Talea\Builder\FormRecords::definitionBuild(Build::fromJson($json)));
+
+        return $name !== '' ? ['form_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'build' => $form($this->build($r['build'] ?? null)),
+            'build_draft' => $form($this->build($r['build_draft'] ?? null)), 'origin' => '', 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')] : null;
+    }
+
     /** The key a component or section got from a fleet design kit (2.16, Fleet\Kit) – kept, so the next kit updates it instead of adding a copy. */
     private static function kitKey(mixed $v): ?string
     {
@@ -957,7 +965,7 @@ final class SiteImport
         while ($state['media_position'] < $total && $done < self::MEDIA_BATCH && microtime(true) - $start < self::SECONDS) {
             $name = (string) $zip->getNameIndex((int) $state['media_position']);
             $state['media_position']++;
-            $target = self::archiveTarget($zip, $name);
+            $target = ArchiveMedia::target($zip, $name);
             if ($target === null) {
                 continue;
             }
@@ -979,7 +987,7 @@ final class SiteImport
                         fclose($handle);
                     }
                 }
-                $ok = $ok && self::contentMatches($temporary, $target) && @rename($temporary, $full);
+                $ok = $ok && ArchiveMedia::contentMatches($temporary, $target) && @rename($temporary, $full);
                 @unlink($temporary);
             }
             if (!$ok) {
@@ -996,73 +1004,6 @@ final class SiteImport
             $state['phase'] = 'done';
             $this->finish();
         }
-    }
-
-    /**
-     * Where a file from the archive goes; null = it does not belong in media/ or its type is not allowed. The extensions are
-     * written in lower case, as Media writes them (photo.JPG → photo.jpg): the header rules of the server then always match.
-     */
-    public static function mediaTarget(string $name): ?string
-    {
-        if (!preg_match('#^media/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_][A-Za-z0-9_.-]*$#', $name) || str_contains($name, '..')) {
-            return null;
-        }
-        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        $base = basename($name);
-        $dot = (int) strpos($base, '.');
-
-        return in_array($extension, [...self::MEDIA_EXTENSIONS, ...Files::FILE_EXTENSIONS], true) ? substr($name, 0, strlen($name) - strlen($base) + $dot) . strtolower(substr($base, $dot)) : null;
-    }
-
-    /** mediaTarget() for an entry of this archive; a name whose lower-case twin is in the archive too is left out (the twin is the file). */
-    private static function archiveTarget(\ZipArchive $zip, string $name): ?string
-    {
-        $target = self::mediaTarget($name);
-
-        return $target === null || ($target !== $name && $zip->locateName($target) !== false) ? null : $target;
-    }
-
-    /**
-     * The content points at the media under their names in the archive; a file saved under another name (mediaTarget) is
-     * renamed in every text of the row, as a plain path and in its JSON-escaped form (media\/…) inside a build.
-     *
-     * @param array<mixed> $row
-     * @param array<string, string> $renamed archive name => saved name
-     * @return array<mixed>
-     */
-    public static function renameMedia(array $row, array $renamed): array
-    {
-        if ($renamed === []) {
-            return $row;
-        }
-        $pairs = [];
-        foreach ($renamed as $from => $to) {
-            $pairs[$from] = $to;
-            $pairs[str_replace('/', '\\/', $from)] = str_replace('/', '\\/', $to);
-        }
-        array_walk_recursive($row, function (mixed &$value) use ($pairs): void {
-            if (is_string($value) && str_contains($value, 'media')) {
-                $value = strtr($value, $pairs);
-            }
-        });
-
-        return $row;
-    }
-
-    /**
-     * Is the file what its extension says? An image must be a raster image (JPG, PNG, GIF, WebP, AVIF or ICO), any other
-     * file must not be HTML, PHP, a script, SVG or a program (Files::forbiddenContent, as for an upload). SVG is cleaned
-     * by Svg::sanitize instead.
-     */
-    public static function contentMatches(string $path, string $target): bool
-    {
-        if (in_array(strtolower(pathinfo($target, PATHINFO_EXTENSION)), self::MEDIA_EXTENSIONS, true)) {
-            $info = @getimagesize($path);
-
-            return $info !== false && in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP, IMAGETYPE_AVIF, IMAGETYPE_ICO], true);
-        }
-
-        return !Files::forbiddenContent($path);
     }
 
     /** After the import: the search index, the cache and the working files. */
