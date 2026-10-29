@@ -214,4 +214,5 @@ and size/time limits, never SVG.
 - Run CI tests against a single database engine instead of both MariaDB and MySQL, since they are considered equivalent.
 - In this project's German UI text, use the term 'AI' instead of 'KI' for the AI assistant.
 - Use prebuilt images instead of build context in the Coolify compose file and all other compose files.
+- Name branches `<type>/<short-topic>` in kebab-case (feat/, fix/, refactor/, perf/, docs/, test/, ci/, chore/), never `claude/<random>`; rename an app-created `claude/<slug>-<hash>` worktree branch with `git branch -m` before the first commit or push.
 <!-- end claude-reflect -->
