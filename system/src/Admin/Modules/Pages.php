@@ -26,9 +26,6 @@ final class Pages extends Module
     public const string GROUP = 'Website';
     public const string ICON = 'pages';
 
-    /** Slugs that belong to the system and a page cannot have. */
-    public const array RESERVED_SLUGS = ['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'health', 'tasks', 'consent', 'form', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og', 'member'];
-
     /** Pages in the trash last this many days, then they are deleted permanently (like news). */
     public const int TRASH_DAYS = 30;
 
@@ -723,7 +720,7 @@ final class Pages extends Module
         }
         $scope = \Talea\Core\Slug::scope($this->db, $data['language']);
         // a kept address is not checked again: the save does not change it
-        if (!$keepPlace && $parent === null && (in_array($data['slug'], self::RESERVED_SLUGS, true) || isset(\Talea\Core\Language::AVAILABLE[$data['slug']]) || \Talea\Core\Routes::isNewsSlug($data['slug'], $this->db))) {
+        if (!$keepPlace && $parent === null && (in_array($data['slug'], \Talea\Front\Kernel::reservedSlugs(), true) || isset(\Talea\Core\Language::AVAILABLE[$data['slug']]) || \Talea\Core\Routes::isNewsSlug($data['slug'], $this->db))) {
             $errors['slug'] = 'This URL is used by the system, choose another one.';
         } elseif (!$keepPlace && ($other = $this->db->one('SELECT page_id, deleted_at FROM {pages} WHERE slug = ? AND page_id <> ?' . $scope[0], [$data['slug'], $id, ...$scope[1]])) !== null) {
             $errors['slug'] = $other['deleted_at'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';

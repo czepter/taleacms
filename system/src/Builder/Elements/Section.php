@@ -54,7 +54,7 @@ final class Section extends Element
     }
 
     /**
-     * A Compose section (Build::css adds it only when a page has one): 12 fixed columns and a fixed row unit, the children placed by grid lines.
+     * A Compose section (Renderer::css adds it only when a page has one): 12 fixed columns and a fixed row unit, the children placed by grid lines.
      * An unplaced child spans the whole width (it behaves like a stack). On a smaller screen the content is a plain column in source order,
      * so the reading order is the DOM order; "phone only" keeps the grid on a tablet, where the tablet state of the children places them.
      */
@@ -67,7 +67,7 @@ final class Section extends Element
     }
 
     /**
-     * The header on scroll (Build::css adds it only when a header uses it). A keyframe with only „from“ (or only „to“) animates to
+     * The header on scroll (Renderer::css adds it only when a header uses it). A keyframe with only „from“ (or only „to“) animates to
      * the header's own style – its background, border and shadow stay whatever the style says; the defaults below apply when the
      * style has none. A browser without scroll-driven animations finishes the animation at once, so it simply shows the solid header;
      * so does a visitor who asked for less motion.
