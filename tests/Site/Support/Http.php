@@ -105,7 +105,9 @@ final class Http
             CURLOPT_HEADERFUNCTION => function ($ch, string $line) use (&$responseHeaders): int {
                 if (str_contains($line, ':')) {
                     [$k, $v] = explode(':', $line, 2);
-                    $responseHeaders[strtolower(trim($k))] = trim($v);
+                    $k = strtolower(trim($k));
+                    // several cookies in one response (session and known device): every Set-Cookie line is kept, one per line
+                    $responseHeaders[$k] = $k === 'set-cookie' && isset($responseHeaders[$k]) ? $responseHeaders[$k] . "\n" . trim($v) : trim($v);
                 }
 
                 return strlen($line);
