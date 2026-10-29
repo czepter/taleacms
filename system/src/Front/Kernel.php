@@ -287,12 +287,13 @@ final class Kernel
 
             return new Response('', 204);
         }
-        if ($path === '/form-step' && $request->isPost()) {
-            // drop-off counters of multi-step forms: which step was reached, without cookies and without data about the visitor
+        if ($path === '/form-step' && $request->isPost() && Extensions::isEnabled($this->app->settings(), 'enquiries')) {
+            // drop-off counters of multi-step forms: which step was reached, without cookies and without data about the visitor;
+            // the per-IP limit comes first, before the published build is read
             $antispam = new \Talea\Core\Antispam($this->app->db(), $this->app->settings());
-            $source = Forms::internalSource($this->app->db(), $request->post('source'));
             $step = $request->postInt('step');
-            if ($source !== '' && preg_match('/^[a-z0-9]{3,16}$/', $request->post('element')) && $step >= 1 && $step <= FormSteps::MAX_STEP && $step <= FormSteps::stepCount($this->app->db(), $source, $request->post('element')) && $antispam->count($request->ip(), 'form_step', 0, 60) < 120) {
+            if ($step >= 1 && $step <= FormSteps::MAX_STEP && preg_match('/^[a-z0-9]{3,16}$/', $request->post('element')) && $antispam->count($request->ip(), 'form_step', 0, 60) < 120
+                && ($source = Forms::internalSource($this->app->db(), $request->post('source'))) !== '' && $step <= FormSteps::stepCount($this->app->db(), $source, $request->post('element'))) {
                 $antispam->write($request->ip(), 'form_step', 0);
                 FormSteps::record($this->app->db(), $source, $request->post('element'), $step);
             }

@@ -17,6 +17,16 @@ final class FormLogicTest extends TestCase
         $this->assertSame(1.5, FormLogic::value(['type' => 'number'], '1,5'));
     }
 
+    public function testSliderIsHeldWithinItsBounds(): void
+    {
+        // a crafted post cannot push a slider past its ends; a bound that is not set does not hold
+        $slider = ['type' => 'number', 'display' => 'slider', 'min' => '1', 'max' => '10'];
+        $this->assertSame([1.0, 10.0, 4.0, -5.0, 500.0], [FormLogic::value($slider, '-1000'), FormLogic::value($slider, '1e9'), FormLogic::value($slider, '4'),
+            FormLogic::value(['display' => 'slider', 'max' => '10'] + ['type' => 'number'], '-5'), FormLogic::value(['type' => 'number'], '500')]);
+        $r = FormLogic::evaluate(['fields' => [['key' => 'ka000', 'label' => 'N', 'unit_price' => '2'] + $slider]], [0 => '-1000']);
+        $this->assertSame(2.0, $r['total'], 'the estimate counts the held value');
+    }
+
     public function testOperators(): void
     {
         $radio = ['type' => 'radio'];
@@ -63,6 +73,17 @@ final class FormLogicTest extends TestCase
         $this->assertNotEmpty($errors);
         $this->assertTrue($logic['rules'][0]['broken']);
         $this->assertTrue(FormLogic::visible($fields, FormLogic::rules(['fields' => $fields, 'logic' => $logic]), [0 => 'East'])[1]);
+    }
+
+    public function testRuleOnAFileUploadIsReportedAndInert(): void
+    {
+        // the browser sees a file name, the server no answer: a condition on an upload would make the two disagree
+        $errors = [];
+        $fields = [['key' => 'ka000', 'type' => 'file'], ['key' => 'kb000', 'type' => 'text']];
+        $logic = FormLogic::sanitize(['rules' => [['match' => 'all', 'when' => [['field' => 'ka000', 'op' => 'not_empty']], 'then' => [['do' => 'skip', 'field' => 'kb000']]]]], $fields, 'x', $errors);
+        $this->assertStringContainsString('file upload', $errors['x.rules.0.when'] ?? '');
+        $this->assertTrue($logic['rules'][0]['broken']);
+        $this->assertSame([], FormLogic::rules(['fields' => $fields, 'logic' => $logic]));
     }
 
     public function testRulesMayOnlyLookBack(): void

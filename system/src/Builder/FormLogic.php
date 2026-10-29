@@ -59,6 +59,11 @@ final class FormLogic
                     $key = preg_match('/^k[a-z0-9]{4}$/', $key) === 1 ? $key : '';
                     $op = in_array($op, self::OPERATORS, true) ? $op : '';
                 }
+                if ($known && ($fields[$position[$key]]['type'] ?? '') === 'file') {
+                    // the browser sees a file's name, the server nothing (the upload is not an answer): the two would disagree
+                    $broken = true;
+                    $errors[$at . '.when'] = 'A condition asks about a file upload, which rules cannot read; the rule does nothing until you fix it.';
+                }
                 $one = ['field' => $key, 'op' => $op];
                 if (!in_array($op, ['empty', 'not_empty'], true)) {
                     $value = is_scalar($c['value'] ?? null) ? trim((string) $c['value']) : '';
@@ -258,7 +263,10 @@ final class FormLogic
         return $rules;
     }
 
-    /** The numeric value of an answer: a number (comma decimal allowed) or the hours of a time range (past midnight wraps); null otherwise. */
+    /**
+     * The numeric value of an answer: a number (comma decimal allowed) or the hours of a time range (past midnight wraps); null
+     * otherwise. A slider's number is held within its min and max (those that are set), as the browser holds it.
+     */
     public static function value(array $field, string|array $answer): ?float
     {
         if (is_array($answer)) {
@@ -274,8 +282,20 @@ final class FormLogic
             return (float) ($minutes < 0 ? $minutes + 1440 : $minutes) / 60;
         }
         $answer = str_replace(',', '.', $answer);
+        if (!is_numeric($answer)) {
+            return null;
+        }
+        $number = (float) $answer;
+        if (($field['type'] ?? '') === 'number' && ($field['display'] ?? '') === 'slider') {
+            if (trim((string) ($field['min'] ?? '')) !== '') {
+                $number = max($number, Elements\Form::price($field['min']));
+            }
+            if (trim((string) ($field['max'] ?? '')) !== '') {
+                $number = min($number, Elements\Form::price($field['max']));
+            }
+        }
 
-        return is_numeric($answer) ? (float) $answer : null;
+        return $number;
     }
 
     public static function holds(array $condition, array $field, string|array $answer): bool

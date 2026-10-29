@@ -75,6 +75,22 @@ final class FormStepsTest extends SiteTestCase
     }
 
     #[Depends('testBeaconCountsStepsWithoutACookie')]
+    public function testBeaconIsOffWithEnquiries(): void
+    {
+        // like POST /form: with the Enquiries feature switched off the counter does not exist
+        $site = $this->site();
+        $extensions = $site->settingValue('extensions');
+        $before = (int) $site->value('SELECT COALESCE(SUM(reached), 0) FROM tl_form_steps');
+        $site->setting('extensions', implode(',', array_diff(explode(',', $extensions), ['enquiries'])));
+        try {
+            $this->assertNotSame(204, $site->client()->post('/form-step', ['source' => self::$source, 'element' => self::$element, 'step' => '1'])->status);
+            $this->assertSame($before, (int) $site->value('SELECT COALESCE(SUM(reached), 0) FROM tl_form_steps'), 'nothing is counted');
+        } finally {
+            $site->setting('extensions', $extensions);
+        }
+    }
+
+    #[Depends('testBeaconCountsStepsWithoutACookie')]
     public function testAdminDetailShowsTheStepsAndTheBiggestDrop(): void
     {
         $url = '/admin.php?module=forms&action=detail&source=' . rawurlencode(self::$source) . '&element=' . self::$element;

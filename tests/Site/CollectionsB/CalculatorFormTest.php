@@ -24,6 +24,7 @@ final class CalculatorFormTest extends SiteTestCase
             ['label' => 'Door colour', 'type' => 'select', 'required' => true, 'options' => "White\nOak | 3000", 'show_when_field' => 'Type', 'show_when_value' => 'Doors'],
             ['label' => 'Email', 'type' => 'email', 'required' => true],
             ['label' => 'Estimate', 'type' => 'estimate', 'base_price' => '500', 'currency' => '$'],
+            ['label' => 'Second estimate', 'type' => 'estimate', 'base_price' => '1'], // only the first one is the result that is stored
         ]]]]]]]]);
         $site->clearPageCache();
 
@@ -49,6 +50,6 @@ final class CalculatorFormTest extends SiteTestCase
         $this->assertStringContainsString('result=ok', $redirect, 'conditions: a hidden required field does not block the form');
 
         $stored = json_decode((string) $site->value('SELECT data FROM tl_enquiries ORDER BY enquiry_id DESC LIMIT 1'), true);
-        $this->assertSame('Type=Windows|Count=4|Email=o@example.com|Estimate=7,700 $|Breakdown=Base price: +500 $' . "\nWindows: +1,200 $\nCount: +6,000 $", implode('|', array_map(fn ($r) => $r[0] . '=' . str_replace("\u{a0}", ' ', $r[1]), $stored)), 'calculator: the server computes the estimate and drops the hidden answer and adds the breakdown');
+        $this->assertSame('Type=Windows|Count=4|Email=o@example.com|Estimate=7,700 $|Breakdown=Base price: +500 $' . "\nWindows: +1,200 $\nCount: +6,000 $", implode('|', array_map(fn ($r) => $r[0] . '=' . str_replace("\u{a0}", ' ', $r[1]), $stored)), 'calculator: the server computes the estimate and drops the hidden answer and adds the breakdown, once for the first estimate field');
     }
 }

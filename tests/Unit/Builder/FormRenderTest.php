@@ -90,6 +90,16 @@ final class FormRenderTest extends TestCase
         $this->assertStringContainsString('tl-tiles', $html);
     }
 
+    public function testTileMediaFollowsTheOptionLine(): void
+    {
+        // a repeated label is one option; the next option still gets the picture on its own line
+        $html = $this->renderForm(['fields' => [['label' => 'Where', 'type' => 'radio', 'display' => 'image_tiles', 'choices' => "Barn | 100\nBarn | 100\nCastle | 200", 'option_media' => "media/a.webp\nmedia/b.webp\nmedia/c.webp"]]]);
+        $this->assertSame(2, substr_count($html, 'type="radio"'));
+        $this->assertMatchesRegularExpression('/value="Barn"[^>]*><span class="tl-tile-media"><img src="[^"]*a\.webp"/', $html);
+        $this->assertMatchesRegularExpression('/value="Castle"[^>]*><span class="tl-tile-media"><img src="[^"]*c\.webp"/', $html);
+        $this->assertStringNotContainsString('b.webp', $html);
+    }
+
     public function testTimeRangeHasTwoTimeInputs(): void
     {
         $html = $this->renderForm(['fields' => [['label' => 'When', 'type' => 'timerange', 'required' => true]]]);

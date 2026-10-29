@@ -455,12 +455,21 @@ final class Form extends Element
             $display = (string) ($field['display'] ?? 'list');
             $tiles = in_array($display, ['image_tiles', 'icon_tiles'], true);
             $media = explode("\n", (string) ($field['option_media'] ?? ''));
+            // an option's image or icon has the same line number as the option (its first line when a label repeats)
+            $choices = $multiple ? 'checkbox_options' : 'choices';
+            $line = [];
+            foreach (explode("\n", (string) ($field[$choices] ?? '')) as $n => $text) {
+                $label = array_key_first(self::optionPrices(['type' => $field['type'], $choices => $text]));
+                if ($label !== null) {
+                    $line += [(string) $label => $n];
+                }
+            }
             $options = '';
             $j = 0;
             foreach (self::optionPrices($field) as $m => $price) {
                 $picture = '';
                 if ($tiles) {
-                    $source = trim($media[$j] ?? '');
+                    $source = trim($media[$line[(string) $m] ?? $j] ?? '');
                     $picture = match (true) {
                         $display === 'image_tiles' && preg_match(Build::IMAGE_PATTERN, $source) === 1 => '<span class="tl-tile-media"><img src="' . e($k?->image($source) ?? $source) . '" alt="" loading="lazy"></span>',
                         $display === 'icon_tiles' && isset(\Talea\Builder\Icons::SET[$source]) => '<span class="tl-tile-media">' . \Talea\Builder\Icons::svg($source) . '</span>',

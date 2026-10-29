@@ -103,9 +103,11 @@ final class Forms
         $calculation = FormLogic::evaluate($element['content'], $answers);
         $visible = $calculation['visible'];
         $types = []; // the type of every $data entry, for the mapping to a CRM or a sheet (2.13, Core\EnquiryDelivery)
+        // the first estimate field is the form's result (FormLogic::evaluate, Front\FormResult); another one would store it twice
+        $firstEstimate = array_search('estimate', array_column($fields, 'type'), true);
         foreach ($element['content']['fields'] as $i => $field) {
             // the estimate is stored even when a rule hides it: the result link needs it (Front\FormResult)
-            if ($field['type'] === 'step' || (!($visible[$i] ?? true) && !($field['type'] === 'estimate' && $calculation['after_contact']))) {
+            if ($field['type'] === 'step' || ($field['type'] === 'estimate' && $i !== $firstEstimate) || (!($visible[$i] ?? true) && !($field['type'] === 'estimate' && $calculation['after_contact']))) {
                 continue;
             }
             $types[] = $field['type'];
