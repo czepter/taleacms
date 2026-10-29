@@ -42,6 +42,9 @@ final class SecurityHardeningTest extends TestCase
         $this->assertSame(['media/2026/09/Photo.jpg', 'media/2026/09/route.gpx', 'media/2026/09/photo.jpg.webp', 'media/2026/09/logo.svg', null],
             array_map(\Talea\Core\ArchiveMedia::path(...), ['media/2026/09/Photo.JPG', 'media/2026/09/route.GPX', 'media/2026/09/photo.JPG.webp', 'media/2026/09/logo.SVG', 'media/x.PHP']),
             'ArchiveMedia::path writes the extensions in lower case');
+        $this->assertSame([null, null, null, null, null, null, null, null, null, 'media/2026/09/photo-1a2b3c.jpg.webp'],
+            array_map(\Talea\Core\ArchiveMedia::path(...), ['media/x.php.gif', 'media/x.php5.jpg', 'media/x.phar.png', 'media/x.phtml.pdf', 'media/x.PHP.gif', 'media/a/x.cgi.jpg', 'media/x.shtml.png', 'media/x.SHTM.jpg', 'media/x.stm.gif', 'media/2026/09/photo-1a2b3c.jpg.webp']),
+            'ArchiveMedia::path refuses a script-like inner extension (x.php.gif), a normal name with a WebP variant stays');
         $this->assertSame(['image' => 'media/2026/09/Photo.jpg', 'build' => '{"src":"media\\/2026\\/09\\/Photo.jpg"}', 'other' => ['media/2026/09/a.png']],
             \Talea\Core\ArchiveMedia::rename(['image' => 'media/2026/09/Photo.JPG', 'build' => '{"src":"media\\/2026\\/09\\/Photo.JPG"}', 'other' => ['media/2026/09/a.png']],
                 ['media/2026/09/Photo.JPG' => 'media/2026/09/Photo.jpg']),

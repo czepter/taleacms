@@ -145,7 +145,8 @@ final class Request
 
     public function ip(): string
     {
-        return (string) ($this->server['REMOTE_ADDR'] ?? '');
+        // behind TALEA_TRUSTED_PROXIES this is the client, not the proxy (the Cloudflare header needs the setting: Antispam::visitorKey())
+        return Antispam::visitorIp($this->server, '');
     }
 
     /** URL of the page the request came from (the Referer header; the browser may omit it). */

@@ -43,6 +43,49 @@ final class Redirects extends Module
         \Talea\Core\LinkHealing::heal($db, $z, $commandName);
     }
 
+    /**
+     * The redirect of an import: an imported page waits hidden, so an old address that still leads to live content of this site must
+     * stay as it is (add() would retarget redirects and heal links to the hidden page). True when the redirect was added.
+     */
+    public static function addImported(Db $db, string $old, string $new): bool
+    {
+        if (self::isLive($db, $old)) {
+            return false;
+        }
+        self::add($db, $old, $new);
+
+        return true;
+    }
+
+    /** Does the path (an additional language prefix and a trailing .html allowed) lead to a visible page, a published news item, a category, a tag, a collection item, a redirect or a system address? */
+    private static function isLive(Db $db, string $path): bool
+    {
+        if (str_starts_with(trim($path, '/ '), '?')) {
+            return false; // the numeric /?p=123 of the old site
+        }
+        // as Front\Kernel::redirectRule matches: `about.html` also answers /about, `de/about` answers /de/about
+        [$language, $path] = RedirectRules::address(new \Talea\Core\Settings($db), $path);
+        // a prefixed path is looked up in its language version; the default language stays unscoped as before
+        [$sameLanguage, $languageParams] = $language === '' ? ['', []] : \Talea\Core\Slug::scope($db, $language);
+        [$sameItemLanguage] = $language === '' ? [''] : \Talea\Core\Slug::scope($db, $language, 'p.language');
+        $s = explode('/', $path);
+        $s[0] = $s[0] === \Talea\Core\Routes::newsSlug($db) ? 'news' : $s[0];
+        if (in_array($s[0], \Talea\Front\Kernel::reservedSlugs(), true) && $s[0] !== 'news') {
+            return true;
+        }
+        $exists = static fn (string $sql, array $params): bool => $db->value($sql, $params) !== null;
+
+        return match (true) {
+            $s[0] === 'news' && count($s) === 1 => true,
+            $s[0] === 'news' && count($s) === 2 => $exists('SELECT 1 FROM {news} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL' . $sameLanguage, [$s[1], ...$languageParams]),
+            $s[0] === 'news' && count($s) === 3 && $s[1] === 'category' => $exists('SELECT 1 FROM {categories} WHERE slug = ?' . $sameLanguage, [$s[2], ...$languageParams]),
+            $s[0] === 'news' && count($s) === 3 && $s[1] === 'tag' => $exists('SELECT 1 FROM {tags} WHERE slug = ?', [$s[2]]),
+            $exists('SELECT 1 FROM {pages} WHERE slug = ? AND visible = TRUE AND deleted_at IS NULL' . $sameLanguage, [$path, ...$languageParams]) => true,
+            count($s) === 2 && $exists('SELECT 1 FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = TRUE AND p.slug = ? AND p.visible = TRUE AND p.deleted_at IS NULL' . $sameItemLanguage, [...$s, ...$languageParams]) => true,
+            default => $exists("SELECT 1 FROM {redirects} WHERE from_path = ? AND active = TRUE AND match_type = 'exact'", [$path]),
+        };
+    }
+
     private const int PER_PAGE = 50;
 
     /** The old address as it is stored (see normalize()). */

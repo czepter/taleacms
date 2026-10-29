@@ -17,6 +17,16 @@ final class Account
     /** How long a new personal token is valid, in days (0 = no expiry); the default is a year (2.8). */
     public const array TOKEN_LIFETIMES = [30, 90, 365, 0];
 
+    /** The screens of My account in its sidebar (?tab=): tab => label; 'claude' only while the Claude connection is on. */
+    public const array TABS = ['details' => 'My details', 'password' => 'Password', 'sign-in' => 'Two-factor sign-in', 'claude' => 'AI connection'];
+
+    /** The screen a form belongs to: a POST answers (and redirects) there, whatever the address said. */
+    private const array OP_TABS = [
+        'profile' => 'details', 'password' => 'password', 'remember_end' => 'password',
+        'token_new' => 'claude', 'token_delete' => 'claude', 'tool_set' => 'claude', 'app_disconnect' => 'claude',
+        'totp_start' => 'sign-in', 'totp_confirm' => 'sign-in', 'totp_off' => 'sign-in', 'passkey_delete' => 'sign-in',
+    ];
+
     public function __construct(private readonly Kernel $kernel)
     {
     }
@@ -28,10 +38,12 @@ final class Account
         $db = $app->db();
         $user = $app->auth()->user();
         $data = ['backupCodes' => [], 'newSecret' => '', 'newToken' => ''];
+        $op = $r->isPost() ? ($db->internalId('api_tokens', $r->post('delete_token')) > 0 ? 'token_delete' : ($r->post('disconnect_client') !== '' ? 'app_disconnect' : ($r->post('tool_set_switch') !== '' ? 'tool_set' : $r->post('op')))) : '';
+        $tab = $this->tab(self::OP_TABS[$op] ?? $r->get('tab'));
 
         if ($r->isPost()) {
             $message = null;
-            switch ($db->internalId('api_tokens', $r->post('delete_token')) > 0 ? 'token_delete' : ($r->post('disconnect_client') !== '' ? 'app_disconnect' : ($r->post('tool_set_switch') !== '' ? 'tool_set' : $r->post('op')))) {
+            switch ($op) {
                 case 'profile':
                     if ($r->post('email') !== '' && filter_var($r->post('email'), FILTER_VALIDATE_EMAIL) === false) {
                         $message = ['error', 'The e-mail address is not valid.'];
@@ -83,6 +95,11 @@ final class Account
                         $message = ['error', 'The website requires two-step sign-in – you can create a token once you turn it on.'];
                         break;
                     }
+                    // a token works without the person present, possibly for good: like a new password, it needs the current one (N56)
+                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
+                        $message = ['error', 'The current password is not correct.'];
+                        break;
+                    }
                     $token = 'talea_' . bin2hex(random_bytes(24));
                     $access = \Talea\Front\OAuth::access($r->post('access') ?: 'drafts'); // no choice sent: drafts only
                     // a personal token lists all tools unless the person picks the essentials (Claude Code and scripts)
@@ -93,7 +110,7 @@ final class Account
                         'expires_at' => $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null]);
                     ChangeLog::write($app, 'account', 'claude_token', $access . ($toolSet === 'essentials' ? ', essentials' : '') . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
                     // the token is shown only now - hence no redirect
-                    return $this->page(['newToken' => $token] + $data);
+                    return $this->page($tab, ['newToken' => $token] + $data);
                 case 'token_delete':
                     $db->delete('api_tokens', ['token_id' => $db->internalId('api_tokens', $r->post('delete_token')), 'user_id' => $user['user_id']]);
                     $message = ['ok', 'Token revoked.'];
@@ -120,6 +137,11 @@ final class Account
                     $message = ['ok', 'The application is disconnected – it will not get into the website until you allow it again.'];
                     break;
                 case 'totp_start':
+                    // an attacker's secret on the account would be the second factor: the key appears only after the password (N56)
+                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
+                        $message = ['error', 'The current password is not correct.'];
+                        break;
+                    }
                     $app->session->set('totp_new', Totp::newSecret());
                     break;
                 case 'totp_confirm':
@@ -136,7 +158,7 @@ final class Account
                     $app->auth()->forgetOtherDevices((int) $user['user_id']); // a remembered sign-in from before would skip the new code
                     ChangeLog::write($app, 'account', 'two_step_on');
                     // the backup codes are shown only now - hence no redirect
-                    return $this->page(['backupCodes' => $codes] + $data);
+                    return $this->page($tab, ['backupCodes' => $codes] + $data);
                 case 'passkey_options':
                 case 'passkey_save':
                     return $this->key($r->post('op') === 'passkey_save', $user);
@@ -166,11 +188,17 @@ final class Account
             if ($message !== null) {
                 $app->session->flash(...$message);
 
-                return Response::redirect($app->url('admin.php?action=account'));
+                return Response::redirect($app->url('admin.php?action=account&tab=' . $tab));
             }
         }
 
-        return $this->page(['newSecret' => (string) $app->session->get('totp_new', '')] + $data);
+        return $this->page($tab, ['newSecret' => (string) $app->session->get('totp_new', '')] + $data);
+    }
+
+    /** A known screen of My account, else the first; the AI connection only while its extension is on. */
+    private function tab(string $tab): string
+    {
+        return isset(self::TABS[$tab]) && ($tab !== 'claude' || Extensions::isEnabled($this->kernel->app->settings(), 'claude')) ? $tab : 'details';
     }
 
     /**
@@ -250,13 +278,16 @@ final class Account
     }
 
     /** @param array<string, mixed> $data */
-    private function page(array $data): Response
+    private function page(string $tab, array $data): Response
     {
         $app = $this->kernel->app;
         $user = $app->db()->one('SELECT * FROM {users} WHERE user_id = ?', [$app->auth()->id()]);
+        // like the settings, My account lists its screens in the sidebar instead of the sections
+        $this->kernel->sidebar = $app->view->render('admin/account_menu', ['app' => $app, 'tab' => $tab,
+            'tabs' => array_filter(self::TABS, fn (string $id): bool => $id === $this->tab($id), ARRAY_FILTER_USE_KEY)]);
 
-        return $this->kernel->page('My account', $app->view->render('admin/account', $data + [
-            'app' => $app, 'username' => $user, 'csrf' => $app->session->csrfField(),
+        return $this->kernel->page(self::TABS[$tab], $app->view->render('admin/account', $data + [
+            'app' => $app, 'username' => $user, 'csrf' => $app->session->csrfField(), 'tab' => $tab,
             'uri' => $data['newSecret'] !== '' ? Totp::uri($data['newSecret'], $user['username'], $app->settings()->get('site_name')) : '',
             'codesLeft' => count((array) json_decode((string) $user['totp_backup_codes'], true)),
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),

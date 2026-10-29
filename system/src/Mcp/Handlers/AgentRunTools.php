@@ -10,7 +10,7 @@ use Talea\Core\Language;
 /**
  * MCP tools for the scheduled Claude runs (2.17, Core\AgentSchedules): a routine in Claude asks what is due, does each
  * run as drafts and reports it. Both tools are for administrators – the schedules are the administrator's – and both are
- * open to a drafts-only connection (Catalog: read and draft): get_due_agent_runs changes nothing on the site, report_agent_run
+ * open to a drafts-only connection (Catalog: both draft): get_due_agent_runs only records the hand-out, report_agent_run
  * only records what was done. The instructions handed out were written by the administrator; the tool descriptions and
  * every instruction text say the work is drafts only. Part of Mcp\Tools.
  *

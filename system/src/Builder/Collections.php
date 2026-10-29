@@ -699,7 +699,7 @@ final class Collections
     {
         $text = fn (string $key, int $max): string => mb_substr(trim(is_scalar($input[$key] ?? null) ? (string) $input[$key] : ''), 0, $max);
         $image = $text('image', 255);
-        $from = is_string($input['publish_at'] ?? null) && $input['publish_at'] !== '' ? (strtotime(str_replace('T', ' ', $input['publish_at'])) ?: null) : null;
+        $from = is_string($input['publish_at'] ?? null) && trim($input['publish_at']) !== '' ? (strtotime(str_replace('T', ' ', trim($input['publish_at']))) ?: null) : null;
 
         return [
             'seo_title' => $text('seo_title', 200), 'description' => $text('description', 300),

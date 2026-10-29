@@ -100,8 +100,15 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testTurningOnTwoFactorShowsQrCodeAndKey(): void
     {
-        $this->adminPost('/admin.php?action=account', ['op' => 'totp_start'], '/admin.php?action=account');
-        $page = $this->site()->admin()->get('/admin.php?action=account');
+        $details = $this->site()->admin()->get('/admin.php?action=account');
+        $this->assertStringContainsString('name="op" value="profile"', $details->body, 'My account opens on its details');
+        $this->assertStringNotContainsString('name="op" value="totp_start"', $details->body, 'each screen of My account shows only its own forms');
+        $this->assertStringContainsString('class="menu-title"', $details->body, 'My account lists its screens in the sidebar');
+
+        $started = $this->adminPost('/admin.php?action=account', ['op' => 'totp_start', 'current_password' => $this->site()->password], '/admin.php?action=account');
+        $this->assertStringContainsString('class="totp-key"', $started->body, 'a form answers on its own screen, whatever the address said');
+        $page = $this->site()->admin()->get('/admin.php?action=account&tab=sign-in');
+        $this->assertMatchesRegularExpression('~account\?tab=sign-in" aria-current="page"~', $page->body, 'the sidebar marks the open screen');
 
         $this->assertStringContainsString('<svg class="qr"', $page->body, 'the QR code');
         $this->assertStringContainsString('class="totp-key"', $page->body, 'the key for manual entry');

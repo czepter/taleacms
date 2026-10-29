@@ -667,6 +667,29 @@ final class Audit
     }
 
     /**
+     * Whether existing content owns the address in ANY state (hidden, scheduled, trashed): such an address is the page of
+     * the content, not a dead end, so nothing may redirect it away (Core\RedirectMatcher). `resolves()` is stricter: it asks
+     * whether a visitor gets an answer now.
+     */
+    public function owns(string $path): bool
+    {
+        $db = $this->app->db();
+        // `about.html` is matched by a redirect for /about too (Front\Kernel::redirectRule), so it is the address of /about
+        [$language, $rest] = RedirectRules::address($this->app->settings(), $path);
+        [$sameLanguage, $languageParams] = Slug::scope($db, $language);
+        [$sameItemLanguage] = Slug::scope($db, $language, 'p.language');
+        [$internal] = Routes::internalPath('/' . $rest, $db);
+        $s = $internal === '/' ? [] : explode('/', ltrim($internal, '/'));
+
+        return match (true) {
+            $s === [] => false,
+            $s[0] === 'news' => count($s) === 2 && $db->value('SELECT 1 FROM {news} WHERE slug = ?', [$s[1]]) !== null,
+            default => $db->value('SELECT 1 FROM {pages} WHERE slug = ?' . $sameLanguage, [implode('/', $s), ...$languageParams]) !== null
+                || (count($s) === 2 && $db->value('SELECT 1 FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.slug = ?' . $sameItemLanguage, [$s[0], $s[1], ...$languageParams]) !== null),
+        };
+    }
+
+    /**
      * @param list<string> $s the path after /news
      * @param list<string> $languageParams
      */

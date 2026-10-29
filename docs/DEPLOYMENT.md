@@ -14,6 +14,26 @@ docker compose up -d                       # pulls ghcr.io/czepter/talea; TALEA_
 Open the site and walk through the installer. Configuration is environment variables (`TALEA_*`, every one also as
 `TALEA_<NAME>_FILE` for Docker secrets); nothing inside the image needs editing. The full list is in `docker/README.md`.
 
+## Visitor addresses behind the proxy
+
+PHP's `REMOTE_ADDR` is the proxy in front of the container, so without help every visitor shares one limit key. `TALEA_TRUSTED_PROXIES`
+(comma-separated addresses or networks) names the proxies whose `X-Forwarded-For` Talea believes: it reads the header from the right,
+skips trusted proxies and takes the first other address. Sign-in, reset and form limits count by that address.
+
+- The image leaves it unset: no `X-Forwarded-For` is trusted, which is right when the container is published directly.
+- `docker-compose.yaml` publishes the port on `127.0.0.1` only, so a proxy on the host reaches the container from the Docker bridge
+  gateway: it trusts Docker's default address pools, `172.16.0.0/12,192.168.0.0/16` (with other `default-address-pools`, set the variable).
+  The `docker-compose.coolify-*.yaml` files set all private ranges, because Coolify's proxy is a container on a shared network.
+  Narrow it to the proxy's exact address or network where you can; override with the variable.
+- Never set it when the container port is reachable from untrusted clients. Docker's port publishing can make outside clients appear
+  as a private gateway address, and then anyone can forge the header.
+- Clients inside a trusted range (for example a private LAN) can choose their own address.
+- The proxy must set or append `X-Forwarded-For`, and the container must not be reachable around it. Traefik does; plain nginx
+  `proxy_pass` does not and forwards the client's header unchanged, so add `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`
+  (or `$remote_addr`). A proxy that passes the client's `X-Forwarded-For` through lets anyone choose their address.
+- On Coolify every container on the shared network is inside the trusted private range, so keep the application off networks you do not control.
+- Behind Cloudflare also set Settings, `trusted_proxy`; this works with your own proxy between Cloudflare and the container too.
+
 ## The site's secret
 
 Set `TALEA_SECRET_KEY` (or `TALEA_SECRET_KEY_FILE`) to a random value of at least 32 characters, e.g. `openssl rand -hex 32`

@@ -25,10 +25,11 @@ final class Guardrails
 
     /**
      * Calls of write tools that delete, overwrite or send (3.3.2, N32): with claude_destructive = 0 they are refused like
-     * a destructive tool. tool => the parameter that makes the call destructive ('' = the tool always overwrites). The tools
-     * read these parameters with !empty().
+     * a destructive tool. tool => the parameter that makes the call destructive ('' = the tool always overwrites), or a list of
+     * them ('action=undo_promotion': that value). The tools read these parameters with !empty().
      */
-    private const array DESTRUCTIVE_CALLS = ['save_redirect' => 'delete', 'save_part_variant' => 'delete', 'restore_item_version' => '', 'request_testimonial' => 'send'];
+    private const array DESTRUCTIVE_CALLS = ['save_redirect' => 'delete', 'save_part_variant' => 'delete', 'restore_item_version' => '', 'request_testimonial' => 'send',
+        'create_experiment' => ['auto_promote'], 'update_experiment' => ['auto_promote', 'action=undo_promotion']]; // auto_promote: the scheduler publishes later; undo_promotion publishes into the page
 
     /** The other build targets: with one of them the `id` does not name a page. */
     private const array OTHER_TARGETS = ['part', 'popup', 'component', 'collection'];
@@ -58,6 +59,45 @@ final class Guardrails
         return is_numeric($id) && (int) $id > 0 ? (int) $id : null;
     }
 
+    /**
+     * Every page a call can affect (T-14): targetPage(), plus what reaches a page by another door – an experiment (a page tool on a live test's variant page; create: the page
+     * and variant_page; update, promote, delete: the experiment's page and variant page; a build tool with the component that is
+     * an experiment's variant B), and the access of a page (set_content_groups).
+     *
+     * @param array<string, mixed> $arguments the ids are row numbers (Mcp\PublicIds::in)
+     * @return list<int>
+     */
+    public static function targetPages(Db $db, string $tool, array $arguments): array
+    {
+        $pages = [];
+        $page = self::targetPage($tool, $arguments);
+        if ($page !== null) {
+            $pages[] = $page;
+            // a draft or running page test shows this page (variant B) at the protected page's address
+            foreach ($db->all("SELECT page_id FROM {experiments} WHERE variant_page_id = ? AND status IN ('draft', 'running')", [$page]) as $row) {
+                $pages[] = (int) $row['page_id'];
+            }
+        }
+        $id = is_numeric($arguments['id'] ?? null) ? (int) $arguments['id'] : 0;
+        if ($tool === 'create_experiment') {
+            foreach (['page', 'variant_page'] as $key) {
+                $pages[] = is_numeric($arguments[$key] ?? null) ? (int) $arguments[$key] : 0;
+            }
+        } elseif (in_array($tool, ['update_experiment', 'promote_experiment_winner', 'delete_experiment'], true) && $id > 0) {
+            $row = $db->one('SELECT page_id, variant_page_id FROM {experiments} WHERE experiment_id = ?', [$id]);
+            $pages = array_merge($pages, [(int) ($row['page_id'] ?? 0), (int) ($row['variant_page_id'] ?? 0)]);
+        } elseif (in_array($tool, ['save_component', 'delete_component'], true) || (in_array($tool, self::PAGE_TOOLS, true) && is_numeric($arguments['component'] ?? null))) {
+            $component = in_array($tool, ['save_component', 'delete_component'], true) ? $id : (int) $arguments['component'];
+            foreach ($component > 0 ? $db->all('SELECT page_id FROM {experiments} WHERE variant_component_id = ?', [$component]) : [] as $row) {
+                $pages[] = (int) $row['page_id'];
+            }
+        } elseif ($tool === 'set_content_groups' && ($arguments['type'] ?? '') === 'page') {
+            $pages[] = $id;
+        }
+
+        return array_values(array_unique(array_filter($pages)));
+    }
+
     /** @param array<string, mixed> $arguments */
     private static function otherTarget(array $arguments): bool
     {
@@ -83,14 +123,17 @@ final class Guardrails
             return null;
         }
         $settings = $app->settings();
-        if (isset(self::DESTRUCTIVE_CALLS[$tool]) && (self::DESTRUCTIVE_CALLS[$tool] === '' || !empty($arguments[self::DESTRUCTIVE_CALLS[$tool]]))) {
-            $access = 'destructive';
+        foreach ((array) (self::DESTRUCTIVE_CALLS[$tool] ?? []) as $trigger) {
+            [$key, $value] = explode('=', $trigger, 2) + [1 => null];
+            if ($key === '' || ($value === null ? !empty($arguments[$key]) : ($arguments[$key] ?? null) === $value)) {
+                $access = 'destructive';
+            }
         }
         if ($access === 'destructive' && !$settings->bool('claude_destructive')) {
             return 'The site owner switched off deleting and discarding for Claude (Settings → AI → Guardrails for the AI). Tell the user what you wanted to remove – they can do it in the admin.';
         }
-        $page = self::targetPage($tool, $arguments);
-        if ($page !== null && in_array($page, self::protectedPages($settings), true)) {
+        $page = array_values(array_intersect(self::targetPages($app->db(), $tool, $arguments), self::protectedPages($settings)))[0] ?? null;
+        if ($page !== null) {
             return 'Page ' . $page . ' is protected from changes by Claude (Settings → AI → Guardrails for the AI). Suggest the change to the user instead.';
         }
         $limit = $settings->int('claude_change_limit');

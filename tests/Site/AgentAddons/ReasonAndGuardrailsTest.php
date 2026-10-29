@@ -49,6 +49,75 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
         $this->site()->setting('claude_protected_pages', '');
     }
 
+    /** T-14: every route that can serve, publish or restrict a protected page's content is refused, for an unprotected page it is not */
+    public function testProtectedPagesCoverExperimentsAndAccessTools(): void
+    {
+        $page = fn (int $id): string => $this->site()->publicId('pages', $id);
+        $uuid = static fn (): string => sprintf('%08x-0000-4000-8000-%012x', random_int(0, 0x7fffffff), random_int(0, 0x7fffffffffff));
+        $now = date('Y-m-d H:i:s');
+        $experiment = function (int $pageId) use ($uuid, $now): array {
+            $component = $uuid();
+            $this->site()->exec("INSERT INTO tl_components (public_id, name, properties, build, updated_at) VALUES (?, 'Variant', '[]', '{\"v\":1,\"children\":[]}', ?)", [$component, $now]);
+            $componentId = (int) $this->sq('SELECT component_id FROM tl_components WHERE public_id = ?', [$component]);
+            $public = $uuid();
+            $this->site()->exec("INSERT INTO tl_experiments (public_id, name, kind, page_id, variant_component_id, goal_type, status, auto_promote, created_at) VALUES (?, 'T', 'element', ?, ?, 'form', 'stopped', FALSE, ?)",
+                [$public, $pageId, $componentId, $now]);
+
+            return [$public, $component];
+        };
+        [$guardExperiment, $guardComponent] = $experiment(self::$guardPage);
+        [$freeExperiment, $freeComponent] = $experiment(self::$freePage);
+        $guarded = $page(self::$guardPage);
+        $free = $page(self::$freePage);
+        $build = ['v' => 1, 'children' => []];
+        $this->site()->setting('claude_protected_pages', (string) self::$guardPage);
+        foreach ([
+            'create_experiment page' => ['create_experiment', ['name' => 'X', 'page' => $guarded, 'kind' => 'page', 'variant_page' => $free, 'goal' => 'form']],
+            'create_experiment variant_page' => ['create_experiment', ['name' => 'X', 'page' => $free, 'kind' => 'page', 'variant_page' => $guarded, 'goal' => 'form']],
+            'save_build component' => ['save_build', ['component' => $guardComponent, 'build' => $build]],
+            'update_experiment' => ['update_experiment', ['id' => $guardExperiment, 'action' => 'start']],
+            'promote_experiment_winner' => ['promote_experiment_winner', ['id' => $guardExperiment, 'winner' => 'b', 'force' => true]],
+            'delete_experiment' => ['delete_experiment', ['id' => $guardExperiment]],
+            'save_component' => ['save_component', ['id' => $guardComponent, 'name' => 'Renamed']],
+            'delete_component' => ['delete_component', ['id' => $guardComponent]],
+            'set_content_groups' => ['set_content_groups', ['type' => 'page', 'id' => $guarded, 'groups' => []]],
+        ] as $label => [$tool, $args]) {
+            $this->assertStringContainsString('protected from changes', $this->mcpRawText($tool, $args), 'T-14: ' . $label . ' is refused for a protected page');
+        }
+        // not refused by the guardrails for an unprotected page (the tool itself may still answer an error)
+        foreach ([['save_build', ['component' => $freeComponent, 'build' => $build]], ['update_experiment', ['id' => $freeExperiment, 'action' => 'start']],
+            ['save_component', ['id' => $freeComponent, 'name' => 'Renamed']], ['delete_experiment', ['id' => $freeExperiment]]] as [$tool, $args]) {
+            $this->assertStringNotContainsString('protected from changes', $this->mcpRawText($tool, $args), 'T-14: ' . $tool . ' is free for an unprotected page');
+        }
+        // a page test shows its variant page at the protected page's address: editing that page is refused while the test is live
+        $this->site()->exec("INSERT INTO tl_experiments (public_id, name, kind, page_id, variant_page_id, goal_type, status, auto_promote, created_at) VALUES (?, 'V', 'page', ?, ?, 'form', 'running', FALSE, ?)",
+            [$uuid(), self::$guardPage, self::$freePage, $now]);
+        $this->assertStringContainsString('protected from changes', $this->mcpRawText('update_page', ['id' => $free, 'description' => 'Variant']), 'T-14: the variant page of a running test on a protected page is refused');
+        $this->site()->exec("UPDATE tl_experiments SET status = 'stopped' WHERE variant_page_id = ?", [self::$freePage]);
+        $this->assertStringNotContainsString('protected from changes', $this->mcpRawText('update_page', ['id' => $free, 'description' => 'Variant']), 'T-14: a stopped test no longer holds the variant page');
+        $this->site()->setting('claude_protected_pages', '');
+
+        // auto_promote publishes later, from the scheduler: a deferred destructive argument
+        $this->site()->setting('claude_destructive', '0');
+        $auto = ['name' => 'X', 'page' => $free, 'kind' => 'page', 'variant_page' => $guarded, 'goal' => 'form'];
+        $this->assertStringContainsString('switched off deleting', $this->mcpRawText('create_experiment', $auto + ['auto_promote' => true]), 'T-14: auto_promote is refused while destructive calls are off');
+        $this->assertStringNotContainsString('switched off deleting', $this->mcpRawText('create_experiment', $auto), 'T-14: an experiment without auto_promote is not');
+        $own = ['id' => $freeExperiment];
+        foreach (['auto_promote' => $own + ['auto_promote' => true], 'undo_promotion' => $own + ['action' => 'undo_promotion']] as $label => $args) {
+            $this->assertStringContainsString('switched off deleting', $this->mcpRawText('update_experiment', $args), 'T-14: update_experiment ' . $label . ' is refused while destructive calls are off');
+        }
+        $this->assertStringNotContainsString('switched off deleting', $this->mcpRawText('update_experiment', $own + ['auto_promote' => false]), 'T-14: switching auto_promote off is not');
+        $this->site()->setting('claude_destructive', '1');
+    }
+
+    /** A connection limited to drafts cannot save Custom HTML, so builder_schema does not offer the element to it either */
+    public function testBuilderSchemaOffersCustomHtmlOnlyToConnectionsThatMayWriteCode(): void
+    {
+        $elements = fn (?string $token): string => $this->mcpText('builder_schema', [], $token);
+        $this->assertStringContainsString('custom html', strtolower($elements(null)), 'a full-access connection is offered Custom HTML');
+        $this->assertStringNotContainsString('custom html', strtolower($elements($this->draftsToken())), 'a drafts-only connection is not');
+    }
+
     public function testSwitchingOffDeletingRefusesDestructiveTools(): void
     {
         $this->site()->setting('claude_destructive', '0');

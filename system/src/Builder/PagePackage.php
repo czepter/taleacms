@@ -48,7 +48,7 @@ final class PagePackage
      *
      * @return array{0: array, 1: array{classes: int, components: int}} the page build (not yet sanitized) and what was created
      */
-    public static function import(Settings $s, array $data, array $pageBuild, bool $admin): array
+    public static function import(Settings $s, array $data, array $pageBuild, bool $admin, bool $canCode = true): array
     {
         $created = ['classes' => 0, 'components' => 0];
         if (!$admin) {
@@ -88,7 +88,7 @@ final class PagePackage
             $ready ??= array_key_first($pending); // components using each other: the loop is broken at the first one
             [$name, $properties, $componentBuild] = $pending[$ready];
             unset($pending[$ready]);
-            [$clean] = Build::sanitize(self::pointAt($componentBuild, $map), true);
+            [$clean] = Build::sanitize(self::pointAt($componentBuild, $map), $canCode);
             $json = Build::toJson($clean);
             $same = null;
             foreach ($db->all('SELECT component_id, build FROM {components} WHERE (name = ? OR name LIKE ?) AND properties = ? AND ' . \Talea\Core\Sites::visible($db) . ' ORDER BY component_id', [$name, addcslashes($name, '%_\\') . ' (%)', $properties]) as $candidate) {

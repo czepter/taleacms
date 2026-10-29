@@ -138,6 +138,7 @@ final class Users extends Module
                     // account may be in the wrong hands, and a token would outlive the old password
                     \Talea\Front\OAuth::revokeConnections($this->db, $id);
                     $this->db->delete('api_tokens', ['user_id' => $id, 'kind' => 'token']);
+                    $this->db->delete('user_devices', ['user_id' => $id]); // and no browser stays "known" to the old password
                 }
             } else {
                 $id = $this->db->insert('users', $data);

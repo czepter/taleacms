@@ -177,6 +177,7 @@ final class OAuth
         $this->app->session->set('pending_oauth', [
             'client_id' => $client['client_id'], 'name' => $client['name'], 'redirect_uri' => $redirectUri, 'state' => mb_substr($r->get('state'), 0, 500),
             'challenge' => $r->get('code_challenge'), 'time' => time(),
+            'nonce' => bin2hex(random_bytes(16)), // the consent page posts it back: an Allow only counts for the request it was shown for
         ]);
 
         return Response::redirect($this->app->url('admin.php?action=oauth'));
@@ -220,8 +221,9 @@ final class OAuth
         $now = date('Y-m-d H:i:s');
         if ($r->post('grant_type') === 'authorization_code') {
             $code = $db->one('SELECT * FROM {oauth_codes} WHERE code_hash = ?', [hash('sha256', $r->post('code'))]);
-            if ($code !== null) {
-                $db->delete('oauth_codes', ['code_hash' => $code['code_hash']]); // the code is valid only once
+            // the code is valid only once: of two concurrent requests only the one whose DELETE removed the row goes on
+            if ($code !== null && $db->run('DELETE FROM {oauth_codes} WHERE code_hash = ?', [$code['code_hash']])->rowCount() !== 1) {
+                $code = null;
             }
             $challenge = rtrim(strtr(base64_encode(hash('sha256', $r->post('code_verifier'), true)), '+/', '-_'), '=');
             if ($code === null || $code['expires_at'] < $now || $code['client_id'] !== $clientId || $code['redirect_uri'] !== $r->post('redirect_uri') || !hash_equals((string) $code['code_challenge'], $challenge)) {
@@ -241,7 +243,10 @@ final class OAuth
             }
             // the new pair keeps the connection's last served call (Core\ClaudeConnection): a refresh is not a call
             $used = \Talea\Core\ClaudeConnection::lastUse($db, (int) $refresh['user_id'], $clientId);
-            $db->delete('api_tokens', ['token_id' => (int) $refresh['token_id']]); // rotation: the old refresh token ends
+            // rotation: the old refresh token ends, and only the request that removed it gets a new pair
+            if ($db->run("DELETE FROM {api_tokens} WHERE token_id = ? AND kind = 'refresh'", [(int) $refresh['token_id']])->rowCount() !== 1) {
+                return $this->error('invalid_grant', 'The refresh token is invalid or expired – connect the application again.');
+            }
 
             return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access'], (string) $refresh['tool_set'], $used); // the access and the tool set chosen at consent (or switched in My account) stay
         }
