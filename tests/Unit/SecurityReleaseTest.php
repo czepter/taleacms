@@ -96,7 +96,7 @@ final class SecurityReleaseTest extends TestCase
         $this->assertSame([['data-track' => 'ok'], true], [
             $n25Build['children'][0]['attributes'] ?? [], isset($n25Errors['children[0].attributes'])], '3.3.2 N25: the hooks of the store locator, the basket, the comparison and the popups cannot be saved as custom attributes; a harmless one stays');
         $n25App = new \Talea\Core\App([]);
-        $n25Html = fn (array $build): string => \Talea\Builder\Build::html($build, new \Talea\Builder\Context($n25App));
+        $n25Html = fn (array $build): string => \Talea\Builder\Renderer::html($build, new \Talea\Builder\Context($n25App));
         // a build stored before 3.3.2 (never sanitized again): the hook is left out, the element renders as before
         $n25Stored = $n25Html(['children' => [['id' => 'h1', 'type' => 'heading', 'tag' => 'h2', 'content' => ['text' => 'Hi'], 'attributes' => ['data-leaflet' => 'https://evil.example/', 'data-basket' => 'javascript:alert(1)', 'onclick' => 'alert(1)', 'data-x' => 'y', 'title' => 'T']]]]);
         [$n25Button] = \Talea\Builder\Build::sanitize(['children' => [['type' => 'button', 'content' => ['text' => 'Go', 'link' => 'https://example.com/', 'new_window' => true], 'attributes' => ['rel' => 'opener', 'title' => 'Mine']],
@@ -116,7 +116,7 @@ final class SecurityReleaseTest extends TestCase
     public function testFactsInAddresses(): void
     {
         $n25App = new \Talea\Core\App([]);
-        $n25Html = fn (array $build): string => \Talea\Builder\Build::html($build, new \Talea\Builder\Context($n25App));
+        $n25Html = fn (array $build): string => \Talea\Builder\Renderer::html($build, new \Talea\Builder\Context($n25App));
         $n26Cache = new \ReflectionProperty(\Talea\Core\Facts::class, 'cache');
         $n26Fact = fn (string $key, string $type, string $value): array => ['key' => $key, 'label' => $key, 'type' => $type, 'value' => $value, 'display' => $value, 'schema' => '', 'source' => '', 'updated' => null, 'builtIn' => false, 'translated' => false];
         $n26Cache->setValue(null, [\Talea\Core\Language::siteColumn() => ['promo' => $n26Fact('promo', 'text', 'javascript:alert(document.domain)'), 'shop' => $n26Fact('shop', 'url', 'https://shop.example/a?b=1&c=2'),
@@ -182,7 +182,7 @@ final class SecurityReleaseTest extends TestCase
         $n38Visitor = $n38Query . '<p>' . e('{{ext.naive.echo}}') . '</p>';
         $n38Context = new \Talea\Builder\Context($n25App);
         $n38Context->content = $n38Visitor;
-        $n38Wrapper = \Talea\Builder\Build::html(['children' => [['id' => 't1', 'type' => 'text', 'tag' => 'div', 'content' => ['html' => '<p>{{ext.naive.echo x="own"}}</p>']], ['id' => 'o1', 'type' => 'page_content', 'tag' => 'div', 'content' => []]]], $n38Context);
+        $n38Wrapper = \Talea\Builder\Renderer::html(['children' => [['id' => 't1', 'type' => 'text', 'tag' => 'div', 'content' => ['html' => '<p>{{ext.naive.echo x="own"}}</p>']], ['id' => 'o1', 'type' => 'page_content', 'tag' => 'div', 'content' => []]]], $n38Context);
         $kernelSource = (string) file_get_contents(TALEA_SYSTEM . '/src/Front/Kernel.php');
         preg_match('/private function page\(.*?\n    }\n/s', $kernelSource, $pageMethod);
         $this->assertSame([$n38Query, true, true, false, false, true, true, true], [

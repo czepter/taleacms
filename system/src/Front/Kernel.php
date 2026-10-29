@@ -474,14 +474,14 @@ final class Kernel
             return $this->notFound();
         }
         $k = new \Talea\Builder\Context($this->app);
-        $html = \Talea\Builder\Build::html(['children' => [$section['element']]], $k);
+        $html = \Talea\Builder\Renderer::html(['children' => [$section['element']]], $k);
         $classes = '';
         foreach ($section['classes'] as $t) {
             $classes .= \Talea\Builder\Style::css('.' . $t, \Talea\Builder\Library::CLASSES[$t] ?? []);
         }
         $k->classes = []; // class styles above come from the library, not from the site database (the class may not exist on the site yet)
         $siteSettings = $this->app->settings();
-        $css = \Talea\Builder\DesignSystem::css(\Talea\Builder\DesignSystem::load($siteSettings), $this->app->request->basePath()) . \Talea\Builder\Build::css($this->app->db(), $k) . '@layer classes {' . $classes . '}';
+        $css = \Talea\Builder\DesignSystem::css(\Talea\Builder\DesignSystem::load($siteSettings), $this->app->request->basePath()) . \Talea\Builder\Renderer::css($this->app->db(), $k) . '@layer classes {' . $classes . '}';
         $layout = $this->app->url('image/template.css');
 
         return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . Language::dirAttribute(Language::tag(Language::code())) . '><head><meta charset="utf-8"><meta name="robots" content="noindex">'
@@ -499,7 +499,7 @@ final class Kernel
         $k = $this->context();
         $k->item = \Talea\Builder\Components::values($component, []);
         $k->editor = $this->app->request->get('editor') === '1';
-        $html = \Talea\Builder\Build::html(\Talea\Builder\Build::fromJson($component['build_draft'] ?? $component['build']) ?? ['children' => []], $k);
+        $html = \Talea\Builder\Renderer::html(\Talea\Builder\Build::fromJson($component['build_draft'] ?? $component['build']) ?? ['children' => []], $k);
         [$k->item, $k->editor] = [null, false];
 
         return $this->page($component['name'], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
@@ -697,7 +697,7 @@ final class Kernel
         $k->editor = $draft && $r->get('editor') === '1';
         $k->source = 'collection:' . $this->app->db()->publicId('collections', (int) $collection['collection_id']);
         $this->pageCollection = (string) $collection['slug'];
-        $html = \Talea\Builder\Build::html($build, $k);
+        $html = \Talea\Builder\Renderer::html($build, $k);
         [$k->item, $k->editor] = [null, false];
 
         // description and image for search engines and sharing: the item's first longer text and first image
@@ -878,7 +878,7 @@ final class Kernel
                 }
                 $meta['experiments'] = \Talea\Builder\Experiments::config($this->app, $running, $reaching, (string) parse_url($this->app->url($home ? '' : ltrim((string) $page['slug'], '/')), PHP_URL_PATH));
             }
-            $html = \Talea\Builder\Build::html($build, $k);
+            $html = \Talea\Builder\Renderer::html($build, $k);
             $k->editor = false;
             $k->markIds = false;
             $k->seoMarks = [];
@@ -909,7 +909,7 @@ final class Kernel
     /**
      * Add-on tokens {{ext.<slug>.<name>}} (3.0) in HTML an editor wrote – page and news text, a category description. Never over
      * a whole page: a template adds what the visitor sent (the search query), and that must not run an add-on (3.3.2, N38).
-     * Builds fill them in Build::html().
+     * Builds fill them in Renderer::html().
      */
     private static function authored(string $html): string
     {
@@ -1429,7 +1429,7 @@ final class Kernel
             }
             $k->editor = $editor && $preview === $type;
             $k->source = 'part:' . $type . ':' . $language . ($variant !== '' ? ':' . $variant : '');
-            $html = \Talea\Builder\Build::html($build, $k);
+            $html = \Talea\Builder\Renderer::html($build, $k);
             $k->editor = false;
 
             return $html;
@@ -1461,7 +1461,7 @@ final class Kernel
         }
 
         if ($k->types !== []) {
-            $meta['css'] = \Talea\Builder\Build::css($db, $k)
+            $meta['css'] = \Talea\Builder\Renderer::css($db, $k)
                 // the builder canvas reloads after every change – a page transition would only flicker and report an abort in
                 // the browser
                 . ($editor ? '@view-transition{navigation:none}' : '');
@@ -1516,7 +1516,7 @@ final class Kernel
             }
             $k->source = 'popup:' . ($p['public_id'] ?? $db->publicId('popups', (int) $p['popup_id']));
             // signed-in users (administrators, editors) view the popups, but are not counted in the counters
-            $html .= \Talea\Builder\Popups::wrapper($p, \Talea\Builder\Build::html($build, $k), $this->app->auth()->user() === null ? $this->app->url('popup') : '', !empty($p['preview']));
+            $html .= \Talea\Builder\Popups::wrapper($p, \Talea\Builder\Renderer::html($build, $k), $this->app->auth()->user() === null ? $this->app->url('popup') : '', !empty($p['preview']));
         }
 
         return $html;
@@ -1541,7 +1541,7 @@ final class Kernel
             $k = $this->context();
             $k->editor = true;
             $k->source = 'popup:' . $this->app->db()->publicId('popups', $idpp);
-            $html = \Talea\Builder\Build::html(\Talea\Builder\Build::fromJson($p['build_draft'] ?? $p['build']) ?? ['children' => []], $k);
+            $html = \Talea\Builder\Renderer::html(\Talea\Builder\Build::fromJson($p['build_draft'] ?? $p['build']) ?? ['children' => []], $k);
             $k->editor = false;
             $content = '<div class="tl-popup-canvas">' . \Talea\Builder\Popups::editorWrapper($p, $html) . '</div>';
         } else {
@@ -1567,7 +1567,7 @@ final class Kernel
         $content = \Talea\Core\Privacy::fillCookieTable($content, $this->app); // {{cookie_table}} on the cookie policy page (2.14)
         $content = \Talea\Core\Facts::fill($content, $this->app);
         // add-on tokens (3.0) are not filled here: the content already holds what a visitor sent (the search query) – they are
-        // filled in what editors wrote, in Build::html() and authored() (3.3.2, N38)
+        // filled in what editors wrote, in Renderer::html() and authored() (3.3.2, N38)
         $title = \Talea\Core\Facts::fillText($title, $this->app);
         if (is_string($meta['description'] ?? null)) {
             $meta['description'] = \Talea\Core\Facts::fillText($meta['description'], $this->app);
