@@ -90,6 +90,9 @@ final class SiteProvisioningTest extends DatabaseTestCase
         foreach (['secret_key' => 'first-sites-secret', 'webhook_secret' => 'first-webhook', 'tasks_token' => 'first-tasks', 'health_token' => 'first-health', 'captcha_secret' => 'first-captcha', 'smtp_password' => 'mail-pass', 'ai_key' => 'ai-key'] as $k => $v) {
             $db->upsert('settings', ['name' => $k, 'value' => $v], ['name']);
         }
+        $db->upsert('settings', ['name' => 'some_unlisted_option', 'value' => 'x'], ['name']);
+        $db->insert('enquiries', ['created_at' => date('Y-m-d H:i:s'), 'email' => 'v@example.com', 'data' => '{}']);
+        $db->insert('subscribers', ['email' => 'sub@example.com', 'token' => str_repeat('a', 32), 'status' => 1, 'created_at' => date('Y-m-d H:i:s')]);
         $db->upsert('settings', ['name' => 'site_url', 'value' => 'https://first.example'], ['name']);
         $db->upsert('jobs', ['name' => 'links', 'last_run' => date('Y-m-d H:i:s'), 'failures' => 0, 'runs' => 3, 'duration_ms' => 1], ['name']);
 
@@ -102,6 +105,9 @@ final class SiteProvisioningTest extends DatabaseTestCase
         foreach (['secret_key', 'webhook_secret', 'tasks_token', 'health_token', 'captcha_secret', 'site_url'] as $own) {
             $this->assertNull($copy->value('SELECT value FROM {settings} WHERE name = ?', [$own]), $own . ' is not copied');
         }
+        $this->assertNull($copy->value("SELECT value FROM {settings} WHERE name = 'some_unlisted_option'"), 'a setting outside the allow-list is not copied');
+        $this->assertSame(0, (int) $copy->value('SELECT COUNT(*) FROM {enquiries}'), 'no visitors\' personal data');
+        $this->assertSame(0, (int) $copy->value('SELECT COUNT(*) FROM {subscribers}'));
         $this->assertSame('mail-pass', $copy->value("SELECT value FROM {settings} WHERE name = 'smtp_password'"), 'account secrets are shared');
         $this->assertSame('ai-key', $copy->value("SELECT value FROM {settings} WHERE name = 'ai_key'"));
         $this->assertSame(0, (int) $copy->value('SELECT COUNT(*) FROM {jobs}'), 'the job state is not copied');

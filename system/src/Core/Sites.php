@@ -12,11 +12,17 @@ final class Sites
 {
     public const array STATUSES = ['live', 'paused', 'archived', 'trashed'];
 
-    /** A site's own tables a clone does not take along: logs, counters, queues, sessions, the job state (stats_* too). */
-    private const array NOT_CLONED = ['migrations', 'jobs', 'web_vitals', 'ip_checks', 'mail', 'webhook_deliveries', 'connector_queue', 'newsletter_queue', 'subscription_queue', 'member_sessions', 'member_tokens'];
-
-    /** A setting whose name says it is a secret: never copied to a clone (it is made again on first use), unless it is an ACCOUNT setting. */
-    private const string SECRET_NAME = '/(secret|token|key|password|salt)/';
+    /**
+     * A site's own tables a clone does not take along: content and structure are copied, never visitors' personal data or logs
+     * (enquiries, requests, bookings, subscribers, members, consents), histories, counters, queues, sessions or the job state (stats_* too).
+     */
+    private const array NOT_CLONED = [
+        'migrations', 'jobs', 'web_vitals', 'ip_checks', 'mail', 'webhook_deliveries', 'connector_queue', 'newsletter_queue', 'subscription_queue',
+        'member_sessions', 'member_tokens', 'enquiries', 'requests', 'request_messages', 'bookings', 'booking_proposals', 'subscribers', 'members',
+        'member_group_links', 'consents', 'change_log', 'events', 'not_found', 'search_stats', 'monthly_reports', 'testimonial_requests',
+        'document_downloads', 'draft_comments', 'notice_log', 'connector_log', 'google_reviews', 'broken_links', 'import_map', 'agent_runs',
+        'form_steps', 'fleet_pairing',
+    ];
 
     /** A trashed site is dropped for good after this many days. */
     public const int TRASH_DAYS = 30;
@@ -238,11 +244,13 @@ final class Sites
         }
         if (!empty($site['clone'])) {
             self::copyTables($source, $new);
-            // deny by default: secrets (secret type in Settings, or named like one) stay behind unless they are account settings (smtp_password, ai_key …)
-            $secret = self::secretSettings();
+            // an allow-list: only the settings that may move to another site (SiteExport::SETTINGS, with their language variants) and the
+            // account settings stay; the rest (secrets, tokens, keys) is made again on first use
             foreach ($new->all('SELECT name FROM {settings}') as $r) {
                 $name = (string) $r['name'];
-                if ($name === 'site_url' || (!in_array($name, Settings::ACCOUNT, true) && (in_array($name, $secret, true) || preg_match(self::SECRET_NAME, $name) === 1))) {
+                $base = (string) preg_replace('/_' . Language::TAG . '$/D', '', $name);
+                $keep = in_array($name, SiteExport::SETTINGS, true) || in_array($name, Settings::ACCOUNT, true) || ($base !== $name && in_array($base, Settings::PER_LANGUAGE, true));
+                if ($name === 'site_url' || !$keep) {
                     $new->delete('settings', ['name' => $name]);
                 }
             }
@@ -253,21 +261,6 @@ final class Sites
             }
         }
         $db->update('sites', ['ready_at' => date('Y-m-d H:i:s')], ['site_id' => (int) $site['site_id']]);
-    }
-
-    /** @return list<string> the settings of the secret type (Admin\Modules\Settings::FIELDS: not printed back) */
-    private static function secretSettings(): array
-    {
-        $keys = [];
-        foreach ((new \ReflectionClassConstant(\Talea\Admin\Modules\Settings::class, 'FIELDS'))->getValue() as $fields) {
-            foreach ($fields as $key => $type) {
-                if (is_string($type) && str_starts_with($type, 'secret')) {
-                    $keys[] = $key;
-                }
-            }
-        }
-
-        return $keys;
     }
 
     /** INSERT … SELECT of every copied table of $source into $new (parents first on PostgreSQL, checks off on MySQL and SQLite). */
