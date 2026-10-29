@@ -83,7 +83,19 @@ abstract class Module
             return $this->error('Unknown action.', 404);
         }
 
+        if (($refusal = $this->refusal($action)) !== null) {
+            return $this->error(t($refusal), 403);
+        }
+
         return $this->$method();
+    }
+
+    /** Actions on files the whole install shares (backups, exports, the log): the first owner's only, a further owner's request is refused (Owners::sharedFilesRefusal). */
+    public const array INSTALL_FILE_ACTIONS = [];
+
+    private function refusal(string $action): ?string
+    {
+        return in_array($action, static::INSTALL_FILE_ACTIONS, true) ? \Talea\Core\Owners::sharedFilesRefusal($this->db) : null;
     }
 
     /** @param array<string, mixed> $data */

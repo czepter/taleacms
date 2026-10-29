@@ -138,6 +138,53 @@ off nothing of it exists (no tab, no setting, the element is neither offered nor
   confirmation); a chip of another site opens that site's Subscribers list through the handoff (`to=module=subscribers`). Read-only:
   deleting, sync and CSV stay per site.
 
+## Several owners (agency, stage A) – Proposed
+
+Decisions of the night build, marked **Proposed** for the owner's review. Needs `TALEA_MULTISITE` and `TALEA_OWNERS`; with the flag off
+(or with only owner 1) nothing here is consulted and the install behaves as before.
+
+- **Three classes of table.** `Db::INSTALL_TABLES` (`owners`) live under the install prefix (the configured `tl_`), `Db::OWNER_TABLES` under
+  the owner's prefix, every other table under the site prefix. `Db` knows `installPrefix`, `ownerPrefix` and `prefix`; `table()` picks in that
+  order, `forSite()` keeps the first two, `forOwner()` switches the owner (its site 1 is its owner prefix). The config `prefix` stays the
+  install's; `owner_prefix` and `site_prefix` are optional.
+- **Prefixes (`Owners::prefixFor`).** Owner 1 = the install prefix; owner *n* = install stem + letters (`tlb_`, `tlc_` … `tlz_`, `tlba_`); a
+  further site of an owner = its prefix stem + number (`tlb2_`). Letters belong to owners and digits to sites, so no prefix starts with
+  another and every `LIKE 'tlb\_%'` (backup, size, drop) is exact (unit test over 60 owners × 12 sites). The install prefix must be letters
+  only to have further owners. `Owners::ownerOf()` reads the owner out of any prefix.
+- **Registry.** `owners` (owner_id, public_id, name, kind person|organisation, prefix unique, status live|paused|archived, created_at,
+  `ready_at`), migration `20261103100047`, row of owner 1 with the install prefix. `Owners::add` inserts a row only; cron
+  (`Owners::provisionPending`, install's run) migrates, makes sure the owner's `sites` has its site 1 (the migration seeds it) and sets `ready_at`.
+- **Migrations.** `Migrator::migrate`: install (owner 1: install tables, owner tables, site 1), owner 1's sites, then each further owner (its owner
+  tables and site 1, then its sites). `PrefixAdapter`/`MigrationSupport`: an install table is made in the install run only and named with
+  `install_prefix` everywhere; an owner table in each owner's own run. Index names carry the table's prefix unless it is the install's, so
+  PostgreSQL and SQLite names stay unique database-wide (`tlb_uq_users_username`); `Db::keyName()` reads them back.
+  `bin/migrate` refuses to start when further owners exist and `TALEA_OWNERS` is off.
+- **Backup.** One file, header `-- prefixes: tl_,tlb_,tlb2_` (each owner followed by its sites). A restore accepts exactly the shapes of this
+  install, drops the tables of owners and sites made after the backup (sites before their owner) and recreates the ones missing
+  (`Migrator::migratePrefix` finds the owner from the prefix).
+- **Routing.** `Sites::resolve` reads every set-up owner's `site_domains` in one `UNION ALL` and returns the owner prefix and status;
+  `App::boot` sets `owner_prefix` and `site_prefix`. A host is unique in the whole install: `Owners::hostTaken` counts the hosts of all owners
+  whatever their status. A paused owner answers 503 on all its hosts (admin too, `/health` excepted), an archived owner 404; owner 1 can be
+  neither (`Owners::setStatus`). The page cache folder is `pages-<site prefix>`; `Cache::clearAll()` clears only the owner being served.
+- **Signing.** `Antispam::key()` derives a key for every site prefix but the install's own, so owner B's site 1 differs from owner A's.
+  `TALEA_SITE_URL` locks only the install's site 1 (`SiteUrl::locked`).
+- **Sessions.** The PHP session store is shared, so a session of a further owner carries `_owner`; an id presented on another owner's host
+  (the cookie is host-only but a header is not) gets a fresh empty session and is left untouched. Without it a user number and password
+  hash that two owners happen to share would sign one in as the other.
+- **Cron.** `cron` runs owner 1's site 1, then children `cron <site>` for its sites and `cron <owner> <owner>` for each live further owner;
+  that owner's run provisions its new sites and starts `cron <owner> <site>` for its live sites. A paused or archived owner runs nothing.
+  The owner-wide jobs run once per owner (with its site 1); `backup` and `media_sync` only for owner 1.
+- **Inside one owner, as before.** Sites list, switcher, inbox, overview, subscribers, MCP `site`, media usage, staging, provisioning, handoff
+  all read the current owner's `sites` table. Only routing, `Owners`, migrations, backup and cron read another owner's registry.
+- **Files of the install belong to owner 1 for now.** Backups and their off-site copy, exports/imports (the Import and export module, the staged
+  WordPress file), the error log and the media archive are single folders of the install; for a further owner the screens, actions and
+  jobs are refused (`Owners::sharedFilesRefusal`, `Module::INSTALL_FILE_ACTIONS`, `Transfer::availableTo`). Uploads still share `media/`:
+  names end in six random hex digits and waiting files are looked up in the owner's own `media` table; per-owner folders are stage B.
+- **Isolation test** (`tests/Site/Multisite/OwnersIsolationTest.php`, `tests/Integration/OwnersTest.php`): two owners with the same page
+  slugs, component names and media paths; public routes (page cache), search, sitemap, llms.txt, feed, admin lists, the other owner's component,
+  session cookie replayed by hand, MCP tokens and `site`, signed preview links, handoff tokens, waiting files, backups and exports, owner
+  state, cron and the start guard.
+
 ## Phases (phase 1 is done)
 
 - **Phase 0** (no behaviour change): two prefixes in `Db`, the site registry with the row for site 1, the migration loop,

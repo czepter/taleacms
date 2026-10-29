@@ -139,6 +139,13 @@ domains (`site_domains`) and has its own tables; the first start with the flag g
 - Without the flag the start (`bin/migrate`) stops while the database holds more than one site that is not trashed.
 - With `TALEA_SECRET_KEY` set, each further site derives its own signing key from it, so a preview link of one site is void on the others.
 
+### Several owners
+
+`TALEA_OWNERS=1` (with `TALEA_MULTISITE=1`) adds owners: groups of tables with their own users, sites and domains (`tlb_`, `tlc_` …).
+Hosts are unique in the whole install. New owners are set up by the next `docker.php cron`; a paused owner answers 503 on all its hosts, an
+archived one 404. Backups, exports and the error log are the first owner's for now, and the start stops while further owners exist and the
+flag is off. Cookies are host-only; the session store is shared, but a session only works on the owner that made it.
+
 ## Rollback
 
 Migrations only move forward, and a release never drops what the previous release still reads (expand, then contract in a later

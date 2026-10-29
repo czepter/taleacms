@@ -5228,6 +5228,7 @@ return [
     'This is not a Webflow collection export – the first row has no Name and Slug columns. In the Webflow Designer open CMS → the collection → Export and download the .csv file.' => 'Toto není export kolekce Webflow – první řádek nemá sloupce Name a Slug. Ve Webflow Designeru otevřete CMS → kolekce → Export a stáhněte soubor .csv.',
     'This is not a WordPress export. In WordPress open Tools → Export, choose “All content” and download the .xml file.' => 'Tohle není export z WordPressu. Ve WordPressu otevřete Nástroje → Export, zvolte „Veškerý obsah“ a stáhněte soubor .xml.',
     'This is not a pairing key of a Talea console (it starts with talea-console:).' => 'Tohle není párovací klíč konzole Talea (začíná talea-console:).',
+    'This is not available to this owner yet: backups, exports and the log are kept for the whole install.' => 'Pro tohoto vlastníka zatím není k dispozici: zálohy, exporty a protokol patří celé instalaci.',
     'This is not the JSON:API of Drupal – the answer has no "jsonapi" and "data".' => 'Toto není JSON:API Drupalu – odpověď nemá „jsonapi“ a „data“.',
     'This is not the Web Services API of Joomla – the answer has no "data" and "links".' => 'Toto není Web Services API Joomly – odpověď nemá „data“ a „links“.',
     'This is switched off in the public demo. Install Talea to try it.' => 'Ve veřejném demu je tohle vypnuté. Vyzkoušíte to po instalaci Talea.',

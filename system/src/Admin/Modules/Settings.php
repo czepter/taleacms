@@ -9,7 +9,6 @@ use Talea\Core\Response;
 use Talea\Core\Extensions;
 use Talea\Core\Health;
 use Talea\Core\Backup;
-use Talea\Core\Owners;
 
 /**
  * Site settings (table tl_settings) split into tabs.
@@ -22,6 +21,7 @@ class Settings extends Module
     public const string GROUP = 'Settings';
     public const string ICON = 'settings';
     public const bool ADMIN_ONLY = true;
+    public const array INSTALL_FILE_ACTIONS = ['backup', 'download_backup', 'delete_backup', 'restore_backup', 'media_backup', 'delete_log'];
 
     /** Tabs that became screens of their own in 3.2: the old address leads there, a form posted to the old tab still saves. */
     public const array MOVED_TABS = ['company' => 'business', 'health' => 'status'];
@@ -204,7 +204,7 @@ class Settings extends Module
             'remoteStatus' => $settings->get('remote_backup_status'),
             'mediaStatus' => $settings->get('remote_media_status'),
             'tasksToken' => $settings->get('tasks_token'),
-            'errorLog' => $tab === 'health' && Owners::isFirst($this->db) ? self::readFileTail(TALEA_ROOT . '/storage/log/errors.log', 40) : [],
+            'errorLog' => $tab === 'health' && \Talea\Core\Owners::isFirst($this->db) ? self::readFileTail(TALEA_ROOT . '/storage/log/errors.log', 40) : [],
             'mail' => $tab === 'mail' ? $this->db->all('SELECT recipient, subject, created_at, sent_at, attempts, next_attempt_at, error FROM {mail} ORDER BY mail_id DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Talea\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
@@ -212,7 +212,7 @@ class Settings extends Module
             'pages' => $tab === 'general' ? $this->db->pairs("SELECT public_id, title FROM {pages} WHERE visible = TRUE AND language = '' ORDER BY sort_order, title") : [],
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Talea\Front\Screen::url($this->app) : '',
-            'backups' => $tab === 'backups' && Owners::isFirst($this->db) ? Backup::listAll() : [], // the files of the whole install: the first owner's
+            'backups' => $tab === 'backups' && \Talea\Core\Owners::isFirst($this->db) ? Backup::listAll() : [], // the files of the whole install: the first owner's
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
             'shareImages' => \Talea\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
             'hoursExceptions' => $tab === 'company' ? \Talea\Core\Hours::exceptions($this->db) : [],
@@ -414,9 +414,6 @@ class Settings extends Module
 
     protected function actionDownloadBackup(): Response
     {
-        if (($refusal = Owners::sharedFilesRefusal($this->db)) !== null) {
-            return $this->error(t($refusal), 403);
-        }
         if (Backup::refusedInDemo()) {
             return $this->error(\Talea\Core\Demo::refusal(), 403);
         }
@@ -429,9 +426,6 @@ class Settings extends Module
 
     protected function actionDeleteBackup(): Response
     {
-        if (($refusal = Owners::sharedFilesRefusal($this->db)) !== null) {
-            return $this->error(t($refusal), 403);
-        }
         $path = Backup::path($this->request->post('file'));
         if ($this->request->isPost() && $path !== null && !Backup::refusedInDemo()) {
             unlink($path);
@@ -440,7 +434,6 @@ class Settings extends Module
         return $this->back('Backup deleted.', '', ['tab' => 'backups']);
     }
 
-    /** Empties the application error log. */
     /** An exception to the opening hours (2.10, Core\Hours). */
     protected function actionHoursAdd(): Response
     {
@@ -553,9 +546,6 @@ class Settings extends Module
 
     protected function actionDeleteLog(): Response
     {
-        if (($refusal = Owners::sharedFilesRefusal($this->db)) !== null) {
-            return $this->error(t($refusal), 403);
-        }
         if ($this->request->isPost() && is_file(TALEA_ROOT . '/storage/log/errors.log')) {
             file_put_contents(TALEA_ROOT . '/storage/log/errors.log', '');
         }
@@ -586,9 +576,6 @@ class Settings extends Module
     {
         if (!$this->request->isPost()) {
             return $this->back('', '', ['tab' => 'backups']);
-        }
-        if (($refusal = Owners::sharedFilesRefusal($this->db)) !== null) {
-            return $this->error(t($refusal), 403);
         }
         try {
             $safetyBackup = Backup::create($this->db, 'before_restore');
@@ -622,9 +609,6 @@ class Settings extends Module
     {
         if (!$this->request->isPost()) {
             return $this->back('', '', ['tab' => 'backups']);
-        }
-        if (($refusal = Owners::sharedFilesRefusal($this->db)) !== null) {
-            return $this->error(t($refusal), 403);
         }
         if (!class_exists(\ZipArchive::class) || !is_dir(TALEA_ROOT . '/media')) {
             return $this->back('The zip extension is missing on the server – download the media via FTP.', '', ['tab' => 'backups'], 'error');
