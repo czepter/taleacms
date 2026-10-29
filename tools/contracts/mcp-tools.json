@@ -8,6 +8,23 @@
             "openWorldHint": false
         }
     },
+    "add_site_domain": {
+        "parameters": {
+            "host": "string",
+            "id": "string",
+            "primary": "boolean",
+            "redirect_to_primary": "boolean"
+        },
+        "required": [
+            "id",
+            "host"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "apply_blueprint": {
         "parameters": {
             "key": "string",
@@ -269,6 +286,20 @@
         },
         "required": [
             "title"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "create_site": {
+        "parameters": {
+            "clone_of": "string",
+            "name": "string"
+        },
+        "required": [
+            "name"
         ],
         "annotations": {
             "readOnlyHint": false,
@@ -1175,6 +1206,15 @@
             "openWorldHint": false
         }
     },
+    "list_owner_sites": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_pages": {
         "parameters": [],
         "required": [],
@@ -1382,6 +1422,21 @@
         },
         "required": [
             "key"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "remove_site_domain": {
+        "parameters": {
+            "host": "string",
+            "id": "string"
+        },
+        "required": [
+            "id",
+            "host"
         ],
         "annotations": {
             "readOnlyHint": false,
@@ -2170,6 +2225,41 @@
             "settings": "object"
         },
         "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_site": {
+        "parameters": {
+            "id": "string",
+            "name": "string",
+            "redirect_to": "string",
+            "restore": "boolean",
+            "status": "string",
+            "trash": "boolean"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_site_domain": {
+        "parameters": {
+            "host": "string",
+            "id": "string",
+            "primary": "boolean",
+            "redirect_to_primary": "boolean"
+        },
+        "required": [
+            "id",
+            "host"
+        ],
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": false,

@@ -58,6 +58,19 @@ final class Sites
         ];
     }
 
+    /**
+     * Why an archive (Core\SiteImport) cannot be imported now, or null. The import empties the owner tables (media, components, facts) for
+     * the whole install, which would delete the other sites' files and the rows they share: so it is allowed only while the install has one site.
+     */
+    public static function importRefusal(Db $db): ?string
+    {
+        if (self::enabled() && (int) $db->value("SELECT COUNT(*) FROM {sites} WHERE status <> 'trashed'") > 1) {
+            return 'Importing an archive is only possible while the install has one site, because it replaces the media, components and facts every site uses. Create a further site as a clone of this one, or import in a single-site install.';
+        }
+
+        return null;
+    }
+
     /** Gives site 1 the host of a site address as its primary domain (multisite switched on for the first time); returns the host, null when the address has none. */
     public static function addFirstDomain(Db $db, string $siteUrl): ?string
     {

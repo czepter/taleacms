@@ -20,6 +20,7 @@ final class Cache
 
     /** Multisite: a further site's own folder (useSite()); null = site 1, the folder above. */
     private static ?string $siteFolder = null;
+    private static ?string $sitePrefix = null;
     /** Only a safety net: a change and a new day clear the cache anyway. */
     private const int LINK_LIFETIME = 86400;
 
@@ -39,9 +40,16 @@ final class Cache
     private static $lock = null;
 
     /** A further site's pages go to their own folder (storage/cache/pages-tl2_), so clearing one site never empties another. */
-    public static function useSite(string $prefix): void
+    public static function useSite(?string $prefix): void
     {
-        self::$siteFolder = self::FOLDER . '-' . $prefix;
+        self::$sitePrefix = $prefix;
+        self::$siteFolder = $prefix === null ? null : self::FOLDER . '-' . $prefix;
+    }
+
+    /** The prefix useSite() was given (null = site 1); an MCP call on a sibling site restores it afterwards. */
+    public static function site(): ?string
+    {
+        return self::$sitePrefix;
     }
 
     public static function folder(): string

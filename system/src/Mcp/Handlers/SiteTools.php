@@ -1,0 +1,220 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Talea\Mcp\Handlers;
+
+use Talea\Core\Sites;
+
+/**
+ * MCP tools of the owner's sites (multisite, only with TALEA_MULTISITE, administrators only): the same things the Sites area does
+ * (Admin\Modules\Sites) through Core\Sites. A site is named by its public id; prefixes and row numbers never leave the server. These
+ * tools work on the owner's registry, so they take no `site` argument. Part of Mcp\Tools.
+ *
+ * @phpstan-ignore trait.unused
+ */
+trait SiteTools
+{
+    /**
+     * Definitions of the site tools, in the shape of Tools::definitions() ([name, description, schema]).
+     *
+     * @return list<array{0: string, 1: string, 2: array<string, mixed>}>
+     */
+    private static function siteDefinitions(\Closure $s, \Closure $text, \Closure $pid): array
+    {
+        return [
+            ['list_owner_sites', 'The sites of this installation (multisite, administrators, read-only): id, name, status (live | paused | archived | trashed), whether it is set up, the host names with the primary one, and where an archived site redirects. Pass a site\'s id as the site argument of any other tool to work on that site instead of the one this connection calls.',
+                $s([])],
+            ['create_site', 'Creates a further site (multisite, administrators): empty, or a copy of another site with clone_of (its content and look, never its visitors\' data). It starts paused and is set up in the background within a few minutes; add a host name with add_site_domain and set it live with update_site.',
+                $s(['name' => $text('name of the site'), 'clone_of' => $pid('site id from list_owner_sites to copy (omit for an empty site)')], ['name'])],
+            ['update_site', 'Renames a site, sets its state (live | paused | archived; an archived site may redirect to another with redirect_to), puts it into the trash (kept 30 days) or takes it out (multisite, administrators). Never the first site into the trash, nor the site this connection calls.',
+                $s(['id' => $pid('site id from list_owner_sites'), 'name' => $text('new name'), 'status' => $text('live | paused | archived'), 'redirect_to' => $pid('site id an archived site redirects to; empty = none'),
+                    'trash' => ['type' => 'boolean', 'description' => 'true = move the site to the trash'], 'restore' => ['type' => 'boolean', 'description' => 'true = take a trashed site out of the trash (it comes back paused)']], ['id'])],
+            ['add_site_domain', 'Gives a site a host name such as www.example.com (multisite, administrators; lower-case, no scheme, port or path). The first host of a site is its primary one.',
+                $s(['id' => $pid('site id from list_owner_sites'), 'host' => $text('host name'), 'primary' => ['type' => 'boolean', 'description' => 'true = make it the primary host name'],
+                    'redirect_to_primary' => ['type' => 'boolean', 'description' => 'true = this host answers with a 301 to the primary host (not for the primary one)']], ['id', 'host'])],
+            ['update_site_domain', 'Makes a host name of a site its primary one, or sets whether it redirects to the primary host (multisite, administrators).',
+                $s(['id' => $pid('site id from list_owner_sites'), 'host' => $text('one of the site\'s host names'), 'primary' => ['type' => 'boolean', 'description' => 'true = make it the primary host name'],
+                    'redirect_to_primary' => ['type' => 'boolean', 'description' => 'true = 301 to the primary host; false = answer as the site itself']], ['id', 'host'])],
+            ['remove_site_domain', 'Removes a host name from a site (multisite, administrators, only on the user\'s explicit request); when it was the primary one, the oldest remaining host takes over. Not the host this connection uses.',
+                $s(['id' => $pid('site id from list_owner_sites'), 'host' => $text('one of the site\'s host names')], ['id', 'host'])],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function siteOutput(array $site, bool $withDomains = true): array
+    {
+        $out = ['id' => (string) $site['public_id'], 'name' => (string) $site['name'], 'slug' => (string) $site['slug'], 'status' => (string) $site['status'],
+            'ready' => $site['ready_at'] !== null, 'clone' => (bool) $site['clone'], 'current' => (int) $site['site_id'] === \Talea\Core\Sites::currentId($this->app->db()),
+            'redirect_to' => $site['redirect_to_site_id'] === null ? null : (string) $this->app->db()->publicId('sites', (int) $site['redirect_to_site_id'])];
+        if ($withDomains) {
+            $out['domains'] = array_map(fn (array $d): array => ['host' => (string) $d['host'], 'primary' => (bool) $d['is_primary'], 'redirect_to_primary' => (bool) $d['redirect_to_primary']], (array) ($site['domains'] ?? []));
+        }
+
+        return $out;
+    }
+
+    private function siteAdmin(): void
+    {
+        if (!Sites::enabled()) {
+            throw new \DomainException('Multisite is not switched on for this installation.');
+        }
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('The sites of the owner are for administrators.');
+        }
+    }
+
+    /** @return array<string, mixed> the row of a site by its public id; not a trashed one unless $trashed */
+    private function siteByPublicId(mixed $id, bool $trashed = false): array
+    {
+        $site = is_string($id) && $id !== '' ? $this->app->db()->byPublicId('sites', $id) : null;
+        if ($site === null || ($site['status'] === 'trashed') !== $trashed) {
+            throw new \InvalidArgumentException($site === null ? 'No such site. list_owner_sites gives the ids.' : ($trashed ? 'This site is not in the trash.' : 'This site is in the trash – restore it first (update_site with restore).'));
+        }
+
+        return $site;
+    }
+
+    /** @return array<string, mixed> the Sites::overview() row of a site */
+    private function siteRow(int $siteId): array
+    {
+        foreach (Sites::overview($this->app->db(), false) as $s) {
+            if ((int) $s['site_id'] === $siteId) {
+                return $s;
+            }
+        }
+        throw new \DomainException('The site does not exist.');
+    }
+
+    /** list_owner_sites */
+    private function toolListOwnerSites(string $name, array $a): mixed
+    {
+        $this->siteAdmin();
+        $sites = array_map(fn (array $s): array => $this->siteOutput($s), Sites::overview($this->app->db(), false));
+
+        return ['sites' => $sites, 'next' => 'Pass a site\'s id as the site argument of any other tool to work on that site. create_site, update_site and add_site_domain manage the sites.'];
+    }
+
+    /** create_site */
+    private function toolCreateSite(string $name, array $a): mixed
+    {
+        $this->siteAdmin();
+        $db = $this->app->db();
+        $title = trim(mb_substr((string) ($a['name'] ?? ''), 0, 120));
+        if ($title === '') {
+            throw new \InvalidArgumentException('Give the site a name.');
+        }
+        $source = Sites::currentId($db);
+        $clone = isset($a['clone_of']) && $a['clone_of'] !== '';
+        if ($clone) {
+            $from = $this->siteByPublicId($a['clone_of']);
+            if ($from['ready_at'] === null) {
+                throw new \InvalidArgumentException('The site to copy is not set up yet.');
+            }
+            $source = (int) $from['site_id'];
+        }
+        $prefix = Sites::add($db, $title, Sites::freeSlug($db, $title), $source, $clone);
+        $site = $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$prefix]) ?? throw new \DomainException('The site could not be created.');
+
+        return ['site' => $this->siteOutput($site + ['domains' => []]),
+            'next' => 'The site is set up in the background within a few minutes (ready: true in list_owner_sites) and starts paused. Add a host name with add_site_domain, then set it live with update_site.'];
+    }
+
+    /** update_site */
+    private function toolUpdateSite(string $name, array $a): mixed
+    {
+        $this->siteAdmin();
+        $db = $this->app->db();
+        if (($a['restore'] ?? false) === true) {
+            $site = $this->siteByPublicId($a['id'] ?? null, true);
+            Sites::restore($db, (int) $site['site_id']);
+
+            return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id'])), 'next' => 'The site is back, paused.'];
+        }
+        $site = $this->siteByPublicId($a['id'] ?? null);
+        if (($a['trash'] ?? false) === true) {
+            if ((int) $site['site_id'] === Sites::currentId($db) && (int) $site['site_id'] !== 1) {
+                throw new \DomainException('This connection works on this site right now – use another site\'s host name or trash it from there.');
+            }
+            $error = Sites::trash($db, (int) $site['site_id']);
+            if ($error !== null) {
+                throw new \DomainException($error);
+            }
+
+            return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id'])), 'next' => 'The site is in the trash and is deleted for good after ' . Sites::TRASH_DAYS . ' days; update_site with restore brings it back.'];
+        }
+        $redirect = $site['redirect_to_site_id'] === null ? null : (int) $site['redirect_to_site_id'];
+        if (array_key_exists('redirect_to', $a)) {
+            $redirect = $a['redirect_to'] === null || $a['redirect_to'] === '' ? null : (int) $this->siteByPublicId($a['redirect_to'])['site_id'];
+        }
+        $error = Sites::save($db, (int) $site['site_id'], (string) ($a['name'] ?? $site['name']), (string) ($a['status'] ?? $site['status']), $redirect);
+        if ($error !== null) {
+            throw new \InvalidArgumentException($error);
+        }
+
+        return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id']))];
+    }
+
+    /** add_site_domain */
+    private function toolAddSiteDomain(string $name, array $a): mixed
+    {
+        $this->siteAdmin();
+        $db = $this->app->db();
+        $site = $this->siteByPublicId($a['id'] ?? null);
+        $error = Sites::addDomain($db, (int) $site['site_id'], (string) ($a['host'] ?? ''));
+        if ($error !== null) {
+            throw new \InvalidArgumentException($error);
+        }
+        $this->applyDomainFlags($site, (string) Sites::normalizeHost((string) $a['host']), $a);
+
+        return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id']))];
+    }
+
+    /** update_site_domain */
+    private function toolUpdateSiteDomain(string $name, array $a): mixed
+    {
+        $this->siteAdmin();
+        $site = $this->siteByPublicId($a['id'] ?? null);
+        $host = (string) Sites::normalizeHost((string) ($a['host'] ?? ''));
+        if ($this->app->db()->value('SELECT 1 FROM {site_domains} WHERE site_id = ? AND host = ?', [(int) $site['site_id'], $host]) === null) {
+            throw new \InvalidArgumentException('This site has no such host name. list_owner_sites shows them.');
+        }
+        $this->applyDomainFlags($site, $host, $a);
+
+        return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id']))];
+    }
+
+    /** remove_site_domain */
+    private function toolRemoveSiteDomain(string $name, array $a): mixed
+    {
+        $this->siteAdmin();
+        $db = $this->app->db();
+        $site = $this->siteByPublicId($a['id'] ?? null);
+        $domain = $db->one('SELECT * FROM {site_domains} WHERE site_id = ? AND host = ?', [(int) $site['site_id'], (string) Sites::normalizeHost((string) ($a['host'] ?? ''))]);
+        if ($domain === null) {
+            throw new \InvalidArgumentException('This site has no such host name. list_owner_sites shows them.');
+        }
+        $error = Sites::removeDomain($db, (int) $site['site_id'], (int) $domain['domain_id'], Sites::requestHost($this->app->request));
+        if ($error !== null) {
+            throw new \DomainException($error);
+        }
+
+        return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id']))];
+    }
+
+    /** primary / redirect_to_primary of add_site_domain and update_site_domain @param array<string, mixed> $site @param array<string, mixed> $a */
+    private function applyDomainFlags(array $site, string $host, array $a): void
+    {
+        $db = $this->app->db();
+        $domain = (array) $db->one('SELECT * FROM {site_domains} WHERE site_id = ? AND host = ?', [(int) $site['site_id'], $host]);
+        if (($a['primary'] ?? false) === true) {
+            Sites::makePrimary($db, (int) $site['site_id'], (int) $domain['domain_id']);
+        }
+        if (isset($a['redirect_to_primary'])) {
+            if (($a['redirect_to_primary'] === true) && (bool) ((array) $db->one('SELECT is_primary FROM {site_domains} WHERE domain_id = ?', [(int) $domain['domain_id']]))['is_primary']) {
+                throw new \InvalidArgumentException('The primary host name cannot redirect to itself.');
+            }
+            Sites::setRedirect($db, (int) $site['site_id'], (int) $domain['domain_id'], $a['redirect_to_primary'] === true);
+        }
+    }
+}

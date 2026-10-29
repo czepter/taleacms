@@ -7,8 +7,10 @@ namespace Talea\Tests\Integration;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Talea\Core\Backup;
 use Talea\Core\MediaStaging;
+use Talea\Core\AgentJournal;
+use Talea\Core\App;
 use Talea\Core\Migrator;
-use Talea\Core\SiteImport;
+use Talea\Core\Request;
 use Talea\Core\Sites;
 use Talea\Tests\Support\DatabaseTestCase;
 
@@ -196,14 +198,39 @@ final class MultisiteTest extends DatabaseTestCase
 
     public function testAnArchiveImportIsRefusedWhileSeveralSitesExist(): void
     {
-        $this->assertNull(SiteImport::refusal($this->db()), 'the flag is off');
+        $this->assertNull(Sites::importRefusal($this->db()), 'the flag is off');
         putenv('TALEA_MULTISITE=1');
         try {
-            $this->assertStringContainsString('only possible while the install has one site', (string) SiteImport::refusal($this->db()));
+            $this->assertStringContainsString('only possible while the install has one site', (string) Sites::importRefusal($this->db()));
             $this->db()->update('sites', ['status' => 'trashed'], ['prefix' => 'tl2_']);
-            $this->assertNull(SiteImport::refusal($this->db()), 'a trashed site does not count');
+            $this->assertNull(Sites::importRefusal($this->db()), 'a trashed site does not count');
         } finally {
             putenv('TALEA_MULTISITE');
         }
+    }
+
+    public function testTheJournalOfASiblingCallRecordsItsPrefixAndUndoWritesBackThere(): void
+    {
+        $this->db()->pdo()->rollBack(); // undo has a transaction of its own
+        $site = $this->db()->forSite('tl2_');
+        $own = $this->db();
+        $site->journal = AgentJournal::start($site, 'probe', 'update_settings');
+        $site->upsert('settings', ['name' => 'journal_probe', 'value' => 'second'], ['name']);
+        $site->journal = null;
+        $own->journal = AgentJournal::start($own, 'probe', 'update_settings');
+        $own->upsert('settings', ['name' => 'journal_probe', 'value' => 'first'], ['name']);
+        $own->journal = null;
+
+        $this->assertSame(['tl2_', ''], array_column($own->all("SELECT site_prefix FROM {agent_journal} WHERE tbl = 'settings' ORDER BY id"), 'site_prefix'));
+
+        // undone from the first site's connection, the row of the second site goes from the second site's table
+        $app = new App(['db' => $this->dbConfig()], Request::fromGlobals());
+        (new \ReflectionProperty(App::class, 'db'))->setValue($app, $own);
+        $result = AgentJournal::undo($app, (int) $own->value('SELECT MAX(id) FROM {agent_sessions}'));
+
+        $this->assertSame(2, $result['removed'] + $result['restored']);
+        $this->assertNull($site->value("SELECT value FROM {settings} WHERE name = 'journal_probe'"));
+        $this->assertNull($own->value("SELECT value FROM {settings} WHERE name = 'journal_probe'"));
+        $own->delete('agent_sessions', ['connection' => 'probe']);
     }
 }

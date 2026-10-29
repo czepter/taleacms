@@ -27,7 +27,7 @@ use Talea\Builder\HtmlConverter;
  */
 final class Tools
 {
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\MemberTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ExperimentTools, Handlers\ReportTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\MemberTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ExperimentTools, Handlers\ReportTools, Handlers\SiteTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -47,8 +47,8 @@ final class Tools
     /** @return list<array<string, mixed>> tool definitions for tools/list: the tools of switched-off extensions are left out */
     public function listAll(): array
     {
-        return [...array_values(array_filter(self::definitions(), fn (array $n): bool => ($extension = Catalog::extension($n['name'])) === ''
-            || \Talea\Core\Extensions::isEnabled($this->app->settings(), $extension))), ...\Talea\Extension\Registry::get()->toolDefinitions()];
+        return [...array_values(array_filter(self::definitions(), fn (array $n): bool => (($extension = Catalog::extension($n['name'])) === ''
+            || \Talea\Core\Extensions::isEnabled($this->app->settings(), $extension)) && (!in_array($n['name'], Catalog::SITE_TOOLS, true) || \Talea\Core\Sites::enabled()))), ...\Talea\Extension\Registry::get()->toolDefinitions()];
     }
 
     /**
@@ -380,7 +380,7 @@ final class Tools
                     'links' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the drafts you made: [{"label": "Services – draft build", "url": "https://…/preview…"}] or plain strings (a URL, or a label such as "page About us")']], ['id', 'status', 'summary'])],
         ];
 
-        return array_values(array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], $tools));
+        return array_values(array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], [...$tools, ...self::siteDefinitions($s, $text, $pid)]));
     }
 
     /** @return list<string> names of all tools (including those of disabled extensions) */

@@ -24,6 +24,12 @@ final class Server
     /** Protocol versions the server speaks, newest first (2.2: the client's version is answered when it is one of them). */
     public const array PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
+    /** @var array<string, mixed>|null the user row of the connection (Server::user), to sign in on a sibling site */
+    private ?array $user = null;
+
+    /** The public id of the site this server instance was built for by onSite(); null = the site the connection called. */
+    private ?string $siteId = null;
+
     public function __construct(private readonly App $app)
     {
     }
@@ -48,6 +54,7 @@ final class Server
             return new Response(json_encode(['error' => 'The token is invalid or missing.']), 401, ['Content-Type' => 'application/json',
                 'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Talea\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
+        $this->user = $user;
         $this->app->auth()->signInAs($user);
         $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
         if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
@@ -125,7 +132,15 @@ final class Server
      */
     public static function withReason(array $tool): array
     {
-        if (Catalog::access((string) $tool['name']) === 'read' || !is_array($tool['inputSchema'] ?? null)) {
+        if (!is_array($tool['inputSchema'] ?? null)) {
+            return $tool;
+        }
+        // multisite: every tool of a site takes the optional site (its public id) to work on a sibling of the site the connection calls
+        if (\Talea\Core\Sites::enabled() && !in_array((string) $tool['name'], Catalog::SITE_TOOLS, true) && !isset(Catalog::META[(string) $tool['name']])) {
+            $tool['inputSchema']['properties'] = (array) ($tool['inputSchema']['properties'] ?? []) + ['site' => ['type' => 'string',
+                'description' => 'Optional: the id of another site of this installation (list_owner_sites) to run this tool on. Without it the tool works on the site this connection calls.']];
+        }
+        if (Catalog::access((string) $tool['name']) === 'read') {
             return $tool;
         }
         $tool['inputSchema']['properties'] = (array) ($tool['inputSchema']['properties'] ?? []) + ['reason' => ['type' => 'string',
@@ -165,6 +180,18 @@ final class Server
             return ['content' => [['type' => 'text', 'text' => $this->access() === 'read'
                 ? 'This connection can only read the site. Changes need a connection with more access – the user sets it when connecting Claude, or under My account.'
                 : 'This connection can only save drafts: builds, hidden pages and collection items, news drafts, the draft look, proposed exceptions to the opening hours, enquiry triage and notebook notes. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.']], 'isError' => true];
+        }
+        // multisite: `site` runs the tool on a sibling (added to the schema like `reason`, see withReason)
+        if (\Talea\Core\Sites::enabled() && array_key_exists('site', $arguments) && !in_array($name, Catalog::SITE_TOOLS, true)) {
+            $site = $arguments['site'];
+            unset($arguments['site']);
+            if ($site !== null && $site !== '') {
+                try {
+                    return $this->onSite($name, $arguments, $site);
+                } catch (\InvalidArgumentException | \DomainException $e) {
+                    return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
+                }
+            }
         }
         try {
             $items = $tools->listAll();
@@ -208,6 +235,9 @@ final class Server
                 // enquiries hold personal data: every read by Claude is in the change log, with how many it saw
                 ChangeLog::write($this->app, 'claude', 'list_enquiries', t('%d enquiries read', is_array($result) ? count($result) : 0));
             }
+            if ($this->siteId !== null && is_array($result) && !array_is_list($result)) {
+                $result['on_site'] = $this->siteId; // the result names the site the tool ran on (site_info has a `site` of its own)
+            }
             if ($unknownParams !== [] && is_array($result) && !array_is_list($result)) {
                 // a typo in a parameter name would otherwise get lost without a trace (the tool does not know it, so it skips it)
                 $result['unknown_parameters'] = $unknownParams;
@@ -223,6 +253,73 @@ final class Server
 
             return ['content' => [['type' => 'text', 'text' => 'The tool failed with an internal error of the site (' . $e::class . ').'
                 . ($event !== null ? ' Error report ' . $event . ' went to the site’s error tracking.' : '') . ' The details are in the site’s error log (storage/log/errors.log); tell the site owner.']], 'isError' => true];
+        }
+    }
+
+    /**
+     * Runs one tool call on another site of the owner (`site` = its public id): the owner's ready, non-trashed sites only – an unknown,
+     * trashed or not yet set up site is an error, never a silent fallback to the site the connection called. The call goes through call()
+     * again on a Server built for an App of that site (same configuration with site_prefix, the user and the connection signed in), so
+     * access, guardrails, journal (entries carry the site's prefix, undo writes back there), change log and cache all hold for that site.
+     *
+     * Static state that belongs to a site is switched for the call and put back afterwards: the page cache folder (Front\Cache), the
+     * time zone, the site language and its register (Core\Language), and the memos of the slug and news-slug settings (Core\Slug,
+     * Core\Routes). Core\Facts keys its memo by prefix by itself. Add-ons are loaded once for the site the connection called, so an
+     * add-on's tool is refused with `site` (it would act on the wrong database).
+     *
+     * @param array<string, mixed> $arguments without `site`
+     * @return array<string, mixed>
+     */
+    private function onSite(string $name, array $arguments, mixed $site): array
+    {
+        $db = $this->app->db();
+        $row = is_string($site) ? $db->byPublicId('sites', $site) : null;
+        if ($row === null) {
+            throw new \InvalidArgumentException('Unknown site. list_owner_sites gives the ids of the sites of this installation.');
+        }
+        if ($row['status'] === 'trashed') {
+            throw new \InvalidArgumentException('This site is in the trash. Restore it first (update_site with restore).');
+        }
+        if ($row['ready_at'] === null) {
+            throw new \InvalidArgumentException('This site is still being set up. Try again in a few minutes.');
+        }
+        if (\Talea\Extension\Registry::get()->tool($name) !== null) {
+            throw new \InvalidArgumentException('An add-on\'s tool works on the site the connection calls; it cannot take the site argument.');
+        }
+        if ((int) $row['site_id'] === \Talea\Core\Sites::currentId($db)) {
+            return $this->call(new Tools($this->app), $name, $arguments); // the site this connection calls anyway
+        }
+        $config = $this->app->config;
+        $config['db']['site_prefix'] = (string) $row['prefix'];
+        $request = \Talea\Core\Request::fromGlobals();
+        $app = new App($config, $request, ['site_id' => (int) $row['site_id'], 'public_id' => (string) $row['public_id'], 'prefix' => (string) $row['prefix'], 'status' => (string) $row['status'],
+            'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true]);
+        $app->auth()->signInAs((array) $this->user);
+        $conn = (array) $this->app->auth()->connection();
+        $app->auth()->useConnection((string) ($conn['name'] ?? ''), (string) ($conn['access'] ?? 'read'), (string) ($conn['tool_set'] ?? 'all'));
+        $origin = $app->settings()->get('site_url');
+        $host = \Talea\Core\Sites::primaryHost($db, (int) $row['site_id']);
+        $request->setOrigin($origin !== '' ? $origin : ($host !== null ? \Talea\Core\Sites::originOn($this->app->request, $host) : ''));
+
+        $before = [\Talea\Front\Cache::site(), \Talea\Core\Language::code(), date_default_timezone_get()];
+        $owner = (string) $row['prefix'] === $db->ownerPrefix;
+        \Talea\Front\Cache::useSite($owner ? null : (string) $row['prefix']);
+        \Talea\Core\Slug::setPerLanguage(null);
+        \Talea\Core\Routes::setNewsSlug(null);
+        try {
+            $app->applyTimezone();
+            \Talea\Core\Language::setSite($app->settings(), \Talea\Core\Language::defaults($app->settings()));
+            $server = new self($app);
+            $server->user = $this->user;
+            $server->siteId = (string) $row['public_id'];
+
+            return $server->call(new Tools($app), $name, $arguments);
+        } finally {
+            \Talea\Front\Cache::useSite($before[0]);
+            date_default_timezone_set($before[2]);
+            \Talea\Core\Slug::setPerLanguage(null);
+            \Talea\Core\Routes::setNewsSlug(null);
+            \Talea\Core\Language::setSite($this->app->settings(), $before[1]);
         }
     }
 

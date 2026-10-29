@@ -174,6 +174,13 @@ final class Catalog
         'propose_booking_times' => ['write', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
+        // The owner's sites (multisite, only with TALEA_MULTISITE and for administrators): Handlers\SiteTools
+        'list_owner_sites' => ['read', ''],
+        'create_site' => ['write', ''],
+        'update_site' => ['write', ''],
+        'add_site_domain' => ['write', ''],
+        'update_site_domain' => ['write', ''],
+        'remove_site_domain' => ['destructive', ''],
         // Requests to Claude (2.15): update_request changes nothing on the site – a note and a status on a request, whose
         // work is done as drafts – so a drafts-only connection may answer the requests it works on
         'list_requests' => ['read', ''],
@@ -208,6 +215,12 @@ final class Catalog
      * destructive tool – nothing can take a sent e-mail back – although their access is "write".
      */
     public const array SENDS = ['send_test_newsletter', 'request_testimonial', 'confirm_booking', 'propose_booking_times'];
+
+    /**
+     * The tools of the owner's sites: listed and callable only with TALEA_MULTISITE (Core\Sites::enabled()), like the tools of an
+     * extension that is off. They work on the registry of sites, so they take no `site` argument.
+     */
+    public const array SITE_TOOLS = ['list_owner_sites', 'create_site', 'update_site', 'add_site_domain', 'update_site_domain', 'remove_site_domain'];
 
     /** How a connection lists its tools: "all" (as before) or "essentials" (ESSENTIALS, find_tools and the runners it needs). */
     public const array TOOL_SETS = ['all', 'essentials'];
