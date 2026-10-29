@@ -25,9 +25,9 @@ final class MultisiteRoutingTest extends SiteTestCase
         return $this->site()->port;
     }
 
-    private function migrate(bool $multisite): string
+    private function migrate(bool $multisite, string $args = ''): string
     {
-        return (string) shell_exec('cd ' . escapeshellarg($this->site()->root) . ' && ' . ($multisite ? 'TALEA_MULTISITE=1 ' : '') . escapeshellarg(PHP_BINARY) . ' bin/migrate 2>&1; echo "exit:$?"');
+        return (string) shell_exec('cd ' . escapeshellarg($this->site()->root) . ' && ' . ($multisite ? 'TALEA_MULTISITE=1 ' : '') . escapeshellarg(PHP_BINARY) . ' bin/migrate ' . $args . ' 2>&1; echo "exit:$?"');
     }
 
     private function on(string $host, string $path, bool $admin = false): Response
@@ -140,5 +140,44 @@ final class MultisiteRoutingTest extends SiteTestCase
         $this->assertSame(404, $this->on('second.test', '/')->status);
         $this->putSiteTwo('live');
         $this->assertSame(200, $this->on('second.test', '/health')->status);
+    }
+
+    /** Owner run first, then each further site; a failure in site 2 stops the start (exit 1) with the error, site 1 stays migrated, and --backup wrote its dump before. */
+    public function testAMigrationFailureInASecondSiteStopsTheStart(): void
+    {
+        $site = $this->site();
+        $file = $site->path('system/database/migrations/20991231000000_ms_probe.php');
+        file_put_contents($file, <<<'PHP'
+<?php
+declare(strict_types=1);
+use Phinx\Migration\AbstractMigration;
+final class MsProbe extends AbstractMigration
+{
+    public function change(): void
+    {
+        $this->table('ms_probe', ['id' => false, 'primary_key' => ['n']])->addColumn('n', 'integer', ['null' => false])->create();
+    }
+}
+PHP);
+        $site->exec('CREATE TABLE tl2_ms_probe (n INTEGER)'); // a table of that name already stands in site 2's way
+        $backups = glob($site->path('storage/backups/*')) ?: [];
+        try {
+            $out = $this->migrate(true, '--backup');
+            $this->assertStringContainsString('exit:1', $out, 'the start is refused');
+            $this->assertMatchesRegularExpression('/Migration failed: .*ms_probe/i', $out, 'with the database error');
+            $this->assertStringNotContainsString('Site 1 answers', $out);
+            $this->assertSame(1, (int) $site->value("SELECT COUNT(*) FROM tl_migrations WHERE version = '20991231000000'"), 'site 1 was migrated first');
+            $this->assertSame(0, (int) $site->value('SELECT COUNT(*) FROM tl_ms_probe'));
+            $this->assertSame(0, (int) $site->value("SELECT COUNT(*) FROM tl2_migrations WHERE version = '20991231000000'"), 'site 2 did not record it');
+            $new = array_values(array_diff(glob($site->path('storage/backups/*')) ?: [], $backups));
+            $this->assertCount(1, $new, 'a backup was written before the migration');
+            $this->assertStringContainsString('-beforeupdate-', $new[0]);
+        } finally {
+            unlink($file);
+            $site->exec('DROP TABLE tl2_ms_probe');
+            $site->exec('DROP TABLE tl_ms_probe');
+            $site->exec("DELETE FROM tl_migrations WHERE version = '20991231000000'");
+        }
+        $this->assertStringContainsString('exit:0', $this->migrate(true), 'with the file gone the start works again');
     }
 }
