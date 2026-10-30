@@ -171,7 +171,11 @@ trait MediaTools
         $folderName = mb_substr(trim((string) ($a['folder_name'] ?? '')), 0, 100);
         if ($folder === 0 && $folderName !== '') {
             $db = $this->app->db();
-            $folder = (int) ($db->value('SELECT folder_id FROM {media_folders} WHERE name = ?', [$folderName]) ?? $db->insert('media_folders', ['name' => $folderName]));
+            $folder = (int) $db->value('SELECT folder_id FROM {media_folders} WHERE name = ?', [$folderName]);
+            if ($folder === 0 && $this->app->auth()->draftsOnly()) {
+                throw new \DomainException('A connection limited to drafts does not create folders; use an existing one (list_media_folders) or leave folder_name out.');
+            }
+            $folder = $folder ?: $db->insert('media_folders', ['name' => $folderName]);
         }
         $uploaded = [];
         $failed = [];
