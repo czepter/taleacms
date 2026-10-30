@@ -474,4 +474,28 @@ final class OwnersOperatorsTest extends SiteTestCase
         $site->admin()->post('/admin.php?module=owners&action=status', ['_csrf' => $edit->csrf(), 'id' => $first, 'status' => 'paused']);
         $this->assertSame('live', $site->value("SELECT status FROM tl_owners WHERE prefix = 'tl_'"));
     }
+    public function testAClientsOwnHostStartsUnverifiedAndAnOperatorsDoesNot(): void
+    {
+        $site = $this->site();
+        $this->assertNotNull($site->value("SELECT verified_at FROM tlb_site_domains WHERE host = 'localhost'"), 'the operator gave the owner its first host: verified');
+        $client = $this->betaAdmin();
+        $form = $client->get('/admin.php?module=sites', $this->host(true));
+        $betaSite = (string) $site->value('SELECT public_id FROM tlb_sites WHERE site_id = 1');
+        $client->post('/admin.php?module=sites&action=domain_add', ['_csrf' => $form->csrf(), 'id' => $betaSite, 'host' => 'client-own.test'], $this->host(true));
+        $row = $site->rows("SELECT verified_at, token FROM tlb_site_domains WHERE host = 'client-own.test'")[0] ?? null;
+        $this->assertNotNull($row, 'added');
+        $this->assertNull($row['verified_at']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', (string) $row['token']);
+        $this->assertSame(404, $site->client('visitor')->get('/', ['Host: client-own.test:' . $site->port])->status, 'it does not route until verified');
+
+        // the client cannot vouch for it; the operator (a signed-in administrator of owner 1) can, in the client's Sites area through the handoff
+        $client->post('/admin.php?module=sites&action=domain_verify', ['_csrf' => $form->csrf(), 'id' => $betaSite, 'host' => 'client-own.test'], $this->host(true));
+        $this->assertNull($site->value("SELECT verified_at FROM tlb_site_domains WHERE host = 'client-own.test'"));
+        $operator = $this->operatorOnBeta('operator-verify');
+        $edit = $operator->get('/admin.php?module=sites&action=edit&id=' . $betaSite, $this->host(true));
+        $this->assertStringContainsString('Mark as verified', $edit->body);
+        $operator->post('/admin.php?module=sites&action=domain_verify', ['_csrf' => $edit->csrf(), 'id' => $betaSite, 'host' => 'client-own.test'], $this->host(true));
+        $this->assertNotNull($site->value("SELECT verified_at FROM tlb_site_domains WHERE host = 'client-own.test'"));
+        $this->assertSame(200, $site->client('visitor')->get('/', ['Host: client-own.test:' . $site->port])->status);
+    }
 }

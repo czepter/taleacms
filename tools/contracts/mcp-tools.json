@@ -131,6 +131,21 @@
             "openWorldHint": false
         }
     },
+    "check_site_domain": {
+        "parameters": {
+            "host": "string",
+            "id": "string"
+        },
+        "required": [
+            "id",
+            "host"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": true
+        }
+    },
     "compare_build_version": {
         "parameters": {
             "collection": "string",

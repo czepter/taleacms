@@ -7,6 +7,7 @@ namespace Talea\Admin\Modules;
 use Talea\Admin\Kernel;
 use Talea\Admin\Module;
 use Talea\Admin\ChangeLog;
+use Talea\Core\Domains;
 use Talea\Core\Owners as OwnerRegistry;
 use Talea\Core\Response;
 use Talea\Core\SiteFigures;
@@ -196,9 +197,37 @@ final class Sites extends Module
         if (!$this->request->isPost() || $site === null) {
             return $this->back();
         }
-        $error = SiteRegistry::addDomain($this->db, (int) $site['site_id'], $this->request->post('host'));
+        $verify = Domains::needsVerification($this->db, $this->app->auth()->user());
+        $error = SiteRegistry::addDomain($this->db, (int) $site['site_id'], $this->request->post('host'), $verify);
 
-        return $error === null ? $this->back('The host name is added.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
+        return $error === null ? $this->back($verify ? 'The host name is added. It answers once it is verified: follow the steps next to it, then choose Check now.' : 'The host name is added.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
+    }
+
+    /** Checks a host that is not verified yet (the token file over HTTP, else the DNS record); the request leaves through the safe outbound path. */
+    protected function actionDomainCheck(): Response
+    {
+        $site = $this->site();
+        $domain = $site === null ? null : $this->domain((int) $site['site_id']);
+        if (!$this->request->isPost() || $site === null || $domain === null) {
+            return $this->back();
+        }
+        $error = Domains::check($this->db, $domain);
+
+        return $error === null ? $this->back('The host name is verified and answers now.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
+    }
+
+    /** An operator vouches for a host without a check (the owner cannot reach its DNS, a host listed by hand). */
+    protected function actionDomainVerify(): Response
+    {
+        $site = $this->site();
+        $domain = $site === null ? null : $this->domain((int) $site['site_id']);
+        if (!$this->request->isPost() || $site === null || $domain === null || !OwnerRegistry::isOperator($this->db, $this->app->auth()->user())) {
+            return $this->back();
+        }
+        Domains::markVerified($this->db, (int) $site['site_id'], (int) $domain['domain_id']);
+        ChangeLog::write($this->app, 'sites', 'domain', (string) $domain['host'] . ': verified by an operator');
+
+        return $this->back('The host name is marked as verified.', 'edit', ['id' => $site['public_id']]);
     }
 
     protected function actionDomainRemove(): Response
@@ -266,7 +295,7 @@ final class Sites extends Module
     /** @return array<string, mixed>|null the host (parameter `host`) of a site, from its own list only */
     private function domain(int $siteId): ?array
     {
-        return $this->db->one('SELECT * FROM {site_domains} WHERE site_id = ? AND host = ?', [$siteId, $this->request->post('host')]);
+        return $this->db->one("SELECT * FROM {site_domains} WHERE site_id = ? AND host = ? AND kind = 'domain'", [$siteId, $this->request->post('host')]);
     }
 
     private function form(string $name, string $from, string $error = ''): Response
@@ -284,6 +313,6 @@ final class Sites extends Module
         $row = current(array_filter($overview, fn (array $s): bool => (int) $s['site_id'] === (int) $site['site_id']));
 
         return $this->view('edit', (string) ($site['name'] !== '' ? $site['name'] : $site['slug']), ['site' => $row, 'others' => array_values(array_filter($overview, fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed' && (int) $s['site_id'] !== (int) $site['site_id'])),
-            'current' => $this->currentId(), 'host' => SiteRegistry::requestHost($this->request)]);
+            'current' => $this->currentId(), 'host' => SiteRegistry::requestHost($this->request), 'operator' => OwnerRegistry::isOperator($this->db, $this->app->auth()->user())]);
     }
 }

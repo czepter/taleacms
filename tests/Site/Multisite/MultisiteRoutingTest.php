@@ -60,8 +60,8 @@ final class MultisiteRoutingTest extends SiteTestCase
 
         $site->signIn($site->admin()); // the first sign-in came before site 1 had a domain: the host was unknown
         $site->exec("INSERT INTO tl2_settings (name, value) VALUES ('site_name', 'Second site')");
-        $site->exec("INSERT INTO tl_site_domains (site_id, host, is_primary, redirect_to_primary) VALUES (2, 'second.test', TRUE, FALSE)");
-        $site->exec("INSERT INTO tl_site_domains (site_id, host, is_primary, redirect_to_primary) VALUES (2, 'alias.test', FALSE, TRUE)");
+        $site->exec("INSERT INTO tl_site_domains (site_id, host, is_primary, redirect_to_primary, verified_at) VALUES (2, 'second.test', TRUE, FALSE, CURRENT_TIMESTAMP)");
+        $site->exec("INSERT INTO tl_site_domains (site_id, host, is_primary, redirect_to_primary, verified_at) VALUES (2, 'alias.test', FALSE, TRUE, CURRENT_TIMESTAMP)");
     }
 
     public function testHostsRouteToTheirSite(): void

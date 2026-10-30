@@ -92,11 +92,12 @@ final class App
     {
         $request = Request::fromGlobals();
         $db = Db::fromConfig($config['db']);
+        Domains::answerEarly($request, $db); // the proxy's certificate question and the token file of a pending host: any host, before routing
         $site = Sites::resolve($db, Sites::requestHost($request));
-        if ($site === null || $site['status'] === 'trashed' || !$site['ready']) {
+        if ($site === null || $site['status'] === 'trashed' || !$site['ready'] || !$site['verified']) {
             if ($request->path() !== '/health') {
                 // unknown host: never site 1's content; a site cron has not set up yet has no tables to boot (Sites::provision)
-                $setUp = $site !== null && $site['status'] !== 'trashed';
+                $setUp = $site !== null && $site['status'] !== 'trashed' && $site['verified']; // a host not verified yet is unknown
                 http_response_code($setUp ? 503 : 404);
                 header('Content-Type: text/plain; charset=utf-8');
                 if ($setUp) {
@@ -105,7 +106,7 @@ final class App
                 }
                 exit($setUp ? "This site is being set up\n" : "Not found\n");
             }
-            $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'owner_prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true];
+            $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'owner_prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true, 'verified' => true, 'kind' => 'domain'];
         }
         if (($site['owner_status'] ?? 'live') !== 'live' && $request->path() !== '/health') {
             // a paused owner: every one of its sites answers 503 (admin too), an archived owner's hosts are unknown
@@ -117,6 +118,9 @@ final class App
                 header('X-Robots-Tag: noindex');
             }
             exit($paused ? "This site is not public yet\n" : "Not found\n");
+        }
+        if ($site['kind'] === 'preview') {
+            header('X-Robots-Tag: noindex, nofollow'); // a preview address is for the owner and the client, never for search engines (the page also says so: Front\Seo)
         }
         if ($site['redirect_to_primary'] && !$site['is_primary'] && $site['primary_host'] !== null) {
             header('Location: ' . Sites::originOn($request, $site['primary_host']) . (string) ($_SERVER['REQUEST_URI'] ?? '/'), true, 301);

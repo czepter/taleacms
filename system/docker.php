@@ -54,6 +54,9 @@ try {
                 foreach (Talea\Core\Sites::provisionPending($app->db(), $app->config['db']) as $line) {
                     fwrite(STDOUT, $line . "\n");
                 }
+                if ($owner === null && ($added = Talea\Core\Domains::ensurePreviews($app->db())) > 0) {
+                    fwrite(STDOUT, "preview hosts added: {$added}\n"); // sites that existed before TALEA_PREVIEW_DOMAIN was set, and the first site of a new owner
+                }
                 $ready = Talea\Core\Sites::readyPrefixes($app->db());
             }
             if ($ownerRun) {

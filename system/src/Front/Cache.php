@@ -281,7 +281,7 @@ final class Cache
     {
         $r = $app->request;
         $s = $app->settings();
-        if (!$s->bool('page_cache') || $r->isPost()) {
+        if (!$s->bool('page_cache') || $r->isPost() || ($app->site['kind'] ?? '') === 'preview') { // the pages of a preview address say noindex: they must not be handed to the site's own host
             return null;
         }
         $params = array_filter(array_keys($_GET), fn (int|string $k): bool => !preg_match(self::TRACKING_PARAMS, (string) $k));

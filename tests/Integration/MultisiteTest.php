@@ -239,8 +239,8 @@ final class MultisiteTest extends DatabaseTestCase
     public function testResolveFindsTheSiteOfAHost(): void
     {
         $db = $this->db();
-        $db->insert('site_domains', ['site_id' => 2, 'host' => 'second.example', 'is_primary' => true, 'redirect_to_primary' => false]);
-        $db->insert('site_domains', ['site_id' => 2, 'host' => 'www.second.example', 'is_primary' => false, 'redirect_to_primary' => true]);
+        $db->insert('site_domains', ['site_id' => 2, 'host' => 'second.example', 'is_primary' => true, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
+        $db->insert('site_domains', ['site_id' => 2, 'host' => 'www.second.example', 'is_primary' => false, 'redirect_to_primary' => true, 'verified_at' => date('Y-m-d H:i:s')]);
 
         $primary = Sites::resolve($db, 'second.example');
         $this->assertSame(['tl2_', 2, 'paused', true, false, 'second.example'], [$primary['prefix'], $primary['site_id'], $primary['status'], $primary['is_primary'], $primary['redirect_to_primary'], $primary['primary_host']]);

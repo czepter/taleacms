@@ -71,7 +71,7 @@ final class OwnerOperatorsTest extends DatabaseTestCase
     {
         $beta = $this->db()->forOwner('tlb_');
         if ($beta->value('SELECT 1 FROM {site_domains} WHERE site_id = 1') === null) {
-            $beta->insert('site_domains', ['site_id' => 1, 'host' => 'beta.example', 'is_primary' => true, 'redirect_to_primary' => false]);
+            $beta->insert('site_domains', ['site_id' => 1, 'host' => 'beta.example', 'is_primary' => true, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
         }
 
         return $beta;

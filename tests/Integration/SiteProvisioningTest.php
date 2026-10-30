@@ -59,7 +59,7 @@ final class SiteProvisioningTest extends DatabaseTestCase
 
     private function addDomain(string $prefix, string $host): \Talea\Core\Db
     {
-        $this->db()->insert('site_domains', ['site_id' => (int) $this->row($prefix)['site_id'], 'host' => $host, 'is_primary' => true, 'redirect_to_primary' => false]);
+        $this->db()->insert('site_domains', ['site_id' => (int) $this->row($prefix)['site_id'], 'host' => $host, 'is_primary' => true, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
 
         return $this->db();
     }
@@ -170,7 +170,7 @@ final class SiteProvisioningTest extends DatabaseTestCase
         $db = $this->db();
         $exists = fn (string $real): bool => (int) $db->value($db->dialect()->tableExistsSql(), [$real]) > 0;
         $id = (int) $this->row('tl4_')['site_id'];
-        $db->insert('site_domains', ['site_id' => $id, 'host' => 'doomed.example', 'is_primary' => true, 'redirect_to_primary' => false]);
+        $db->insert('site_domains', ['site_id' => $id, 'host' => 'doomed.example', 'is_primary' => true, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
         $this->assertTrue($exists('tl4_pages'));
 
         Sites::trash($db, $id);

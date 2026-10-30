@@ -41,7 +41,7 @@ final class Sites
      * null = no such domain. With several owners (TALEA_OWNERS) the domains of every set-up owner are read in one query – a host is
      * unique in the whole install – and the result names the owner's prefix; without, only this owner's.
      *
-     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, owner_status: string, owner_public_id: string, status: string, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool}|null
+     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, owner_status: string, owner_public_id: string, status: string, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool, verified: bool, kind: string}|null
      */
     public static function resolve(Db $db, string $host): ?array
     {
@@ -53,7 +53,7 @@ final class Sites
             $o = $db->forOwner($owner);
             $sites = $db->dialect()->quote($o->table('sites'));
             $domains = $db->dialect()->quote($o->table('site_domains'));
-            $selects[] = 'SELECT ' . $i . ' AS owner_idx, s.site_id, s.public_id, s.prefix, s.status, s.redirect_to_site_id, s.ready_at, d.is_primary, d.redirect_to_primary,
+            $selects[] = 'SELECT ' . $i . ' AS owner_idx, s.site_id, s.public_id, s.prefix, s.status, s.redirect_to_site_id, s.ready_at, d.is_primary, d.redirect_to_primary, d.verified_at, d.kind,
                 (SELECT p.host FROM ' . $domains . ' p WHERE p.site_id = s.site_id AND p.is_primary = TRUE ORDER BY p.domain_id LIMIT 1) AS primary_host
              FROM ' . $domains . ' d JOIN ' . $sites . ' s ON s.site_id = d.site_id WHERE d.host = ?';
         }
@@ -65,6 +65,7 @@ final class Sites
             'site_id' => (int) $r['site_id'], 'public_id' => (string) $r['public_id'], 'prefix' => (string) $r['prefix'], 'owner_prefix' => $owners[(int) $r['owner_idx']], 'owner_status' => (string) ($statuses[$owners[(int) $r['owner_idx']]] ?? 'live'), 'owner_public_id' => $owners[(int) $r['owner_idx']] === $db->installPrefix ? '' : (string) ($publicIds[$owners[(int) $r['owner_idx']]] ?? ''), 'status' => (string) $r['status'],
             'redirect_to_site_id' => $r['redirect_to_site_id'] === null ? null : (int) $r['redirect_to_site_id'],
             'is_primary' => (bool) $r['is_primary'], 'redirect_to_primary' => (bool) $r['redirect_to_primary'], 'primary_host' => $r['primary_host'] === null ? null : (string) $r['primary_host'], 'ready' => $r['ready_at'] !== null,
+            'verified' => $r['verified_at'] !== null || Domains::envVerified($host), 'kind' => (string) $r['kind'],
         ];
     }
 
@@ -88,7 +89,7 @@ final class Sites
         if ($host === '') {
             return null;
         }
-        $db->insert('site_domains', ['site_id' => 1, 'host' => $host, 'is_primary' => true, 'redirect_to_primary' => false]);
+        $db->insert('site_domains', ['site_id' => 1, 'host' => $host, 'is_primary' => true, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
 
         return $host;
     }
@@ -131,10 +132,10 @@ final class Sites
         return '(' . $column . ' IS NULL OR ' . $column . ' = ' . self::currentId($db) . ')';
     }
 
-    /** The primary host of a site, or null while it has no domain. */
+    /** The host to send people to: the primary one, else the first that answers (a verified host, then the preview one); null while the site has none. */
     public static function primaryHost(Db $db, int $siteId): ?string
     {
-        $host = $db->value('SELECT host FROM {site_domains} WHERE site_id = ? AND is_primary = TRUE ORDER BY domain_id LIMIT 1', [$siteId]);
+        $host = $db->value('SELECT host FROM {site_domains} WHERE site_id = ? ORDER BY CASE WHEN verified_at IS NULL THEN 1 ELSE 0 END, is_primary DESC, domain_id LIMIT 1', [$siteId]);
 
         return $host === null || $host === false ? null : (string) $host;
     }
@@ -360,6 +361,7 @@ final class Sites
             }
         }
         $db->update('sites', ['ready_at' => date('Y-m-d H:i:s')], ['site_id' => (int) $site['site_id']]);
+        Domains::addPreview($db, (int) $site['site_id'], (string) $site['slug']);
     }
 
     /** INSERT … SELECT of every copied table of $source into $new (parents first on PostgreSQL, checks off on MySQL and SQLite). */
@@ -571,8 +573,11 @@ final class Sites
         $db->run("UPDATE {sites} SET status = 'paused', trashed_at = NULL WHERE site_id = ? AND status = 'trashed'", [$siteId]);
     }
 
-    /** Adds a host to a site (the first one becomes primary). Returns an error text, null = added. */
-    public static function addDomain(Db $db, int $siteId, string $input): ?string
+    /**
+     * Adds a host to a site (the first one becomes primary). With $verify the host starts unverified and gets a token (Core\Domains: it
+     * routes once the owner has shown it points here); without, it is verified at once. Returns an error text, null = added.
+     */
+    public static function addDomain(Db $db, int $siteId, string $input, bool $verify = false): ?string
     {
         $host = self::normalizeHost($input);
         if ($host === null) {
@@ -581,8 +586,9 @@ final class Sites
         if (Owners::hostTaken($db, $host)) {
             return 'This host name is already used by a site.';
         }
-        $first = $db->value('SELECT 1 FROM {site_domains} WHERE site_id = ?', [$siteId]) === null;
-        $db->insert('site_domains', ['site_id' => $siteId, 'host' => $host, 'is_primary' => $first, 'redirect_to_primary' => false]);
+        $first = $db->value("SELECT 1 FROM {site_domains} WHERE site_id = ? AND kind = 'domain'", [$siteId]) === null;
+        $db->insert('site_domains', ['site_id' => $siteId, 'host' => $host, 'is_primary' => $first, 'redirect_to_primary' => false,
+            'verified_at' => $verify ? null : date('Y-m-d H:i:s'), 'token' => $verify ? Domains::newToken() : null]);
         \Talea\Front\Cache::clearAll(); // the Projects cards of the other sites show state and host
 
         return null;
@@ -591,7 +597,7 @@ final class Sites
     /** Removes a host; when it was the primary one, the oldest remaining host takes over. Returns an error text, null = removed. */
     public static function removeDomain(Db $db, int $siteId, int $domainId, string $currentHost): ?string
     {
-        $domain = $db->one('SELECT * FROM {site_domains} WHERE domain_id = ? AND site_id = ?', [$domainId, $siteId]);
+        $domain = $db->one("SELECT * FROM {site_domains} WHERE domain_id = ? AND site_id = ? AND kind = 'domain'", [$domainId, $siteId]);
         if ($domain === null) {
             return 'The host name does not exist.';
         }
@@ -601,7 +607,7 @@ final class Sites
         $db->delete('site_domains', ['domain_id' => $domainId]);
         \Talea\Front\Cache::clearAll(); // the Projects cards of the other sites show state and host
         if ($domain['is_primary']) {
-            $next = $db->value('SELECT domain_id FROM {site_domains} WHERE site_id = ? ORDER BY domain_id LIMIT 1', [$siteId]);
+            $next = $db->value("SELECT domain_id FROM {site_domains} WHERE site_id = ? AND kind = 'domain' ORDER BY domain_id LIMIT 1", [$siteId]);
             if ($next !== null) {
                 $db->update('site_domains', ['is_primary' => true, 'redirect_to_primary' => false], ['domain_id' => (int) $next]);
             }
@@ -613,7 +619,7 @@ final class Sites
     /** Makes a host the primary one of its site. */
     public static function makePrimary(Db $db, int $siteId, int $domainId): void
     {
-        if ($db->value('SELECT 1 FROM {site_domains} WHERE domain_id = ? AND site_id = ?', [$domainId, $siteId]) === null) {
+        if ($db->value("SELECT 1 FROM {site_domains} WHERE domain_id = ? AND site_id = ? AND kind = 'domain'", [$domainId, $siteId]) === null) {
             return;
         }
         $db->run('UPDATE {site_domains} SET is_primary = CASE WHEN domain_id = ? THEN TRUE ELSE FALSE END, redirect_to_primary = CASE WHEN domain_id = ? THEN FALSE ELSE redirect_to_primary END WHERE site_id = ?', [$domainId, $domainId, $siteId]);

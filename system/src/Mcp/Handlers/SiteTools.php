@@ -35,9 +35,11 @@ trait SiteTools
                 $s(['id' => $pid('site id from list_owner_sites')], ['id'])],
             ['restore_site', 'Takes a site out of the trash (multisite, administrators); it comes back paused.',
                 $s(['id' => $pid('trashed site id from list_owner_sites')], ['id'])],
-            ['add_site_domain', 'Gives a site a host name such as www.example.com (multisite, administrators; lower-case, no scheme, port or path). The first host of a site is its primary one.',
+            ['add_site_domain', 'Gives a site a host name such as www.example.com (multisite, administrators; lower-case, no scheme, port or path). The first host of a site is its primary one. With several owners a host added by a client starts unverified and does not answer until it is verified: the result gives verify_with (a token address and a DNS TXT record); once the host points to the installation, call check_site_domain.',
                 $s(['id' => $pid('site id from list_owner_sites'), 'host' => $text('host name'), 'primary' => ['type' => 'boolean', 'description' => 'true = make it the primary host name'],
                     'redirect_to_primary' => ['type' => 'boolean', 'description' => 'true = this host answers with a 301 to the primary host (not for the primary one)']], ['id', 'host'])],
+            ['check_site_domain', 'Checks that a host name of a site points to this installation (multisite, administrators): it fetches the token address over HTTP, else looks for the DNS TXT record, and marks the host verified when one of them matches. Hosts that are already verified answer at once.',
+                $s(['id' => $pid('site id from list_owner_sites'), 'host' => $text('one of the site\'s host names')], ['id', 'host'])],
             ['update_site_domain', 'Makes a host name of a site its primary one, or sets whether it redirects to the primary host (multisite, administrators).',
                 $s(['id' => $pid('site id from list_owner_sites'), 'host' => $text('one of the site\'s host names'), 'primary' => ['type' => 'boolean', 'description' => 'true = make it the primary host name'],
                     'redirect_to_primary' => ['type' => 'boolean', 'description' => 'true = 301 to the primary host; false = answer as the site itself']], ['id', 'host'])],
@@ -54,7 +56,8 @@ trait SiteTools
             'redirect_to' => $site['redirect_to_site_id'] === null ? null : (string) $this->app->db()->publicId('sites', (int) $site['redirect_to_site_id']),
             'card' => ['summary' => (string) $site['card_summary'], 'image' => (string) $site['card_image'], 'show_in_hub' => (bool) $site['show_in_hub']]];
         if ($withDomains) {
-            $out['domains'] = array_map(fn (array $d): array => ['host' => (string) $d['host'], 'primary' => (bool) $d['is_primary'], 'redirect_to_primary' => (bool) $d['redirect_to_primary']], (array) ($site['domains'] ?? []));
+            $out['domains'] = array_map(fn (array $d): array => ['host' => (string) $d['host'], 'primary' => (bool) $d['is_primary'], 'redirect_to_primary' => (bool) $d['redirect_to_primary'], 'kind' => (string) $d['kind'], 'verified' => $d['verified_at'] !== null]
+                + ($d['verified_at'] === null ? ['verify_with' => ['http' => 'http://' . $d['host'] . '/.well-known/talea-domain/' . $d['token'], 'dns_txt' => ['name' => '_talea.' . $d['host'], 'value' => \Talea\Core\Domains::txtValue((string) $d['token'])]]] : []), (array) ($site['domains'] ?? []));
         }
 
         return $out;
@@ -191,11 +194,29 @@ trait SiteTools
         $this->siteAdmin();
         $db = $this->app->db();
         $site = $this->siteByPublicId($a['id'] ?? null);
-        $error = Sites::addDomain($db, (int) $site['site_id'], (string) ($a['host'] ?? ''));
+        $error = Sites::addDomain($db, (int) $site['site_id'], (string) ($a['host'] ?? ''), \Talea\Core\Domains::needsVerification($db, $this->app->auth()->user()));
         if ($error !== null) {
             throw new \InvalidArgumentException($error);
         }
         $this->applyDomainFlags($site, (string) Sites::normalizeHost((string) $a['host']), $a);
+
+        return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id']))];
+    }
+
+    /** check_site_domain */
+    private function toolCheckSiteDomain(string $name, array $a): mixed
+    {
+        $this->siteAdmin();
+        $db = $this->app->db();
+        $site = $this->siteByPublicId($a['id'] ?? null);
+        $domain = $db->one("SELECT * FROM {site_domains} WHERE site_id = ? AND host = ? AND kind = 'domain'", [(int) $site['site_id'], (string) Sites::normalizeHost((string) ($a['host'] ?? ''))]);
+        if ($domain === null) {
+            throw new \InvalidArgumentException('This site has no such host name. list_owner_sites shows them.');
+        }
+        $error = \Talea\Core\Domains::check($db, $domain);
+        if ($error !== null) {
+            throw new \DomainException($error);
+        }
 
         return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id']))];
     }

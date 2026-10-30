@@ -86,7 +86,7 @@ final class OwnersIsolationTest extends SiteTestCase
         $site->exec("INSERT INTO tlb_users (username, password, name, email, admin, language) SELECT username, password, 'Beta admin', 'beta@example.com', 2, '' FROM tl_users WHERE username = 'admin'");
         self::$betaToken = 'talea_' . bin2hex(random_bytes(24));
         $site->exec("INSERT INTO tlb_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM tlb_users WHERE username = 'admin'", [hash('sha256', self::$betaToken)]);
-        $site->exec("INSERT INTO tlb_site_domains (site_id, host, is_primary, redirect_to_primary) VALUES (1, ?, TRUE, FALSE)", [self::BETA]);
+        $site->exec("INSERT INTO tlb_site_domains (site_id, host, is_primary, redirect_to_primary, verified_at) VALUES (1, ?, TRUE, FALSE, CURRENT_TIMESTAMP)", [self::BETA]);
         foreach (['site_url' => 'http://' . self::BETA . ':' . $site->port, 'site_name' => 'Beta site'] as $name => $value) {
             $site->exec('INSERT INTO tlb_settings (name, value) VALUES (?, ?)', [$name, $value]);
         }

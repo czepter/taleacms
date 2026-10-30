@@ -133,9 +133,9 @@ final class OwnersTest extends DatabaseTestCase
     {
         $db = $this->db();
         $b = $db->forOwner('tlb_');
-        $db->insert('site_domains', ['site_id' => 1, 'host' => 'alpha.example', 'is_primary' => true, 'redirect_to_primary' => false]);
-        $b->insert('site_domains', ['site_id' => 1, 'host' => 'beta.example', 'is_primary' => true, 'redirect_to_primary' => false]);
-        $b->insert('site_domains', ['site_id' => 2, 'host' => 'shop.beta.example', 'is_primary' => true, 'redirect_to_primary' => false]);
+        $db->insert('site_domains', ['site_id' => 1, 'host' => 'alpha.example', 'is_primary' => true, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
+        $b->insert('site_domains', ['site_id' => 1, 'host' => 'beta.example', 'is_primary' => true, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
+        $b->insert('site_domains', ['site_id' => 2, 'host' => 'shop.beta.example', 'is_primary' => true, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
 
         $alpha = Sites::resolve($db, 'alpha.example');
         $this->assertSame(['tl_', 'tl_', 1, 'live'], [$alpha['prefix'], $alpha['owner_prefix'], $alpha['site_id'], $alpha['owner_status']]);
@@ -152,7 +152,7 @@ final class OwnersTest extends DatabaseTestCase
 
     public function testWithoutTheFlagOnlyTheFirstOwnerIsRouted(): void
     {
-        $this->db()->forOwner('tlb_')->insert('site_domains', ['site_id' => 1, 'host' => 'beta.example', 'is_primary' => true, 'redirect_to_primary' => false]);
+        $this->db()->forOwner('tlb_')->insert('site_domains', ['site_id' => 1, 'host' => 'beta.example', 'is_primary' => true, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
         putenv('TALEA_OWNERS');
         $this->assertNull(Sites::resolve($this->db(), 'beta.example'));
     }
@@ -160,7 +160,7 @@ final class OwnersTest extends DatabaseTestCase
     public function testAPausedOrArchivedOwnerStillOwnsItsHosts(): void
     {
         $db = $this->db();
-        $db->forOwner('tlb_')->insert('site_domains', ['site_id' => 1, 'host' => 'beta.example', 'is_primary' => true, 'redirect_to_primary' => false]);
+        $db->forOwner('tlb_')->insert('site_domains', ['site_id' => 1, 'host' => 'beta.example', 'is_primary' => true, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
 
         $this->assertNull(Owners::setStatus($db, 'tlb_', 'paused'));
         $this->assertSame('paused', Sites::resolve($db, 'beta.example')['owner_status']);

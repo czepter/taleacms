@@ -226,6 +226,29 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
   `clone_in` on the copy) and the request itself is logged in the operator's.
 - **Rate-limit counters** (`storage/cache/limits`) are still shared by the owners (a visitor's address counts across them); open.
 
+## Domains and certificates (stage C) – Proposed
+
+- **Verification.** `site_domains` gets `verified_at` (NULL = unverified), `token` (32 hex, kept until verified) and `kind` (`domain` | `preview`);
+  migration `20261105100047` marks the hosts that exist verified. `Sites::resolve` returns `verified` (the row, or `TALEA_VERIFIED_HOSTS`) and `kind`;
+  `App::routeHost` answers an unverified host like an unknown one (bare 404, `/health` excepted). `Sites::addDomain(…, $verify)` makes the host
+  unverified with a token when `Domains::needsVerification` says so: only with `TALEA_OWNERS` and not for operators. Without several owners the
+  solopreneur install is unchanged: verified on add. Operators may mark a host verified (Sites → Host names; not a tool); `TALEA_VERIFIED_HOSTS` vouches by name.
+- **Checks** (`Core\Domains::check`, "Check now" in the Sites area and MCP `check_site_domain`, listed as an open-world tool): first
+  `http://<host>/.well-known/talea-domain/<token>` must answer 200 with the token, else `TXT _talea.<host>` must hold `talea-verify=<token>`. The host is the
+  client's input, so the fetch goes through `Links::target` (the one safe-target helper: `Outbound` normalisation, every resolved address public, standard
+  ports, pinned connection, no redirects, 256 bytes) – never to loopback, private, link-local or CGNAT addresses; tests may fetch `127.0.0.1` only with
+  `TALEA_LINKS_LOCAL=1`, as the link check does. The token file is answered by `Domains::answerEarly` for the host that has the pending token and no other.
+- **`GET /_talea/tls-allowed?domain=`** is answered in `App::routeHost` before routing, on any host: 200 for a verified host, a host in `TALEA_VERIFIED_HOSTS` and
+  a preview address (not of a trashed site or an archived owner), 404 for the rest, identical bodies, `no-store`, never the owner. Rate limit: `Antispam::tally`,
+  300 a minute per network, then 429 (shared with the token path).
+- **Preview subdomains** (`TALEA_PREVIEW_DOMAIN`): `kind = preview`, verified, never primary, not removable. Owner 1: `{slug}.{preview}`; owner n:
+  `{slug}.{letters}.{preview}` (`tlb_` → `b`). Added by `Sites::provision` for a new site and by cron (`Domains::ensurePreviews`, the install's run) for the sites
+  that have none – once. Always noindex: `X-Robots-Tag` in `routeHost`, the robots meta and `robots.txt` in `Front\Seo`, no IndexNow, and no page cache
+  (`Front\Cache::file`), because the cache key follows the site address and not the host. `Sites::primaryHost` (handoff, switcher) prefers a verified host, so a
+  site whose own host is not verified yet is still reachable through its preview address; a preview row does not count as the "first domain".
+- **Open:** an alias that redirects to a primary host that is not verified yet sends visitors to a 404; DNS lookups of the TXT check use the container's
+  resolver; no automatic re-verification (a host stays verified until removed); the proxy's ask is rate limited per network, not per name.
+
 ## Phases (phase 1 is done)
 
 - **Phase 0** (no behaviour change): two prefixes in `Db`, the site registry with the row for site 1, the migration loop,
@@ -243,5 +266,5 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
 - `TALEA_SITE_URL` is the address of site 1 only (`SiteUrl::locked()`); a further site edits its own `site_url`.
 - The `site` argument is added to the schema like `reason` and is not in the contract file.
 - Importing a Talea archive is refused while the install has several sites (above).
-- Open for later phases: several owners (databases) in one install, per-site roles, domain verification and certificates, moving a single site
+- Open for later phases: several owners (databases) in one install, per-site roles, moving a single site
   between installs.
