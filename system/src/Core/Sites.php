@@ -420,17 +420,18 @@ final class Sites
                 self::copyTables($source, $new);
                 self::copyOwnRows($db, $new, (int) ($site['source_site_id'] ?? 1), (int) $site['site_id']);
             }
-            // an allow-list: only the settings that may move to another site (SiteExport::SETTINGS, with their language variants) and the
-            // account settings stay; the rest (secrets, tokens, keys) is made again on first use
+            // an allow-list: only the settings that may move to another site (SiteExport::SETTINGS, with their language variants) and, inside
+            // one owner, the account settings stay; the rest (secrets, tokens, keys) is made again on first use. Across owners the account
+            // settings (SMTP, mail identity, AI key) belong to the source owner and are never copied.
             foreach ($new->all('SELECT name FROM {settings}') as $r) {
                 $name = (string) $r['name'];
                 $base = (string) preg_replace('/_' . Language::TAG . '$/D', '', $name);
-                $keep = in_array($name, SiteExport::SETTINGS, true) || in_array($name, Settings::ACCOUNT, true) || ($base !== $name && in_array($base, Settings::PER_LANGUAGE, true));
+                $keep = in_array($name, SiteExport::SETTINGS, true) || (!$cross && in_array($name, Settings::ACCOUNT, true)) || ($base !== $name && in_array($base, Settings::PER_LANGUAGE, true));
                 if ($name === 'site_url' || !$keep) {
                     $new->delete('settings', ['name' => $name]);
                 }
             }
-        } else {
+        } elseif (!$cross) {
             $marks = implode(', ', array_fill(0, count(Settings::ACCOUNT), '?'));
             foreach ($source->all('SELECT name, value FROM {settings} WHERE name IN (' . $marks . ')', Settings::ACCOUNT) as $r) {
                 $new->upsert('settings', ['name' => $r['name'], 'value' => $r['value']], ['name']);
@@ -440,8 +441,14 @@ final class Sites
         Domains::addPreview($db, (int) $site['site_id'], (string) $site['slug']);
     }
 
-    /** INSERT … SELECT of every copied table of $source into $new (parents first on PostgreSQL, checks off on MySQL and SQLite). */
-    public static function copyTables(Db $source, Db $new): void
+    /**
+     * INSERT … SELECT of every copied table of $source into $new (parents first on PostgreSQL, checks off on MySQL and SQLite).
+     * $nulled names columns that are copied as NULL (table => columns): the users of another owner, which the target's foreign keys
+     * to its own {users} would refuse.
+     *
+     * @param array<string, list<string>> $nulled
+     */
+    public static function copyTables(Db $source, Db $new, array $nulled = []): void
     {
         $dialect = $new->dialect();
         $tables = [];
@@ -456,9 +463,10 @@ final class Sites
         array_map($new->run(...), $before);
         try {
             foreach ($tables as $table) {
-                $columns = array_map($dialect->quote(...), array_values(array_intersect($new->columns($table), $source->columns($table))));
-                $list = implode(', ', $columns);
-                $new->run('INSERT INTO ' . $dialect->quote($new->table($table)) . ' (' . $list . ') SELECT ' . $list . ' FROM ' . $dialect->quote($source->table($table)));
+                $names = array_values(array_intersect($new->columns($table), $source->columns($table)));
+                $list = implode(', ', array_map($dialect->quote(...), $names));
+                $select = implode(', ', array_map(fn (string $c): string => in_array($c, $nulled[$table] ?? [], true) ? 'NULL' : $dialect->quote($c), $names));
+                $new->run('INSERT INTO ' . $dialect->quote($new->table($table)) . ' (' . $list . ') SELECT ' . $select . ' FROM ' . $dialect->quote($source->table($table)));
             }
         } finally {
             array_map($new->run(...), $after);

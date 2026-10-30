@@ -34,8 +34,12 @@ final class OwnerClone
         'experiments' => ['previous_build'],
     ];
 
-    /** What points at a user of the source owner and means nothing in the target: table => column to clear. */
-    private const array USER_COLUMNS = ['news' => 'author_id', 'news_revisions' => 'user_id', 'page_revisions' => 'user_id', 'build_revisions' => 'user_id', 'booking_staff' => 'user_id', 'fleet_kits' => 'created_by'];
+    /**
+     * What points at a user of the source owner and means nothing in the target: table => columns copied as NULL. This happens inside the
+     * INSERT … SELECT, because the foreign keys to the target's own users would refuse a number it does not have (PostgreSQL checks at once).
+     */
+    private const array USER_COLUMNS = ['news' => ['author_id'], 'news_revisions' => ['user_id'], 'page_revisions' => ['user_id'], 'build_revisions' => ['user_id'], 'draft_comments' => ['resolved_by'],
+        'booking_staff' => ['user_id'], 'fleet_kits' => ['created_by']];
 
     /** Is the owner prefix a set-up owner of this install (never trust a prefix read from a row)? */
     public static function isKnownOwner(Db $db, string $prefix): bool
@@ -50,13 +54,8 @@ final class OwnerClone
      */
     public static function copy(Db $db, Db $new, Db $source, Db $sourceOwnerDb, array $site, int $sourceSiteId): void
     {
-        Sites::copyTables($source, $new);
+        Sites::copyTables($source, $new, self::USER_COLUMNS);
         self::copyComponentsAndFacts($db, $new, $sourceOwnerDb, $sourceSiteId, (int) $site['site_id']);
-        foreach (self::USER_COLUMNS as $table => $column) {
-            if ($new->tableExists($table)) {
-                $new->run('UPDATE {' . $table . '} SET ' . $column . ' = NULL');
-            }
-        }
         if ($new->tableExists('news_drafts')) {
             $new->run('DELETE FROM {news_drafts}'); // a draft belongs to a user of the source owner
         }
@@ -67,8 +66,9 @@ final class OwnerClone
         $name = fn (Db $d, int $id): string => (string) ($d->value('SELECT name FROM {sites} WHERE site_id = ?', [$id]) ?: 'main');
         $from = Owners::nameOf($db, $sourceOwnerDb->ownerPrefix) . ' / ' . $name($sourceOwnerDb, $sourceSiteId);
         $to = Owners::nameOf($db, $db->ownerPrefix) . ' / ' . (string) $site['name'];
-        self::log($new, 'clone_in', 'Copied from ' . $from);
-        self::log($source, 'clone_out', 'Copied to ' . $to);
+        // the other client's name stays out of a client's log: only owner 1's log (the operator's own) names the other side
+        self::log($new, 'clone_in', $db->ownerPrefix === $db->installPrefix ? 'Copied from ' . $from : 'Created as a copy by the installation\'s operator');
+        self::log($source, 'clone_out', $sourceOwnerDb->ownerPrefix === $db->installPrefix ? 'Copied to ' . $to : 'Copied by the installation\'s operator');
     }
 
     /** One row of the change log of a site (no person: cron sets a site up). */
@@ -123,13 +123,20 @@ final class OwnerClone
             if (!isset($found[$row['image_path']]) && !isset($found[$row['thumb_path']]) && !in_array((int) $row['media_id'], $usage, true)) {
                 continue;
             }
-            $newPath = self::place((string) $row['image_path'], $targetDir);
-            $newThumb = (string) $row['thumb_path'] === '' ? '' : ((string) $row['thumb_path'] === (string) $row['image_path'] ? $newPath : self::place((string) $row['thumb_path'], $targetDir));
-            self::copyFiles((string) $row['image_path'], $newPath);
+            // a different file already under that name in the target's folder is never reused: the copy gets a stem of its own
+            $oldStem = (string) preg_replace('#^media/' . MediaFolder::OWNER . '#', '', MediaStaging::stem((string) $row['image_path']));
+            $newStem = $oldStem;
+            while (self::collides((string) $row['image_path'], $targetDir, $oldStem, $newStem)) {
+                $newStem = (string) preg_replace('/(-[0-9a-f]{6})?$/D', '-' . bin2hex(random_bytes(3)), $oldStem, 1);
+            }
+            $newPath = self::place((string) $row['image_path'], $targetDir, $oldStem, $newStem);
+            $newThumb = (string) $row['thumb_path'] === '' ? '' : ((string) $row['thumb_path'] === (string) $row['image_path'] ? $newPath : self::place((string) $row['thumb_path'], $targetDir, $oldStem, $newStem));
+            self::copyFiles((string) $row['image_path'], $targetDir, $oldStem, $newStem);
             $existing = $db->value('SELECT media_id FROM {media} WHERE image_path = ?', [$newPath]);
             $ids[(int) $row['media_id']] = $existing !== null ? (int) $existing : $db->insert('media', ['image_path' => $newPath, 'thumb_path' => $newThumb, 'staged_at' => null] + array_diff_key($row, ['media_id' => 1, 'public_id' => 1, 'owner_id' => 1, 'folder_id' => 1]));
             foreach ($paths as $path) {
-                $map[(string) preg_replace('/-(?:1200|nahled)(\.[A-Za-z0-9]+)$/', '$1', $path)] = self::place($path, $targetDir);
+                $canonical = (string) preg_replace('/-(?:1200|nahled)(\.[A-Za-z0-9]+)$/', '$1', $path); // the thumbnail's key is the original's
+                $map[$canonical] = self::place($canonical, $targetDir, $oldStem, $newStem);
             }
         }
         if ($new->tableExists('media_usage')) {
@@ -151,22 +158,37 @@ final class OwnerClone
         return (int) $db->value('SELECT site_id FROM {sites} WHERE prefix = ?', [$new->prefix]);
     }
 
-    /** "media/2026/10/a.jpg" or "media/<owner>/2026/10/a.jpg" => the same file name in the target folder. */
-    private static function place(string $path, string $targetDir): string
+    /** "media/2026/10/a-ab12cd.jpg" or "media/<owner>/2026/10/a-ab12cd.jpg" => the same file in the target folder, its stem changed from $oldStem to $newStem (both without the media/ folder). */
+    private static function place(string $path, string $targetDir, string $oldStem, string $newStem): string
     {
-        return $targetDir . '/' . preg_replace('#^media/' . MediaFolder::OWNER . '#', '', $path);
+        $rel = (string) preg_replace('#^media/' . MediaFolder::OWNER . '#', '', $path);
+        if ($newStem !== $oldStem && str_starts_with($rel, $oldStem)) {
+            $rel = $newStem . substr($rel, strlen($oldStem));
+        }
+
+        return $targetDir . '/' . $rel;
     }
 
-    /** Copies the file and its variants (-1200, -nahled, .webp, .avif) to the new path's folder; an existing file is left. */
-    private static function copyFiles(string $oldPath, string $newPath): void
+    /** Is there a DIFFERENT file at the main path of the copy in the target folder (an earlier copy of the same file is the same, and is reused)? */
+    private static function collides(string $imagePath, string $targetDir, string $oldStem, string $newStem): bool
     {
+        $target = TALEA_ROOT . '/' . self::place($imagePath, $targetDir, $oldStem, $newStem);
+        $source = TALEA_ROOT . '/' . $imagePath;
+
+        return is_file($target) && (!is_file($source) || md5_file($target) !== md5_file($source));
+    }
+
+    /** Copies the file and its variants (-1200, -nahled, .webp, .avif) into the target folder under the new stem; an existing file is left. */
+    private static function copyFiles(string $oldPath, string $targetDir, string $oldStem, string $newStem): void
+    {
+        $folder = TALEA_ROOT . '/' . $targetDir . '/' . dirname($newStem);
         $from = MediaStaging::files($oldPath, false);
-        $folder = TALEA_ROOT . '/' . dirname($newPath);
         if ($from !== [] && !is_dir($folder) && !@mkdir($folder, 0775, true) && !is_dir($folder)) {
-            throw new \RuntimeException('Cannot create the folder ' . dirname($newPath));
+            throw new \RuntimeException('Cannot create the folder ' . $targetDir . '/' . dirname($newStem));
         }
+        $oldName = basename($oldStem);
         foreach ($from as $file) {
-            $target = $folder . '/' . basename($file);
+            $target = $folder . '/' . basename($newStem) . substr(basename($file), strlen($oldName));
             if (!is_file($target) && !@copy($file, $target)) {
                 throw new \RuntimeException('Cannot copy ' . substr($file, strlen(TALEA_ROOT) + 1));
             }
@@ -189,8 +211,16 @@ final class OwnerClone
         $change = function (string $text) use ($pattern, $map, $targetOwnerId): string {
             return (string) preg_replace_callback($pattern, function (array $m) use ($map, $targetOwnerId): string {
                 $known = MediaHygiene::paths($m[0])[0] ?? '';
+                if (!isset($map[$known])) {
+                    return $m[0];
+                }
+                // the copy may have a stem of its own (a different file was already there): the variant and the extension of the match stay
+                $stem = fn (string $path): string => (string) preg_replace('/\.[A-Za-z0-9]+$/', '', (string) preg_replace('#^media/' . MediaFolder::OWNER . '#', '', $path));
+                $file = str_replace('\\/', '/', $m[2]);
+                $old = $stem($known);
+                $file = str_starts_with($file, $old) ? $stem($map[$known]) . substr($file, strlen($old)) : $file;
 
-                return isset($map[$known]) ? 'media' . $m[1] . ($targetOwnerId !== '' ? $targetOwnerId . $m[1] : '') . $m[2] : $m[0];
+                return 'media' . $m[1] . ($targetOwnerId !== '' ? $targetOwnerId . $m[1] : '') . str_replace('/', $m[1], $file);
             }, $text);
         };
         foreach ($places as $table => $columns) {

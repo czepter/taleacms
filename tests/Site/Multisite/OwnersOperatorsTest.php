@@ -418,6 +418,37 @@ final class OwnersOperatorsTest extends SiteTestCase
         $this->assertSame(0, (int) $site->value("SELECT COUNT(*) FROM tlb_sites WHERE name = 'Steal'"));
     }
 
+    public function testACopyNeverOverwritesOrReusesADifferentFileWithTheSameName(): void
+    {
+        $site = $this->site();
+        $ym = date('Y/m');
+        $im = imagecreatetruecolor(5, 5);
+        ob_start();
+        imagepng($im);
+        $b = json_decode($this->mcp(true, 'upload_file', ['filename' => 'pic.png', 'data' => base64_encode((string) ob_get_clean())])['text'], true);
+        $pathB = (string) ($b['path'] ?? $b['image_path'] ?? '');
+        $this->assertNotSame('', $pathB);
+        // owner 1's folder already holds another file under the very name the copy would take
+        $taken = $site->path('media/' . $ym . '/' . basename($pathB));
+        @mkdir(dirname($taken), 0775, true);
+        file_put_contents($taken, 'not the same file');
+        $site->exec("UPDATE tlb_pages SET text = ?, build = NULL WHERE slug = 'beta-home'", ['<p><img src="/' . $pathB . '" alt="p"></p>']);
+
+        $r = $this->mcp(false, 'create_site', ['name' => 'From Beta 2', 'clone_of' => (string) $site->value('SELECT public_id FROM tlb_sites WHERE site_id = 1')]);
+        $this->assertFalse($r['error'], $r['text']);
+        $site->cli(['system/docker.php', 'cron'], $this->env());
+        $prefix = (string) $site->value("SELECT prefix FROM tl_sites WHERE name = 'From Beta 2'");
+        $text = (string) $site->value('SELECT text FROM ' . $prefix . 'pages WHERE slug = ?', ['beta-home']);
+
+        $this->assertSame('not the same file', file_get_contents($taken), 'the other file is untouched');
+        $this->assertStringNotContainsString('media/' . $ym . '/' . basename($pathB), $text, 'the copy does not point at the file that was already there');
+        $this->assertSame(1, preg_match('#media/' . preg_quote($ym, '#') . '/(pic-[0-9a-f]{6}\.png)#', $text, $m), $text);
+        $this->assertFileExists($site->path('media/' . $ym . '/' . $m[1]), 'it has a name of its own');
+        $this->assertSame(md5_file($site->path($pathB)), md5_file($site->path('media/' . $ym . '/' . $m[1])));
+        $this->assertSame(1, (int) $site->value('SELECT COUNT(*) FROM tl_media WHERE image_path = ?', ['media/' . $ym . '/' . $m[1]]));
+        $this->assertSame(0, (int) $site->value('SELECT COUNT(*) FROM tl_media WHERE image_path = ?', ['media/' . $ym . '/' . basename($pathB)]));
+    }
+
     public function testTheOperatorCopiesASiteIntoTheClientsOwnerFromThereAndItsFilesLandInTheClientsFolder(): void
     {
         $site = $this->site();
