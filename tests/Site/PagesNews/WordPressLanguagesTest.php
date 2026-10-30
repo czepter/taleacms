@@ -79,19 +79,19 @@ final class WordPressLanguagesTest extends SiteTestCase
         $pages = $this->bySlug('pages', 'page_id, language, translation_of');
         $this->assertSame('en-gb', $pages['solutions-ictx']['language'], 'the translation is in its language version');
         $this->assertSame((int) $pages['reseni-ictx']['page_id'], (int) $pages['solutions-ictx']['translation_of'], 'a translation that came before its original is linked to it');
-        $this->assertSame((int) $pages['kontakt-ictx']['page_id'], (int) $pages['kontakt-ictx-2']['translation_of'], 'the page that shared a slug got a number and is linked');
-        $this->assertStringContainsString('/en-gb/kontakt-ictx-2 instead of /en-gb/kontakt-ictx', self::$lastBatch, 'the slug clash is reported');
+        $this->assertStringNotContainsString('instead of', self::$lastBatch, 'no address got a number: slugs are unique per language');
+        $contact = array_column($this->site()->rows("SELECT page_id, language, translation_of FROM tl_pages WHERE slug = 'kontakt-ictx'"), null, 'language');
+        $this->assertSame((int) $contact['']['page_id'], (int) $contact['en-gb']['translation_of'], 'the translation kept the address of its original and is linked to it');
         $this->assertSame(301, $this->site()->client('visitor')->get('/en/kontakt-ictx')->status, 'the old address of a renamed translation redirects');
 
         $news = $this->bySlug('news', 'news_id, language, translation_of, category_id');
         $this->assertArrayHasKey('snidane-s-ai-ictx', $news, 'the Czech post came');
         $this->assertSame('en-gb', $news['breakfast-with-ai-ictx']['language'], 'the English post came in its version');
         $this->assertSame((int) $news['snidane-s-ai-ictx']['news_id'], (int) $news['breakfast-with-ai-ictx']['translation_of'], 'posts are linked');
-        $categories = $this->bySlug('categories', 'category_id, name, language, translation_of');
-        $this->assertSame('ICTX Blog', $categories['blog-ictx-2']['name'], 'the English category kept its own name although both share a slug');
-        $this->assertSame('en-gb', $categories['blog-ictx-2']['language'], 'the category belongs to its language version');
-        $this->assertSame((int) $categories['blog-ictx']['category_id'], (int) $categories['blog-ictx-2']['translation_of'], 'categories are linked');
-        $this->assertSame((int) $categories['blog-ictx-2']['category_id'], (int) $news['breakfast-with-ai-ictx']['category_id'], 'the post sits in the category of its language');
+        $categories = array_column($this->site()->rows("SELECT category_id, name, language, translation_of FROM tl_categories WHERE slug = 'blog-ictx'"), null, 'language');
+        $this->assertSame('ICTX Blog', $categories['en-gb']['name'], 'the English category kept its own name and the shared slug');
+        $this->assertSame((int) $categories['']['category_id'], (int) $categories['en-gb']['translation_of'], 'categories are linked');
+        $this->assertSame((int) $categories['en-gb']['category_id'], (int) $news['breakfast-with-ai-ictx']['category_id'], 'the post sits in the category of its language');
         $this->assertSame(301, $this->site()->client('visitor')->get('/?lang=en')->status, 'Polylang\'s language home redirects');
     }
 
