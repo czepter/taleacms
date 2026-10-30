@@ -133,12 +133,23 @@ subject.
 
 ### Courses preset
 
-A new preset `system/presets/courses.php` next to Events: the calendar fields without repetition, plus `schedule`
-(text, e.g. "Tuesdays 19:00–20:30"), `sessions` (number), `level` (text, used as filter), `registration`
-(instant/confirm), `waiting_list`, `seats_per_registration`. The list page shows courses that have not ended, ordered by start, with the
-placeholders `{{course_status}}` ("Starts 4 November" / "Running since 7 October" / empty when ended),
-`{{schedule}}` and `{{places_left}}`. Events gets the two new fields too, so a one-off workshop can use confirmation
-and a waiting list.
+The preset **"Courses and training" already exists** (`system/presets/courses.php`: start, end, place, price,
+capacity, description, image; structured data Event with the price; registration form; list of upcoming courses).
+This work **extends it**, no new preset: add `schedule` (text, e.g. "Tuesdays 19:00–20:30"), `sessions` (number),
+`level` (text, used as list filter), `registration_until`, `registration` (instant/confirm), `waiting_list`,
+`seats_per_registration`; map the new ones in its `calendar` block; put price, schedule and seats left on the card.
+The list keeps its "upcoming" period, which already includes running courses.
+
+Fields like level, style or teacher are ordinary collection fields: the preset brings sensible defaults and the
+owner adds, renames or removes fields per collection as with any collection (`Collections::FIELD_TYPES`). Nothing in
+the registration logic depends on them. Only the fields mapped in the `calendar` block (start, end, capacity,
+registration until, registration mode, waiting list, seats per registration) drive behaviour.
+
+**Price** is shown, never charged: the existing `price` field (number, feeds the structured data) stays. Contract and
+payment remain on site.
+
+Events gets the registration mode, waiting list and seats-per-registration fields too, so a one-off workshop can use
+them.
 
 Placeholders for templates: `{{course_status}}`, `{{places_left}}` (existing), `{{waiting_list}}` (empty, or that
 the course is full and the waiting list is open).
