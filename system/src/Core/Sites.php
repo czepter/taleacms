@@ -166,7 +166,8 @@ final class Sites
      */
     public static function transferRefusal(Db $owner, int $siteId, bool $translate = false): ?string
     {
-        if ($owner->value('SELECT 1 FROM {sites} WHERE site_id = ? AND transfer_to IS NOT NULL', [$siteId]) === null) {
+        // the old site (transfer_to) and the new one still being filled (transfer_by) are both off limits: a change now is lost or leaves the move stuck
+        if ($owner->value('SELECT 1 FROM {sites} WHERE site_id = ? AND (transfer_to IS NOT NULL OR transfer_by IS NOT NULL)', [$siteId]) === null) {
             return null;
         }
 
@@ -347,7 +348,7 @@ final class Sites
      */
     public static function overview(Db $db, bool $sizes = true): array
     {
-        $sites = $db->all('SELECT * FROM {sites} ORDER BY site_id');
+        $sites = $db->all('SELECT * FROM {sites} WHERE transfer_by IS NULL ORDER BY site_id'); // the new site of a move is the operator's business until it is done
         $domains = [];
         foreach ($db->all('SELECT * FROM {site_domains} ORDER BY is_primary DESC, domain_id') as $d) {
             $domains[(int) $d['site_id']][] = $d;
@@ -660,6 +661,9 @@ final class Sites
         if ($site === null || $site['status'] === 'trashed') {
             return 'The site does not exist.';
         }
+        if (self::transferRefusal($db, $siteId) !== null) {
+            return 'This site is being moved to another owner.';
+        }
         if ($status === 'archived' && $redirectTo !== null && ($redirectTo === $siteId || $db->value("SELECT 1 FROM {sites} WHERE site_id = ? AND status <> 'trashed' AND ready_at IS NOT NULL", [$redirectTo]) === null)) {
             return 'Choose another site that is set up as the target.';
         }
@@ -685,6 +689,9 @@ final class Sites
         }
         if ($db->value("SELECT 1 FROM {sites} WHERE site_id = ? AND status <> 'trashed'", [$siteId]) === null) {
             return 'The site does not exist.';
+        }
+        if (self::transferRefusal($db, $siteId) !== null) {
+            return 'This site is being moved to another owner.';
         }
         $db->update('sites', ['card_summary' => $summary, 'card_image' => $image, 'show_in_hub' => $show], ['site_id' => $siteId]);
         \Talea\Front\Cache::clearAll();
@@ -714,6 +721,9 @@ final class Sites
     {
         if ($siteId === 1) {
             return 'The first site cannot be deleted.';
+        }
+        if (self::transferRefusal($db, $siteId) !== null) {
+            return 'This site is being moved to another owner.';
         }
         self::forgetCurrent();
         $db->run("UPDATE {sites} SET status = 'trashed', trashed_at = ?, redirect_to_site_id = NULL WHERE site_id = ? AND status <> 'trashed'", [date('Y-m-d H:i:s'), $siteId]);
@@ -745,6 +755,9 @@ final class Sites
      */
     public static function addDomain(Db $db, int $siteId, string $input, bool $verify = false): ?string
     {
+        if (self::transferRefusal($db, $siteId) !== null) {
+            return 'This site is being moved to another owner.';
+        }
         $host = self::normalizeHost($input, $verify);
         if ($host === null) {
             return 'Enter a host name such as www.example.com – no http://, no port, no path.';
@@ -769,6 +782,9 @@ final class Sites
     /** Removes a host; when it was the primary one, the oldest remaining host takes over. Returns an error text, null = removed. */
     public static function removeDomain(Db $db, int $siteId, int $domainId, string $currentHost): ?string
     {
+        if (self::transferRefusal($db, $siteId) !== null) {
+            return 'This site is being moved to another owner.';
+        }
         $domain = $db->one("SELECT * FROM {site_domains} WHERE domain_id = ? AND site_id = ? AND kind = 'domain'", [$domainId, $siteId]);
         if ($domain === null) {
             return 'The host name does not exist.';

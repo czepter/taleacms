@@ -18,6 +18,9 @@ final class OwnerClone
     public const array CONTENT = [
         'pages' => ['image', 'text', 'build', 'build_draft'],
         'news' => ['image', 'intro', 'text', 'faq'],
+        'news_revisions' => ['intro', 'text'],
+        'page_revisions' => ['text'],
+        'news_drafts' => ['data'],
         'tags' => ['description', 'image'],
         'categories' => ['description'],
         'site_parts' => ['build', 'build_draft'],
@@ -39,7 +42,7 @@ final class OwnerClone
      * INSERT … SELECT, because the foreign keys to the target's own users would refuse a number it does not have (PostgreSQL checks at once).
      */
     private const array USER_COLUMNS = ['news' => ['author_id'], 'news_revisions' => ['user_id'], 'page_revisions' => ['user_id'], 'build_revisions' => ['user_id'], 'draft_comments' => ['resolved_by'],
-        'booking_staff' => ['user_id'], 'fleet_kits' => ['created_by']];
+        'booking_staff' => ['user_id'], 'fleet_kits' => ['created_by'], 'look_versions' => ['author'], 'newsletters' => ['author']];
 
     /** Is the owner prefix a set-up owner of this install (never trust a prefix read from a row)? */
     public static function isKnownOwner(Db $db, string $prefix): bool
@@ -55,16 +58,23 @@ final class OwnerClone
      *
      * @param array<string, mixed> $site the row of the new site in {sites}
      * @param array<string, array<string, array{map: array<int, int>, else: string}>>|null $userMap
+     * @param array{ids: list<int>, files: list<string>} $made the media rows and files this run made in the target owner (the caller removes them when it fails)
      */
-    public static function copy(Db $db, Db $new, Db $source, Db $sourceOwnerDb, array $site, int $sourceSiteId, ?array $userMap = null): void
+    public static function copy(Db $db, Db $new, Db $source, Db $sourceOwnerDb, array $site, int $sourceSiteId, ?array $userMap = null, array &$made = ['ids' => [], 'files' => []]): void
     {
-        Sites::copyTables($source, $new, self::USER_COLUMNS, $userMap === null ? null : Sites::TRANSFER_SKIP, $userMap ?? []);
+        // news_drafts is keyed by (user, news item): a transfer copies it by hand below, for the people it found again
+        Sites::copyTables($source, $new, self::USER_COLUMNS, $userMap === null ? null : [...Sites::TRANSFER_SKIP, 'news_drafts'], $userMap ?? []);
         self::copyComponentsAndFacts($db, $new, $sourceOwnerDb, $sourceSiteId, (int) $site['site_id']);
         if ($new->tableExists('news_drafts')) {
-            $new->run('DELETE FROM {news_drafts}' . ($userMap === null ? '' : ' WHERE user_id = 0')); // a draft belongs to a user of the source owner; a transfer keeps the ones of people it found again
+            $new->run('DELETE FROM {news_drafts}'); // a draft belongs to a user of the source owner
+            foreach ($userMap === null ? [] : $source->all('SELECT * FROM {news_drafts} ORDER BY saved_at') as $draft) {
+                if (isset($userMap['news_drafts']['user_id']['map'][(int) $draft['user_id']])) {
+                    $new->insertIgnore('news_drafts', ['user_id' => $userMap['news_drafts']['user_id']['map'][(int) $draft['user_id']]] + $draft); // two people with one e-mail: the earlier draft stays
+                }
+            }
         }
         $ownerId = Owners::publicIdOf($db, $db->ownerPrefix);
-        $map = self::copyMedia($db, $new, $source, $sourceOwnerDb, $ownerId);
+        $map = self::copyMedia($db, $new, $source, $sourceOwnerDb, $ownerId, $made);
         self::rewrite($new, $map, $ownerId, self::CONTENT);
         self::rewrite($db, $map, $ownerId, ['components' => ['build', 'build_draft']], ' WHERE site_id = ' . (int) $site['site_id']);
         $name = fn (Db $d, int $id): string => (string) ($d->value('SELECT name FROM {sites} WHERE site_id = ?', [$id]) ?: 'main');
@@ -103,10 +113,11 @@ final class OwnerClone
      *
      * @return array<string, string> media path without variant => its path in the target owner's folder
      */
-    private static function copyMedia(Db $db, Db $new, Db $source, Db $sourceOwnerDb, string $targetOwnerId): array
+    private static function copyMedia(Db $db, Db $new, Db $source, Db $sourceOwnerDb, string $targetOwnerId, array &$made): array
     {
         $found = self::usedPaths($db, $new, self::siteIdOf($db, $new));
         $usage = $new->tableExists('media_usage') ? array_map('intval', array_column($new->all('SELECT DISTINCT media_id FROM {media_usage}'), 'media_id')) : [];
+        $usage = [...$usage, ...self::attachmentIds($new)];
         $map = [];
         $ids = [];
         $targetDir = MediaFolder::dirOf($targetOwnerId);
@@ -123,9 +134,13 @@ final class OwnerClone
             }
             $newPath = self::place((string) $row['image_path'], $targetDir, $oldStem, $newStem);
             $newThumb = (string) $row['thumb_path'] === '' ? '' : ((string) $row['thumb_path'] === (string) $row['image_path'] ? $newPath : self::place((string) $row['thumb_path'], $targetDir, $oldStem, $newStem));
-            self::copyFiles((string) $row['image_path'], $targetDir, $oldStem, $newStem);
+            array_push($made['files'], ...self::copyFiles((string) $row['image_path'], $targetDir, $oldStem, $newStem));
             $existing = $db->value('SELECT media_id FROM {media} WHERE image_path = ?', [$newPath]);
-            $ids[(int) $row['media_id']] = $existing !== null ? (int) $existing : $db->insert('media', ['image_path' => $newPath, 'thumb_path' => $newThumb, 'staged_at' => null] + array_diff_key($row, ['media_id' => 1, 'public_id' => 1, 'owner_id' => 1, 'folder_id' => 1]));
+            if ($existing === null) {
+                $made['ids'][] = $ids[(int) $row['media_id']] = $db->insert('media', ['image_path' => $newPath, 'thumb_path' => $newThumb, 'staged_at' => null] + array_diff_key($row, ['media_id' => 1, 'public_id' => 1, 'owner_id' => 1, 'folder_id' => 1]));
+            } else {
+                $ids[(int) $row['media_id']] = (int) $existing;
+            }
             foreach ($paths as $path) {
                 $canonical = (string) preg_replace('/-(?:1200|nahled)(\.[A-Za-z0-9]+)$/', '$1', $path); // the thumbnail's key is the original's
                 $map[$canonical] = self::place($canonical, $targetDir, $oldStem, $newStem);
@@ -141,7 +156,33 @@ final class OwnerClone
             }
         }
 
+        if ($new->tableExists('requests')) { // the files a request carries are listed by number: the copies' numbers, and none for a file that was not copied
+            foreach ($new->all('SELECT id, attachments FROM {requests}') as $r) {
+                $list = array_values(array_filter(array_map(fn (mixed $m): int => $ids[(int) $m] ?? 0, (array) json_decode((string) $r['attachments'], true))));
+                $new->update('requests', ['attachments' => (string) json_encode($list)], ['id' => (int) $r['id']]);
+            }
+        }
+
         return $map;
+    }
+
+    /**
+     * The media numbers the requests of a site carry (their attachments, a JSON list).
+     *
+     * @return list<int>
+     */
+    public static function attachmentIds(Db $site): array
+    {
+        $ids = [];
+        if ($site->tableExists('requests')) {
+            foreach ($site->all("SELECT attachments FROM {requests} WHERE attachments <> '[]'") as $r) {
+                foreach ((array) json_decode((string) $r['attachments'], true) as $m) {
+                    $ids[] = (int) $m;
+                }
+            }
+        }
+
+        return $ids;
     }
 
     /**
@@ -198,9 +239,10 @@ final class OwnerClone
         return is_file($target) && (!is_file($source) || md5_file($target) !== md5_file($source));
     }
 
-    /** Copies the file and its variants (-1200, -nahled, .webp, .avif) into the target folder under the new stem; an existing file is left. */
-    private static function copyFiles(string $oldPath, string $targetDir, string $oldStem, string $newStem): void
+    /** Copies the file and its variants (-1200, -nahled, .webp, .avif) into the target folder under the new stem; an existing file is left. Returns the files it made. @return list<string> */
+    private static function copyFiles(string $oldPath, string $targetDir, string $oldStem, string $newStem): array
     {
+        $copied = [];
         $folder = TALEA_ROOT . '/' . $targetDir . '/' . dirname($newStem);
         $from = MediaStaging::files($oldPath, false);
         if ($from !== [] && !is_dir($folder) && !@mkdir($folder, 0775, true) && !is_dir($folder)) {
@@ -209,10 +251,15 @@ final class OwnerClone
         $oldName = basename($oldStem);
         foreach ($from as $file) {
             $target = $folder . '/' . basename($newStem) . substr(basename($file), strlen($oldName));
-            if (!is_file($target) && !@copy($file, $target)) {
-                throw new \RuntimeException('Cannot copy ' . substr($file, strlen(TALEA_ROOT) + 1));
+            if (!is_file($target)) {
+                if (!@copy($file, $target)) {
+                    throw new \RuntimeException('Cannot copy ' . substr($file, strlen(TALEA_ROOT) + 1));
+                }
+                $copied[] = $target;
             }
         }
+
+        return $copied;
     }
 
     /**

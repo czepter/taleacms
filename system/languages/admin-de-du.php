@@ -795,6 +795,7 @@ return [
     'The site certificate expires in %d days – check that it renews.' => 'Das Zertifikat der Website läuft in %d Tagen ab – prüfe, ob es erneuert wird.',
     'The site has a custom menu – the page is added to its end. Change the order and submenus in Appearance → Menu.' => 'Die Website hat ein individuell zusammengestelltes Menü – die Seite wird an dessen Ende angehängt. Reihenfolge und Untermenüs änderst du unter Erscheinungsbild → Menü.',
     'The site has changed since the report was made. Read the new report and confirm again.' => 'Die Website hat sich seit der Übersicht geändert. Lies die neue Übersicht und bestätige erneut.',
+    'The site is being copied right now. Try again in a few minutes.' => 'Die Website wird gerade kopiert. Versuche es in einigen Minuten erneut.',
     'The site is being imported. The administration is locked until the import is done – try again in a few minutes.' => 'Die Website wird gerade importiert. Die Administration ist bis zum Ende des Imports gesperrt – versuche es in ein paar Minuten erneut.',
     'The site is restored. It is paused until you set it live.' => 'Die Website ist wiederhergestellt. Sie ist pausiert, bis du sie live schaltest.',
     'The site moves with its content, visitors’ data, settings, secrets, host names and media files. You see what moves first; nothing happens until you confirm.' => 'Die Website zieht mit Inhalt, Besucherdaten, Einstellungen, Geheimnissen, Hostnamen und Mediendateien um. Du siehst zuerst, was verschoben wird; bis du bestätigst, passiert nichts.',

@@ -234,6 +234,21 @@ final class Owners extends Module
         return $this->view('transfer', 'Move a site', ['sites' => $sites, 'owners' => $owners, 'site' => $site, 'to' => $to, 'report' => $report, 'states' => $states]);
     }
 
+    /** Gives a move up: the new site is removed and the old one answers again (Core\SiteTransfer::cancel). */
+    protected function actionTransferCancel(): Response
+    {
+        $user = $this->app->auth()->user();
+        if (!$this->request->isPost() || $user === null) {
+            return $this->back();
+        }
+        $error = TransferRegistry::cancel($this->db, $user, $this->request->post('site'));
+        if ($error === null) {
+            ChangeLog::write($this->app, 'owners', 'transfer cancelled', $this->request->post('site'));
+        }
+
+        return $error === null ? $this->back('The move is cancelled. The site answers again.', 'transfer') : $this->back($error, 'transfer', [], 'error');
+    }
+
     /**
      * The operators' way to bring an old site to a client: an archive from an older single-site install becomes a new site of the chosen owner
      * (Core\SiteImports). The row and the file are all this request writes; the owner's own cron imports it, and the other sites keep working.

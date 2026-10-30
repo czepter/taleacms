@@ -2041,14 +2041,14 @@
     },
     "transfer_site": {
         "parameters": {
+            "cancel": "boolean",
             "dry_run": "boolean",
             "id": "string",
             "owner": "string",
             "report_hash": "string"
         },
         "required": [
-            "id",
-            "owner"
+            "id"
         ],
         "annotations": {
             "readOnlyHint": false,

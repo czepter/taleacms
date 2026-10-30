@@ -24,7 +24,7 @@ final class SiteTransfer
      */
     private const array USER_COLUMNS = ['news' => ['author_id' => 'NULL'], 'news_revisions' => ['user_id' => 'NULL'], 'page_revisions' => ['user_id' => 'NULL'], 'build_revisions' => ['user_id' => 'NULL'],
         'draft_comments' => ['resolved_by' => 'NULL'], 'booking_staff' => ['user_id' => 'NULL'], 'fleet_kits' => ['created_by' => 'NULL'], 'change_log' => ['user_id' => 'NULL'],
-        'enquiries' => ['assigned_to' => 'NULL'], 'news_drafts' => ['user_id' => '0'], 'requests' => ['author_id' => '0']];
+        'enquiries' => ['assigned_to' => 'NULL'], 'news_drafts' => ['user_id' => '0'], 'requests' => ['author_id' => '0'], 'look_versions' => ['author' => 'NULL'], 'newsletters' => ['author' => 'NULL']];
 
     /**
      * The site, its owner's connection and the target owner for the public ids an operator names; a string is the refusal.
@@ -68,7 +68,7 @@ final class SiteTransfer
         $siteId = (int) $site['site_id'];
         $ready = $site['ready_at'] !== null && $site['status'] !== 'trashed';
         $n = fn (string $table, string $where = ''): int => $ready && $source->tableExists($table) ? (int) $source->value('SELECT COUNT(*) FROM {' . $table . '}' . $where) : 0;
-        $people = $ready ? self::people($source, $ownerDb, $targetDb) : ['map' => [], 'mapped' => [], 'unmapped' => []];
+        $people = $ready ? self::people($source, $ownerDb, $targetDb) : ['map' => [], 'mapped' => [], 'unmapped' => [], 'ambiguous' => []];
         $lose = !$ready ? [] : array_map(fn (array $u): string => (string) ($u['name'] !== '' ? $u['name'] : $u['username']),
             $ownerDb->all('SELECT u.name, u.username FROM {user_sites} us JOIN {users} u ON u.user_id = us.user_id WHERE us.site_id = ? AND u.sites_limited = TRUE AND u.admin <> ? ORDER BY u.user_id', [$siteId, Auth::ADMIN]));
         $secrets = !$ready ? [] : array_values(array_filter(self::SECRETS, fn (string $name): bool => (string) $source->value('SELECT value FROM {settings} WHERE name = ?', [$name]) !== ''));
@@ -110,8 +110,8 @@ final class SiteTransfer
         if ($lose !== []) {
             $warnings[] = 'People who are limited to this site lose access to it; nobody is given access in the new owner.';
         }
-        if ($people['unmapped'] !== []) {
-            $warnings[] = 'People with no account of the same e-mail in the new owner are cleared from authors and revisions (the change log keeps their names).';
+        if ($people['unmapped'] !== [] || $people['ambiguous'] !== []) {
+            $warnings[] = 'People with no account, or with several accounts, of the same e-mail in the new owner are cleared from authors and revisions (the change log keeps their names).';
         }
         if ($sessions > 0) {
             $warnings[] = 'Claude sessions on this site can no longer be undone after the move.';
@@ -128,7 +128,7 @@ final class SiteTransfer
             'secrets' => $secrets,
             'connections' => $ready && $source->tableExists('connectors') ? (int) $source->value('SELECT COUNT(*) FROM {connectors}') : 0,
             'shared' => $shared,
-            'people' => ['mapped' => $people['mapped'], 'unmapped' => $people['unmapped']],
+            'people' => ['mapped' => $people['mapped'], 'unmapped' => $people['unmapped'], 'ambiguous' => $people['ambiguous']],
             'lose_access' => $lose,
             'claude_sessions' => $sessions,
             'queued_mail' => $queued,
@@ -186,33 +186,109 @@ final class SiteTransfer
      */
     public static function provision(Db $db, array $site, Db $new, Db $source, Db $sourceOwnerDb): void
     {
-        $old = (array) $sourceOwnerDb->one('SELECT * FROM {sites} WHERE site_id = ?', [(int) $site['source_site_id']]);
+        $lock = 'transfer-' . $site['prefix'];
+        if (!$db->lock($lock)) {
+            throw new \RuntimeException('Another process is moving this site right now.');
+        }
         try {
-            if (($old['transfer_to'] ?? null) !== $site['prefix']) {
-                throw new \RuntimeException('The transfer of this site was cancelled.');
+            // the row may have been finished, or cancelled, since cron read it: only a target still waiting is worked on
+            $site = $db->one('SELECT * FROM {sites} WHERE site_id = ?', [(int) $site['site_id']]);
+            if ($site === null || $site['ready_at'] !== null || $site['transfer_by'] === null) {
+                return;
             }
-            self::copy($db, $site, $new, $source, $sourceOwnerDb);
-            self::finish($db, $site, $old, $sourceOwnerDb);
-        } catch (\Throwable $e) {
+            $old = (array) $sourceOwnerDb->one('SELECT * FROM {sites} WHERE site_id = ?', [(int) $site['source_site_id']]);
+            $made = ['ids' => [], 'files' => []];
             try {
-                Sites::dropTables($db, (string) $site['prefix']);
-            } catch (\Throwable $drop) {
-                ErrorReport::capture($drop); // the row goes either way; the tables are left for a person (the original error is the one thrown)
+                if (($old['transfer_to'] ?? null) !== $site['prefix']) {
+                    throw new \RuntimeException('The transfer of this site was cancelled.');
+                }
+                self::copy($db, $site, $new, $source, $sourceOwnerDb, $made);
+                self::finish($db, $site, $old, $sourceOwnerDb);
+            } catch (\Throwable $e) {
+                // finish() is one transaction: a target that is ready is complete and is never touched here
+                if ($db->value('SELECT ready_at FROM {sites} WHERE site_id = ?', [(int) $site['site_id']]) === null) {
+                    self::discard($db, $site, $made);
+                }
+                if (($old['transfer_to'] ?? null) === $site['prefix']) {
+                    $sourceOwnerDb->update('sites', ['transfer_to' => null, 'transfer_error' => mb_substr($e->getMessage(), 0, 500)], ['site_id' => (int) $old['site_id']]);
+                }
+                throw $e;
             }
-            $db->delete('components', ['site_id' => (int) $site['site_id']]);
-            $db->delete('facts', ['site_id' => (int) $site['site_id']]);
-            $db->delete('site_domains', ['site_id' => (int) $site['site_id']]);
-            $db->delete('sites', ['site_id' => (int) $site['site_id']]);
-            Sites::forgetCurrent();
-            if (($old['transfer_to'] ?? null) === $site['prefix']) {
-                $sourceOwnerDb->update('sites', ['transfer_to' => null, 'transfer_error' => mb_substr($e->getMessage(), 0, 500)], ['site_id' => (int) $old['site_id']]);
-            }
-            throw $e;
+        } finally {
+            $db->unlock($lock);
         }
     }
 
+    /**
+     * Removes a new site that was never finished: its tables and row, the host names and shared rows made for it, and the media rows and files its copy
+     * made in the owner (a file an earlier copy had put there stays).
+     *
+     * @param array<string, mixed> $site the target's row
+     * @param array{ids: list<int>, files: list<string>} $made
+     */
+    private static function discard(Db $db, array $site, array $made = ['ids' => [], 'files' => []]): void
+    {
+        try {
+            Sites::dropTables($db, (string) $site['prefix']);
+        } catch (\Throwable $drop) {
+            ErrorReport::capture($drop); // the row goes either way; the tables are left for a person (the original error is the one thrown)
+        }
+        foreach ($made['ids'] as $id) {
+            $db->delete('media', ['media_id' => $id]);
+        }
+        foreach ($made['files'] as $file) {
+            @unlink($file);
+        }
+        foreach (['components', 'facts', 'site_domains', 'sites'] as $table) {
+            $db->delete($table, ['site_id' => (int) $site['site_id']]);
+        }
+        Sites::forgetCurrent();
+    }
+
+    /**
+     * An operator gives a queued or stuck move up: the new site is removed and the old one answers again. Refused while cron is copying.
+     * Returns the refusal, null = cancelled.
+     *
+     * @param array<string, mixed> $operator
+     */
+    public static function cancel(Db $db, array $operator, string $sitePublicId): ?string
+    {
+        if (!Owners::isOperator($db, $operator) || !Owners::operatorValid($db, (int) $operator['user_id'])) {
+            return 'Only the operators of the installation can move a site to another owner.';
+        }
+        foreach (Owners::all($db) as $o) {
+            $owner = $o['ready_at'] === null ? null : $db->forOwner((string) $o['prefix']);
+            $site = $owner?->byPublicId('sites', $sitePublicId);
+            if ($owner === null || $site === null) {
+                continue;
+            }
+            if ($site['transfer_to'] === null) {
+                return 'No move of this site is under way.';
+            }
+            $prefix = (string) $site['transfer_to'];
+            $lock = 'transfer-' . $prefix;
+            if (!$db->lock($lock)) {
+                return 'The site is being copied right now. Try again in a few minutes.';
+            }
+            try {
+                $targetOwner = Owners::ownerOf($db->installPrefix, $prefix);
+                $target = $targetOwner === null ? null : $db->forOwner($targetOwner)->one('SELECT * FROM {sites} WHERE prefix = ? AND ready_at IS NULL AND transfer_by IS NOT NULL', [$prefix]);
+                if ($target !== null) {
+                    self::discard($db->forOwner((string) $targetOwner), $target);
+                }
+                $owner->update('sites', ['transfer_to' => null, 'transfer_error' => ''], ['site_id' => (int) $site['site_id']]);
+            } finally {
+                $db->unlock($lock);
+            }
+
+            return null;
+        }
+
+        return 'Choose a site to move.';
+    }
+
     /** The tables, the people, the media, the settings: the new site is a faithful copy that signs with keys of its own. */
-    private static function copy(Db $db, array $site, Db $new, Db $source, Db $sourceOwnerDb): void
+    private static function copy(Db $db, array $site, Db $new, Db $source, Db $sourceOwnerDb, array &$made): void
     {
         $people = self::people($source, $sourceOwnerDb, $db);
         $mapped = [];
@@ -221,7 +297,7 @@ final class SiteTransfer
                 $mapped[$table][$column] = ['map' => $people['map'], 'else' => $else];
             }
         }
-        OwnerClone::copy($db, $new, $source, $sourceOwnerDb, $site, (int) $site['source_site_id'], $mapped);
+        OwnerClone::copy($db, $new, $source, $sourceOwnerDb, $site, (int) $site['source_site_id'], $mapped, $made);
         // the signing key (links, previews, form signatures) is made again on first use; the connections' credentials are sealed with it, so they follow
         $key = (string) $new->value("SELECT value FROM {settings} WHERE name = 'secret_key'");
         if ($key !== '') {
@@ -278,7 +354,9 @@ final class SiteTransfer
      * owner's: map = source user number => target user number; mapped and unmapped list name and e-mail for the report. An operator's row (no
      * e-mail) is never found again; neither is a row of the target that stands for an operator.
      *
-     * @return array{map: array<int, int>, mapped: list<array{name: string, email: string}>, unmapped: list<array{name: string, email: string}>}
+     * A person is found again only when exactly one account of the target has that e-mail; with several they are listed as ambiguous and cleared.
+     *
+     * @return array{map: array<int, int>, mapped: list<array{name: string, email: string}>, unmapped: list<array{name: string, email: string}>, ambiguous: list<array{name: string, email: string}>}
      */
     private static function people(Db $source, Db $sourceOwner, Db $targetOwner): array
     {
@@ -297,7 +375,7 @@ final class SiteTransfer
             }
         }
         ksort($ids);
-        $map = $mapped = $unmapped = [];
+        $map = $mapped = $unmapped = $ambiguous = [];
         foreach (array_keys($ids) as $id) {
             $user = $sourceOwner->one('SELECT name, username, email FROM {users} WHERE user_id = ?', [$id]);
             if ($user === null) {
@@ -305,16 +383,18 @@ final class SiteTransfer
             }
             $email = trim((string) $user['email']);
             $line = ['name' => (string) ($user['name'] !== '' ? $user['name'] : $user['username']), 'email' => $email];
-            $to = $email === '' ? null : $targetOwner->value('SELECT user_id FROM {users} WHERE LOWER(email) = ? AND operator_user_id IS NULL ORDER BY user_id LIMIT 1', [mb_strtolower($email)]);
-            if ($to === null) {
+            $found = $email === '' ? [] : $targetOwner->all('SELECT user_id FROM {users} WHERE LOWER(email) = ? AND operator_user_id IS NULL', [mb_strtolower($email)]);
+            if (count($found) === 1) {
+                $map[$id] = (int) $found[0]['user_id'];
+                $mapped[] = $line;
+            } elseif ($found === []) {
                 $unmapped[] = $line;
             } else {
-                $map[$id] = (int) $to;
-                $mapped[] = $line;
+                $ambiguous[] = $line;
             }
         }
 
-        return ['map' => $map, 'mapped' => $mapped, 'unmapped' => $unmapped];
+        return ['map' => $map, 'mapped' => $mapped, 'unmapped' => $unmapped, 'ambiguous' => $ambiguous];
     }
 
     /**
@@ -325,7 +405,7 @@ final class SiteTransfer
     private static function media(Db $owner, Db $source, int $siteId): array
     {
         $found = OwnerClone::usedPaths($owner, $source, $siteId);
-        $usage = $source->tableExists('media_usage') ? array_map('intval', array_column($source->all('SELECT DISTINCT media_id FROM {media_usage}'), 'media_id')) : [];
+        $usage = [...($source->tableExists('media_usage') ? array_map('intval', array_column($source->all('SELECT DISTINCT media_id FROM {media_usage}'), 'media_id')) : []), ...OwnerClone::attachmentIds($source)];
         $files = $bytes = 0;
         foreach ($owner->all('SELECT media_id, image_path, thumb_path FROM {media} WHERE staged_at IS NULL ORDER BY media_id') as $row) {
             if (!isset($found[$row['image_path']]) && !isset($found[$row['thumb_path']]) && !in_array((int) $row['media_id'], $usage, true)) {

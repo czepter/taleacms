@@ -21,6 +21,7 @@ $none = e(t('none'));
 <tr>
 	<td class="cell-main"><span class="cell-title"><?= bdi(($s['name'] !== '' ? $s['name'] : $s['slug']) . ' (' . $f['owner_name'] . ')') ?></span></td>
 	<td class="cell-weak"><?= $s['transfer_to'] !== null ? e(t('Being moved. The old site answers 503 until it is done.')) : bdi(t('The last move failed: %s', (string) $s['transfer_error'])) ?></td>
+	<td class="cell-actions"><?php if ($s['transfer_to'] !== null): ?><form class="inline" method="post" action="<?= e($module->url('transfer_cancel')) ?>" data-confirm="<?= e(t('Give up this move? The new site is removed and the old one answers again.')) ?>"><?= $csrf ?><input type="hidden" name="site" value="<?= e($s['public_id']) ?>"><button class="navigation" type="submit"><?= e(t('Cancel the move')) ?></button></form><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -68,6 +69,7 @@ $none = e(t('none'));
 <tr><th scope="row"><?= e(t('Shared components and facts that become its own')) ?></th><td><?= e(t('%d components, %d facts', $report['shared']['components'], $report['shared']['facts'])) ?></td></tr>
 <tr><th scope="row"><?= e(t('People found in the new owner by e-mail')) ?></th><td><?= $report['people']['mapped'] === [] ? $none : bdi(implode(', ', array_map(fn (array $p): string => $p['name'] . ' <' . $p['email'] . '>', $report['people']['mapped']))) ?></td></tr>
 <tr><th scope="row"><?= e(t('People not found (cleared from authors and revisions)')) ?></th><td><?= $report['people']['unmapped'] === [] ? $none : bdi(implode(', ', array_map(fn (array $p): string => $p['name'] . ($p['email'] !== '' ? ' <' . $p['email'] . '>' : ''), $report['people']['unmapped']))) ?></td></tr>
+<tr><th scope="row"><?= e(t('People with several accounts of that e-mail in the new owner (cleared)')) ?></th><td><?= ($report['people']['ambiguous'] ?? []) === [] ? $none : bdi(implode(', ', array_map(fn (array $p): string => $p['name'] . ' <' . $p['email'] . '>', $report['people']['ambiguous']))) ?></td></tr>
 <tr><th scope="row"><?= e(t('People who lose access')) ?></th><td><?= $report['lose_access'] === [] ? $none : bdi(implode(', ', $report['lose_access'])) ?></td></tr>
 <tr><th scope="row"><?= e(t('Claude sessions whose undo ends')) ?></th><td><?= (int) $report['claude_sessions'] ?></td></tr>
 </tbody>

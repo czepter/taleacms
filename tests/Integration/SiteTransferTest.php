@@ -210,6 +210,10 @@ final class SiteTransferTest extends DatabaseTestCase
         $shop->insert('news', ['title' => 'By Anna', 'slug' => 'by-anna', 'text' => '', 'intro' => '', 'category_id' => $category, 'author_id' => $anna, 'published_at' => $now]);
         $shop->insert('news', ['title' => 'By Bob', 'slug' => 'by-bob', 'text' => '', 'intro' => '', 'category_id' => $category, 'author_id' => $bob, 'published_at' => $now]);
         $shop->insert('change_log', ['created_at' => $now, 'user_id' => $bob, 'user_name' => 'Bob', 'via' => '', 'module' => 'pages', 'action' => 'save', 'description' => 'edited']);
+        $carl = $this->user($alpha, 'carl', 'carl@example.com');
+        foreach ([$anna, $bob, $carl] as $who) {
+            $shop->insert('news_drafts', ['user_id' => $who, 'news_id' => 0, 'saved_at' => $now, 'data' => '{}']); // two unmapped people: both would be (0, 0)
+        }
         $shop->insert('mail', ['recipient' => 'x@y.example', 'subject' => 's', 'body' => '{}', 'created_at' => $now]);
         $oldId = (string) $this->row($alpha, 'tl2_')['public_id'];
         $newRow = $this->queue();
@@ -237,6 +241,7 @@ final class SiteTransferTest extends DatabaseTestCase
         $this->assertSame(0, (int) $copy->value('SELECT COUNT(*) FROM {mail}'), 'queues stay');
         $this->assertSame($annaInBeta, (int) $copy->value("SELECT author_id FROM {news} WHERE slug = 'by-anna'"), 'same e-mail, other case');
         $this->assertNull($copy->value("SELECT author_id FROM {news} WHERE slug = 'by-bob'"));
+        $this->assertSame([$annaInBeta], array_map('intval', array_column($copy->all('SELECT user_id FROM {news_drafts}'), 'user_id')), 'only the drafts of people found again');
         $this->assertSame('Bob', $copy->value("SELECT user_name FROM {change_log} WHERE action = 'save'"));
         $this->assertNull($copy->value("SELECT user_id FROM {change_log} WHERE action = 'save'"));
 
@@ -250,6 +255,56 @@ final class SiteTransferTest extends DatabaseTestCase
         $this->assertStringContainsString('Olivia Operator', (string) $alpha->forSite('tl_')->value("SELECT user_name FROM {change_log} WHERE action = 'transfer'"));
         $this->assertSame('moved from owner', $copy->value("SELECT action FROM {change_log} WHERE action = 'moved from owner'"));
         $this->assertSame(0, Sites::pending($beta) === [] ? 0 : count(array_filter(Sites::pending($beta), fn (array $s): bool => $s['prefix'] === 'tlb2_')));
+    }
+
+    public function testAnAddressWithSeveralAccountsInTheNewOwnerMapsNobody(): void
+    {
+        $alpha = $this->db();
+        $beta = $alpha->forOwner('tlb_');
+        $anna = $this->user($alpha, 'anna', 'anna@example.com');
+        $this->user($beta, 'anna-1', 'anna@example.com');
+        $this->user($beta, 'anna-2', 'ANNA@example.com');
+        $alpha->forSite('tl2_')->insert('change_log', ['created_at' => date('Y-m-d H:i:s'), 'user_id' => $anna, 'user_name' => 'Anna', 'via' => '', 'module' => 'pages', 'action' => 'save', 'description' => '']);
+        $people = $this->report()['people'];
+        $this->assertSame([], $people['mapped']);
+        $this->assertSame([['name' => 'Anna', 'email' => 'anna@example.com']], $people['ambiguous']);
+    }
+
+    public function testAFinishedTargetIsLeftAloneByASecondRun(): void
+    {
+        $alpha = $this->db();
+        $beta = $alpha->forOwner('tlb_');
+        $stale = $this->queue();
+        Sites::provision($beta, $stale);
+        $id = $this->row($beta, 'tlb2_')['public_id'];
+        Sites::provision($beta, $stale); // a second cron process that read the row before the first finished
+        $row = $this->row($beta, 'tlb2_');
+        $this->assertSame($id, $row['public_id']);
+        $this->assertNotNull($row['ready_at']);
+        $this->assertTrue($beta->forSite('tlb2_')->tableExists('settings'), 'its tables are not dropped');
+    }
+
+    public function testACancelRemovesTheNewSiteAndTheNewSiteCannotBeEditedMeanwhile(): void
+    {
+        $alpha = $this->db();
+        $beta = $alpha->forOwner('tlb_');
+        $operator = $this->operator();
+        $site = (string) $this->row($alpha, 'tl2_')['public_id'];
+        $to = (string) $alpha->value('SELECT public_id FROM {owners} WHERE prefix = ?', ['tlb_']);
+        $this->assertNull(SiteTransfer::start($alpha, $operator, $site, $to, $this->report()['hash']));
+        $placeholder = $this->row($beta, (string) $this->row($alpha, 'tl2_')['transfer_to']);
+        $this->assertNotNull(Sites::transferRefusal($beta, (int) $placeholder['site_id']));
+        $this->assertNotNull(Sites::trash($beta, (int) $placeholder['site_id']), 'the owner cannot trash it');
+        $this->assertNotNull(Sites::save($beta, (int) $placeholder['site_id'], 'X', 'live', null));
+        $this->assertNotNull(Sites::addDomain($beta, (int) $placeholder['site_id'], 'x.example'));
+        $this->assertNotNull(Sites::trash($alpha, 2), 'nor can the old site be trashed meanwhile');
+        $this->assertNotContains((int) $placeholder['site_id'], array_map(fn (array $s): int => (int) $s['site_id'], Sites::overview($beta, false)), 'and it is not in the owner\'s list');
+
+        $this->assertStringContainsString('operators', (string) SiteTransfer::cancel($alpha, ['admin' => 1] + $operator, $site));
+        $this->assertNull(SiteTransfer::cancel($alpha, $operator, $site));
+        $this->assertNull($this->row($alpha, 'tl2_')['transfer_to']);
+        $this->assertNull($beta->value('SELECT 1 FROM {sites} WHERE prefix = ?', [$placeholder['prefix']]));
+        $this->assertStringContainsString('No move', (string) SiteTransfer::cancel($alpha, $operator, $site));
     }
 
     public function testAMovedChildLeavesItsLookFamily(): void

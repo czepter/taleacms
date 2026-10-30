@@ -130,7 +130,7 @@ final class ParityTest extends TestCase
                 'handoff' => 'admin: a one-time sign-in link to another site belongs to the person opening it in the browser – it is never a tool'],
             'owners' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'usage' => $readOnly,
                 'create' => 'admin: owners are created and paused by the operators of the installation in the administration; an agent works inside one owner (stage B)', 'save' => 'admin: see create', 'status' => 'admin: see create',
-                'domain_add' => 'admin: see create', 'clone' => 'create_site', 'transfer' => 'transfer_site', 'import' => 'admin: see sites.import',
+                'domain_add' => 'admin: see create', 'clone' => 'create_site', 'transfer' => 'transfer_site', 'transfer_cancel' => 'transfer_site', 'import' => 'admin: see sites.import',
                 'domain_verify' => 'admin: an operator vouching for a host without a check is a decision of the installation, not of an agent',
                 'invite' => 'admin: an invitation e-mail is sent by a person who decides to', 'handoff' => 'admin: a one-time sign-in to another owner belongs to the operator opening it in the browser – it is never a tool'],
             'fleet' => ['list' => 'list_sites', 'detail' => 'get_site', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)',

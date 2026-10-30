@@ -477,7 +477,9 @@ final class Sites extends Module
     /** @return array<string, mixed>|null the site the id parameter names */
     private function site(): ?array
     {
-        return $this->db->byPublicId('sites', $this->request->post('id') ?: $this->request->get('id'));
+        $site = $this->db->byPublicId('sites', $this->request->post('id') ?: $this->request->get('id'));
+
+        return $site !== null && $site['transfer_by'] === null ? $site : null; // the new site of a move is not the owner's to edit
     }
 
     /** @return array<string, mixed>|null the host (parameter `host`) of a site, from its own list only */
