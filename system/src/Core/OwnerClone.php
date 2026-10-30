@@ -137,7 +137,7 @@ final class OwnerClone
             }
             $newPath = self::place((string) $row['image_path'], $targetDir, $oldStem, $newStem);
             $newThumb = (string) $row['thumb_path'] === '' ? '' : ((string) $row['thumb_path'] === (string) $row['image_path'] ? $newPath : self::place((string) $row['thumb_path'], $targetDir, $oldStem, $newStem));
-            array_push($made['files'], ...self::copyFiles((string) $row['image_path'], $targetDir, $oldStem, $newStem));
+            $made['files'] = array_merge($made['files'], self::copyFiles((string) $row['image_path'], $targetDir, $oldStem, $newStem));
             $existing = $db->value('SELECT media_id FROM {media} WHERE image_path = ?', [$newPath]);
             if ($existing === null) {
                 $made['ids'][] = $ids[(int) $row['media_id']] = $db->insert('media', ['image_path' => $newPath, 'thumb_path' => $newThumb, 'staged_at' => null] + array_diff_key($row, ['media_id' => 1, 'public_id' => 1, 'owner_id' => 1, 'folder_id' => 1]));
@@ -242,7 +242,11 @@ final class OwnerClone
         return is_file($target) && (!is_file($source) || md5_file($target) !== md5_file($source));
     }
 
-    /** Copies the file and its variants (-1200, -nahled, .webp, .avif) into the target folder under the new stem; an existing file is left. Returns the files it made. @return list<string> */
+    /**
+     * Copies the file and its variants (-1200, -nahled, .webp, .avif) into the target folder under the new stem; an existing file is left.
+     *
+     * @return list<string> the files it made
+     */
     private static function copyFiles(string $oldPath, string $targetDir, string $oldStem, string $newStem): array
     {
         $copied = [];
