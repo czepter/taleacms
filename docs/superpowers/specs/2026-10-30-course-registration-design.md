@@ -1,6 +1,6 @@
 # Course registration: seats, confirmation, waiting list
 
-Date: 2026-10-30 · Status: draft for review
+Date: 2026-10-30 · Status: reviewed, awaiting approval
 
 ## Intent
 
@@ -20,6 +20,7 @@ registration (confirm, decline, cancel), a waiting list, and a preset that reads
   request that holds a seat until the holder confirms or declines it).
 - A full course offers a **waiting list** instead of closing. A freed seat moves the first person up.
 - The holder cancels, confirms, declines and promotes registrations in the admin and over MCP.
+- The holder can cancel a whole course and offer up to three other courses instead.
 - The visitor gets an e-mail for every change of their registration.
 - Generic: nothing dance-specific (no lead/follow, no levels logic). Yoga, coaching, workshops use it the same way.
 
@@ -27,7 +28,11 @@ registration (confirm, decline, cancel), a waiting list, and a preset that reads
 
 - Moving between sessions or courses (the "swap Tuesday for Thursday" case), per-session seat counts, attendance.
 - Contracts, payment, a shop.
-- Participants cancelling themselves online (no manage link, no member account).
+- Participants cancelling themselves online (no manage link, no member account). The one personal link a
+  participant ever gets is the take-over link of a cancelled course (see below).
+- Automatic decline of requests nobody answered.
+- Confirmation and waiting list for repeating (drop-in) events.
+- A CSV export of participants.
 - Member login is not involved.
 
 ## Anti-goals
@@ -69,14 +74,19 @@ It gets one new state, separate from the enquiry's processing `status` (new / re
 for the number of participants (1 up to the maximum, never more than the capacity); the registration holds that many
 seats and is confirmed, declined, cancelled and promoted as a whole. *(Author's calls:)* a registration for more seats
 than are free goes to the waiting list as a whole (no partial seats); promotion moves up the oldest waitlisted
-registration that fits the free seats, so a single person may pass a pair.
+registration that fits the free seats, so a single person may pass a pair. The pair keeps its place at the top and
+moves up as soon as two seats are free. The participants field shows whenever the maximum is above 1, in both modes.
+
+**One registration per address and course:** a registration whose e-mail already has a `confirmed`, `waiting` or
+`waitlisted` registration for the same course is refused with a message that they are already registered (or on
+the waiting list). A `declined` or `cancelled` one does not block a new registration.
 
 Seats taken = the seats held by registrations in `confirmed` or `waiting` that are not in the trash and not marked spam. **This also
 fixes a present bug:** `Calendar::registered()` counts enquiries marked spam (`category = 'spam'`) as seats.
 
 Enquiries with no registration state (existing events, other forms) keep behaving as today. Repeating events keep
-their per-occurrence counting and get neither confirmation nor waiting list (see "Left to the builder" for the
-existing data).
+their per-occurrence counting and get neither confirmation nor waiting list (existing data: see "Calls made while
+writing this").
 
 ### Visitor flow
 
@@ -95,14 +105,22 @@ submissions for the last seat must not both get it.
 ### Freed seat
 
 A seat frees when a holding registration is declined, cancelled, moved to the trash or marked spam, or when the
-capacity is raised. Then, while the course has not ended:
+capacity is raised. Then, while registration is still open (before `registration_until`, or before the end when it
+is empty):
 
-- **instant** course: the oldest `waitlisted` registration becomes `confirmed`; e-mail "you have a seat".
+- **instant** course: the oldest `waitlisted` registration becomes `confirmed`; e-mail "you have a seat", which
+  asks them to tell the school if they no longer want it.
 - **confirm-first** course: the oldest `waitlisted` registration becomes `waiting`; e-mail "a seat is free, we will
   confirm"; the holder is notified as for a new request.
 
-Repeat until no seat is free or the list is empty. The holder may also promote any waitlisted person by hand, out of
-order, as long as a seat is free.
+Repeat until no seat is free or nobody on the list fits. After `registration_until` nothing moves up by itself; the
+holder may still promote by hand. The holder may promote any waitlisted person by hand, out of order, at any time, as
+long as enough seats are free.
+
+### Unanswered requests
+
+A `waiting` registration nobody confirmed or declined for 3 days sends the holder one reminder (same recipients as
+the request). Nothing is declined automatically; the seat stays held.
 
 ### E-mails to the visitor
 
@@ -112,14 +130,41 @@ from the holder), moved up, cancelled (optional message). Wording follows the "n
 name, dates and place come from the item.
 
 The holder is notified of new registrations as forms already do (form recipients); a waiting request says so in the
-subject.
+subject. The form's recipients also get the reminder for unanswered requests.
+
+### Cancelling a course
+
+One action on the Registrations screen, **Cancel the course**, for when the course will not take place:
+
+1. The holder picks up to 3 other courses of the same collection to offer (only courses still open for
+   registration are listed; none is fine) and may add a message.
+2. On confirm: every `confirmed`, `waiting` and `waitlisted` registration becomes `cancelled`; the course item is
+   hidden; its address redirects to the first offered course, or to the collection list when none was offered
+   (through the collection's existing handling of hidden items); one e-mail goes to each of those registrations.
+3. The e-mail says the course is cancelled, carries the holder's message and, per offered course, a personal button
+   "Take a seat in [course]". The link is signed and single use, tied to the registration and the offered course.
+4. Clicking it shows a page with a button (the GET never registers). Pressing it creates a new registration in the
+   offered course with the same name, e-mail and seat count, under that course's rules: a seat if one is free
+   (`confirmed` or `waiting` by its mode), otherwise its waiting list, otherwise the "full" message. No priority over
+   people already on that course's waiting list; they are ordered by when they press the button. The usual
+   registration e-mail follows. Once used for one course, the other buttons in that e-mail stop working.
+5. A link stops working when the offered course closes for registration or was itself cancelled, and after 30 days.
+   The page says why and links to the course list.
+
+The action cannot be undone; it asks with `data-confirm`. Over MCP: `cancel_course(item, offer?: [item…], message?)`.
 
 ### Admin
 
-- On the course item in Collections: a **Registrations** panel – seats taken / capacity, then the list grouped by
-  state (waiting, confirmed, waiting list in order, declined/cancelled collapsed), each row with name, e-mail, date
-  and the actions that apply: Confirm, Decline, Cancel, Move up. Decline and Cancel ask with `data-confirm` and allow
-  an optional message to the visitor.
+- **Permissions:** whoever may edit the collection may handle its registrations and cancel a course.
+- The collection's item list gets a **Seats** column for calendar collections ("13 of 16", "Full · 3 waiting",
+  a mark when requests wait) that links to the course's **Registrations** screen. The item edit screen links there
+  too. It is a screen of its own, not a tab: the item edit screen stays as it is.
+- The Registrations screen: seats taken / capacity, then the list grouped by state (waiting, confirmed, waiting list
+  in order, declined/cancelled collapsed), each row with name, e-mail, seats, date and the actions that apply:
+  Confirm, Decline, Cancel, Move up, Remove from the waiting list. Decline and Cancel ask with `data-confirm` and
+  allow an optional message to the visitor. Header actions: **Print list** and **Cancel the course**.
+- **Print list:** a print view of the confirmed participants only (name, e-mail, phone if the form has it, seats, a
+  blank column for ticking attendance by hand), course name, schedule and place on top. Print CSS, no export file.
 - In Enquiries, a registration shows its state as a label next to the existing status; the actions live on the
   course, not in Enquiries.
 - Every action writes `Cache::clear()` (seats left is on public pages) as admin POSTs already do.
@@ -129,7 +174,9 @@ subject.
 - The existing item result's `registration` block gains `mode`, `waiting_list`, `taken`, `waiting`, `waitlisted`.
 - `list_registrations(item)` – registrations of a course with state and public id.
 - `update_registration(registration, action: confirm|decline|cancel|promote, message?)` – the same as the admin
-  buttons, same e-mails. Listed in `tools/contracts/mcp-tools.json` and the `$parity` map.
+  buttons, same e-mails.
+- `cancel_course(item, offer?, message?)` – as the admin action.
+- All listed in `tools/contracts/mcp-tools.json` and the `$parity` map (the print view is "admin: print").
 
 ### Courses preset
 
@@ -169,6 +216,16 @@ the course is full and the waiting list is open).
 - No invented content in the preset (placeholders in brackets).
 - The page cache: seats left must not go stale for anonymous visitors.
 
+## Decided in review (2026-10-30)
+
+Registrations on their own screen (Q1); a reminder after 3 days, no automatic decline (Q2); a pair keeps its place
+until two seats are free (Q3); nothing moves up by itself after "Registration until" (Q4); the participants field
+whenever the maximum is above 1 (Q5); one registration per address and course (Q6); repeating events excluded (Q7);
+automatic promotion on instant courses, the e-mail asks to say if the seat is no longer wanted (Q8); permissions
+follow the collection (Q9); the form's recipients get the holder's mails (Q10); a print view, no CSV (Q11);
+cancelling a course with up to three offered courses and a one-click take-over, no priority, the cancelled course
+hidden and redirected (Q12–Q16).
+
 ## Calls made while writing this (review these)
 
 Settled by the author of this document, not by the owner:
@@ -178,7 +235,7 @@ Settled by the author of this document, not by the owner:
 - **Existing registrations:** a migration marks every enquiry sent from a calendar item page `confirmed`, so current
   events keep their numbers.
 - **No e-mail field:** the preset's form has a required e-mail field. A course form without one still works; the
-  Registrations panel warns that the visitor gets no e-mails. The visitor address is `enquiries.email`.
+  Registrations screen warns that the visitor gets no e-mails. The visitor address is `enquiries.email`.
 - **Auto-reply:** on a course page the registration e-mails replace the form's own auto-reply (no double mail).
 - **Spam, trash, restore:** every path that marks spam or trashes a holding registration frees its seat and runs
   promotion (one shared routine). Restoring or un-spamming takes a seat if one is free, otherwise the registration
@@ -194,10 +251,10 @@ Settled by the author of this document, not by the owner:
 ## Left to the builder
 
 - Where the registration state is stored (a column on `enquiries` is the obvious choice) and its name.
-- How existing registrations (enquiries from event pages before this change) are treated: count them as `confirmed`
-  or leave them stateless-but-counted. Either is fine as long as current events keep their numbers.
 - The locking used for the last seat (`Db::lock()` exists).
-- Exact admin layout of the Registrations panel, within the existing admin list styles.
+- Exact admin layout of the Registrations screen, within the existing admin list styles.
 - Exact e-mail texts.
 - Tests: unit tests for the state transitions and seat count, a site test for register → full → waitlist → cancel →
-  auto-promotion, both modes.
+  auto-promotion, both modes, and cancel course → take-over link.
+- Where the take-over token lives (a hash on the cancelled registration, as member links store sha256) and how the
+  reminder runs (the existing job runner).
