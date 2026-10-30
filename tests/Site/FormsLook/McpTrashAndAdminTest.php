@@ -170,6 +170,80 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->assertStringContainsString('still used on the site', $this->raw('delete_media', ['id' => $this->site()->publicId('media', (int) $used)]), 'MCP: a file in use is not deleted');
     }
 
+    public function testMediaFoldersCanBeCreatedFilledMovedAndDeleted(): void
+    {
+        $folder = $this->call('save_media_folder', ['name' => 'Team'])['id'];
+        $other = $this->call('save_media_folder', ['name' => 'Alpha'])['id'];
+        $this->call('save_media_folder', ['id' => $other, 'name' => 'Archive']);
+
+        $file = $this->call('upload_file', ['filename' => 'mcp-folder.png', 'data' => $this->png(), 'folder' => $folder]);
+        $this->assertSame($folder, $file['folder'], 'MCP: upload_file puts the file into the folder');
+        $this->assertSame([$file['id']], array_column($this->call('list_media', ['folder' => $folder]), 'id'), 'MCP: list_media filters by folder');
+
+        $folders = array_column($this->call('list_media_folders'), null, 'name');
+        $this->assertSame(['Archive', 'Team'], array_keys($folders), 'MCP: folders by name, renamed');
+        $this->assertSame(1, $folders['Team']['files']);
+
+        $this->call('move_media', ['ids' => [$file['id']], 'folder' => $other]);
+        $this->assertSame([$file['id']], array_column($this->call('list_media', ['folder' => $other]), 'id'), 'MCP: move_media into another folder');
+        $this->call('move_media', ['ids' => [$file['id']]]);
+        $this->assertContains($file['id'], array_column($this->call('list_media', ['unsorted' => true]), 'id'), 'MCP: move_media out of every folder');
+
+        $this->call('move_media', ['ids' => [$file['id']], 'folder' => $other]);
+        $this->call('delete_media_folder', ['id' => $other]);
+        $this->assertSame(['Team'], array_column($this->call('list_media_folders'), 'name'), 'MCP: delete_media_folder');
+        $this->assertSame('1', $this->sql('SELECT COUNT(*) FROM tl_media WHERE media_id = ? AND folder_id IS NULL', [$this->site()->internalId('media', $file['id'])]), 'the files of a deleted folder stay, in no folder');
+        $this->assertStringContainsString('not valid', $this->raw('move_media', ['ids' => ['12']]), 'a row number is refused');
+
+        $batch = $this->call('upload_files', ['folder_name' => 'Team', 'files' => [
+            ['filename' => 'batch-1.png', 'data' => $this->png()], ['filename' => 'batch-2.png', 'data' => $this->png()], ['filename' => 'broken', 'data' => $this->png()]]]);
+        $this->assertSame($folder, $batch['folder'], 'MCP: upload_files reuses the folder of that name');
+        $this->assertSame([$folder, $folder], array_column($batch['files'], 'folder'), 'MCP: upload_files puts every file into it');
+        $this->assertSame(['broken'], array_column($batch['failed'], 'filename'), 'MCP: a failed file is reported, the rest uploaded');
+        $created = $this->call('upload_files', ['folder_name' => 'Holiday 2026', 'files' => [['filename' => 'beach.png', 'data' => $this->png()]]]);
+        $this->assertSame(['Holiday 2026', 'Team'], array_column($this->call('list_media_folders'), 'name'), 'MCP: upload_files creates a missing folder');
+        $this->assertSame([$created['files'][0]['id']], array_column($this->call('list_media', ['folder' => $created['folder']]), 'id'));
+    }
+
+    public function testReplaceMediaKeepsTheAddress(): void
+    {
+        $file = $this->call('upload_file', ['filename' => 'replace-me.png', 'data' => $this->png()]);
+        $new = $this->call('replace_media', ['id' => $file['id'], 'data' => $this->png(20, 10)]);
+        $this->assertSame([$file['id'], $file['path'], '20×10'], [$new['id'], $new['path'], $new['size']], 'MCP: replace_media writes the new image behind the same address');
+        $this->assertSame('20', $this->sql('SELECT image_width FROM tl_media WHERE media_id = ?', [$this->site()->internalId('media', $file['id'])]));
+        $this->assertStringContainsString('Only a JPG, PNG or WebP image', $this->raw('replace_media', ['id' => $this->call('upload_file', ['filename' => 'logo.svg', 'data' => base64_encode('<svg xmlns="http://www.w3.org/2000/svg"/>')])['id'], 'data' => $this->png()]), 'an SVG is not replaced');
+    }
+
+    public function testUploadLinksTakeARealFileOnce(): void
+    {
+        $answer = $this->call('request_upload', ['folder_name' => 'From disk', 'files' => [['filename' => 'photo.png', 'alt' => 'A black square'], ['filename' => 'virus.exe']]]);
+        [$photo, $exe] = array_map(fn (array $u): string => (string) parse_url($u['upload_url'], PHP_URL_PATH), $answer['uploads']);
+        $this->assertMatchesRegularExpression('#^/mcp/upload/[a-f0-9]{48}$#', $photo);
+        $http = $this->site()->client('curl');
+        $bytes = (string) base64_decode($this->png(30, 20));
+
+        $this->assertSame(400, $http->put($photo, '')->status, 'an empty body is refused and keeps the link');
+        $saved = $http->put($photo, $bytes);
+        $this->assertSame(201, $saved->status, $saved->body);
+        $file = json_decode($saved->body, true);
+        $this->assertSame(['A black square', '30×20', $answer['folder']], [$file['name'], $file['size'], $file['folder']], 'the file gets its description, real size and folder');
+        $this->assertSame('1', $this->sql("SELECT COUNT(*) FROM tl_change_log WHERE module = 'claude' AND action = 'upload_file' AND description = 'photo.png'"), 'logged as an upload');
+        $this->assertSame(404, $http->put($photo, $bytes)->status, 'a link takes one file');
+
+        $this->assertSame(422, $http->put($exe, 'MZ')->status, 'a file type Media does not take is refused');
+        $this->site()->exec("UPDATE tl_mcp_uploads SET expires_at = NOW() - INTERVAL 1 MINUTE WHERE used_at IS NULL");
+        $this->assertSame(404, $http->post($exe, $bytes)->status, 'an expired link takes nothing');
+        $this->assertSame(404, $http->put('/mcp/upload/' . str_repeat('a', 48), $bytes)->status, 'an unknown link takes nothing');
+
+        $token = 'talea_' . bin2hex(random_bytes(24));
+        $this->site()->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'removable', ?, NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', $token)]);
+        $next = (string) parse_url($this->site()->mcpResult('request_upload', ['files' => [['filename' => 'late.png']]], $token)['uploads'][0]['upload_url'], PHP_URL_PATH);
+        $this->site()->exec("UPDATE tl_api_tokens SET access = 'read' WHERE name = 'removable'");
+        $this->assertSame(403, $http->put($next, $bytes)->status, 'a connection made read-only since uploads nothing');
+        $this->site()->exec("DELETE FROM tl_api_tokens WHERE name = 'removable'");
+        $this->assertSame(404, $http->put($next, $bytes)->status, 'the link of a removed connection is gone');
+    }
+
     public function testEnquiryReadsAreLoggedAndEnquiriesCanBeUpdatedAndDeleted(): void
     {
         $reads = (int) $this->sql("SELECT COUNT(*) FROM tl_change_log WHERE module = 'claude' AND action = 'list_enquiries'");
@@ -189,10 +263,10 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->assertSame('1', $this->sql("SELECT COUNT(*) FROM tl_enquiries WHERE enquiry_id = $enquiry AND deleted_at IS NULL"), 'MCP: restore_from_trash brings the enquiry back');
     }
 
-    private function png(): string
+    private function png(int $width = 8, int $height = 8): string
     {
         ob_start();
-        imagepng(imagecreatetruecolor(8, 8));
+        imagepng(imagecreatetruecolor($width, $height));
 
         return base64_encode((string) ob_get_clean());
     }

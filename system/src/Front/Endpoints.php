@@ -29,7 +29,7 @@ final class Endpoints
     public function favicon(): Response
     {
         // browsers ask on their own; instead of a full 404 page a link to the site icon, or an empty response
-        $icon = is_file(TALEA_ROOT . '/media/icon-32.png') ? $this->app->url('media/icon-32.png') : null;
+        $icon = is_file(TALEA_ROOT . '/' . \Talea\Core\MediaFolder::icon(32)) ? $this->app->url(\Talea\Core\MediaFolder::icon(32)) : null;
 
         return $icon !== null ? Response::redirect($icon, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
     }
@@ -201,6 +201,14 @@ final class Endpoints
         \Talea\Core\ErrorReport::tag('area', 'mcp');
 
         return (new \Talea\Mcp\Server($this->app))->handle();
+    }
+
+    /** PUT /mcp/upload/<token>: a file sent to an upload link of a Claude connection (Mcp\UploadLinks) */
+    public function mcpUpload(string $token): Response
+    {
+        \Talea\Core\ErrorReport::tag('area', 'mcp');
+
+        return \Talea\Mcp\UploadLinks::receive($this->app, $token);
     }
 
     /** /download/<token> */

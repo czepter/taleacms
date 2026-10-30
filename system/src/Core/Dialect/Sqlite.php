@@ -368,6 +368,11 @@ final class Sqlite extends Dialect
         return ['PRAGMA foreign_keys = OFF', 'PRAGMA defer_foreign_keys = ON', ...array_map(fn (string $t): string => 'DELETE FROM {' . $this->identifier($t) . '}', $tables), 'PRAGMA foreign_keys = ON'];
     }
 
+    public function foreignKeysOff(): array
+    {
+        return [['PRAGMA foreign_keys = OFF', 'PRAGMA defer_foreign_keys = ON'], ['PRAGMA foreign_keys = ON']];
+    }
+
     public function dumpTables(PDO $pdo, string $prefix): array
     {
         $stmt = $pdo->prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE ? ESCAPE '\\' ORDER BY name");

@@ -273,6 +273,12 @@ body:not(.login) {
 	border-radius: 50%;
 	background: var(--signal);
 }
+.site-switcher { margin: 4px 0 10px; font-size: 14px; }
+.site-switcher summary { cursor: pointer; font-weight: 600; min-height: 32px; display: flex; align-items: center; }
+.site-switcher form { margin: 0; }
+.site-switcher button, .site-switcher a { display: block; width: 100%; padding: 6px 0; border: 0; background: none; font: inherit; color: var(--text); text-align: start; text-decoration: none; cursor: pointer; }
+.site-switcher a { color: var(--text-weak); }
+.site-switcher button:hover, .site-switcher a:hover { text-decoration: underline; }
 .menu-back {
 	display: inline-flex;
 	align-items: center;

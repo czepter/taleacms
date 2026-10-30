@@ -20,7 +20,7 @@ final class FormRecords
     /** Widths a placement may give a field, in columns of six: full, two thirds, half, one third. */
     public const array WIDTHS = [6 => 'Full width', 4 => 'Two thirds', 3 => 'Half', 2 => 'One third'];
 
-    /** @var array<string, array<string, mixed>|null> forms loaded in this request, by public id */
+    /** @var array<string, array<string, mixed>|null> forms loaded in this request, by site prefix and public id */
     private static array $loaded = [];
 
     /** @return list<array<string, mixed>> */
@@ -38,11 +38,12 @@ final class FormRecords
     /** @return array<string, mixed>|null */
     public static function byPublicId(Db $db, string $publicId): ?array
     {
-        if (!array_key_exists($publicId, self::$loaded)) {
-            self::$loaded[$publicId] = \Talea\Core\Uuid::valid($publicId) ? $db->one('SELECT * FROM {forms} WHERE public_id = ?', [$publicId]) : null;
+        $key = $db->prefix . '|' . $publicId; // forms are a site's own: an MCP call on a sibling must not read this site's memo
+        if (!array_key_exists($key, self::$loaded)) {
+            self::$loaded[$key] = \Talea\Core\Uuid::valid($publicId) ? $db->one('SELECT * FROM {forms} WHERE public_id = ?', [$publicId]) : null;
         }
 
-        return self::$loaded[$publicId];
+        return self::$loaded[$key];
     }
 
     /** Forgets what this request loaded (after a write, and between the tests' requests). */
@@ -234,7 +235,7 @@ final class FormRecords
      * Every stored build that may hold a form, with its origin, the source its enquiries carry, how the admin names it and the
      * address of its builder. $like narrows the rows (build or draft LIKE it).
      *
-     * @return list<array{table: string, key: array<string, mixed>, origin: string, source: string, where: string, edit: string, build: ?string, build_draft: ?string}>
+     * @return list<array{table: string, key: array<string, mixed>, origin: string, source: string, where: string, edit: string, build: ?string, build_draft: ?string, shared?: bool}>
      */
     public static function stored(Db $db, string $like): array
     {
@@ -266,8 +267,8 @@ final class FormRecords
                 'source' => 'collection:' . $r['collection_id'], 'where' => t('Item template') . ': ' . $r['name'] . ' ' . strtoupper((string) $r['language']),
                 'edit' => $url('module=collections&action=builder&id=' . $r['public_id'] . '&language=' . rawurlencode((string) $r['language'])), 'build' => $r['build'], 'build_draft' => $r['build_draft']];
         }
-        foreach ($db->all('SELECT component_id, public_id, name, build, build_draft FROM {components}' . $where . ' ORDER BY name', $params) as $r) {
-            $out[] = ['table' => 'components', 'key' => ['component_id' => $r['component_id']], 'origin' => 'component:' . $r['component_id'], 'source' => '', 'where' => t('Component') . ': ' . $r['name'],
+        foreach ($db->all('SELECT component_id, public_id, site_id, name, build, build_draft FROM {components}' . $where . ' AND ' . \Talea\Core\Sites::visible($db) . ' ORDER BY name', $params) as $r) {
+            $out[] = ['table' => 'components', 'key' => ['component_id' => $r['component_id']], 'origin' => 'component:' . $r['component_id'], 'source' => '', 'shared' => $r['site_id'] === null, 'where' => t('Component') . ': ' . $r['name'],
                 'edit' => $url('module=components&action=builder&id=' . $r['public_id']), 'build' => $r['build'], 'build_draft' => $r['build_draft']];
         }
 
@@ -279,6 +280,9 @@ final class FormRecords
     {
         $changed = 0;
         foreach (self::stored($app->db(), '%"type":"' . Form::TYPE . '"%') as $place) {
+            if (!empty($place['shared'])) {
+                continue; // a shared component belongs to every site, while the forms are this site's: it may hold no form at all
+            }
             [$published, $draft] = self::adoptStored($app, $place['origin'], $place['source'], $place['build'], $place['build_draft']);
             if ($published !== $place['build'] || $draft !== $place['build_draft']) {
                 $app->db()->update($place['table'], ['build' => $published, 'build_draft' => $draft], $place['key']);

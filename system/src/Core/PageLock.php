@@ -56,7 +56,7 @@ final class PageLock
      */
     public static function unlock(App $app, array $page, string $password): string
     {
-        $pageKey = 'page-' . (int) $page['page_id'];
+        $pageKey = Antispam::scopedKey($app->db(), 'page-' . (int) $page['page_id'], true);
         if (Antispam::tally(Antispam::visitorKey($app->request, $app->settings()) ?: 'unknown', 'page-lock', self::WINDOW) > self::ATTEMPTS) {
             return t('Too many attempts. Try again in a few minutes.');
         }

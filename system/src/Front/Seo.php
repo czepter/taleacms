@@ -47,11 +47,20 @@ final class Seo
             . 'Canonical: ' . rtrim($siteUrl, '/') . "/.well-known/security.txt\n";
     }
 
+    /** Is this the install's preview subdomain of a site (TALEA_PREVIEW_DOMAIN)? Never indexed, whatever the site's own setting says. */
+    private function isPreview(): bool
+    {
+        return ($this->app->site['kind'] ?? '') === 'preview';
+    }
+
     public function robotsTxt(): string
     {
         $s = $this->app->settings();
         if (\Talea\Core\Demo::active()) {
             return "# The public demo of Talea is not indexed.\nUser-agent: *\nDisallow: /\n";
+        }
+        if ($this->isPreview()) {
+            return "# A preview address is never indexed.\nUser-agent: *\nDisallow: /\n";
         }
         if (!$s->bool('indexing')) {
             return "# Indexing of the site is turned off in Settings.\nUser-agent: *\nDisallow: /\n";
@@ -193,7 +202,7 @@ final class Seo
         }
         $s = $this->app->settings();
         $host = (string) parse_url($this->siteSettings, PHP_URL_HOST);
-        if (!$s->bool('indexnow') || $s->get('indexnow_key') === '' || !$s->bool('indexing') || in_array($host, ['localhost', '127.0.0.1'], true) || str_ends_with($host, '.test')) {
+        if (!$s->bool('indexnow') || $s->get('indexnow_key') === '' || !$s->bool('indexing') || $this->isPreview() || in_array($host, ['localhost', '127.0.0.1'], true) || str_ends_with($host, '.test')) {
             return;
         }
         $data = json_encode(['host' => $host, 'key' => $s->get('indexnow_key'), 'keyLocation' => $this->app->request->origin() . $this->app->request->basePath() . '/' . $s->get('indexnow_key') . '.txt', 'urlList' => [$this->app->request->origin() . $url]]);
@@ -339,7 +348,7 @@ final class Seo
         if ($s->get('cookies_mode') === 'external' && trim($s->get('cookies_external_code')) !== '') {
             $h[] = $s->get('cookies_external_code');
         }
-        if (!$s->bool('indexing')) {
+        if (!$s->bool('indexing') || $this->isPreview()) {
             $h[] = '<meta name="robots" content="noindex, nofollow">';
         } // noindex of an individual page or news item is printed by the template from $meta['noindex'] (and it omits the canonical URL)
         if ($s->get('verification_google') !== '') {
@@ -627,10 +636,14 @@ final class Seo
                     $chart[] = $node;
                 }
             }
-            if (count($meta['breadcrumbs'] ?? []) > 1) {
+            // only the last level may go without an address: Google rejects a trail whose earlier ListItem has no "item"
+            // (a collection without a page of the same slug), so such a level stays in the visible trail but not in the markup
+            $crumbs = array_values($meta['breadcrumbs'] ?? []);
+            $crumbs = array_values(array_filter($crumbs, fn (array $d, int $i): bool => $d[1] !== '' || $i === count($crumbs) - 1, ARRAY_FILTER_USE_BOTH));
+            if (count($crumbs) > 1) {
                 $chart[] = ['@type' => 'BreadcrumbList', 'itemListElement' => array_map(fn (array $d, int $i): array => array_filter([
                     '@type' => 'ListItem', 'position' => $i + 1, 'name' => $d[0], 'item' => $d[1] !== '' ? $this->app->request->origin() . $d[1] : null,
-                ]), $meta['breadcrumbs'], array_keys($meta['breadcrumbs']))];
+                ]), $crumbs, array_keys($crumbs))];
             }
 
             return ['@context' => 'https://schema.org', '@graph' => $chart];

@@ -142,7 +142,7 @@ final class SiteWizard
                 $result['blueprint'] = Blueprint::text($manifest['name']);
             }
             if ($look !== null) {
-                Looks::apply($app, $look['key']);
+                LookFamily::parent($app->db()) === null && Looks::apply($app, $look['key']); // a look family's child keeps its parent's look
                 $settings->set('appearance_saved', '1');
                 $result['look'] = $look['name'];
             }

@@ -35,6 +35,9 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 </details>
 <?php $field('auto_backups', 'Automatic backups', 'flag', 'Every day something changed on the site, otherwise once a week – while an administrator works in the administration or cron runs. The last 10 backups are kept.'); ?>
 <p><button class="btn" type="submit" formaction="<?= e($module->url('backup')) ?>"><?= e(t('Create backup now')) ?></button></p>
+<?php if ($backups !== [] && Talea\Core\Sites::enabled() && count(Talea\Core\Sites::all($app->db())) > 1): ?>
+<p class="help"><?= e(t('This install has several sites: a restore puts back every site of the install, not only this one.')) ?></p>
+<?php endif ?>
 <?php if ($backups !== []): ?>
 <div class="tab-wrap">
 <table class="listing">

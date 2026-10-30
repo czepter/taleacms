@@ -249,6 +249,15 @@
     },
     {
         "methods": [
+            "PUT",
+            "POST"
+        ],
+        "pattern": "/mcp/upload/{token:[a-f0-9]{48}}",
+        "when": "",
+        "handler": "Endpoints::mcpUpload"
+    },
+    {
+        "methods": [
             "ANY"
         ],
         "pattern": "/download/{token:[A-Za-z0-9._-]{30,900}}",

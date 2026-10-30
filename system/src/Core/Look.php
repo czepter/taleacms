@@ -49,6 +49,14 @@ final class Look
         return is_array($draft) ? $draft : [];
     }
 
+    /** A hash of a draft without its rollback mark: the mark of a restored version is valid only while the draft is still exactly that version. */
+    public static function draftHash(array $draft): string
+    {
+        unset($draft['rollback']);
+
+        return hash('sha256', (string) json_encode(json_decode((string) json_encode($draft), true)));
+    }
+
     public static function hasDraft(Settings $s): bool
     {
         return self::draft($s) !== [];
@@ -104,6 +112,9 @@ final class Look
     public static function setClass(Settings $s, string $name, ?array $class, bool $draftOnly = false): bool
     {
         $db = $s->db();
+        if (LookFamily::classRefusal($db, $name, false) !== null) {
+            return false; // a class the parent of a look family hands down is never written here (callers that report say so first)
+        }
         if (!$draftOnly && $class !== null && $db->value('SELECT 1 FROM {classes} WHERE name = ?', [$name]) === null) {
             $db->run('INSERT INTO {classes} (name, style, css, updated_at) VALUES (?, ?, ?, NOW())', [$name, (string) json_encode($class['style'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
             $d = self::draft($s);
@@ -112,6 +123,7 @@ final class Look
                 $s->set('look_draft', $d === ['classes' => []] || $d === [] ? '' : (string) json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             }
             \Talea\Front\Cache::clear();
+            LookFamily::push($db, $s, null, false); // a new class is live at once, so a family gets it at once
 
             return false;
         }
@@ -304,6 +316,14 @@ final class Look
             self::classes($db, $s, false)), 'menus' => $menus];
     }
 
+    /** Keeps the published look of a site as a version (the last VERSIONS); a look family writes it into a child before a push too. @param list<string> $summary what the change is */
+    public static function keepVersion(Db $db, Settings $s, array $summary, ?int $author): void
+    {
+        $db->insert('look_versions', ['data' => (string) json_encode(self::snapshot($db, $s), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'summary' => mb_substr(implode(' · ', $summary), 0, 500), 'author' => $author, 'created' => date('Y-m-d H:i:s')]);
+        $db->run('DELETE FROM {look_versions} WHERE id NOT IN (SELECT id FROM (SELECT id FROM {look_versions} ORDER BY id DESC LIMIT ' . self::VERSIONS . ') keep)');
+    }
+
     /**
      * Publishes the draft look: the published one is kept as a version first. Returns the summary of what changed.
      *
@@ -319,9 +339,7 @@ final class Look
         }
         $summary = self::summary($db, $s);
         Events::record($db, 'look.published', 'info', mb_substr(t('The look was published: %s', implode(', ', $summary)), 0, 255), ['username' => $app->auth()->id() ?: null]);
-        $db->insert('look_versions', ['data' => (string) json_encode(self::snapshot($db, $s), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'summary' => mb_substr(implode(' · ', $summary), 0, 500), 'author' => $app->auth()->user()['user_id'] ?? null, 'created' => date('Y-m-d H:i:s')]);
-        $db->run('DELETE FROM {look_versions} WHERE id NOT IN (SELECT id FROM (SELECT id FROM {look_versions} ORDER BY id DESC LIMIT ' . self::VERSIONS . ') keep)');
+        self::keepVersion($db, $s, $summary, $app->auth()->user()['user_id'] ?? null);
         if (isset($draft['design_system'])) {
             $s->set('design_system', (string) json_encode(DesignSystem::sanitize($draft['design_system'] + DesignSystem::DEFAULTS), JSON_UNESCAPED_SLASHES));
         }
@@ -336,14 +354,20 @@ final class Look
             [$location, $language] = explode('|', $key) + ['', ''];
             Menu::save($db, $location, $language, $items);
         }
-        foreach (array_keys($draft['parts'] ?? []) as $type) {
-            $row = \Talea\Builder\SiteParts::row($db, (string) $type, '');
-            if ($row !== null && $row['build_draft'] !== null) {
-                \Talea\Builder\Publisher::part($app, $row); // the editor may have adjusted the draft since the look was applied
+        LookFamily::pause(true); // one push to the children at the end, not one per part
+        try {
+            foreach (array_keys($draft['parts'] ?? []) as $type) {
+                $row = \Talea\Builder\SiteParts::row($db, (string) $type, '');
+                if ($row !== null && $row['build_draft'] !== null) {
+                    \Talea\Builder\Publisher::part($app, $row); // the editor may have adjusted the draft since the look was applied
+                }
             }
+        } finally {
+            LookFamily::pause(false);
         }
         $s->set('look_draft', '');
         \Talea\Front\Cache::clear();
+        LookFamily::push($db, $s, $app->auth()->user()['user_id'] ?? null);
         \Talea\Admin\ChangeLog::write($app, 'appearance', 'publish look', mb_substr(implode(' · ', $summary), 0, 255));
 
         return $summary;
@@ -377,7 +401,8 @@ final class Look
             $menus[$r['location'] . '|' . $r['language']] = null;
         }
         $menus = array_merge($menus, (array) ($version['menus'] ?? []));
-        $s->set('look_draft', (string) json_encode(['design_system' => $version['design_system'] ?? DesignSystem::DEFAULTS, 'classes' => $classes ?: new \stdClass(),
-            'menus' => $menus ?: new \stdClass()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        // in a look family the child may roll itself back alone: the mark lets the draft through the lock on publishing (LookFamily::draftRefusal)
+        $draft = ['design_system' => $version['design_system'] ?? DesignSystem::DEFAULTS, 'classes' => $classes ?: new \stdClass(), 'menus' => $menus ?: new \stdClass()];
+        $s->set('look_draft', (string) json_encode($draft + (LookFamily::parent($db) !== null ? ['rollback' => self::draftHash($draft)] : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 }

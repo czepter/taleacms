@@ -8,6 +8,23 @@
             "openWorldHint": false
         }
     },
+    "add_site_domain": {
+        "parameters": {
+            "host": "string",
+            "id": "string",
+            "primary": "boolean",
+            "redirect_to_primary": "boolean"
+        },
+        "required": [
+            "id",
+            "host"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "apply_blueprint": {
         "parameters": {
             "key": "string",
@@ -127,6 +144,21 @@
             "readOnlyHint": false,
             "destructiveHint": true,
             "openWorldHint": false
+        }
+    },
+    "check_site_domain": {
+        "parameters": {
+            "host": "string",
+            "id": "string"
+        },
+        "required": [
+            "id",
+            "host"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": true
         }
     },
     "compare_build_version": {
@@ -306,6 +338,22 @@
             "openWorldHint": false
         }
     },
+    "create_site": {
+        "parameters": {
+            "clone_of": "string",
+            "name": "string",
+            "owner": "string",
+            "parent": "string"
+        },
+        "required": [
+            "name"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "decline_booking": {
         "parameters": {
             "confirm": "boolean",
@@ -441,6 +489,19 @@
         }
     },
     "delete_media": {
+        "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_media_folder": {
         "parameters": {
             "id": "string"
         },
@@ -1156,9 +1217,20 @@
     },
     "list_media": {
         "parameters": {
+            "folder": "string",
             "limit": "integer",
-            "search": "string"
+            "search": "string",
+            "unsorted": "boolean"
         },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_media_folders": {
+        "parameters": [],
         "required": [],
         "annotations": {
             "readOnlyHint": true,
@@ -1226,6 +1298,15 @@
         "required": [
             "collection"
         ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_owner_sites": {
+        "parameters": [],
+        "required": [],
         "annotations": {
             "readOnlyHint": true,
             "destructiveHint": false,
@@ -1346,6 +1427,20 @@
             "openWorldHint": true
         }
     },
+    "move_media": {
+        "parameters": {
+            "folder": "string",
+            "ids": "array"
+        },
+        "required": [
+            "ids"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "preview_link": {
         "parameters": {
             "collection": "string",
@@ -1461,6 +1556,36 @@
             "openWorldHint": false
         }
     },
+    "remove_site_domain": {
+        "parameters": {
+            "host": "string",
+            "id": "string"
+        },
+        "required": [
+            "id",
+            "host"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "replace_media": {
+        "parameters": {
+            "data": "string",
+            "id": "string",
+            "url": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": true
+        }
+    },
     "report_agent_run": {
         "parameters": {
             "id": "integer",
@@ -1486,6 +1611,21 @@
         },
         "required": [
             "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "request_upload": {
+        "parameters": {
+            "files": "array",
+            "folder": "string",
+            "folder_name": "string"
+        },
+        "required": [
+            "files"
         ],
         "annotations": {
             "readOnlyHint": false,
@@ -1562,6 +1702,19 @@
     "restore_look_version": {
         "parameters": {
             "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "restore_site": {
+        "parameters": {
+            "id": "string"
         },
         "required": [
             "id"
@@ -1726,7 +1879,8 @@
         "parameters": {
             "id": "string",
             "name": "string",
-            "properties": "array"
+            "properties": "array",
+            "shared": "boolean"
         },
         "required": [],
         "annotations": {
@@ -1741,6 +1895,7 @@
             "label": "string",
             "language": "string",
             "schema_property": "string",
+            "shared": "boolean",
             "source": "string",
             "type": "string",
             "value": "string"
@@ -1766,6 +1921,20 @@
         },
         "required": [
             "from"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_media_folder": {
+        "parameters": {
+            "id": "string",
+            "name": "string"
+        },
+        "required": [
+            "name"
         ],
         "annotations": {
             "readOnlyHint": false,
@@ -1934,6 +2103,21 @@
             "openWorldHint": false
         }
     },
+    "set_look_parent": {
+        "parameters": {
+            "discard_draft": "boolean",
+            "id": "string",
+            "parent": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "site_audit": {
         "parameters": {
             "kind": "string"
@@ -1965,6 +2149,23 @@
             "openWorldHint": false
         }
     },
+    "transfer_site": {
+        "parameters": {
+            "cancel": "boolean",
+            "dry_run": "boolean",
+            "id": "string",
+            "owner": "string",
+            "report_hash": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "translation_status": {
         "parameters": {
             "status": "string",
@@ -1991,6 +2192,19 @@
         }
     },
     "trash_page": {
+        "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "trash_site": {
         "parameters": {
             "id": "string"
         },
@@ -2266,6 +2480,42 @@
             "openWorldHint": false
         }
     },
+    "update_site": {
+        "parameters": {
+            "card_image": "string",
+            "card_summary": "string",
+            "id": "string",
+            "name": "string",
+            "redirect_to": "string",
+            "show_in_hub": "boolean",
+            "status": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_site_domain": {
+        "parameters": {
+            "host": "string",
+            "id": "string",
+            "primary": "boolean",
+            "redirect_to_primary": "boolean"
+        },
+        "required": [
+            "id",
+            "host"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "update_social_draft": {
         "parameters": {
             "id": "integer",
@@ -2286,10 +2536,26 @@
             "alt": "string",
             "data": "string",
             "filename": "string",
+            "folder": "string",
             "url": "string"
         },
         "required": [
             "filename"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": true
+        }
+    },
+    "upload_files": {
+        "parameters": {
+            "files": "array",
+            "folder": "string",
+            "folder_name": "string"
+        },
+        "required": [
+            "files"
         ],
         "annotations": {
             "readOnlyHint": false,

@@ -189,6 +189,23 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - Login: by user name or e-mail (an address two accounts share signs neither in), `password_hash`, TOTP, passkeys (`Core\Passkey`; a passkey is a second factor of its own: two-factor sign-in is on when `totp_secret` is set OR the account has a passkey – `Auth::hasTwoStep()`; the first passkey of an account without TOTP creates the backup codes, the last one removed clears them; `Totp::step` never accepts a code for an empty secret; instead of the code after the password, or alone on the first step when the device verified its owner – UV flag, no account named in the challenge), password reset `Admin\PasswordReset`.
   "Stay signed in" (`Auth::REMEMBER_COOKIE` `tl_remember`, 30 days from the sign-in, set only after the second step): its sha256 and the password fingerprint in `user_remember_tokens`; `Auth::user()` trades it for a new session once the old one ended; sign-out or a new password ends it; turning two-factor sign-in on or off, removing a passkey or an administrator's 2FA reset (clears the app, the backup codes and the passkeys) end it on the account's other devices (`Auth::forgetOtherDevices`), and My account can end them too; the cookie bypasses `Front\Cache`.
 
+## Multisite (`TALEA_MULTISITE`, off by default; `docs/specs/multisite.md`)
+
+One install serves several sites of one owner: the owner is the database, a site is a table prefix (`Db::OWNER_TABLES` use the owner prefix and are shared:
+users, media, components/facts with `site_id`, tokens, the agent journal, `sites`/`site_domains`). `App::boot()` routes the host through `Core\Sites::resolve()`
+(unknown host = 404, `App::$site`); the lifecycle (paused, archived) is in `Front\Kernel`; new sites are provisioned by cron (`Sites::provision`), never on a
+request; admin area `Modules\Sites` with the sign-in handoff between hosts. Signing keys are per site (`Antispam::key()`). MCP: every tool takes an optional
+`site` (public id; added like `reason`, not in the contract file; `Server::onSite()` runs the call on an `App` of that site and switches the static state),
+the site tools are `Mcp\Handlers\SiteTools` (administrators, flag on). `agent_journal.site_prefix` makes undo write back on the right site. A Talea archive
+import is refused with several sites (`SiteImport::refusal()`). Flag off = nothing here is consulted. Never fall back to site 1 when a prefix or a
+site id is unknown (`Sites::currentId()` throws).
+Look families (`Core\LookFamily`, `sites.look_parent_id`, docs/specs/multisite.md): a child site takes the parent's published design system, `dark_mode`, classes (merged by name) and header/footer parts, pushed on every publish of the parent (`Look::publish`, `Publisher::part`, a new class) under `Db::lock`, with the child's earlier look kept in its `look_versions`; the child is locked in admin and MCP (`LookFamily::refusal()` and siblings) and detaches when the parent is archived or trashed. One level, same owner.
+Agency tools (`TALEA_OWNERS`, docs/specs/multisite.md): several owners are table-prefix groups (`Core\Owners`, install table `owners`, operators = administrators of owner 1,
+media folder per owner, `Core\OwnerClone`). **Roles per site:** owner table `user_sites` (no rows = every site; administrators always have every site);
+`Sites::allows/limitedTo/allowsHere` is asked by `Auth::user()` (a person who may not work here is signed out), `Auth::login`, `Mcp\Server::user()` and `onSite()`, the handoff
+and the switcher/inbox/overview lists. `TALEA_MAX_SITES` / `TALEA_MAX_OWNERS` limit the install (`Sites::limitRefusal`, `Owners::limitRefusal`, admin and MCP).
+Transfer between owners (`Core\SiteTransfer`, Owners → Move a site, MCP `transfer_site`, operators): dry-run `report()` with a hash that `start()` must get back, then cron (`Sites::provision` → `SiteTransfer::provision`) clones the site into a new site of the target owner in transfer mode (`OwnerClone::copy` with a user map by e-mail, `Sites::TRANSFER_SKIP`), moves the host names, swaps the public ids and trashes the source; `sites.transfer_to` makes the source answer 503 and refuse MCP `site`, handoff and cron (`Sites::transferRefusal`). `Core\SiteHealth` gives the health columns and the usage CSV; only the Owners area (operators) walks several owners.
+
 ## Import and export
 
 `Modules\Transfer` + `Core\WpFile` (streamed WXR), `Core\WpContent` (cleaning, Gutenberg blocks), `Core\WpImport`, `Core\ImageDownloader`;

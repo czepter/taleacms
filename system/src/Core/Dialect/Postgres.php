@@ -207,6 +207,11 @@ final class Postgres extends Dialect
         return ['TRUNCATE ' . implode(', ', array_map(fn (string $t): string => '{' . $this->identifier($t) . '}', $tables)) . ' CASCADE'];
     }
 
+    public function dropTablesSql(array $tables): array
+    {
+        return $tables === [] ? [] : ['DROP TABLE IF EXISTS ' . implode(', ', array_map($this->quote(...), $tables)) . ' CASCADE'];
+    }
+
     public function syncSequenceSql(string $table, string $keyColumn): string
     {
         $t = '{' . $this->identifier($table) . '}';

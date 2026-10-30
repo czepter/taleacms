@@ -172,4 +172,26 @@ final class WaitingFilesTest extends SiteTestCase
         $this->runJob();
         $this->assertSame('0', $this->waiting($inBuild), 'once the page is visible its build is public');
     }
+
+    public function testADraftsOnlyBatchUsesAnExistingFolderButCreatesNone(): void
+    {
+        $staged = (string) ($this->uploadAsDrafts('probe.png')['path'] ?? '');
+        $file = ['filename' => 'batch-waiting.png', 'data' => base64_encode((string) file_get_contents($this->site()->path('storage/staging/' . $staged)))];
+        $this->assertStringContainsString('does not create folders', $this->mcpRawText('upload_files', ['folder_name' => 'New from drafts', 'files' => [$file]], $this->draftsToken()));
+        $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM tl_media_folders WHERE name = 'New from drafts'"), 'no folder created');
+
+        $this->mcpData('save_media_folder', ['name' => 'Existing']);
+        $answer = $this->mcpData('upload_files', ['folder_name' => 'Existing', 'files' => [$file]], $this->draftsToken());
+        $this->assertTrue($answer['files'][0]['waiting_for_approval'] ?? false, 'the batch file waits for approval too');
+        $this->assertSame($answer['folder'], $answer['files'][0]['folder'], 'into the existing folder');
+    }
+
+    public function testADraftsOnlyUploadLinkWaitsForApprovalToo(): void
+    {
+        $staged = (string) ($this->uploadAsDrafts('link-probe.png')['path'] ?? '');
+        $link = $this->mcpData('request_upload', ['files' => [['filename' => 'from-link.png']]], $this->draftsToken())['uploads'][0]['upload_url'];
+        $answer = $this->site()->client('curl')->put((string) parse_url($link, PHP_URL_PATH), (string) file_get_contents($this->site()->path('storage/staging/' . $staged)));
+        $this->assertSame(201, $answer->status, $answer->body);
+        $this->assertSame('1', $this->waiting((string) json_decode($answer->body, true)['path']), 'the file of a drafts-only link waits for approval');
+    }
 }

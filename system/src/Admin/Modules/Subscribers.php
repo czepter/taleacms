@@ -6,6 +6,7 @@ namespace Talea\Admin\Modules;
 
 use Talea\Admin\Module;
 use Talea\Core\Response;
+use Talea\Core\SubscriberSites;
 
 /**
  * News subscribers (the Newsletter extension): who subscribed with the Newsletter subscription element and whether they
@@ -28,13 +29,19 @@ final class Subscribers extends Module
         $whereParts = $search !== '' ? ' WHERE ' . $this->db->dialect()->likeInsensitive('email') : '';
         $params = $search !== '' ? ['%' . addcslashes($search, '%_\\') . '%'] : [];
 
+        // multisite: "all sites" is one row per address over the sites' lists (Core\SubscriberSites), read-only; each site is handled on its own
+        $sites = $this->request->get('sites') === 'all' ? Sites::inboxSites($this->app) : [];
+        $all = $sites !== [];
+        $list = $all ? SubscriberSites::list($this->db, $sites, $search, $pageNumber) : null;
+
         return $this->view('list', 'Subscribers', [
-            'subscribers' => $this->db->all('SELECT * FROM {subscribers}' . $whereParts . ' ORDER BY subscriber_id DESC LIMIT 100 OFFSET ' . (($pageNumber - 1) * 100), $params),
-            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers}' . $whereParts, $params),
-            'confirmed' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1'),
+            'subscribers' => $list['rows'] ?? $this->db->all('SELECT * FROM {subscribers}' . $whereParts . ' ORDER BY subscriber_id DESC LIMIT 100 OFFSET ' . (($pageNumber - 1) * 100), $params),
+            'total' => $list['total'] ?? (int) $this->db->value('SELECT COUNT(*) FROM {subscribers}' . $whereParts, $params),
+            'confirmed' => $list['confirmed'] ?? (int) $this->db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1'),
             'service' => \Talea\Core\Newsletter::isEnabled($this->app->settings()) ? $this->app->settings()->get('newsletter_service') : '',
             'queue' => $this->db->one('SELECT SUM(CASE WHEN next_attempt_at IS NOT NULL THEN 1 ELSE 0 END) AS pending, SUM(CASE WHEN next_attempt_at IS NULL THEN 1 ELSE 0 END) AS failed FROM {subscription_queue}') ?? ['pending' => 0, 'failed' => 0],
             'search' => $search, 'pageNumber' => $pageNumber,
+            'sites' => $all ? array_column($sites, null, 'site_id') : [], 'sitesFilter' => Sites::inboxFilter($this->app, $all),
         ]);
     }
 

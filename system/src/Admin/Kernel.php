@@ -134,6 +134,8 @@ final class Kernel
         Modules\NewsletterSettings::class,
         Modules\Addons::class,
         Modules\Transfer::class,
+        Modules\Sites::class,
+        Modules\Owners::class,
         Modules\ChangeLog::class,
         Modules\Status::class,
         Modules\Fleet::class,
@@ -150,7 +152,7 @@ final class Kernel
      * screen), label]. An entry shows only when the person may open its module.
      */
     public const array SETTINGS_MENU = [
-        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries']],
+        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries'], ['sites', '', 'Sites'], ['owners', '', 'Owners']],
         'People' => [['users', '', 'Users and roles']],
         'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
         'Features' => [['extensions', '', 'Features and add-ons'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'messages', 'Messages'], ['settings', 'ai', 'AI']],
@@ -243,6 +245,18 @@ final class Kernel
         }
         $request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
+        if ($app->site !== null && $request->get('handoff') !== '' && !$request->isPost()) {
+            // multisite: an administrator sent over from another site of the owner (Modules\Sites::actionHandoff). The token is used up
+            // here and the address is left at once, so it is not kept in the browser's history; a failure ends at the sign-in page.
+            $user = \Talea\Core\Sites::claimHandoff($app->db(), $request->get('handoff'), (int) $app->site['site_id'], \Talea\Core\Antispam::visitorKey($request, $app->settings()));
+            if ($user !== null) {
+                $app->auth()->signInFromHandoff($user);
+            }
+
+            $to = $user !== null ? \Talea\Core\Sites::landing($request->get('to')) : null;
+
+            return Response::redirect($app->url('admin.php' . ($to !== null ? '?' . $to : '')));
+        }
         if ($app->auth()->user() === null) {
             return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();
         }
@@ -399,7 +413,7 @@ final class Kernel
         }
         if ($this->app->auth()->isAdmin()) {
             $backup = \Talea\Core\Backup::listAll()[0]['time'] ?? 0;
-            if (time() - $backup > 8 * 86400) {
+            if (time() - $backup > 8 * 86400 && \Talea\Core\Owners::isFirst($this->app->db())) { // the backups are the install's, not a further owner's
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
             }
             // the instructions steer every Claude connection and a connection may rewrite them: shown until an administrator checked them (#149)

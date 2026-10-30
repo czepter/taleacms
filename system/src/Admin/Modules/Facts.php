@@ -8,6 +8,7 @@ use Talea\Admin\Module;
 use Talea\Core\Facts as FactStore;
 use Talea\Core\Language;
 use Talea\Core\Response;
+use Talea\Core\Sites;
 
 /**
  * Business facts (2.10, Core\Facts): the facts the site states, where each is used, the sentences that still state an
@@ -39,7 +40,7 @@ final class Facts extends Module
         }
         $old = $this->app->session->get('fact_old_value');
         $this->app->session->set('fact_old_value', null);
-        $translations = $fact !== null ? $this->db->pairs("SELECT language, value FROM {facts} WHERE fact_key = ? AND language <> ''", [$key]) : [];
+        $translations = $fact !== null ? $this->db->pairs("SELECT language, value FROM {facts} WHERE fact_key = ? AND language <> '' AND " . Sites::visible($this->db) . ' ORDER BY site_id IS NULL DESC', [$key]) : []; // the site's own value comes last: it wins
 
         return $this->view('edit', $fact !== null ? (string) $fact['label'] : 'New fact', [
             'fact' => $fact, 'languages' => Language::additional($this->app->settings()), 'translations' => $translations,
@@ -57,12 +58,12 @@ final class Facts extends Module
         $key = mb_strtolower(trim($this->request->post('key')));
         $before = FactStore::all($this->app)[$key] ?? null;
         $error = FactStore::save($this->app, $key, ['label' => $this->request->post('label'), 'type' => $this->request->post('type'), 'value' => $this->request->post('value'),
-            'schema' => $this->request->post('schema'), 'source' => $this->request->post('source')]);
+            'schema' => $this->request->post('schema'), 'source' => $this->request->post('source')], '', Sites::enabled() ? $this->request->post('shared') === '1' : null);
         foreach (Language::additional($this->app->settings()) as $language) {
             if ($error === null && $this->request->post('value_' . $language) !== '') {
                 $error = FactStore::save($this->app, $key, ['value' => $this->request->post('value_' . $language)], $language);
             } elseif ($error === null) {
-                $this->db->delete('facts', ['fact_key' => $key, 'language' => $language]); // empty = the default value
+                FactStore::delete($this->app, $key, $language); // empty = the default value
             }
         }
         if ($error !== null) {

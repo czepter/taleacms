@@ -74,6 +74,75 @@ final class Kernel
         $this->endpoints = new Endpoints($app, $this->frame, $news, $this);
     }
 
+    /**
+     * Multisite (docs/specs/multisite.md): the state of the site this host belongs to. Paused: visitors get a 503 (signed-in people, the
+     * whole-site preview and signed page links pass). Archived: a 301 to the site it points at, else read-only: every request that is not
+     * GET or HEAD answers 403, except the page password, unsubscribing and cancelling a booking (reading, or withdrawing consent). No GET route writes
+     * (confirmations, unsubscribing and choosing a time only show a button; the POST does the work). The probe, cron, Claude and OAuth answer in every state; the administration has its own kernel.
+     */
+    private function siteLifecycle(): ?Response
+    {
+        $site = $this->app->site;
+        $r = $this->app->request;
+        if ($site === null || $site['status'] === 'live' || preg_match('#^/(health|tasks|mcp|oauth/.*|\.well-known/.*)$#', $r->path()) === 1) {
+            return null;
+        }
+        if ($site['status'] === 'archived') {
+            $target = $site['redirect_to_site_id'] !== null ? \Talea\Core\Sites::primaryHost($this->app->db(), (int) $site['redirect_to_site_id']) : null;
+            if ($target !== null) {
+                return Response::redirect(\Talea\Core\Sites::originOn($r, $target) . (string) ($_SERVER['REQUEST_URI'] ?? '/'), 301);
+            }
+
+            return $this->archivedMayWrite($r) ? null : $this->statusPage(t('This site is archived and no longer accepts submissions.'), 403);
+        }
+        if ($this->sitePreview || $this->app->auth()->user() !== null || $this->pausedPreviewKey()) {
+            return null;
+        }
+
+        return $this->statusPage(t('This site is not public yet'), 503, ['Retry-After' => '3600', 'X-Robots-Tag' => 'noindex']);
+    }
+
+    /** Deny by default: a write on an archived site passes only when it unlocks a page, unsubscribes or cancels a booking. */
+    private function archivedMayWrite(\Talea\Core\Request $r): bool
+    {
+        if (in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)) {
+            return true;
+        }
+
+        return $r->isPost() && ($r->post('tl_page_password') !== ''
+            || ($r->path() === '/subscribe' && $r->get('unsubscribe') !== '' && $r->get('confirm') === '')
+            || preg_match('#^/_booking/cancel/[a-f0-9]{32}$#', $r->path()) === 1);
+    }
+
+    /** A paused site shows a page to whoever holds a valid signed link for it (the page of this address, or the whole site). */
+    private function pausedPreviewKey(): bool
+    {
+        $key = $this->app->request->get('preview_key');
+        if ($key === '') {
+            return false;
+        }
+        $db = $this->app->db();
+        $slug = trim($this->app->request->path(), '/');
+        $ids = $slug === '' ? [$this->app->settings()->int('home_page')] : array_map('intval', array_column($db->all('SELECT page_id FROM {pages} WHERE slug = ?', [$slug]), 'page_id'));
+        foreach (['web', ...array_map(fn (int $id): string => 'page:' . $id, $ids)] as $target) {
+            if (\Talea\Core\Preview::verify($db, $this->app->settings(), $target, $key)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param array<string, string> $headers */
+    private function statusPage(string $text, int $status, array $headers = []): Response
+    {
+        $lang = Language::tag(Language::code());
+
+        return new Response('<!doctype html><html lang="' . e($lang) . '"' . Language::dirAttribute($lang) . '><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
+            . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
+            . '</h1><p>' . e($text) . '</p></div>', $status, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store'] + $headers);
+    }
+
     /** The maintenance notice (setting maintenance_text) with 503. */
     private function maintenance(string $retryAfter): Response
     {
@@ -122,6 +191,7 @@ final class Kernel
         $request = $this->app->request;
 
         return $this->early // an add-on's early request hook refused the request
+            ?? $this->siteLifecycle()
             ?? $this->hostRedirect()
             ?? $this->redirect
             ?? $this->demoGuard()
@@ -204,6 +274,7 @@ final class Kernel
             ->add('POST', '/conversion', [Endpoints::class, 'conversion'])
             ->add('POST', '/experiment', [Endpoints::class, 'experiment'])
             ->add('ANY', '/mcp', [Endpoints::class, 'mcp'])
+            ->add(['PUT', 'POST'], '/mcp/upload/{token:[a-f0-9]{48}}', [Endpoints::class, 'mcpUpload'])
             ->add('ANY', '/download/{token:[A-Za-z0-9._-]{30,900}}', [Endpoints::class, 'download'])
             ->add('ANY', '/subscribe', [Endpoints::class, 'subscribe'], $subscribe, 'extension:newsletter_signup or a subscription link')
             ->add('ANY', '/member{rest:(?:/.*)?}', [self::class, 'memberArea'], $extension('members'), 'extension:members')
@@ -257,10 +328,10 @@ final class Kernel
         return null;
     }
 
-    /** Maintenance mode (setting maintenance): visitors get the notice; /mcp and signed-in users go on. */
+    /** Maintenance mode (setting maintenance): visitors get the notice; /mcp, its upload links and signed-in users go on. */
     private function maintenanceGuard(): ?Response
     {
-        if ($this->app->settings()->bool('maintenance') && $this->app->request->path() !== '/mcp' && $this->app->auth()->user() === null) {
+        if ($this->app->settings()->bool('maintenance') && !preg_match('#^/mcp(/upload/|$)#', $this->app->request->path()) && $this->app->auth()->user() === null) {
             return $this->maintenance('3600');
         }
 

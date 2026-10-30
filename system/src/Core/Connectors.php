@@ -94,6 +94,26 @@ final class Connectors
     }
 
     /**
+     * Encrypts every stored credential of a site again under another database key (a copy of the site that got a secret_key of its own,
+     * Core\SiteTransfer). A value the old key cannot open stays as it is.
+     */
+    public static function rekey(Db $site, string $old, string $new): void
+    {
+        [$from, $to] = [self::derive($old), self::derive($new)];
+        foreach ($site->all('SELECT service, ' . implode(', ', self::SEALED) . ' FROM {connectors}') as $row) {
+            $sealed = [];
+            foreach (self::SEALED as $column) {
+                if (($plain = self::open($from, $row[$column])) !== null) {
+                    $sealed[$column] = self::seal($to, $plain);
+                }
+            }
+            if ($sealed !== []) {
+                $site->update('connectors', $sealed, ['service' => $row['service']]);
+            }
+        }
+    }
+
+    /**
      * Moves the key out of the database (Antispam::environmentSecret, on the first use of TALEA_SECRET_KEY): in one transaction
      * every stored credential is encrypted again under the key derived from the variable and secret_key is cleared. A value the
      * database key cannot open stays as it is (already moved, or damaged). The row of secret_key is locked first, so two requests
