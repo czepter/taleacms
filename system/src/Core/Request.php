@@ -175,10 +175,18 @@ final class Request
         return ($this->isHttps() ? 'https://' : 'http://') . $host;
     }
 
-    /** Path to the installation relative to the domain root, without a trailing slash ("" or "/magazin"). */
+    /**
+     * Path to the installation relative to the domain root, without a trailing slash ("" or "/magazin").
+     * Without a web request (the command line: cron, bin/…) SCRIPT_NAME is a file path such as system/docker.php, not an
+     * address: no base path then, otherwise links in e-mails sent by cron read https://example.orgsystem/admin/….
+     */
     public function basePath(): string
     {
-        $dir = str_replace('\\', '/', dirname((string) ($this->server['SCRIPT_NAME'] ?? '/')));
+        $script = (string) ($this->server['SCRIPT_NAME'] ?? '/');
+        if (!str_starts_with($script, '/') || !isset($this->server['REQUEST_URI'])) {
+            return '';
+        }
+        $dir = str_replace('\\', '/', dirname($script));
 
         return $dir === '/' || $dir === '.' ? '' : rtrim($dir, '/');
     }
