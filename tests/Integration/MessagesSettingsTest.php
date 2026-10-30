@@ -42,7 +42,7 @@ final class MessagesSettingsTest extends DatabaseTestCase
         $this->assertSame('Already new', $s->get('message_booking_pending_thanks_body'), 'a new text that is set wins');
         $this->assertSame('Got it!', $s->get('message_booking_pending_thanks_body_de'), 'every further language gets the text');
         $this->assertSame("Hi {name|there}, we got your message.\n\n{appointment}", $s->get('message_booking_pending_body'), 'the details the old code added are kept');
-        $this->assertSame($s->get('message_booking_pending_body'), $s->get('message_booking_pending_body_de'));
+        $this->assertSame("Hi {name|zusammen}, we got your message.\n\n{appointment}", $s->get('message_booking_pending_body_de'), 'a language copy greets with that language\'s fallback word');
         $this->assertSame("Sorry {name|there}.\n\n{message}\n\n{appointment}", $s->get('message_booking_declined_body'));
         $this->assertSame(0, (int) $this->db()->value("SELECT COUNT(*) FROM {settings} WHERE name IN ('booking_pending_thanks', 'booking_pending_mail', 'booking_declined_mail')"));
     }
