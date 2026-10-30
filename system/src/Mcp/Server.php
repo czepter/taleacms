@@ -21,6 +21,12 @@ use Talea\Core\Extensions;
  */
 final class Server
 {
+    /**
+     * A usable connection with its user (the first parameter is now): not blocked, not a refresh token, not expired. Narrowed by
+     * the token (user()) or by the connection an upload link belongs to (UploadLinks).
+     */
+    public const string CONNECTION_SQL = "SELECT t.token_id, t.client_id AS connection_client, t.name AS connection_name, t.access AS connection_access, t.tool_set AS connection_tool_set, u.* FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE u.blocked = FALSE AND u.operator_user_id IS NULL AND t.kind <> 'refresh' AND (t.expires_at IS NULL OR t.expires_at > ?)";
+
     /** Protocol versions the server speaks, newest first (2.2: the client's version is answered when it is one of them). */
     public const array PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
@@ -34,16 +40,47 @@ final class Server
     {
     }
 
-    public function handle(): Response
+    /**
+     * What every Claude request must pass before its token is looked at – /mcp and the upload links (UploadLinks): the
+     * extension is on and the request comes over HTTPS (or to a local address). null = it passes.
+     */
+    public static function gate(App $app): ?Response
     {
-        $r = $this->app->request;
-        \Talea\Extension\Registry::boot($this->app); // add-ons may add tools (3.0)
-        if (($gate = self::siteGate($this->app, false)) !== null) {
+        $r = $app->request;
+        \Talea\Extension\Registry::boot($app); // add-ons may add tools (3.0)
+        if (($gate = self::siteGate($app, false)) !== null) {
             return Response::json(['error' => $gate[1]], $gate[0]);
         }
         $isLocal = in_array((string) parse_url($r->origin(), PHP_URL_HOST), ['localhost', '127.0.0.1'], true);
         if (!$r->isHttps() && !$isLocal) {
             return Response::json(['error' => 'MCP is available over HTTPS only.'], 403);
+        }
+
+        return null;
+    }
+
+    /**
+     * Signs the request in as a connection (a row of CONNECTION_SQL); the answer refuses it when the site requires two-factor
+     * sign-in its user has not turned on. null = signed in.
+     *
+     * @param array<string, mixed> $user
+     */
+    public static function signIn(App $app, array $user): ?Response
+    {
+        $app->auth()->signInAs($user);
+        $app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
+        if (($gate = self::siteGate($app, true)) !== null) {
+            return Response::json(['error' => $gate[1]], $gate[0]);
+        }
+
+        return null;
+    }
+
+    public function handle(): Response
+    {
+        $r = $this->app->request;
+        if (($refused = self::gate($this->app)) !== null) {
+            return $refused;
         }
         if (!$r->isPost()) {
             return new Response('', 405, ['Allow' => 'POST']);
@@ -55,10 +92,8 @@ final class Server
                 'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Talea\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
         $this->user = $user;
-        $this->app->auth()->signInAs($user);
-        $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
-        if (($gate = self::siteGate($this->app, true)) !== null) {
-            return Response::json(['error' => $gate[1]], $gate[0]);
+        if (($refused = self::signIn($this->app, $user)) !== null) {
+            return $refused;
         }
 
         $message = json_decode((string) file_get_contents('php://input'), true);
@@ -85,8 +120,8 @@ final class Server
 
     /**
      * What a site requires of a connection, from that site's own settings: the Claude extension must be on (before the sign-in, $user false)
-     * and the two-factor sign-in it requires must be set up for the signed-in user ($user true). One place for handle() and onSite(),
-     * so the `site` argument never skips a gate of the site it runs on.
+     * and the two-factor sign-in it requires must be set up for the signed-in user ($user true). One place for handle(), onSite() and the
+     * upload links (gate(), signIn()), so neither the `site` argument nor an upload link skips a gate of the site it runs on.
      *
      * @return array{0: int, 1: string}|null HTTP status and message of the refusal
      */
@@ -525,8 +560,7 @@ final class Server
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
         $limited = (int) $db->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'mcp' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
-        $token = $db->one("SELECT t.token_id, t.client_id AS connection_client, t.name AS connection_name, t.access AS connection_access, t.tool_set AS connection_tool_set, u.* FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE t.token_hash = ? AND u.blocked = FALSE AND u.operator_user_id IS NULL AND t.kind <> 'refresh' AND (t.expires_at IS NULL OR t.expires_at > ?)",
-            [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
+        $token = $db->one(self::CONNECTION_SQL . ' AND t.token_hash = ?', [date('Y-m-d H:i:s'), hash('sha256', $m[1])]);
         if ($token === null) {
             if (!$limited) {
                 $db->insert('ip_checks', ['ip' => $ip, 'type' => 'mcp', 'checked_at' => date('Y-m-d H:i:s')]);

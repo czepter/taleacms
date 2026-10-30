@@ -128,15 +128,15 @@ final class Images
      * Replacing an image while keeping its URL: the new file goes through the same processing and is written in place of the old one
      * (including variants and WebP), in the format of the old file – the URL does not change, links on the site keep working.
      *
-     * @param array<string, mixed> $file item from $_FILES
+     * @param array<string, mixed>|string $file item from $_FILES, or the path of a file on the server (MCP replace_media) named $name
      * @return array{image_width:int, image_height:int, image_size:int, thumb_width:int, thumb_height:int}
      */
-    public static function replace(string $old, array $file): array
+    public static function replace(string $old, array|string $file, string $name = 'image'): array
     {
         if (!preg_match('#^(media/' . MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $old, $m)) {
             throw new \RuntimeException('Only a JPG, PNG or WebP image can be replaced.');
         }
-        $new = self::save($file); // verifies, shrinks and re-encodes the uploaded file
+        $new = is_array($file) ? self::save($file) : self::saveFile($file, $name); // verifies, shrinks and re-encodes the new file
         $image = @imagecreatefromstring((string) file_get_contents(TALEA_ROOT . '/' . $new['image_path']));
         self::delete($new['image_path'], $new['thumb_path']);
         if ($image === false) {

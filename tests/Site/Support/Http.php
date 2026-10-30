@@ -79,6 +79,12 @@ final class Http
         return $this->request('POST', $path, $data, $headers, $userAgent);
     }
 
+    /** @param list<string> $headers */
+    public function put(string $path, string $body, array $headers = []): Response
+    {
+        return $this->request('PUT', $path, $body, $headers, 'Mozilla/5.0 test');
+    }
+
     /**
      * A multipart upload: fields plus files (field => path on disk, or [path, mime type, name]).
      *
@@ -116,6 +122,9 @@ final class Http
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, is_array($data) && !$multipart ? $this->encode($data) : ($data ?? ''));
+        } elseif ($method === 'PUT') {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         }
         $body = (string) curl_exec($ch);
         $this->lastErrno = curl_errno($ch);

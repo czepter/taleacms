@@ -274,6 +274,7 @@ final class Kernel
             ->add('POST', '/conversion', [Endpoints::class, 'conversion'])
             ->add('POST', '/experiment', [Endpoints::class, 'experiment'])
             ->add('ANY', '/mcp', [Endpoints::class, 'mcp'])
+            ->add(['PUT', 'POST'], '/mcp/upload/{token:[a-f0-9]{48}}', [Endpoints::class, 'mcpUpload'])
             ->add('ANY', '/download/{token:[A-Za-z0-9._-]{30,900}}', [Endpoints::class, 'download'])
             ->add('ANY', '/subscribe', [Endpoints::class, 'subscribe'], $subscribe, 'extension:newsletter_signup or a subscription link')
             ->add('ANY', '/member{rest:(?:/.*)?}', [self::class, 'memberArea'], $extension('members'), 'extension:members')
@@ -326,10 +327,10 @@ final class Kernel
         return null;
     }
 
-    /** Maintenance mode (setting maintenance): visitors get the notice; /mcp and signed-in users go on. */
+    /** Maintenance mode (setting maintenance): visitors get the notice; /mcp, its upload links and signed-in users go on. */
     private function maintenanceGuard(): ?Response
     {
-        if ($this->app->settings()->bool('maintenance') && $this->app->request->path() !== '/mcp' && $this->app->auth()->user() === null) {
+        if ($this->app->settings()->bool('maintenance') && !preg_match('#^/mcp(/upload/|$)#', $this->app->request->path()) && $this->app->auth()->user() === null) {
             return $this->maintenance('3600');
         }
 

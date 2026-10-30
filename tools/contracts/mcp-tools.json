@@ -486,6 +486,19 @@
             "openWorldHint": false
         }
     },
+    "delete_media_folder": {
+        "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "delete_member_group": {
         "parameters": {
             "id": "string"
@@ -1189,9 +1202,20 @@
     },
     "list_media": {
         "parameters": {
+            "folder": "string",
             "limit": "integer",
-            "search": "string"
+            "search": "string",
+            "unsorted": "boolean"
         },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_media_folders": {
+        "parameters": [],
         "required": [],
         "annotations": {
             "readOnlyHint": true,
@@ -1375,6 +1399,20 @@
             "openWorldHint": true
         }
     },
+    "move_media": {
+        "parameters": {
+            "folder": "string",
+            "ids": "array"
+        },
+        "required": [
+            "ids"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "preview_link": {
         "parameters": {
             "collection": "string",
@@ -1505,6 +1543,21 @@
             "openWorldHint": false
         }
     },
+    "replace_media": {
+        "parameters": {
+            "data": "string",
+            "id": "string",
+            "url": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": true
+        }
+    },
     "report_agent_run": {
         "parameters": {
             "id": "integer",
@@ -1530,6 +1583,21 @@
         },
         "required": [
             "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "request_upload": {
+        "parameters": {
+            "files": "array",
+            "folder": "string",
+            "folder_name": "string"
+        },
+        "required": [
+            "files"
         ],
         "annotations": {
             "readOnlyHint": false,
@@ -1825,6 +1893,20 @@
         },
         "required": [
             "from"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_media_folder": {
+        "parameters": {
+            "id": "string",
+            "name": "string"
+        },
+        "required": [
+            "name"
         ],
         "annotations": {
             "readOnlyHint": false,
@@ -2410,10 +2492,26 @@
             "alt": "string",
             "data": "string",
             "filename": "string",
+            "folder": "string",
             "url": "string"
         },
         "required": [
             "filename"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": true
+        }
+    },
+    "upload_files": {
+        "parameters": {
+            "files": "array",
+            "folder": "string",
+            "folder_name": "string"
+        },
+        "required": [
+            "files"
         ],
         "annotations": {
             "readOnlyHint": false,

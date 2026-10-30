@@ -158,9 +158,11 @@ final class Tools
             ['list_categories', 'News categories with counts.', $s([])],
             ['create_category', 'Creates a news category (editors and administrators).', $s(['name' => $text('Name'), 'description' => $text('Description (HTML)')], ['name'])],
             ['import_website', 'Imports a site from another platform by its address (administrators, 2.6): pages are found in the sitemap or along links and become hidden builder pages (articles become news), images go to Media and old addresses redirect. One call = one batch (about 15 s). Start with url, then call again with import_id – first the pages are found; in the phase "preview" show the user what was found and only on their instruction send confirm: true. Keep calling until the phase is "done".', $s(['url' => $text('address of the site, e.g. https://www.example.com (only for a new import)'), 'import_id' => $text('id of a running import (from the previous call)'), 'confirm' => ['type' => 'boolean', 'description' => 'true = import the pages found (only in the phase "preview", on the user\'s instruction)'], 'language' => $text('language version of the site (code, e.g. de; otherwise the main language)'), 'images' => ['type' => 'boolean', 'description' => 'download images into Media (default true)'], 'redirects' => ['type' => 'boolean', 'description' => 'redirect the old addresses (default true)'], 'news' => ['type' => 'boolean', 'description' => 'articles as news (default true)']])],
-            ['list_media', 'Recently uploaded images and files with addresses and dimensions.', $s(['limit' => $number('1-50, default 20'), 'search' => $text('text in the name (optional)')])],
-            ['upload_file', 'Uploads a file to Media: an image (JPG, PNG, WebP, GIF – resized, with WebP/AVIF variants), SVG (cleaned), a WOFF2 font for the design system or an attachment (PDF…). Give the url of a public file (https – image, font, PDF; always url for larger files), or data in base64 (at most 12 MB). Returns the path for the image or background image element or for custom fonts. On a connection limited to drafts the file waits for approval: previews show it, and it goes public with the content that uses it once a person publishes that.', $s(['filename' => $text('file name with extension, e.g. team-london.jpg'), 'data' => $text('file content in base64'), 'url' => $text('https address of the file to download (instead of data)'), 'alt' => $text('image description for blind visitors (alt); otherwise from the name')], ['filename'])],
+            ['list_media', 'Recently uploaded images and files with addresses, dimensions and folder.', $s(['limit' => $number('1-50, default 20'), 'search' => $text('text in the name (optional)'), 'folder' => $pid('only the files of this folder from list_media_folders (optional)'), 'unsorted' => ['type' => 'boolean', 'description' => 'true = only the files in no folder']])],
+            ['upload_file', 'Uploads a file to Media: an image (JPG, PNG, WebP, GIF – resized, with WebP/AVIF variants), SVG (cleaned), a WOFF2 font for the design system or an attachment (PDF…). Give the url of a public file (https – image, font, PDF; always url for larger files), or data in base64 (at most 12 MB). Returns the path for the image or background image element or for custom fonts. On a connection limited to drafts the file waits for approval: previews show it, and it goes public with the content that uses it once a person publishes that.', $s(['filename' => $text('file name with extension, e.g. team-london.jpg'), 'data' => $text('file content in base64'), 'url' => $text('https address of the file to download (instead of data)'), 'alt' => $text('image description for blind visitors (alt); otherwise from the name'), 'folder' => $pid('folder from list_media_folders (optional; otherwise no folder)')], ['filename'])],
             ['preview_link', 'A signed link to the draft preview of a page or site part – anyone can open it without signing in (the user, a colleague, a browser); it is valid only for this target and for a limited time. Search engines do not index it.', $s($target + ['minutes' => $number('validity in minutes, default 60, at most 10080'), 'site' => ['type' => 'boolean', 'description' => 'true = the whole site with every draft and the draft look (links on it keep the preview while browsing)'], 'comments' => ['type' => 'boolean', 'description' => 'true = whoever opens the link can click an element and write a comment with their name (page drafts only; read them with list_draft_comments)']])],
+            ['request_upload', 'Gives upload links for real files from the user\'s computer – no base64, larger files, whole folders. One link per file, valid ' . \Talea\Mcp\UploadLinks::MINUTES . ' minutes, used once: send the file as the body of a PUT, e.g. curl -sS -T "photo.jpg" "<upload_url>"; the answer is the file as upload_file returns it. Needs a shell (curl) on the client\'s side; without one use upload_file or upload_files. folder or folder_name as in upload_files. A file of a connection limited to drafts waits for approval, as with upload_file.', $s(['files' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'at most 50: [{"filename":"team-1.jpg","alt":"…"},{"filename":"price-list.pdf"}] – the name the file gets (with extension) and the image description'], 'folder' => $pid('folder from list_media_folders (optional)'), 'folder_name' => $text('name of the folder to put the files into, created when missing (optional, instead of folder)')], ['files'])],
+            ['upload_files', 'Uploads several files to Media in one call (at most 20; more in further calls) – for example a whole folder of photos. Each file as in upload_file: filename plus url (https) or data (base64), optional alt. folder puts them all into an existing folder; folder_name finds the folder of that name or creates it (upload a folder of the user under its own name; a connection limited to drafts only finds one). A file that fails is listed under failed, the others are uploaded.', $s(['files' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"filename":"team-1.jpg","url":"https://…","alt":"…"},{"filename":"logo.svg","data":"<base64>"}]'], 'folder' => $pid('folder from list_media_folders (optional)'), 'folder_name' => $text('name of the folder to put the files into, created when missing (optional, instead of folder)')], ['files'])],
             ['update_settings', 'Changes site settings (administrators) – they apply to the site straight away. Keys: site_name, site_url (the site address after a domain move, e.g. https://example.com: links in e-mails, feeds, the sitemap and canonical addresses are built from it; full-access connections only, refused while the server sets it through TALEA_SITE_URL), redirect_to_site_url (1/0: a visitor on another host – www, an old domain – gets a 301 to the same page on site_url; /mcp, OAuth and preview links are not redirected), site_description, footer_text, logo, favicon and share_image – the sharing image 1200×630 (path media/… from upload_file or image/…), home_page (public id of the home page), social_facebook|instagram|x|youtube|linkedin (URL), news_per_page, share_buttons, article_outline, related_news_auto (1/0), dark_mode (off = light only | auto = by device | dark = always dark), theme_switcher (1/0 = light/dark switcher for visitors), german_register (formal = Sie | informal = du: the form of address of the German texts for visitors), company details company_name, company_type (' . implode(' | ', array_keys(\Talea\Front\Company::TYPES)) . '; Person = a personal site: no company IDs, opening hours or job postings in the structured data), company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. Since 2.2 also: extensions (the list of switched-on extensions, e.g. ["news","enquiries","claude"] – claude must stay), additional_languages (further language versions, e.g. ["de","cs"]; regional versions en-gb, de-at, pt-br and zh-hant use the texts of their language and address /pt-br/ in lowercase, hreflang pt-BR), slugs_per_language (1/0: a page, news item or category may have the same address as one in another language version – /contact and /de/contact; switching it off is refused while two versions share an address), indexing, schema_org, llms_txt, markdown_versions, indexnow (1/0), ai_crawlers (allow | block), url_slash (none | slash | html), robots_extra, verification_google, verification_bing, cookies_mode (none | builtin | external), cookies_text, cookies_policy_url (cookies_text_de, cookies_policy_url_de… = the cookie bar of a language version; empty = as in the default language), cookies_log (1/0), cookies_log_months, stats (1/0), ga4_id, plausible_domain, security_contact, claude_instructions, captcha_provider (hcaptcha | recaptcha | turnstile | empty), captcha_site_key, captcha_fail_open (1/0) – the CAPTCHA secret key is set only in the administration. Code that runs on the site (head_code, marketing_code, cookies_external_code) and the script hosts gtm_id, matomo_url and matomo_id (since 3.3.2) are set only in the administration. Screen mode (2.11, a TV in the reception rotating slides): screen_mode (1/0), screen_seconds (5–60 per slide), screen_collections (list of collection addresses), screen_news, screen_hours, screen_clock (1/0); the result has them under "screen" – the secret address is shown only in the administration (Settings → General). Without the parameter it returns the current values.', $s(['settings' => ['type' => 'object', 'description' => '{"key":"value"}']])],
             ['list_enquiries', 'Enquiries from the site forms (Forms and enquiries extension; only with access to Enquiries), newest first: date, form, page, what it was about (about: the collection item, page or pop-up the form was on), campaign (utm), e-mail, status and the filled-in fields. They contain personal data – use them only for what the user asks.', $s(['status' => $text('new | read | resolved | all (default)'), 'search' => $text('text in the e-mail or content (optional)'), 'limit' => $number('1-50, default 20'), 'category' => $text('a kind of the site (triage_enquiries lists them; built in: sales | support | job | supplier | spam | other) or unsorted (optional, 2.12; without it spam is left out)')])],
             ['list_redirects', 'Redirects of old addresses (Redirects extension; auto_score = created by the site itself from a missing address with this confidence, null = by hand) and the most frequent addresses that ended with a 404 error, each with the page the visitor most likely meant (suggestion, score 0–100; 2.14) – save_redirect accepts it when the user agrees. Redirects by themselves: settings redirect_auto and redirect_auto_threshold.', $s([])],
@@ -205,6 +207,11 @@ final class Tools
             ['update_media', 'Changes the description of a file in Media: alt (the text for screen readers, also the name), caption and author. Only the owner or an administrator.',
                 $s(['id' => $pid('file ID from list_media'), 'alt' => $text('alternative text'), 'caption' => $text('caption below the image'), 'author' => $text('photo author')], ['id'])],
             ['delete_media', 'Deletes a file from Media for good (only when the username explicitly asks; the owner or an administrator). A file still used on the site is not deleted – the error says where it is used.', $s(['id' => $pid('file ID from list_media')], ['id'])],
+            ['replace_media', 'Replaces an image in Media with a new one under the same address (only when the user explicitly asks; the owner or an administrator): every page, news item and setting that shows it shows the new image at once, in the format of the old file. Only JPG, PNG and WebP images; the new file as url (https) or data (base64), as in upload_file. Not for a file waiting for approval.', $s(['id' => $pid('file ID from list_media'), 'data' => $text('the new file in base64'), 'url' => $text('https address of the new file (instead of data)')], ['id'])],
+            ['list_media_folders', 'The folders of Media (by name) with the number of files in each. Folders only sort Media for people; a file\'s address does not change.', $s([])],
+            ['save_media_folder', 'Creates a folder in Media, or renames one (with id).', $s(['id' => $pid('folder from list_media_folders – only to rename it'), 'name' => $text('folder name, up to 100 characters')], ['name'])],
+            ['delete_media_folder', 'Deletes a folder from Media (administrators, only when the user explicitly asks). Its files stay and are in no folder afterwards.', $s(['id' => $pid('folder from list_media_folders')], ['id'])],
+            ['move_media', 'Moves files into a Media folder, or out of every folder. Only the owner of a file or an administrator; the addresses of the files do not change.', $s(['ids' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'public ids (UUID) of the files from list_media'], 'folder' => $pid('target folder from list_media_folders; empty = no folder')], ['ids'])],
             ['update_enquiry', 'Marks an enquiry new, read or resolved, writes an internal note and saves its triage (users with the Enquiries section): the kind, the priority and a drafted reply that a person checks and sends (2.12). A triage a person made is kept. A drafts-only connection saves only the triage (category, priority, draft_reply) – a suggestion; the status and the note are a person\'s (3.2).',
                 $s(['id' => $pid('enquiry ID from list_enquiries'), 'status' => $text('new | read | resolved'), 'note' => $text('internal note (replaces the previous one)'),
                     'category' => $text('a kind of the site: the key from triage_enquiries (built in: sales | support | job | supplier | spam | other)'), 'priority' => $text('high | normal | low'), 'draft_reply' => $text('a short reply in the language of the enquiry – never promise prices, dates or facts the site does not state')], ['id'])],
@@ -870,18 +877,13 @@ final class Tools
     private function medium(array $o): array
     {
         return ['id' => (int) $o['media_id'], 'name' => $o['name'], 'path' => $o['image_path'], 'url' => $this->app->request->origin() . $this->app->url($o['image_path']),
-            'is_image' => $o['thumb_path'] !== '', 'size' => $o['thumb_path'] !== '' ? $o['image_width'] . '×' . $o['image_height'] : null]
+            'is_image' => $o['thumb_path'] !== '', 'size' => $o['thumb_path'] !== '' ? $o['image_width'] . '×' . $o['image_height'] : null, 'folder' => $o['folder_id'] ?? null]
             + (($o['staged_at'] ?? null) !== null ? ['waiting_for_approval' => true] : []); // Core\MediaStaging
     }
 
-    /** @return array<string, mixed> */
-    private function uploadFile(array $a): array
+    /** The bytes of a file a tool was given: downloaded from an https url, or decoded from base64 data. */
+    private function fileContent(array $a): string
     {
-        $displayName = basename(str_replace('\\', '/', trim((string) ($a['filename'] ?? ''))));
-        $extension = strtolower(pathinfo($displayName, PATHINFO_EXTENSION));
-        if ($extension === '') {
-            throw new \InvalidArgumentException('The file name needs an extension (e.g. photo.jpg, logo.svg, font.woff2).');
-        }
         if (is_string($a['url'] ?? null) && $a['url'] !== '') {
             $url = trim($a['url']);
             if (!str_starts_with(strtolower($url), 'https://')) {
@@ -901,13 +903,42 @@ final class Tools
         if (strlen($content) > self::MAX_UPLOAD) {
             throw new \InvalidArgumentException('The file is larger than ' . (self::MAX_UPLOAD >> 20) . ' MB.');
         }
+
+        return $content;
+    }
+
+    /**
+     * A file that arrived through an upload link (Mcp\UploadLinks), saved as upload_file would save it. The temporary file is
+     * removed. The result names rows by number, as a tool's does.
+     *
+     * @return array<string, mixed>
+     */
+    public function receiveUpload(array $a, string $path): array
+    {
+        return $this->uploadFile($a, $path);
+    }
+
+    /**
+     * @param string|null $received a file already on the server (an upload link); otherwise url or data of $a
+     * @return array<string, mixed>
+     */
+    private function uploadFile(array $a, ?string $received = null): array
+    {
+        $folder = (int) ($a['folder'] ?? 0) ?: null;
+        $displayName = basename(str_replace('\\', '/', trim((string) ($a['filename'] ?? ''))));
+        $extension = strtolower(pathinfo($displayName, PATHINFO_EXTENSION));
+        if ($extension === '') {
+            throw new \InvalidArgumentException('The file name needs an extension (e.g. photo.jpg, logo.svg, font.woff2).');
+        }
+        $temporary = $received ?? (string) tempnam(sys_get_temp_dir(), 'talea-mcp-');
         // a connection limited to drafts publishes nothing, files neither: they wait for approval outside the web root (#150)
         $staged = \Talea\Core\MediaStaging::appliesTo($this->app->auth());
-        $temporary = tempnam(sys_get_temp_dir(), 'talea-mcp-');
-        file_put_contents($temporary, $content);
         try {
+            if ($received === null) {
+                file_put_contents($temporary, $this->fileContent($a));
+            }
             $data = match (true) {
-                $extension === 'svg' => Media::saveSvgContent($content, $displayName, $staged),
+                $extension === 'svg' => Media::saveSvgContent((string) file_get_contents($temporary), $displayName, $staged),
                 \Talea\Core\Files::isAttachment($displayName) => \Talea\Core\Files::saveFile($temporary, $displayName, $staged),
                 default => \Talea\Core\Images::saveFile($temporary, $displayName, $staged),
             };
@@ -920,7 +951,8 @@ final class Tools
             $data['name'] = mb_substr(trim($a['alt']), 0, 150);
         }
         $data['staged_at'] = $staged ? date('Y-m-d H:i:s') : null;
-        $data['media_id'] = $this->app->db()->insert('media', $data + ['owner_id' => $this->app->auth()->id(), 'folder_id' => null, 'created_at' => date('Y-m-d H:i:s')]);
+        $data['folder_id'] = $folder;
+        $data['media_id'] = $this->app->db()->insert('media', $data + ['owner_id' => $this->app->auth()->id(), 'created_at' => date('Y-m-d H:i:s')]);
 
         return $this->medium($data) + ['usage' => match (true) {
             $extension === 'woff2' || $extension === 'woff' => 'update_design_system {"design":{"custom_fonts":[{"name":"…","file":"' . $data['image_path'] . '"}],"font_heading":"custom-1"}}',
