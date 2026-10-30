@@ -141,18 +141,18 @@ final class LookFamiliesTest extends SiteTestCase
     {
         $site = $this->site();
         $first = $site->publicId('sites', 1);
-        $this->assertFalse($this->call('set_look_parent', ['site' => self::$second, 'parent' => ''])['error']);
+        $this->assertFalse($this->call('set_look_parent', ['id' => self::$second, 'parent' => ''])['error']);
         $this->assertNull($site->value('SELECT look_parent_id FROM tl_sites WHERE site_id = 2'));
         $this->assertFalse($this->call('update_design_system', ['design' => ['colors' => ['primary' => '#123456']], 'site' => self::$second])['error'], 'free again');
 
-        $r = $this->call('set_look_parent', ['site' => self::$second, 'parent' => $first]);
+        $r = $this->call('set_look_parent', ['id' => self::$second, 'parent' => $first]);
         $this->assertTrue($r['error']);
         $this->assertStringContainsString('discard_draft', $r['text']);
         $this->assertNull($site->value('SELECT look_parent_id FROM tl_sites WHERE site_id = 2'));
 
-        $this->assertFalse($this->call('set_look_parent', ['site' => self::$second, 'parent' => $first, 'discard_draft' => true])['error']);
+        $this->assertFalse($this->call('set_look_parent', ['id' => self::$second, 'parent' => $first, 'discard_draft' => true])['error']);
         $this->assertSame(1, (int) $site->value('SELECT look_parent_id FROM tl_sites WHERE site_id = 2'));
         $this->assertSame('', (string) $site->value("SELECT value FROM tl2_settings WHERE name = 'look_draft'"), 'the draft is gone');
-        $this->assertTrue($this->call('set_look_parent', ['site' => $first, 'parent' => self::$second])['error'], 'a parent cannot become a child');
+        $this->assertTrue($this->call('set_look_parent', ['id' => $first, 'parent' => self::$second])['error'], 'a parent cannot become a child');
     }
 }

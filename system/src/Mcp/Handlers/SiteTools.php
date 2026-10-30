@@ -29,7 +29,7 @@ trait SiteTools
                 $s(['name' => $text('name of the site'), 'clone_of' => $pid('site id from list_owner_sites to copy (omit for an empty site); an operator of the installation may also name a site of another owner'), 'owner' => $pid('operators only: id of the owner (Owners area) that gets the new site; omit for the owner this connection belongs to'),
                     'parent' => $pid('site id (a look family\'s parent, set up): the new site takes its design system, classes, header and footer from it; omit for none')], ['name'])],
             ['set_look_parent', 'Puts a site into the look family of a parent site, or takes it out (multisite, administrators). A child takes its published design system, dark mode, classes (merged by name; its own extra classes stay) and header and footer (every language the parent has) from the parent; they are copied again whenever the parent publishes, and the child cannot change them (menus, pages and everything else stay its own). One level only: a parent cannot be a child, the same owner. Joining copies the parent\'s look at once and throws away the child\'s unpublished look draft – refused unless discard_draft is true. Leaving (parent empty) keeps the current copy; the child can roll back its look alone with restore_look_version.',
-                $s(['site' => $pid('id of the site (the child) from list_owner_sites'), 'parent' => $pid('id of the parent site; empty = leave the family'), 'discard_draft' => ['type' => 'boolean', 'description' => 'true = throw away the child\'s unpublished look draft when joining']], ['site'])],
+                $s(['id' => $pid('id of the site (the child) from list_owner_sites'), 'parent' => $pid('id of the parent site; empty = leave the family'), 'discard_draft' => ['type' => 'boolean', 'description' => 'true = throw away the child\'s unpublished look draft when joining']], ['id'])],
             ['update_site', 'Renames a site, sets its state (live | paused | archived; an archived site may redirect to another with redirect_to) and its hub card (multisite, administrators): card_summary, card_image and show_in_hub decide what the Projects element shows about it on the other sites. Putting a site into the trash is trash_site.',
                 $s(['id' => $pid('site id from list_owner_sites'), 'name' => $text('new name'), 'status' => $text('live | paused | archived'), 'redirect_to' => $pid('site id an archived site redirects to; empty = none'),
                     'card_summary' => $text('one or two sentences for the hub card (at most 300 characters)'), 'card_image' => $text('media path of the hub card image, e.g. media/2026/10/studio.jpg; empty = none'),
@@ -168,7 +168,7 @@ trait SiteTools
     {
         $this->siteAdmin();
         $db = $this->app->db();
-        $site = $this->siteByPublicId($a['site'] ?? null);
+        $site = $this->siteByPublicId($a['id'] ?? null);
         $parent = null;
         if (isset($a['parent']) && $a['parent'] !== '') {
             [$parent, $error] = \Talea\Core\LookFamily::checkParent($db, (string) $a['parent'], (int) $site['site_id']);

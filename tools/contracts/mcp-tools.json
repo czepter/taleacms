@@ -1996,11 +1996,11 @@
     "set_look_parent": {
         "parameters": {
             "discard_draft": "boolean",
-            "parent": "string",
-            "site": "string"
+            "id": "string",
+            "parent": "string"
         },
         "required": [
-            "site"
+            "id"
         ],
         "annotations": {
             "readOnlyHint": false,
