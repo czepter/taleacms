@@ -344,18 +344,6 @@ final class Sqlite extends Dialect
             . ' ORDER BY key_name, ord';
     }
 
-    public function dropUniqueKeySql(string $table, string $key): string
-    {
-        $this->identifier($table);
-
-        return 'DROP INDEX ' . $this->quote($key);
-    }
-
-    public function addUniqueKeySql(string $table, string $key, array $columns): string
-    {
-        return 'CREATE UNIQUE INDEX ' . $this->quote($key) . ' ON {' . $this->identifier($table) . '} (' . $this->quoteAll($columns) . ')';
-    }
-
     /** The whole file (one site per file): pages × page size. */
     public function sizeSql(): string
     {

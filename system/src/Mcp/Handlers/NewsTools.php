@@ -211,7 +211,7 @@ trait NewsTools
         if ($changes !== []) {
             $db->update('categories', $changes, ['category_id' => $id]);
             if (isset($changes['slug']) && $changes['slug'] !== $c['slug']) {
-                \Talea\Admin\Modules\Redirects::add($db, \Talea\Core\Slug::redirectPath($db, 'news/category/' . $c['slug'], (string) $c['language']), \Talea\Core\Slug::redirectPath($db, 'news/category/' . $changes['slug'], (string) $c['language']));
+                \Talea\Admin\Modules\Redirects::add($db, \Talea\Core\Slug::redirectPath('news/category/' . $c['slug'], (string) $c['language']), \Talea\Core\Slug::redirectPath('news/category/' . $changes['slug'], (string) $c['language']));
             }
             \Talea\Front\Cache::clear();
         }

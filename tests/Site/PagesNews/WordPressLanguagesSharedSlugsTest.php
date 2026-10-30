@@ -7,17 +7,15 @@ namespace Talea\Tests\Site\PagesNews;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
-/** A Polylang export into a site whose slugs are per language: a translation keeps the address it had, nothing gets a number. */
+/** A Polylang export into a site (slugs are always per language): a translation keeps the address it had, nothing gets a number. */
 #[Group('site')]
 final class WordPressLanguagesSharedSlugsTest extends SiteTestCase
 {
-    public function testTranslationsKeepTheirAddressWhenSlugsArePerLanguage(): void
+    public function testTranslationsKeepTheirAddress(): void
     {
         $site = $this->site();
         $site->setting('site_language', 'cs');
         $site->exec("UPDATE tl_users SET language = 'en'");
-        $result = $site->mcpResult('update_settings', ['settings' => ['slugs_per_language' => true]]);
-        $this->assertSame('1', $result['saved']['slugs_per_language'] ?? null, 'slugs are per language');
 
         $transfer = '/admin.php?module=transfer';
         $file = 'wordpress-polylang.xml';

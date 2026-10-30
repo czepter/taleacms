@@ -476,9 +476,9 @@ from old addresses. You can run the import again – whatever it already convert
 An export from a **multilingual site (Polylang or WPML)** arrives as linked language versions: every post, page, category and
 collection item goes to its own language, translations point to their original in your default language, and the old `/en/…`
 and `?lang=en` addresses redirect. A language version your site does not have yet is added only when you tick the option in
-the preview (it then shows in the language switcher at once); otherwise its posts are left out and the report says so. While
-the same address in every language is off (Settings → General), an address another language already has gets a number, and
-the report lists those addresses.
+the preview (it then shows in the language switcher at once); otherwise its posts are left out and the report says so. A
+page, news item or category keeps its address even when another language version already has it (/contact and /de/contact);
+a clash within one language gets a number, and the report lists those addresses.
 
 A **WooCommerce shop** arrives as a product catalogue (the Products collection, an enquiry basket instead of a checkout): each
 product keeps its address under `/product/…` with its code (SKU), current price, availability, attributes as parameters,
