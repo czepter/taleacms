@@ -24,6 +24,12 @@ final class MediaFolder
         self::$owner = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $publicId) === 1 ? $publicId : '';
     }
 
+    /** The public id of the further owner this process serves ('' = owner 1, or no owner known yet, as before routing). */
+    public static function owner(): string
+    {
+        return self::$owner;
+    }
+
     /** The folder new uploads go to, relative to the web root: "media" or "media/<owner public id>". */
     public static function dir(): string
     {

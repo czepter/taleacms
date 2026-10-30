@@ -243,9 +243,13 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
   not copied. Both sites get a row in their change log (`clone_out` on the source, `clone_in` on the copy); a client's log says only "Created as a
   copy by the installation's operator" / "Copied by the installation's operator", the names stand in owner 1's log, and the request itself is logged in
   the operator's.
-- **Rate-limit counters** (`storage/cache/limits`): a visitor's address still counts across the owners (open), but a key built from a row number or
-  an account is prefixed with the owner (reset allowance per account, OAuth refresh, member link per e-mail) or the site (page password), so two owners'
-  user number 1 do not share a budget.
+- **Rate-limit counters** (`Antispam::tally`/`untally`): owner 1 and every single-site install keep `storage/cache/limits/` with the file names as ever; a
+  further owner's counters sit in `storage/cache/limits/<its public id>/` (`Antispam::limitsFolder()`, the owner is the one `App::boot` gave `MediaFolder`; only a
+  UUID becomes a folder name). A visitor's address therefore counts per owner, and wrong page passwords, member links, MCP and firewall tries on one owner's host never
+  use up the budget on another's. Keys built from a row number or an account stay prefixed as well (reset allowance per account, OAuth refresh, member link per e-mail,
+  page password per site). **Exception:** the counters that run before routing (`Domains::answerEarly`: the proxy's certificate question and the token file) see no
+  owner yet – the host is what routes – so they stay install-wide in the plain folder. The clean-up job (`cleanUpCounters`) sweeps the plain folder and every owner's.
+  Sign-in tries were never shared: they are rows of the owner's own `ip_checks`.
 
 ## Domains and certificates (stage C) – Proposed
 

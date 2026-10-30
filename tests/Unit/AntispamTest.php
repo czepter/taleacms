@@ -100,4 +100,28 @@ final class AntispamTest extends TestCase
             Antispam::scopedKey($site1, 'k'), Antispam::scopedKey($site1, 'k', true), Antispam::scopedKey($site2, 'k'),
             Antispam::scopedKey($site2, 'k', true), Antispam::scopedKey($owner2, 'k'), Antispam::scopedKey($owner2, 'k', true)]);
     }
+
+    /** Multisite: owner 1 keeps storage/cache/limits, a further owner has a folder of its public id, anything else is refused. */
+    public function testLimitCountersLiveInTheFolderOfTheOwnerServed(): void
+    {
+        $id = '7a2d0c9e-0b0e-4a53-9a58-3c1f6f0f2b0b';
+        try {
+            \Talea\Core\MediaFolder::useOwner('');
+            $this->assertSame(TALEA_ROOT . '/storage/cache/limits', Antispam::limitsFolder(), 'owner 1: the path as ever');
+            \Talea\Core\MediaFolder::useOwner($id);
+            $this->assertSame(TALEA_ROOT . '/storage/cache/limits/' . $id, Antispam::limitsFolder(), 'owner n: under its public id');
+            \Talea\Core\MediaFolder::useOwner('../x'); // not a UUID: ignored, owner 1
+            $this->assertSame(TALEA_ROOT . '/storage/cache/limits', Antispam::limitsFolder());
+        } finally {
+            \Talea\Core\MediaFolder::useOwner('');
+        }
+        foreach (['../x', 'tlb_', '7A2D0C9E-0B0E-4A53-9A58-3C1F6F0F2B0B', $id . '/..'] as $bad) {
+            try {
+                Antispam::limitsFolder($bad);
+                $this->fail('refused: ' . $bad);
+            } catch (\InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
 }
