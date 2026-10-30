@@ -578,6 +578,16 @@ site is set up and how much space it takes.
 - **Backups:** a backup holds every site and a restore puts all of them back. A client (an owner other than the first) has backups
   of its own under **Sites → Backups and exports**: content only – accounts, host names and connections are not part of a backup or a
   restore – and a restore works while the same sites exist. The same screen exports a site (with the uploaded files of the account).
+- **Moving a site to another owner (operators):** **Owners → Move a site** (Claude: `transfer_site`, on the first owner's connection only). Choose the
+  site and the owner that gets it, and read the report first: what moves (pages, news, collection items, enquiries, members, bookings, subscribers,
+  media files and their size, host names, the secrets such as the mail password and the AI key), which shared components and facts become the site's own
+  copies, which people are found in the new owner by the same e-mail (the rest are cleared from authors and revisions; the change log keeps their names),
+  who loses access, and the blockers and warnings. Confirming sends the report's hash back; if the site changed meanwhile you are asked to read the
+  report again (Claude: `dry_run` first, then `report_hash`). The old site answers 503 from the confirmation on. The scheduled tasks copy everything
+  except the mail queue, newsletter and webhook queues and visitors' sessions into a new site of the new owner, move the host names, give the new site the
+  old site's public id and state, and put the old site into the trash for 30 days (it comes back without its host names). The signing keys are made new,
+  so open preview links end; no account is created in the new owner. A first site of an owner and the parent of a look family cannot move; a child of a
+  look family leaves it. If the copy fails nothing changes except an error under **Owners → Move a site**, and the old site answers again.
 - **Moving an old site in:** on the old install make **Import and export → Export of the whole site** and download the archive. Here
   open **Sites → Import a Talea archive** (operators: **Owners → Import a Talea archive**, choosing the owner), name the site and upload
   the file. The site is created, not ready, and the scheduled tasks import it in batches; the Sites list shows the progress, and an

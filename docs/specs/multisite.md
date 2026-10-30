@@ -397,6 +397,32 @@ A business with several locations keeps one parent site; its look is copied into
 - **Entry points.** Sites area: "Join the look family of …" on New site and on the site's page (join and leave); MCP: `parent` on `create_site`, `set_look_parent` (site, parent or empty,
   `discard_draft`), `look_parent` in `list_owner_sites`. Tests: `tests/Integration/LookFamiliesTest.php`, `tests/Site/Multisite/LookFamiliesTest.php`.
 
+## Transfer between owners
+
+An operator moves a site from one owner to another (a client changes agency, a location is sold). Active with `TALEA_OWNERS`; `Core\SiteTransfer`.
+
+- **Who.** Operators only (administrators of owner 1): the Owners area and the MCP tool `transfer_site` (a site tool, operators, flag on).
+- **A move, built on the cross-owner clone.** Site tables hold foreign keys to the source owner's `users` and content stores media paths with the owner folder, so tables are not
+  renamed: the target owner gets a new site (a new prefix of its stem) that `Sites::provision` fills by cron with the cross-owner clone in transfer mode, then the domains move and the
+  source goes to the trash (30 days, restorable without domains). The live site keeps the source's public id; the trashed source gets a fresh public id and the name suffix
+  `(transferred to <owner>)`.
+- **What a transfer copies beyond a clone.** Every site table except the queues (`jobs`, the mail queue, `webhook_deliveries`): enquiries, members, bookings, subscribers, change log
+  and stats come along. All settings, secrets and `site_url` included (they belong to the business that moves); the signing keys are made new, so open signed and preview links end.
+  User columns (authors, revisions, change log user) map to the target owner's account with the same e-mail, else NULL (the change log keeps its `user_name` text). No account
+  is created; people limited to the site in the source (`user_sites`) lose it, nothing is granted in the target. Media and components as the clone: used files are copied into the
+  target owner's media folder with paths rewritten (the source files stay), shared components and facts the site uses become its own rows.
+- **Domains.** After the copy succeeded, in the same cron step: the `site_domains` rows move to the target owner with their verification state; the source keeps none.
+- **Dry run first.** `SiteTransfer::report(site, target owner)` lists what moves (pages, news, collection items, media files and bytes, enquiries, members, bookings,
+  subscribers, domains, secrets), shared components and facts that become local copies, people mapped by e-mail and unmapped, people who lose access, Claude sessions whose undo
+  ends (`agent_journal` of that prefix stays in the source), warnings and blockers, and a hash of all of it. Executing needs that hash and refuses when a fresh report differs.
+  MCP: `transfer_site` (`id`, `owner`, `dry_run` default true, `report_hash`).
+- **Blockers.** The owner's first site (its tables are the owner prefix), a trashed site or one not set up, target = source owner, a target owner not ready, a parent of a look
+  family with children, a transfer already pending for the site. **Warnings:** a look-family child leaves its family (keeps its copy), shared components or facts in use,
+  people who lose access. The site limit (`TALEA_MAX_SITES`) does not count a transfer.
+- **While it runs.** The source row carries `transfer_to` (target site row); the source answers the maintenance 503 from the moment the transfer is queued until it is trashed.
+  A failed copy drops the target's tables and row, clears `transfer_to` and shows the error in the Owners area; the source is untouched.
+- **Record.** A `change_log` row in the moved site (`moved from <owner>`) and one in owner 1's site (`transfer`), both naming the operator.
+
 ## Phases (phase 1 is done)
 
 - **Phase 0** (no behaviour change): two prefixes in `Db`, the site registry with the row for site 1, the migration loop,

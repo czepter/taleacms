@@ -203,7 +203,7 @@ Agency tools (`TALEA_OWNERS`, docs/specs/multisite.md): several owners are table
 media folder per owner, `Core\OwnerClone`). **Roles per site:** owner table `user_sites` (no rows = every site; administrators always have every site);
 `Sites::allows/limitedTo/allowsHere` is asked by `Auth::user()` (a person who may not work here is signed out), `Auth::login`, `Mcp\Server::user()` and `onSite()`, the handoff
 and the switcher/inbox/overview lists. `TALEA_MAX_SITES` / `TALEA_MAX_OWNERS` limit the install (`Sites::limitRefusal`, `Owners::limitRefusal`, admin and MCP).
-`Core\SiteHealth` gives the health columns and the usage CSV; only the Owners area (operators) walks several owners.
+Transfer between owners (`Core\SiteTransfer`, Owners → Move a site, MCP `transfer_site`, operators): dry-run `report()` with a hash that `start()` must get back, then cron (`Sites::provision` → `SiteTransfer::provision`) clones the site into a new site of the target owner in transfer mode (`OwnerClone::copy` with a user map by e-mail, `Sites::TRANSFER_SKIP`), moves the host names, swaps the public ids and trashes the source; `sites.transfer_to` makes the source answer 503 and refuse MCP `site`, handoff and cron (`Sites::transferRefusal`). `Core\SiteHealth` gives the health columns and the usage CSV; only the Owners area (operators) walks several owners.
 
 ## Import and export
 
