@@ -34,6 +34,8 @@ final class CourseRegistrationMigrationTest extends DatabaseTestCase
         $first = $this->enquiry($courses, '/courses/salsa');
         $second = $this->enquiry($courses, '/de/courses/salsa?x=1');
         $third = $this->enquiry($events, '/events/yoga');
+        $odd = $this->enquiry($courses, '/' . str_repeat('foo-bar-', 8) . 'baz/courses/salsa');
+        $none = $this->enquiry($courses, '/courses/unknown');
 
         \AddCourseRegistrations::backfill($this->db()->pdo(), self::PREFIX);
         \AddCourseRegistrations::backfill($this->db()->pdo(), self::PREFIX); // idempotent
@@ -46,5 +48,7 @@ final class CourseRegistrationMigrationTest extends DatabaseTestCase
         $this->assertSame([$salsa, 'confirmed', 1, ''], $row($first));
         $this->assertSame([$salsa, 'confirmed', 1, 'de'], $row($second));
         $this->assertSame([$yoga, null, 1, ''], $row($third));
+        $this->assertSame([$salsa, 'confirmed', 1, ''], $row($odd), 'an invalid or over-long prefix is no language');
+        $this->assertNull($this->db()->one('SELECT item_id FROM {enquiries} WHERE enquiry_id = ?', [$none])['item_id']);
     }
 }

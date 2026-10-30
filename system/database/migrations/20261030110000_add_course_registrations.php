@@ -12,6 +12,9 @@ use Phinx\Migration\AbstractMigration;
  */
 final class AddCourseRegistrations extends AbstractMigration
 {
+    /** Shape of a language code in a path prefix: copied from Talea\Core\Language::TAG (a migration cannot rely on the app being loaded). */
+    private const string LANGUAGE = '/^[a-z]{2}(?:-[a-z]{2,4})?$/D';
+
     public function change(): void
     {
         $this->table('enquiries')
@@ -48,8 +51,8 @@ final class AddCourseRegistrations extends AbstractMigration
         foreach ($rows as $row) {
             $collection = $collections[(int) substr((string) $row['source'], 11)] ?? null;
             $segments = explode('/', trim((string) strtok((string) $row['page'], '?#'), '/'));
-            $language = count($segments) === 3 ? strtolower($segments[0]) : '';
-            if ($collection === null || count($segments) !== ($language === '' ? 2 : 3) || $segments[count($segments) - 2] !== $collection['slug']) {
+            $language = count($segments) === 3 && preg_match(self::LANGUAGE, strtolower($segments[0])) === 1 ? strtolower($segments[0]) : '';
+            if ($collection === null || !in_array(count($segments), [2, 3], true) || $segments[count($segments) - 2] !== $collection['slug']) {
                 continue;
             }
             $find->execute([$collection['collection_id'], $segments[count($segments) - 1]]);
