@@ -6,6 +6,7 @@
  * @var string $csrf
  * @var array<string, mixed> $author
  * @var array<string, string> $errors
+ * @var bool $hasTwoStep  the account has an authenticator app or a passkey
  * @var bool $isSelf  the admin is editing their own account
  * @var array<string, string> $modules  ident => name (sections to which access is set)
  * @var list<string> $hasModules
@@ -90,10 +91,10 @@ $role = [
 		<span class="help"><?= e(t('An author usually has only News, an editor all content sections, an administrator everything. With a custom role, the role\'s sections apply.')) ?></span>
 	</div>
 </div>
-<?php if (!empty($author['totp_secret'])): ?>
+<?php if ($hasTwoStep): ?>
 <div class="row">
 	<span class="caption"><?= e(t('Two-factor sign-in')) ?></span>
-	<div class="options"><span class="badge badge-published"><?= e(t('on')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone and backup codes)')) ?></label></div>
+	<div class="options"><span class="badge badge-published"><?= e(t('on')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone or passkey device and the backup codes)')) ?></label></div>
 </div>
 <?php endif ?>
 <?php if (!$isSelf): ?>
@@ -115,11 +116,11 @@ $role = [
 <p class="help"><?= e(t('Personal tokens and connected applications of this account. A connection nobody has used for %d days is reported in System status; revoke what is not needed any more.', Talea\Core\SecurityHygiene::CONNECTION_DAYS)) ?></p>
 <?php $accessLabel = array_map(fn (string $label): string => t($label), Talea\Front\OAuth::ACCESS_LABELS); ?>
 <?php foreach ($connections as $c): ?>
-<form class="inline" method="post" action="<?= e($module->url('revoke_connection')) ?>" data-confirm="<?= e(t('Revoke the connection? Claude will no longer be able to sign in with it.')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= e($author['public_id']) ?>"><input type="hidden" name="username" value="<?= e($author['username']) ?>">
+<form class="connection" method="post" action="<?= e($module->url('revoke_connection')) ?>" data-confirm="<?= e(t('Revoke the connection? Claude will no longer be able to sign in with it.')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= e($author['public_id']) ?>"><input type="hidden" name="username" value="<?= e($author['username']) ?>">
 <p><span class="badge"><?= e($c['name']) ?></span> <span class="badge"><?= e(t($c['kind'] === 'token' ? 'personal token' : 'connected application')) ?></span> <span class="badge"><?= e($accessLabel[$c['access']] ?? $accessLabel['read']) ?></span>
 	<?= e(t('created %s', format_date($c['created']))) ?>, <?= e($c['used'] ? t('last used %s', format_date($c['last'], true)) : t('never used')) ?>, <?= e($c['expiry'] !== null ? t('valid until %s', format_date($c['expiry'])) : t('no expiry')) ?>
-	<?php if ($c['kind'] === 'token'): ?><input type="hidden" name="token_id" value="<?= e($c['public_id']) ?>"><?php else: ?><input type="hidden" name="client_id" value="<?= e($c['id']) ?>"><?php endif ?>
-	<button class="navigation danger" type="submit"><?= e(t('Revoke')) ?></button></p>
+	<?php if ($c['kind'] === 'token'): ?><input type="hidden" name="token_id" value="<?= e($c['public_id']) ?>"><?php else: ?><input type="hidden" name="client_id" value="<?= e($c['id']) ?>"><?php endif ?></p>
+	<div class="navigation-row"><button class="navigation danger" type="submit"><?= e(t('Revoke')) ?></button></div>
 </form>
 <?php endforeach ?>
 </fieldset>

@@ -69,6 +69,7 @@ final class AuthenticationTest extends TestCase
         $this->assertTrue($pkRejects(fn () => \Talea\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6, 'redakce.example', 'https://redakce.example', 0x01), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5, true)), 'Passkey: a key alone without user verification fails');
         $pkChanged = $pkSignIn($pkV2, 6); $pkChanged['authenticatorData'] = \Talea\Core\Passkey::b64(\Talea\Core\Passkey::fromB64($pkChanged['authenticatorData']) . 'x');
         $this->assertTrue($pkRejects(fn () => \Talea\Core\Passkey::verifySignIn($pkChanged, $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), 'Passkey: altered authenticator data fail');
+        $this->assertSame(['challenge', 'rp', 'user', 'pubKeyCredParams', 'timeout', 'attestation', 'authenticatorSelection', 'excludeCredentials'], array_keys(\Talea\Core\Passkey::registrationOptions('c', 'web.cz', 'Web', 'u', 'login', '', [])), 'Passkey: registration options carry the WebAuthn keys navigator.credentials.create() reads');
         $this->assertSame(['https://www.web.cz', 'http://localhost:8080', 'www.web.cz'], [\Talea\Core\Passkey::origin('https://WWW.Web.cz/'), \Talea\Core\Passkey::origin('http://localhost:8080'), \Talea\Core\Passkey::rpId('https://www.web.cz:8443/x')], 'Passkey: origin and domain from the site address');
     }
 
@@ -118,10 +119,10 @@ final class AuthenticationTest extends TestCase
             str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Admin/PasswordReset.php'), 'Mail::later('), str_contains((string) file_get_contents(TALEA_ROOT . '/admin.php'), 'Talea\Core\Mail::afterResponse($app);'),
             str_contains($mailSource, 'WHERE mail_id = ? AND attempts = ? AND sent_at IS NULL')], '3.3.3 (N59): the reset link is queued and sent after the response; the queue claims a message before sending it');
         $accountSource = (string) file_get_contents(TALEA_SYSTEM . '/src/Admin/Account.php');
-        $this->assertSame([6, true, true, []], [
+        $this->assertSame([7, true, true, []], [
             substr_count($accountSource, "password_verify((string) (\$_POST['current_password'] ?? ''), \$user['password'])"), str_contains($accountSource, 'noticeOfNewEmail($user, $email)'),
             str_contains((string) file_get_contents(TALEA_ROOT . '/image/passkeys.js'), "current_password: password ? password.value : ''"),
             array_values(array_filter(['Enter your current password to change the e-mail address. Nothing was saved.', 'Enter your current password to add a passkey.', 'The e-mail address of your account was changed'],
-                fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k])))], '3.3.3 (N56): a new e-mail, a new passkey, a personal token and two-factor enrolment need the current password; the old address hears about the change; the texts are translated');
+                fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k])))], '3.3.3 (N56): a new e-mail, adding or removing a passkey, a personal token and two-factor enrolment need the current password; the old address hears about the change; the texts are translated');
     }
 }

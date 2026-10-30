@@ -258,7 +258,7 @@ $contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($
 <p class="small-text"><?= e(t('Image:')) ?> <a href="<?= e($d['image']) ?>" target="_blank" rel="noopener"><?= e(mb_strimwidth($d['image'], 0, 70, '…')) ?></a></p>
 <?php endif ?>
 <?php if ($d['network'] === 'instagram'): ?>
-<p class="small-text"><?= e(t('Link for the bio:')) ?> <code id="social-link-<?= $id ?>"><?= e($d['link']) ?></code> <button class="navigation" type="button" data-copy="#social-link-<?= $id ?>"><?= e(t('Copy')) ?></button></p>
+<p class="small-text navigation-row"><?= e(t('Link for the bio:')) ?> <code id="social-link-<?= $id ?>"><?= e($d['link']) ?></code> <button class="navigation" type="button" data-copy="#social-link-<?= $id ?>"><?= e(t('Copy')) ?></button></p>
 <?php endif ?>
 <p class="buttons">
 	<button class="btn" type="button" data-copy="#social-text-<?= $id ?>"><?= e(t('Copy')) ?></button>
