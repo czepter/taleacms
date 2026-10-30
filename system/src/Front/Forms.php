@@ -6,7 +6,9 @@ namespace Talea\Front;
 
 use Talea\Core\Antispam;
 use Talea\Core\App;
+use Talea\Core\Language;
 use Talea\Core\Mail;
+use Talea\Core\Registrations;
 use Talea\Core\Response;
 use Talea\Builder\SiteParts;
 use Talea\Builder\Components;
@@ -77,9 +79,19 @@ final class Forms
         if ($antispam->count($r->ip(), 'form', 0, 10) >= self::LIMIT) {
             return $redirectUri('limit');
         }
-        // an event's registration (2.11): the server checks again that it is still open – the page may be older than the last place
-        if (preg_match('/^collection:(\d+)$/', $source, $m) && ($state = \Talea\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
-            return $redirectUri($state === 'full' ? 'full' : 'closed');
+        // an event's registration (2.11): the server checks again that it is still open – the page may be older than the last place.
+        // A course (not repeating) is also placed by seats under a lock below; here only what is certain without it is refused.
+        $course = null; // [collection, item, rules]
+        if (preg_match('/^collection:(\d+)$/', $source, $m) && ($found = \Talea\Core\Calendar::itemForSubmission($this->app->db(), (int) $m[1], $back)) !== null) {
+            if (($rules = Registrations::course($found[0], $found[1])) !== null) {
+                $course = [$found[0], $found[1], $rules];
+                $early = Registrations::decide($rules, Registrations::taken($this->app->db(), (int) $found[1]['item_id']), 1, date('Y-m-d H:i'));
+                if ($early === 'closed' || $early === 'full') {
+                    return $redirectUri($early);
+                }
+            } elseif (($state = \Talea\Core\Calendar::values($this->app->db(), $found[0], $found[1], fn (string $p): string => $p, date('Y-m-d H:i'))['_registration'][0]) !== 'open') {
+                return $redirectUri($state === 'full' ? 'full' : 'closed');
+            }
         }
         if (empty($element['content']['no_captcha']) && !\Talea\Core\Captcha::accepted($this->app->settings(), \Talea\Core\Captcha::verify($this->app->settings(), $r))) {
             return $redirectUri('captcha');
@@ -212,24 +224,50 @@ final class Forms
         $campaign = self::campaign($r->referer(), $r->origin()) ?: $visitCampaign;
         // what the form was about (2.12): the item, page or pop-up it was on – looked up here, never taken from the request
         $about = EnquiryTopic::find($db, $source, $back);
-        $idp = $db->insert('enquiries', [
+        $row = [
             'created_at' => date('Y-m-d H:i:s'), 'form' => mb_substr((string) $element['content']['name'], 0, 120), 'source' => $source, 'element' => $element['id'],
             'page' => mb_substr($back, 0, 255), 'topic' => $about, 'landing_page' => $landing, 'referrer' => $referrer, 'campaign' => $campaign, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'status' => 0,
             'form_id' => isset($element['form_id']) ? (int) $element['form_id'] : null,
-        ]);
+        ];
+        $seatState = null;
+        if ($course === null) {
+            $idp = $db->insert('enquiries', $row);
+        } else {
+            // a course: the seats of the registration (a posted count, never above what one registration may bring or what the course holds),
+            // decided and written under the lock of the course, so two registrations cannot both take the last seat
+            [$collection, $item, $rules] = $course;
+            $seats = max(1, min($rules['max_seats'], $rules['capacity'] > 0 ? $rules['capacity'] : PHP_INT_MAX, (int) $r->post('seats')));
+            $lock = Registrations::lockFor($db, (int) $item['item_id']);
+            if (!$db->lock($lock, 5)) {
+                return $redirectUri('limit');
+            }
+            try {
+                $verdict = Registrations::verdict($db, $rules, (int) $item['item_id'], $email, $seats, date('Y-m-d H:i'));
+                if (!in_array($verdict, ['confirmed', 'waiting', 'waitlisted'], true)) {
+                    return $redirectUri($verdict); // already | full | closed: nothing is stored
+                }
+                $idp = $db->insert('enquiries', $row + ['item_id' => (int) $item['item_id'], 'seats' => $seats, 'language' => Language::siteColumn()]);
+                $seatState = Registrations::place($this->app, $collection, $item, $idp, $seats, $email);
+            } finally {
+                $db->unlock($lock);
+            }
+        }
         \Talea\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['content']['name'], 0, 80), mb_substr($back, 0, 120)),
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
         \Talea\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
         // spam the assistant recognised is kept under the Spam filter and sends nothing; the sender sees the usual thank-you
         if (!\Talea\Core\Triage::spam($this->app, $idp)) {
-            $this->notify($idp, $element, $data, $email, $campaign, $about, $types);
+            $this->notify($idp, $element, $data, $email, $campaign, $about, $types, $seatState === 'waiting' ? t('Request:') . ' ' : '');
             \Talea\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['content']['name'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id'], $about);
             // a sheet and the CRM (2.13): through the connector queue, never while the visitor waits
             \Talea\Core\EnquiryDelivery::enquiryReceived($this->app, $idp, $source, (string) $element['content']['name'], $about, $email, $back, \Talea\Core\EnquiryDelivery::fields($data, $types));
             if ($gatedFile !== '') {
                 \Talea\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
             }
-            if (!empty($element['content']['confirmation']) && $email !== '') {
+            if ($course !== null) {
+                // the registration mail replaces the form's own auto-reply (no double mail)
+                Registrations::welcome($this->app, $course[0], $course[1], (string) $seatState, $email, Language::siteColumn(), Registrations::nameOf($element, (string) json_encode($data, JSON_UNESCAPED_UNICODE)), $seats);
+            } elseif (!empty($element['content']['confirmation']) && $email !== '') {
                 // confirmation to the sender: the thank-you text, the next steps (2.12) and the form name – or the owner's own text,
                 // which repeats only answers that cannot carry someone else's words (Front\FormMail): the form cannot be abused to
                 // send out other people's texts
@@ -246,6 +284,9 @@ final class Forms
                     $body . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '',
                     array_filter(['From-Name' => trim((string) ($element['content']['confirmation_sender'] ?? '')), 'Reply-To' => count(Mail::addresses($replyTo)) === 1 ? $replyTo : '']));
             }
+        }
+        if ($course !== null) {
+            return $redirectUri(['confirmed' => 'registered', 'waiting' => 'request', 'waitlisted' => 'waitlisted'][$seatState]); // the page says which
         }
         if ($calculation['after_contact']) {
             // the result shows at the form by a signed link; the thank-you page does not apply
@@ -397,7 +438,7 @@ final class Forms
     }
 
     /** @param list<array{0: string, 1: string}> $data @param list<string> $types */
-    private function notify(int $idp, array $element, array $data, string $email, string $campaign, string $about = '', array $types = []): void
+    private function notify(int $idp, array $element, array $data, string $email, string $campaign, string $about = '', array $types = [], string $subjectPrefix = ''): void
     {
         $siteSettings = $this->app->settings();
         [$to, $bcc] = self::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $siteSettings->get('site_email'));
@@ -413,8 +454,8 @@ final class Forms
         $headers = ($email !== '' ? ['Reply-To' => $email] : []) + ($bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
         // the owner's own subject may name any answer (it goes to the owner); otherwise "<form>: <site>"
         $subject = trim((string) ($element['content']['notification_subject'] ?? ''));
-        Mail::send($siteSettings, implode(', ', $to), $subject !== '' ? FormMail::subject(FormMail::fill($subject, $data, $types, false, ['site name' => $siteSettings->get('site_name')]))
-            : t('%s: %s', $element['content']['name'], $siteSettings->get('site_name')), $text, '', $headers);
+        Mail::send($siteSettings, implode(', ', $to), $subject !== '' ? FormMail::subject($subjectPrefix . FormMail::fill($subject, $data, $types, false, ['site name' => $siteSettings->get('site_name')]))
+            : $subjectPrefix . t('%s: %s', $element['content']['name'], $siteSettings->get('site_name')), $text, '', $headers);
     }
 
     /**

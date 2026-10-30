@@ -70,6 +70,86 @@ final class Registrations
         return $course['ends'] < $now || ($course['deadline'] !== '' && Calendar::endsAt($course['deadline'], '') < $now);
     }
 
+    /**
+     * What happens to a registration of $seats seats from $email: already (the address holds or waits for a seat in this course),
+     * else the decision of decide(). $exclude is the enquiry being placed (it does not count against itself). Call under the lock.
+     */
+    public static function verdict(Db $db, array $course, int $itemId, string $email, int $seats, string $now, int $exclude = 0): string
+    {
+        if ($email !== '') {
+            $ids = self::group($db, $itemId);
+            $same = (int) $db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state IN ('confirmed', 'waiting', 'waitlisted') AND enquiry_id <> ? AND LOWER(email) = ? AND item_id IN ("
+                . implode(',', array_fill(0, count($ids), '?')) . ')', [$exclude, strtolower($email), ...$ids]);
+            if ($same > 0) {
+                return 'already';
+            }
+        }
+
+        return self::decide($course, self::taken($db, $itemId), $seats, $now);
+    }
+
+    /**
+     * Gives a stored registration its state: confirmed | waiting | waitlisted is written; already | full | closed is returned and
+     * nothing is written. The caller holds the lock and inserted the enquiry (with item_id and seats).
+     */
+    public static function place(App $app, array $collection, array $item, int $enquiryId, int $seats, string $email): string
+    {
+        $db = $app->db();
+        $course = self::course($collection, $item);
+        if ($course === null) {
+            return 'closed';
+        }
+        $state = self::verdict($db, $course, (int) $item['item_id'], $email, $seats, date('Y-m-d H:i'), $enquiryId);
+        if (in_array($state, ['confirmed', 'waiting', 'waitlisted'], true)) {
+            $db->update('enquiries', ['seat_state' => $state, 'state_changed_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $enquiryId]);
+        }
+
+        return $state;
+    }
+
+    /** The mail a new registration gets: registered (instant), request (confirm first) or waitlisted, in the language of the page. */
+    public static function welcome(App $app, array $collection, array $item, string $state, string $to, string $language, string $name, int $seats): void
+    {
+        $id = ['confirmed' => 'course_registered', 'waiting' => 'course_request', 'waitlisted' => 'course_waitlisted'][$state] ?? null;
+        if ($id === null || $to === '') {
+            return;
+        }
+        Language::runWith($language !== '' ? $language : Language::defaults($app->settings()), fn () => Messages::send($app, $id, $language, $to, self::mailValues($collection, $item, $name, $seats)));
+    }
+
+    /**
+     * The placeholders of the course mails, in the current language. The name is the registrant's, found by nameOf().
+     *
+     * @return array<string, string>
+     */
+    public static function mailValues(array $collection, array $item, string $name, int $seats): array
+    {
+        $data = (array) ($item['data'] ?? []);
+        $fields = Calendar::fields($collection);
+
+        return ['name' => $name, 'course' => (string) $item['name'], 'dates' => Calendar::when((string) ($data[$fields['start']] ?? ''), (string) ($data[$fields['end']] ?? '')),
+            'schedule' => (string) ($data['schedule'] ?? ''), 'place' => (string) ($data[$fields['place']] ?? ''), 'seats' => (string) $seats];
+    }
+
+    /** The registrant's name: the stored answer (JSON) of a text field of the form that passes FormMail::isName; '' when there is none. */
+    public static function nameOf(?array $element, string $answers): string
+    {
+        // the stored answers skip some fields, so the name is found by label, not by position
+        $labels = [];
+        foreach ((array) ($element['content']['fields'] ?? []) as $field) {
+            if (($field['type'] ?? '') === 'text') {
+                $labels[] = (string) $field['label'];
+            }
+        }
+        foreach ((json_decode($answers, true) ?: []) as $answer) {
+            if (in_array((string) ($answer[0] ?? ''), $labels, true) && FormMail::isName((string) ($answer[1] ?? ''))) {
+                return (string) $answer[1];
+            }
+        }
+
+        return '';
+    }
+
     /** Ids of the items that share the seats of this one: same collection, same slug (language versions). @return list<int> */
     public static function group(Db $db, int $itemId): array
     {
@@ -155,32 +235,13 @@ final class Registrations
     /** The visitor's mail (request received for confirm-first, moved up for instant) and, for confirm-first, the holder's. */
     private static function tell(App $app, array $collection, array $item, array $course, array $row): void
     {
-        $data = (array) ($item['data'] ?? []);
         $element = Forms::findElement($app->db(), (string) $row['source'], (string) $row['element'], 'form');
-        // the stored answers skip some fields, so the name is found by label, not by position
-        $labels = [];
-        foreach ((array) ($element['content']['fields'] ?? []) as $field) {
-            if (($field['type'] ?? '') === 'text') {
-                $labels[] = (string) $field['label'];
-            }
-        }
-        $name = '';
-        foreach ((json_decode((string) $row['data'], true) ?: []) as $answer) {
-            if (in_array((string) ($answer[0] ?? ''), $labels, true) && FormMail::isName((string) ($answer[1] ?? ''))) {
-                $name = (string) $answer[1];
-                break;
-            }
-        }
-        $fields = Calendar::fields($collection);
+        $name = self::nameOf($element, (string) $row['data']);
         $s = $app->settings();
         $language = (string) $row['language'];
         if ((string) $row['email'] !== '') {
-            Language::runWith($language !== '' ? $language : Language::defaults($s), function () use ($app, $course, $item, $data, $fields, $row, $name, $language): void {
-                Messages::send($app, $course['mode'] === 'confirm' ? 'course_request' : 'course_moved_up', $language, (string) $row['email'], [
-                    'name' => $name, 'course' => (string) $item['name'], 'dates' => Calendar::when((string) ($data[$fields['start']] ?? ''), (string) ($data[$fields['end']] ?? '')),
-                    'schedule' => (string) ($data['schedule'] ?? ''), 'place' => (string) ($data[$fields['place']] ?? ''), 'seats' => (string) $row['seats'],
-                ]);
-            });
+            Language::runWith($language !== '' ? $language : Language::defaults($s), fn () => Messages::send($app, $course['mode'] === 'confirm' ? 'course_request' : 'course_moved_up', $language, (string) $row['email'],
+                self::mailValues($collection, $item, $name, (int) $row['seats'])));
         }
         if ($course['mode'] === 'confirm' && $element !== null) {
             [$to, $bcc] = Forms::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $s->get('site_email'));

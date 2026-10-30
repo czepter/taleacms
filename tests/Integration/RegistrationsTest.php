@@ -153,4 +153,27 @@ final class RegistrationsTest extends DatabaseTestCase
 
         return $app;
     }
+
+    public function testLastSeatIsTakenOnce(): void
+    {
+        $c = $this->collection('courses', 'courses');
+        $item = $this->item($c, 'salsa', ['start' => '2030-01-01 10:00', 'capacity' => '1']);
+        $a = $this->db()->insert('enquiries', ['created_at' => date('Y-m-d H:i:s'), 'source' => 'x', 'page' => '/c/x', 'data' => '[]', 'item_id' => $item['item_id'], 'seats' => 1]);
+        $b = $this->db()->insert('enquiries', ['created_at' => date('Y-m-d H:i:s'), 'source' => 'x', 'page' => '/c/x', 'data' => '[]', 'item_id' => $item['item_id'], 'seats' => 1]);
+        $this->assertSame('confirmed', Registrations::place($this->app(), $c, $item, $a, 1, ''));
+        $this->assertSame('waitlisted', Registrations::place($this->app(), $c, $item, $b, 1, ''));
+        $this->assertSame(['confirmed', 'waitlisted'], [$this->db()->value('SELECT seat_state FROM {enquiries} WHERE enquiry_id = ?', [$a]), $this->db()->value('SELECT seat_state FROM {enquiries} WHERE enquiry_id = ?', [$b])]);
+    }
+
+    public function testPlaceRefusesTheSameAddressAndWritesNothing(): void
+    {
+        $c = $this->collection('courses', 'courses');
+        $item = $this->item($c, 'salsa', ['start' => '2030-01-01 10:00', 'capacity' => '5']);
+        $row = fn (): int => $this->db()->insert('enquiries', ['created_at' => date('Y-m-d H:i:s'), 'source' => 'x', 'page' => '/c/x', 'data' => '[]', 'email' => 'Eva@Example.com', 'item_id' => $item['item_id']]);
+        $a = $row();
+        $b = $row();
+        $this->assertSame('confirmed', Registrations::place($this->app(), $c, $item, $a, 1, 'Eva@Example.com'));
+        $this->assertSame('already', Registrations::place($this->app(), $c, $item, $b, 1, 'eva@example.com'));
+        $this->assertSame('', (string) $this->db()->value('SELECT seat_state FROM {enquiries} WHERE enquiry_id = ?', [$b]));
+    }
 }

@@ -277,6 +277,16 @@ final class Form extends Element
         return $p['anchor'] ?? (!empty($p['style']) ? 's-' . $p['id'] : 'form-' . $p['id']);
     }
 
+    /** How many people one registration of a course brings: 1 … $max (the server clamps the posted `seats` again). */
+    private static function seatsField(int $max, string $element): string
+    {
+        $id = 'f-' . $element . '-seats';
+
+        return '<p class="tl-field"><label for="' . $id . '"><span>' . e(t('How many people are coming?')) . '</span></label><select id="' . $id . '" name="seats">'
+            . implode('', array_map(fn (int $n): string => '<option value="' . $n . '">' . e($n === 1 ? t('1 person') : t('%d people', $n)) . '</option>', range(1, $max))) . '</select>'
+            . '<small class="tl-field-help">' . e(t('Up to %d per registration.', $max)) . '</small></p>';
+    }
+
     /** The CAPTCHA widget when the site has one (2.6); in the editor only a note, the provider's script does not load there. */
     public static function captcha(Context $k): string
     {
@@ -299,6 +309,7 @@ final class Form extends Element
             'captcha' => t('Please confirm that you are not a robot and send the form again.'),
             'full' => t('This event is fully booked.'),
             'closed' => t('Registration is closed.'),
+            'already' => t('You are already registered for this course.'),
             default => t('The message could not be sent. Please try again.'),
         };
     }
@@ -320,14 +331,29 @@ final class Form extends Element
             return '<div' . Text::withClass($a, 'tl-form-done') . $id . ' role="status" data-sent="' . e($o['name']) . '"' . ($hasBasket ? ' data-basket-sent' : '') . '><p>' . e($o['thank_you']) . '</p>'
                 . \Talea\Front\NextSteps::html($k->app, $o) . '</div>';
         }
-        // the registration form of an event (2.11, Core\Calendar): closed after the event or its deadline, or when it is full
-        $registration = !$k->editor ? (string) ($k->item['_registration'][0] ?? '') : '';
-        if ($registration === 'full' || $registration === 'closed') {
-            return '<div' . Text::withClass($a, 'tl-form-done') . $id . ' role="status"><p>' . e(self::messages($registration === 'full' ? 'full' : 'closed')) . '</p></div>';
+        // the registration form of an event (2.11, Core\Calendar): closed after the event or its deadline, or when it is full. A course
+        // (not repeating) says it with the holder's texts, answers a registration with the thank-you text of its state and, when it is
+        // full and has a waiting list, keeps the form for the waiting list.
+        $reg = !$k->editor ? (array) ($k->item['_registration'] ?? []) : [];
+        $registration = (string) ($reg[0] ?? '');
+        [$isCourse, $waitlist] = [!empty($reg[3]), !empty($reg[4])];
+        $page = fn (string $id): string => \Talea\Core\Messages::text($k->app->settings(), $id, 'body', \Talea\Core\Language::siteColumn());
+        $thanks = ['registered' => 'course_thanks_registered', 'request' => 'course_thanks_request', 'waitlisted' => 'course_thanks_waitlisted', 'already' => 'course_already'];
+        if ($isCourse && isset($thanks[$result])) {
+            return '<div' . Text::withClass($a, 'tl-form-done') . $id . ' role="status"><p>' . e($page($thanks[$result])) . '</p></div>';
+        }
+        $waitingList = $isCourse && $registration === 'full' && $waitlist;
+        if ($registration === 'closed' || ($registration === 'full' && !$waitingList)) {
+            $text = $isCourse && $registration === 'closed' ? $page('course_closed') : self::messages($registration);
+
+            return '<div' . Text::withClass($a, 'tl-form-done') . $id . ' role="status"><p>' . e($text) . '</p></div>';
         }
         $k->types['button'] = true; // the form button looks like the Button element
         $html = $result !== '' ? '<p class="tl-form-error" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $invalid = $result === 'field' ? $r->getInt('field', -1) : -1;
+        // a full course with a waiting list keeps its form: the holder's note on top, the button joins the list
+        $html .= $waitingList ? '<p class="tl-form-note">' . e($page('course_full')) . '</p>' : '';
+        $seatsField = $isCourse && (int) ($reg[2] ?? 1) > 1 ? self::seatsField((int) $reg[2], $p['id']) : '';
         [$steps, $stepTitle, $current] = [[], '', ''];
         $afterContact = ($o['calculation'] ?? 'live') === 'after_contact';
         [$logic, $targets] = self::logicForPage($o, $afterContact);
@@ -345,6 +371,10 @@ final class Form extends Element
                 [$stepTitle, $current] = [(string) $field['label'], ''];
                 continue;
             }
+            if ($seatsField !== '' && $field['type'] === 'checkbox') {
+                $current .= $seatsField; // before the consent checkbox
+                $seatsField = '';
+            }
             $one = match ($field['type']) {
                 'basket' => self::basketField($field, $i, $p['id'], $i === $invalid, $k),
                 'estimate' => self::estimateField($field, $o['fields'], $afterContact),
@@ -355,6 +385,7 @@ final class Form extends Element
             // its width where the form is placed (Elements\FormEmbed): columns of six, on the outermost tag of the field
             $current .= self::span($one, (int) ($widths[(string) ($field['key'] ?? '')] ?? 0));
         }
+        $current .= $seatsField; // a form without a consent checkbox: after the last field
         if ($steps === []) {
             $html .= $current;
         } else {
@@ -375,7 +406,7 @@ final class Form extends Element
             . $antispam->fields('form|' . $k->source . '|' . $p['id'])
             . $html
             . (empty($o['no_captcha']) ? self::captcha($k) : '')
-            . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e($o['button_text']) . '</button></p></form>';
+            . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e($waitingList ? t('Join the waiting list') : $o['button_text']) . '</button></p></form>';
     }
 
     /**

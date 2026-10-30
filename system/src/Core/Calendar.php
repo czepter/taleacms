@@ -176,6 +176,13 @@ final class Calendar
         $state = self::registrationState($capacity, $registered, $get('registration_until'), $endsAt, $now);
 
         $place = implode(', ', array_filter([$get('place'), $get('address')]));
+        // a course (not repeating): how many people one registration may bring, the waiting list and where the course stands
+        $course = isset($item['item_id']) ? Registrations::course($collection, $item) : null;
+        $maxSeats = $course === null ? 1 : ($course['capacity'] > 0 ? min($course['max_seats'], $course['capacity']) : $course['max_seats']);
+        $standing = '';
+        if ($course !== null && $start !== '' && $endsAt >= $now) {
+            $standing = $start > $now ? t('Starts %s', format_date(substr($start, 0, 10))) : t('Running since %s', format_date(substr($start, 0, 10)));
+        }
 
         return [
             'when' => [self::when($start, $get('end')), 'text'],
@@ -183,7 +190,9 @@ final class Calendar
             'event_status' => [$endsAt < $now ? t('This event has ended.') : ($state === 'full' ? t('This event is fully booked.') : ''), 'text'],
             'ical' => [$collection['detail'] && ($item['slug'] ?? '') !== '' ? $url($collection['slug'] . '/' . $item['slug'] . '.ics') : '', 'link'],
             'places_left' => [$capacity > 0 ? (string) max(0, $capacity - $registered) : '', 'text'],
-            '_registration' => [$state, 'text'],
+            'course_status' => [$standing, 'text'],
+            'waiting_list' => [$course !== null && $course['waiting_list'] ? t('Waiting list') : '', 'text'],
+            '_registration' => [$state, 'text', $maxSeats, $course !== null, $course !== null && $course['waiting_list']],
         ];
     }
 
@@ -213,6 +222,14 @@ final class Calendar
      */
     public static function stateForSubmission(Db $db, int $idk, string $back): ?string
     {
+        $found = self::itemForSubmission($db, $idk, $back);
+
+        return $found === null ? null : self::values($db, $found[0], $found[1], fn (string $p): string => $p, date('Y-m-d H:i'))['_registration'][0];
+    }
+
+    /** The calendar collection and its visible item that the page a form was sent from shows (data decoded), or null. @return array{0: array, 1: array}|null */
+    public static function itemForSubmission(Db $db, int $idk, string $back): ?array
+    {
         $collection = Collections::byId($db, $idk);
         if ($collection === null || ($fields = self::fields($collection)) === null
             || preg_match('#/' . preg_quote((string) $collection['slug'], '#') . '/([a-z0-9-]{1,160})/?(?:\?.*)?$#', $back, $m) !== 1) {
@@ -224,7 +241,7 @@ final class Calendar
         }
         $item['data'] = json_decode((string) $item['data'], true) ?: [];
 
-        return self::values($db, $collection, $item, fn (string $p): string => $p, date('Y-m-d H:i'))['_registration'][0];
+        return [$collection, $item];
     }
 
     /**

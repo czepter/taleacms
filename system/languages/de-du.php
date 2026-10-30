@@ -221,6 +221,7 @@ Der Link gilt %d Tage.
     'Write to us' => 'Schreib uns',
     'Write to us at [E-MAIL] or call [PHONE].' => 'Schreibe uns an [E-MAIL] oder rufe uns an unter [TELEFON].',
     'Write your text here. A few sentences telling visitors what they will find here are enough.' => 'Schreibe hier deinen Text. Ein paar Sätze, die Besuchern sagen, was sie hier erwartet, genügen.',
+    'You are already registered for this course.' => 'Du bist für diesen Kurs bereits angemeldet.',
     'You are signed in as %s, but your account does not have access to “%s”.' => 'Du bist als %s angemeldet, aber dein Konto hat keinen Zugriff auf „%s“.',
     'You are signed in as %s.' => 'Du bist als %s angemeldet.',
     'You can cancel online until %s.' => 'Online kannst du bis %s stornieren.',
