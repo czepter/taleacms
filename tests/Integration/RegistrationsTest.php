@@ -399,6 +399,36 @@ final class RegistrationsTest extends DatabaseTestCase
         $this->assertSame([], $this->mails());
     }
 
+    /** @var array<string, int>|null the highest keys when a test left the wrapping transaction (see leaveTransaction()) */
+    private ?array $marks = null;
+
+    /** Tables a cancelled course touches, with their keys. */
+    private const array TOUCHED = ['enquiries' => 'enquiry_id', 'mail' => 'mail_id', 'redirects' => 'redirect_id', 'collection_items' => 'item_id', 'collections' => 'collection_id'];
+
+    /** cancelCourse() commits and sends mails, so it refuses to run in the transaction every test is wrapped in: commit it, and delete what the test wrote afterwards. */
+    private function leaveTransaction(): void
+    {
+        $this->marks = [];
+        foreach (self::TOUCHED as $table => $key) {
+            $this->marks[$table] = (int) $this->db()->value("SELECT COALESCE(MAX($key), 0) FROM {{$table}}");
+        }
+        $this->marks['settings'] = 0;
+        $this->db()->pdo()->commit();
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->marks !== null) {
+            foreach (self::TOUCHED as $table => $key) {
+                $this->db()->run("DELETE FROM {{$table}} WHERE $key > ?", [$this->marks[$table]]);
+            }
+            $this->db()->run("DELETE FROM {settings} WHERE name LIKE 'message\\_%'");
+            $this->marks = null;
+            $this->db()->pdo()->beginTransaction();
+        }
+        parent::tearDown();
+    }
+
     /** @return array{0: array, 1: array, 2: list<array>} a collection with a form, the course to cancel (with registrations in four states) and four other courses */
     private function cancellable(): array
     {
@@ -420,6 +450,7 @@ final class RegistrationsTest extends DatabaseTestCase
 
     public function testCancelCourseCancelsHidesRedirects(): void
     {
+        $this->leaveTransaction();
         [$c, $item, $others] = $this->cancellable();
         $this->assertSame(3, Registrations::cancelCourse($this->app(), $c, $item, [$others[1]['item_id'], $others[0]['item_id']], 'The teacher is ill.'));
         $rows = $this->db()->all('SELECT email, seat_state, offer_token_hash, offer_items, offer_until FROM {enquiries} WHERE item_id = ? ORDER BY enquiry_id', [$item['item_id']]);
@@ -443,6 +474,7 @@ final class RegistrationsTest extends DatabaseTestCase
 
     public function testCancelCourseWithoutOffersRedirectsToTheListAndLeavesNoPlaceholder(): void
     {
+        $this->leaveTransaction();
         [$c, $item] = $this->cancellable();
         $this->assertSame(3, Registrations::cancelCourse($this->app(), $c, $item, [], ''));
         $this->assertSame('courses-instant', $this->db()->value("SELECT to_path FROM {redirects} WHERE from_path = 'courses-instant/salsa'"));
@@ -455,6 +487,7 @@ final class RegistrationsTest extends DatabaseTestCase
 
     public function testCancellationMailUsesRegistrationLanguage(): void
     {
+        $this->leaveTransaction();
         [$c, $item] = $this->cancellable();
         $this->db()->update('enquiries', ['language' => 'de'], ['item_id' => $item['item_id'], 'email' => 'b@example.com']);
         $this->app()->settings()->set(\Talea\Core\Messages::key('course_course_cancelled', 'subject', 'de'), 'Abgesagt: {course}'); // the German template of the owner
@@ -466,6 +499,7 @@ final class RegistrationsTest extends DatabaseTestCase
 
     public function testOffersLimitedToThreeOpenCourses(): void
     {
+        $this->leaveTransaction();
         [$c, $item, $others] = $this->cancellable();
         $this->db()->run('UPDATE {collection_items} SET visible = FALSE WHERE item_id = ?', [$others[0]['item_id']]);
         $closed = $this->item($c, 'closed', ['start' => '2020-01-01 10:00']);
@@ -476,5 +510,31 @@ final class RegistrationsTest extends DatabaseTestCase
         Registrations::cancelCourse($this->app(), $c, $item, $pick, '');
         $this->assertSame([$others[1]['item_id'], $others[2]['item_id'], $others[3]['item_id']], json_decode((string) $this->db()->value('SELECT offer_items FROM {enquiries} WHERE item_id = ? ORDER BY enquiry_id LIMIT 1', [$item['item_id']])));
         $this->assertSame(3, preg_match_all('~/_course/[a-f0-9]{64}/[123]~', $this->mails()[0]['text']));
+    }
+
+    public function testCancelCourseRefusesAnOpenTransaction(): void
+    {
+        [$c, $item] = $this->cancellable();
+        $this->expectException(\LogicException::class);
+        Registrations::cancelCourse($this->app(), $c, $item, [], '');
+    }
+
+    public function testLanguageVersionsGetTheirOwnCounterparts(): void
+    {
+        $this->leaveTransaction();
+        [$c, $item, $others] = $this->cancellable();
+        $german = $this->item($c, 'salsa', ['start' => '2030-01-01 10:00'], 'de'); // the German version of the course (same slug, shared seats)
+        $offerDe = $this->item($c, 'open-1', ['start' => '2030-02-01 10:00', 'capacity' => '5'], 'de');
+        $this->db()->run('UPDATE {collection_items} SET visible = TRUE, name = ? WHERE item_id = ?', ['Offen 1', $offerDe['item_id']]);
+        $this->db()->update('enquiries', ['language' => 'de'], ['item_id' => $item['item_id'], 'email' => 'b@example.com']);
+        $listed = array_map(fn (array $o): int => (int) $o['item_id'], Registrations::offerable($this->db(), $c, $item));
+        $this->assertNotContains($offerDe['item_id'], $listed, 'the admin offers the default-language courses');
+        Registrations::cancelCourse($this->app(), $c, $item, [$others[0]['item_id']], '');
+        $this->assertSame('courses-instant/open-1', $this->db()->value("SELECT to_path FROM {redirects} WHERE from_path = 'courses-instant/salsa'"));
+        $mails = array_column($this->mails(), 'text', 'to');
+        $this->assertStringContainsString('Offen 1', $mails['b@example.com'], 'the German registrant reads the German course');
+        $this->assertMatchesRegularExpression('~/de/_course/[a-f0-9]{64}/1~', $mails['b@example.com']);
+        $this->assertDoesNotMatchRegularExpression('~/de/_course~', $mails['a@example.com']);
+        $this->assertSame('0', (string) (int) $this->db()->value('SELECT visible FROM {collection_items} WHERE item_id = ?', [$german['item_id']]));
     }
 }

@@ -446,8 +446,8 @@ final class Registrations
     private const int OFFER_DAYS = 30;
 
     /**
-     * The other courses of the collection that are visible and still open for registration (the language versions of the
-     * course itself are left out). With $ids: those of them that were picked, in that order, at most MAX_OFFERS.
+     * The other courses of the collection (default language: a registrant gets the counterpart in their own language, see counterpart())
+     * that are visible and still open for registration (the language versions of the course itself are left out). With $ids: those of them that were picked, in that order, at most MAX_OFFERS.
      *
      * @param list<int>|null $ids
      * @return list<array<string, mixed>> items, data decoded
@@ -457,7 +457,7 @@ final class Registrations
         $group = self::group($db, (int) $item['item_id']);
         $now = date('Y-m-d H:i');
         $open = [];
-        foreach ($db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND deleted_at IS NULL ORDER BY name, item_id', [(int) $collection['collection_id']]) as $row) {
+        foreach ($db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND language = \'\' AND visible = TRUE AND deleted_at IS NULL ORDER BY name, item_id', [(int) $collection['collection_id']]) as $row) {
             $row['data'] = json_decode((string) $row['data'], true) ?: [];
             $course = in_array((int) $row['item_id'], $group, true) ? null : self::course($collection, $row);
             if ($course !== null && !self::closed($course, $now)) {
@@ -478,6 +478,27 @@ final class Registrations
     }
 
     /**
+     * The version of an offered course in a language: the item of the same collection and slug (its seat group) in that language,
+     * else the offered item itself. Data decoded.
+     *
+     * @param array<string, mixed> $offer
+     * @return array<string, mixed>
+     */
+    private static function counterpart(Db $db, array $offer, string $language): array
+    {
+        if ($language !== '' && (string) $offer['language'] !== $language) {
+            $row = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL', [(int) $offer['collection_id'], $offer['slug'], $language]);
+            if ($row !== null) {
+                $row['data'] = json_decode((string) $row['data'], true) ?: [];
+
+                return $row;
+            }
+        }
+
+        return $offer;
+    }
+
+    /**
      * Cancels a whole course: every confirmed, waiting or waitlisted registration of it (all language versions) becomes
      * cancelled and carries a single-use take-over token for each offered course, the course is hidden and its addresses
      * redirect to the first offered course (else to the collection list), and each registration with an address gets the mail
@@ -490,6 +511,9 @@ final class Registrations
     public static function cancelCourse(App $app, array $collection, array $item, array $offerItemIds, string $message): int
     {
         $db = $app->db();
+        if ($db->pdo()->inTransaction()) {
+            throw new \LogicException('cancelCourse() sends mails and must not run inside an open transaction.');
+        }
         if (self::course($collection, $item) === null) {
             throw new \DomainException(t('This is not a course with seats.'));
         }
@@ -515,13 +539,13 @@ final class Registrations
                 $db->run("UPDATE {collection_items} SET visible = FALSE WHERE item_id IN ($in)", $group);
                 if (!empty($collection['detail'])) {
                     foreach ($db->all("SELECT slug, language FROM {collection_items} WHERE item_id IN ($in)", $group) as $version) {
-                        $to = $offers !== [] ? [$collection['slug'] . '/' . $offers[0]['slug'], (string) $offers[0]['language']] : [(string) $collection['slug'], (string) $version['language']];
+                        $first = $offers !== [] ? self::counterpart($db, $offers[0], (string) $version['language']) : null; // the first offer in the language of this version
+                        $to = $first !== null ? [$collection['slug'] . '/' . $first['slug'], (string) $first['language']] : [(string) $collection['slug'], (string) $version['language']];
                         \Talea\Admin\Modules\Redirects::add($db, Slug::redirectPath($db, $collection['slug'] . '/' . $version['slug'], (string) $version['language']), Slug::redirectPath($db, $to[0], $to[1]));
                     }
                 }
             };
-            // ponytail: the test suite runs every test inside one transaction, which Db::transaction cannot nest: join it there
-            $db->pdo()->inTransaction() ? $write($db) : $db->transaction($write);
+            $db->transaction($write);
             foreach ($rows as $row) {
                 if ((string) $row['email'] === '') {
                     continue;
@@ -530,7 +554,7 @@ final class Registrations
                 $language = (string) $row['language'];
                 $token = $tokens[(int) $row['enquiry_id']];
                 $mails[] = fn () => Language::runWith($language !== '' ? $language : Language::defaults($app->settings()), fn () => Messages::send($app, 'course_course_cancelled', $language, (string) $row['email'],
-                    self::mailValues($collection, $item, $name, (int) $row['seats']) + ['message' => $message, 'take-over links' => self::offerLines($app, $collection, $offers, $token)]));
+                    self::mailValues($collection, $item, $name, (int) $row['seats']) + ['message' => $message, 'take-over links' => self::offerLines($app, $collection, $offers, $token, $language)]));
             }
         } finally {
             $db->unlock($lock);
@@ -541,16 +565,18 @@ final class Registrations
     }
 
     /** The {take-over links} of the cancellation mail: per offered course its name, schedule and start, then the personal link. '' without offers. @param list<array<string, mixed>> $offers */
-    private static function offerLines(App $app, array $collection, array $offers, string $token): string
+    private static function offerLines(App $app, array $collection, array $offers, string $token, string $language): string
     {
         $fields = Calendar::fields($collection);
         $s = $app->settings();
         $site = rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/');
         $lines = [];
+        $prefix = $language !== '' && $language !== Language::defaults($s) ? $language . '/' : ''; // the registrant's language version of the site
         foreach ($offers as $n => $offer) {
+            $offer = self::counterpart($app->db(), $offer, $language);
             $start = trim((string) ($offer['data'][$fields['start']] ?? ''));
             $title = implode(' · ', array_filter([(string) $offer['name'], trim((string) ($offer['data']['schedule'] ?? '')), $start !== '' ? t('from %s', \Talea\Builder\Collections::formatDateTime($start)) : '']));
-            $lines[] = $title . "\n" . t('Take a seat: %s', $site . $app->url('_course/' . $token . '/' . ($n + 1)));
+            $lines[] = $title . "\n" . t('Take a seat: %s', $site . $app->url($prefix . '_course/' . $token . '/' . ($n + 1)));
         }
 
         return implode("\n\n", $lines);
@@ -582,9 +608,11 @@ final class Registrations
             return $gone();
         }
         [$collection, $item] = $target;
-        $name = self::nameOf(Forms::findElement($db, (string) $row['source'], (string) $row['element'], 'form'), (string) $row['data']);
+        $element = Forms::findElement($db, (string) $row['source'], (string) $row['element'], 'form');
+        $name = self::nameOf($element, (string) $row['data']);
         $seats = max(1, (int) $row['seats']);
         $language = (string) $row['language'];
+        $item = self::counterpart($db, $item, $language); // the offered course in the language of the cancelled registration
         $page = fn (string $id): string => Messages::text($app->settings(), $id, 'body', Language::siteColumn());
         if (!$post) {
             $values = self::mailValues($collection, $item, $name, $seats);
@@ -597,33 +625,47 @@ final class Registrations
         if (!$db->lock($lock, 5)) {
             return [t('Take a seat'), '<p>' . e(t('Many people are registering right now. Please send the form again.')) . '</p>', 200];
         }
-        $late = null;
+        $mails = [];
         $state = '';
         try {
             $course = self::course($collection, $item);
             $verdict = self::verdict($db, $course, (int) $item['item_id'], (string) $row['email'], $seats, date('Y-m-d H:i'));
-            if (in_array($verdict, ['full', 'closed'], true)) {
-                return $verdict === 'closed' ? $gone() : [t('Take a seat'), '<p>' . e($page('course_full')) . '</p><p><a href="' . e($app->url((string) $collection['slug'])) . '">' . e(t('See all courses')) . '</a></p>', 200]; // nothing claimed: another course may still be taken
-            }
-            // the first press wins, and it kills the links for every other offered course (the hash stays: a dead link still finds its course list)
-            if ($db->run('UPDATE {enquiries} SET offer_until = NULL WHERE offer_token_hash = ? AND offer_until > NOW()', [$hash])->rowCount() !== 1) {
-                return $gone();
+            // an address that is already registered gets the answer a new one would get (no oracle): its state is decided here, nothing is stored
+            $decision = $verdict === 'already' ? self::decide($course, self::taken($db, (int) $item['item_id']), $seats, date('Y-m-d H:i')) : $verdict;
+            if (in_array($decision, ['full', 'closed'], true)) {
+                return $decision === 'closed' ? $gone() : [t('Take a seat'), '<p>' . e($page('course_full')) . '</p><p><a href="' . e($app->url((string) $collection['slug'])) . '">' . e(t('See all courses')) . '</a></p>', 200]; // nothing claimed: another course may still be taken
             }
             $values = self::mailValues($collection, $item, $name, $seats);
-            if ($verdict === 'already') {
-                // nothing is stored and the page answers as it would a new registration; the address is told by mail
-                $state = self::decide($course, self::taken($db, (int) $item['item_id']), $seats, date('Y-m-d H:i'));
-                $late = fn () => Language::runWith($language !== '' ? $language : Language::defaults($app->settings()), fn () => Messages::send($app, 'course_already', $language, (string) $row['email'], $values));
-            } else {
+            $claimed = $db->transaction(function (Db $db) use ($hash, $verdict, $row, $collection, $item, $seats, $language, $app, &$state, &$mails, $name, $element): bool {
+                // the first press wins, and it kills the links for every other offered course (the hash stays: a dead link still finds its course list)
+                if ($db->run('UPDATE {enquiries} SET offer_until = NULL WHERE offer_token_hash = ? AND offer_until > NOW()', [$hash])->rowCount() !== 1) {
+                    return false;
+                }
+                if ($verdict === 'already') {
+                    return true;
+                }
                 $id = $db->insert('enquiries', ['created_at' => date('Y-m-d H:i:s'), 'form' => (string) $row['form'], 'source' => (string) $row['source'], 'element' => (string) $row['element'], 'page' => self::pathOf($collection, $item),
                     'email' => (string) $row['email'], 'data' => (string) $row['data'], 'status' => 0, 'item_id' => (int) $item['item_id'], 'seats' => $seats, 'language' => $language]);
                 $state = self::place($app, $collection, $item, $id, $seats, (string) $row['email']);
-                $late = fn () => self::welcome($app, $collection, $item, $state, (string) $row['email'], $language, $name, $seats);
+                $mails[] = fn () => self::welcome($app, $collection, $item, $state, (string) $row['email'], $language, $name, $seats);
+                if ($element !== null) { // the holder hears of it as of any registration; a request says so
+                    $mails[] = fn () => Language::runWith(Language::defaults($app->settings()), fn () => Forms::notifyHolder($app, $id, $element, (array) json_decode((string) $row['data'], true), (string) $row['email'], '', '', [],
+                        $state === 'waiting' ? t('Request:') . ' ' : ''));
+                }
+
+                return true;
+            });
+            if (!$claimed) {
+                return $gone();
+            }
+            if ($verdict === 'already') {
+                $state = $decision;
+                $mails[] = fn () => Language::runWith($language !== '' ? $language : Language::defaults($app->settings()), fn () => Messages::send($app, 'course_already', $language, (string) $row['email'], $values));
             }
         } finally {
             $db->unlock($lock);
         }
-        self::send([$late]);
+        self::send($mails);
         [$heading, $id] = match ($state) {
             'confirmed' => [t('You are registered'), 'course_thanks_registered'],
             'waiting' => [t('We have your request'), 'course_thanks_request'],

@@ -462,17 +462,23 @@ final class Forms
     /** @param list<array{0: string, 1: string}> $data @param list<string> $types */
     private function notify(int $idp, array $element, array $data, string $email, string $campaign, string $about = '', array $types = [], string $subjectPrefix = ''): void
     {
-        $siteSettings = $this->app->settings();
+        self::notifyHolder($this->app, $idp, $element, $data, $email, $campaign, $about, $types, $subjectPrefix);
+    }
+
+    /** The notification to the form's recipients about a new enquiry (also used for a seat taken over from a cancelled course). */
+    public static function notifyHolder(App $app, int $idp, array $element, array $data, string $email, string $campaign, string $about = '', array $types = [], string $subjectPrefix = ''): void
+    {
+        $siteSettings = $app->settings();
         [$to, $bcc] = self::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $siteSettings->get('site_email'));
         if ($to === []) {
             return; // the enquiry is saved in the administration even without an e-mail
         }
-        $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $this->app->request->origin(), '/');
+        $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $app->request->origin(), '/');
         // what it was about comes first (2.12): the reader knows the service or product before the message
         $text = ($about !== '' ? t('Topic') . ":\n" . $about . "\n\n" : '')
             . implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))
             . ($campaign !== '' ? "\n\n" . t('Campaign') . ":\n" . self::campaignText($campaign) : '')
-            . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $this->app->db()->publicId('enquiries', $idp)));
+            . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $app->url('admin.php?module=enquiries&action=detail&id=' . $app->db()->publicId('enquiries', $idp)));
         $headers = ($email !== '' ? ['Reply-To' => $email] : []) + ($bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
         // the owner's own subject may name any answer (it goes to the owner); otherwise "<form>: <site>"
         $subject = trim((string) ($element['content']['notification_subject'] ?? ''));

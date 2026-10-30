@@ -42,6 +42,21 @@ final class CourseCancelTest extends SiteTestCase
         return $m[0];
     }
 
+    /** A cancelled registration of $email (from Salsa) with a live token for the course $slug; returns the take-over path. */
+    private function offerRow(string $email, string $slug): string
+    {
+        $token = hash('sha256', $email . $slug);
+        $this->site()->exec("INSERT INTO tl_enquiries (created_at, source, element, form, page, data, email, item_id, seat_state, seats, offer_token_hash, offer_items, offer_until) SELECT NOW(), a.source, a.element, a.form, '/x', '[[\"Name\",\"Zed\"]]', ?, i.item_id, 'cancelled', 1, ?, ?, NOW() + INTERVAL 5 DAY FROM tl_collection_items i JOIN tl_enquiries a ON a.enquiry_id = (SELECT MIN(enquiry_id) FROM tl_enquiries WHERE email = 'anna@example.com') WHERE i.slug = 'salsa'",
+            [$email, hash('sha256', $token), '[' . (int) $this->sq('SELECT item_id FROM tl_collection_items WHERE slug = ?', [$slug]) . ']']);
+
+        return '/_course/' . $token . '/1';
+    }
+
+    private function holderMails(): int
+    {
+        return (int) $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'holder@example.org'");
+    }
+
     private function enquiries(string $slug, string $email): string
     {
         return $this->sq("SELECT COUNT(*) FROM tl_enquiries e JOIN tl_collection_items i ON i.item_id = e.item_id WHERE i.slug = ? AND e.email = ?", [$slug, $email]);
@@ -52,6 +67,7 @@ final class CourseCancelTest extends SiteTestCase
         foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => '1', 'smtp_encryption' => 'none', 'smtp_user' => '', 'mail_from' => 'web@example.cz'] as $name => $value) {
             $this->site()->setting($name, $value); // mail fails on purpose: the queue keeps the body
         }
+        $this->site()->setting('site_email', 'holder@example.org'); // the form's recipient
         $this->mcpText('create_collection', ['name' => 'Courses test', 'preset' => 'courses']);
         $start = $this->siteDate('+30 days');
         foreach ([['Salsa', 'salsa', '5'], ['Tango', 'tango', '5'], ['Samba', 'samba', '1']] as [$name, $slug, $capacity]) {
@@ -96,7 +112,9 @@ final class CourseCancelTest extends SiteTestCase
         }
         $this->assertSame('0', $this->enquiries('tango', 'anna@example.com'), 'a GET registers nobody');
 
+        $holders = $this->holderMails();
         $done = $visitor->post($link);
+        $this->assertSame($holders + 1, $this->holderMails(), 'the form recipients hear of it as of any registration');
         $this->assertSame(200, $done->status);
         $this->assertStringContainsString('You are registered', $done->body);
         $this->assertSame('confirmed|2', $this->sq("SELECT CONCAT(e.seat_state, '|', e.seats) FROM tl_enquiries e JOIN tl_collection_items i ON i.item_id = e.item_id WHERE i.slug = 'tango' AND e.email = 'anna@example.com'"));
@@ -137,5 +155,37 @@ final class CourseCancelTest extends SiteTestCase
         $this->site()->exec('UPDATE tl_collection_items SET visible = TRUE WHERE item_id = ?', [$tango]);
         $this->site()->exec('UPDATE tl_enquiries SET offer_until = NOW() - INTERVAL 1 DAY WHERE email = ?', ['eve@example.com']);
         $this->assertStringContainsString('This link no longer works', $this->visitor()->post('/_course/' . $token . '/1')->body, 'expired');
+    }
+
+    public function testHolderIsToldOfARequestAndADuplicateKeepsItsLinkWhenFull(): void
+    {
+        $start = $this->siteDate('+30 days');
+        $this->mcpText('save_collection_item', ['collection' => 'courses-test', 'name' => 'Rumba', 'slug' => 'rumba', 'values' => ['start' => "$start 18:00", 'capacity' => '5', 'registration' => 'confirm'], 'visible' => true]);
+        $this->mcpText('save_collection_item', ['collection' => 'courses-test', 'name' => 'Mambo', 'slug' => 'mambo', 'values' => ['start' => "$start 18:00", 'capacity' => '1', 'waiting_list' => 'off'], 'visible' => true]);
+        $this->site()->clearPageCache();
+
+        $before = $this->holderMails();
+        $page = $this->visitor()->post($this->offerRow('fay@example.com', 'rumba'));
+        $this->assertStringContainsString('We have your request', $page->body);
+        $this->assertSame($before + 1, $this->holderMails());
+        $this->assertStringStartsWith('Request:', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'holder@example.org' ORDER BY mail_id DESC LIMIT 1"), 'a waiting request says so in the subject');
+
+        $this->register('mambo', 'zed@example.com', 'Zed'); // the only seat of Mambo
+        $mails = (int) $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'zed@example.com'");
+        $path = $this->offerRow('zed@example.com', 'mambo'); // the same address presses the link of the full course
+        $page = $this->visitor()->post($path);
+        $this->assertStringContainsString('This course is full', $page->body);
+        $this->assertStringNotContainsString('no longer works', $page->body);
+        $this->assertSame('1', $this->enquiries('mambo', 'zed@example.com'), 'nothing is stored');
+        $this->assertSame((string) $mails, $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'zed@example.com'"), 'no already-registered mail either');
+        $this->assertNotNull($this->sq("SELECT offer_until FROM tl_enquiries WHERE offer_token_hash = ?", [hash('sha256', hash('sha256', 'zed@example.commambo'))]), 'the token is not used up');
+
+        // a duplicate where the course still takes people: the same page a new address gets, the address is told by mail, nothing is stored
+        $this->site()->exec("UPDATE tl_collection_items SET data = REPLACE(data, '\"capacity\":\"1\"', '\"capacity\":\"5\"') WHERE slug = 'mambo'");
+        $page = $this->visitor()->post($path);
+        $this->assertStringContainsString('You are registered', $page->body);
+        $this->assertSame('1', $this->enquiries('mambo', 'zed@example.com'));
+        $this->assertSame('Already registered: Mambo', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'zed@example.com' ORDER BY mail_id DESC LIMIT 1"));
+        $this->assertStringContainsString('This link no longer works', $this->visitor()->post($path)->body, 'now the token is used');
     }
 }
