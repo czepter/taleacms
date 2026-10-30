@@ -167,16 +167,7 @@ trait MediaTools
         if ($files === [] || count($files) > 20) {
             throw new \InvalidArgumentException('Give 1 to 20 files; send more in further calls.');
         }
-        $folder = (int) ($a['folder'] ?? 0);
-        $folderName = mb_substr(trim((string) ($a['folder_name'] ?? '')), 0, 100);
-        if ($folder === 0 && $folderName !== '') {
-            $db = $this->app->db();
-            $folder = (int) $db->value('SELECT folder_id FROM {media_folders} WHERE name = ?', [$folderName]);
-            if ($folder === 0 && $this->app->auth()->draftsOnly()) {
-                throw new \DomainException('A connection limited to drafts does not create folders; use an existing one (list_media_folders) or leave folder_name out.');
-            }
-            $folder = $folder ?: $db->insert('media_folders', ['name' => $folderName]);
-        }
+        $folder = $this->uploadFolder($a);
         $uploaded = [];
         $failed = [];
         foreach ($files as $file) {
@@ -188,6 +179,52 @@ trait MediaTools
         }
 
         return ['folder' => $folder ?: null, 'files' => $uploaded] + ($failed !== [] ? ['failed' => $failed] : []);
+    }
+
+    /** The folder of upload_files and request_upload: folder (an id), or folder_name found or created; 0 = none. */
+    private function uploadFolder(array $a): int
+    {
+        $folder = (int) ($a['folder'] ?? 0);
+        $folderName = mb_substr(trim((string) ($a['folder_name'] ?? '')), 0, 100);
+        if ($folder === 0 && $folderName !== '') {
+            $db = $this->app->db();
+            $folder = (int) $db->value('SELECT folder_id FROM {media_folders} WHERE name = ?', [$folderName]);
+            if ($folder === 0 && $this->app->auth()->draftsOnly()) {
+                throw new \DomainException('A connection limited to drafts does not create folders; use an existing one (list_media_folders) or leave folder_name out.');
+            }
+            $folder = $folder ?: $db->insert('media_folders', ['name' => $folderName]);
+        }
+
+        return $folder;
+    }
+
+    /**
+     * request_upload: one upload link per file (Mcp\UploadLinks) – the client sends the real file there with a PUT, no base64.
+     * Only through a Claude connection: the link acts as that connection.
+     */
+    private function toolRequestUpload(string $name, array $a): mixed
+    {
+        $tokenId = (int) ($this->app->auth()->user()['token_id'] ?? 0);
+        if ($tokenId === 0) {
+            throw new \DomainException('Upload links are given to Claude connections only.');
+        }
+        $files = array_values(array_filter((array) ($a['files'] ?? []), 'is_array'));
+        if ($files === [] || count($files) > 50) {
+            throw new \InvalidArgumentException('Give 1 to 50 files; ask for more in further calls.');
+        }
+        $files = array_map(fn (array $file): array => ['filename' => basename(str_replace('\\', '/', trim((string) ($file['filename'] ?? '')))), 'alt' => trim((string) ($file['alt'] ?? ''))], $files);
+        foreach ($files as $file) {
+            if (pathinfo($file['filename'], PATHINFO_EXTENSION) === '') {
+                throw new \InvalidArgumentException('Every file needs a name with an extension (e.g. photo.jpg): “' . $file['filename'] . '”.');
+            }
+        }
+        $folder = $this->uploadFolder($a);
+        $base = $this->app->request->origin() . $this->app->request->basePath() . '/mcp/upload/';
+        $links = array_map(fn (array $file): array => ['filename' => $file['filename'],
+            'upload_url' => $base . \Talea\Mcp\UploadLinks::create($this->app->db(), $tokenId, $file['filename'], $file['alt'], $folder ?: null)], $files);
+
+        return ['folder' => $folder ?: null, 'expires_in_minutes' => \Talea\Mcp\UploadLinks::MINUTES, 'uploads' => $links,
+            'how' => 'Send each file as the body of a PUT to its upload_url, e.g. curl -sS -T "photo.jpg" "<upload_url>" – one file per link, once. The answer is the file as upload_file returns it (id, path, url). Without a shell, use upload_file or upload_files with url or data instead.'];
     }
 
     /**

@@ -21,6 +21,12 @@ use Talea\Core\Extensions;
  */
 final class Server
 {
+    /**
+     * A usable connection with its user (the first parameter is now): not blocked, not a refresh token, not expired. Narrowed by
+     * the token (user()) or by the connection an upload link belongs to (UploadLinks).
+     */
+    public const string CONNECTION_SQL = "SELECT t.token_id, t.client_id AS connection_client, t.name AS connection_name, t.access AS connection_access, t.tool_set AS connection_tool_set, u.* FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE u.blocked = FALSE AND t.kind <> 'refresh' AND (t.expires_at IS NULL OR t.expires_at > ?)";
+
     /** Protocol versions the server speaks, newest first (2.2: the client's version is answered when it is one of them). */
     public const array PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
@@ -397,8 +403,7 @@ final class Server
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
         $limited = (int) $db->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'mcp' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
-        $token = $db->one("SELECT t.token_id, t.client_id AS connection_client, t.name AS connection_name, t.access AS connection_access, t.tool_set AS connection_tool_set, u.* FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE t.token_hash = ? AND u.blocked = FALSE AND t.kind <> 'refresh' AND (t.expires_at IS NULL OR t.expires_at > ?)",
-            [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
+        $token = $db->one(self::CONNECTION_SQL . ' AND t.token_hash = ?', [date('Y-m-d H:i:s'), hash('sha256', $m[1])]);
         if ($token === null) {
             if (!$limited) {
                 $db->insert('ip_checks', ['ip' => $ip, 'type' => 'mcp', 'checked_at' => date('Y-m-d H:i:s')]);

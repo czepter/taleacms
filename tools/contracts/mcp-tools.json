@@ -1518,6 +1518,21 @@
             "openWorldHint": false
         }
     },
+    "request_upload": {
+        "parameters": {
+            "files": "array",
+            "folder": "string",
+            "folder_name": "string"
+        },
+        "required": [
+            "files"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "resolve_draft_comment": {
         "parameters": {
             "id": "integer"

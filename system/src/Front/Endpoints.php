@@ -203,6 +203,14 @@ final class Endpoints
         return (new \Talea\Mcp\Server($this->app))->handle();
     }
 
+    /** PUT /mcp/upload/<token>: a file sent to an upload link of a Claude connection (Mcp\UploadLinks) */
+    public function mcpUpload(string $token): Response
+    {
+        \Talea\Core\ErrorReport::tag('area', 'mcp');
+
+        return \Talea\Mcp\UploadLinks::receive($this->app, $token);
+    }
+
     /** /download/<token> */
     public function download(string $token): Response
     {

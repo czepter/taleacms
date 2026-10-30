@@ -97,6 +97,7 @@ final class Catalog
         'list_media' => ['read', ''],
         'upload_file' => ['draft', ''],
         'upload_files' => ['draft', ''],
+        'request_upload' => ['draft', ''],
         'import_website' => ['write', ''],
         'update_media' => ['write', ''],
         'delete_media' => ['destructive', ''],

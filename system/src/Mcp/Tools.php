@@ -161,6 +161,7 @@ final class Tools
             ['list_media', 'Recently uploaded images and files with addresses, dimensions and folder.', $s(['limit' => $number('1-50, default 20'), 'search' => $text('text in the name (optional)'), 'folder' => $pid('only the files of this folder from list_media_folders (optional)'), 'unsorted' => ['type' => 'boolean', 'description' => 'true = only the files in no folder']])],
             ['upload_file', 'Uploads a file to Media: an image (JPG, PNG, WebP, GIF – resized, with WebP/AVIF variants), SVG (cleaned), a WOFF2 font for the design system or an attachment (PDF…). Give the url of a public file (https – image, font, PDF; always url for larger files), or data in base64 (at most 12 MB). Returns the path for the image or background image element or for custom fonts. On a connection limited to drafts the file waits for approval: previews show it, and it goes public with the content that uses it once a person publishes that.', $s(['filename' => $text('file name with extension, e.g. team-london.jpg'), 'data' => $text('file content in base64'), 'url' => $text('https address of the file to download (instead of data)'), 'alt' => $text('image description for blind visitors (alt); otherwise from the name'), 'folder' => $pid('folder from list_media_folders (optional; otherwise no folder)')], ['filename'])],
             ['preview_link', 'A signed link to the draft preview of a page or site part – anyone can open it without signing in (the user, a colleague, a browser); it is valid only for this target and for a limited time. Search engines do not index it.', $s($target + ['minutes' => $number('validity in minutes, default 60, at most 10080'), 'site' => ['type' => 'boolean', 'description' => 'true = the whole site with every draft and the draft look (links on it keep the preview while browsing)'], 'comments' => ['type' => 'boolean', 'description' => 'true = whoever opens the link can click an element and write a comment with their name (page drafts only; read them with list_draft_comments)']])],
+            ['request_upload', 'Gives upload links for real files from the user\'s computer – no base64, larger files, whole folders. One link per file, valid ' . \Talea\Mcp\UploadLinks::MINUTES . ' minutes, used once: send the file as the body of a PUT, e.g. curl -sS -T "photo.jpg" "<upload_url>"; the answer is the file as upload_file returns it. Needs a shell (curl) on the client\'s side; without one use upload_file or upload_files. folder or folder_name as in upload_files. A file of a connection limited to drafts waits for approval, as with upload_file.', $s(['files' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'at most 50: [{"filename":"team-1.jpg","alt":"…"},{"filename":"price-list.pdf"}] – the name the file gets (with extension) and the image description'], 'folder' => $pid('folder from list_media_folders (optional)'), 'folder_name' => $text('name of the folder to put the files into, created when missing (optional, instead of folder)')], ['files'])],
             ['upload_files', 'Uploads several files to Media in one call (at most 20; more in further calls) – for example a whole folder of photos. Each file as in upload_file: filename plus url (https) or data (base64), optional alt. folder puts them all into an existing folder; folder_name finds the folder of that name or creates it (upload a folder of the user under its own name; a connection limited to drafts only finds one). A file that fails is listed under failed, the others are uploaded.', $s(['files' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"filename":"team-1.jpg","url":"https://…","alt":"…"},{"filename":"logo.svg","data":"<base64>"}]'], 'folder' => $pid('folder from list_media_folders (optional)'), 'folder_name' => $text('name of the folder to put the files into, created when missing (optional, instead of folder)')], ['files'])],
             ['update_settings', 'Changes site settings (administrators) – they apply to the site straight away. Keys: site_name, site_url (the site address after a domain move, e.g. https://example.com: links in e-mails, feeds, the sitemap and canonical addresses are built from it; full-access connections only, refused while the server sets it through TALEA_SITE_URL), redirect_to_site_url (1/0: a visitor on another host – www, an old domain – gets a 301 to the same page on site_url; /mcp, OAuth and preview links are not redirected), site_description, footer_text, logo, favicon and share_image – the sharing image 1200×630 (path media/… from upload_file or image/…), home_page (public id of the home page), social_facebook|instagram|x|youtube|linkedin (URL), news_per_page, share_buttons, article_outline, related_news_auto (1/0), dark_mode (off = light only | auto = by device | dark = always dark), theme_switcher (1/0 = light/dark switcher for visitors), german_register (formal = Sie | informal = du: the form of address of the German texts for visitors), company details company_name, company_type (' . implode(' | ', array_keys(\Talea\Front\Company::TYPES)) . '; Person = a personal site: no company IDs, opening hours or job postings in the structured data), company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. Since 2.2 also: extensions (the list of switched-on extensions, e.g. ["news","enquiries","claude"] – claude must stay), additional_languages (further language versions, e.g. ["de","cs"]; regional versions en-gb, de-at, pt-br and zh-hant use the texts of their language and address /pt-br/ in lowercase, hreflang pt-BR), slugs_per_language (1/0: a page, news item or category may have the same address as one in another language version – /contact and /de/contact; switching it off is refused while two versions share an address), indexing, schema_org, llms_txt, markdown_versions, indexnow (1/0), ai_crawlers (allow | block), url_slash (none | slash | html), robots_extra, verification_google, verification_bing, cookies_mode (none | builtin | external), cookies_text, cookies_policy_url (cookies_text_de, cookies_policy_url_de… = the cookie bar of a language version; empty = as in the default language), cookies_log (1/0), cookies_log_months, stats (1/0), ga4_id, plausible_domain, security_contact, claude_instructions, captcha_provider (hcaptcha | recaptcha | turnstile | empty), captcha_site_key, captcha_fail_open (1/0) – the CAPTCHA secret key is set only in the administration. Code that runs on the site (head_code, marketing_code, cookies_external_code) and the script hosts gtm_id, matomo_url and matomo_id (since 3.3.2) are set only in the administration. Screen mode (2.11, a TV in the reception rotating slides): screen_mode (1/0), screen_seconds (5–60 per slide), screen_collections (list of collection addresses), screen_news, screen_hours, screen_clock (1/0); the result has them under "screen" – the secret address is shown only in the administration (Settings → General). Without the parameter it returns the current values.', $s(['settings' => ['type' => 'object', 'description' => '{"key":"value"}']])],
             ['list_enquiries', 'Enquiries from the site forms (Forms and enquiries extension; only with access to Enquiries), newest first: date, form, page, what it was about (about: the collection item, page or pop-up the form was on), campaign (utm), e-mail, status and the filled-in fields. They contain personal data – use them only for what the user asks.', $s(['status' => $text('new | read | resolved | all (default)'), 'search' => $text('text in the e-mail or content (optional)'), 'limit' => $number('1-50, default 20'), 'category' => $text('a kind of the site (triage_enquiries lists them; built in: sales | support | job | supplier | spam | other) or unsorted (optional, 2.12; without it spam is left out)')])],
@@ -906,8 +907,22 @@ final class Tools
         return $content;
     }
 
-    /** @return array<string, mixed> */
-    private function uploadFile(array $a): array
+    /**
+     * A file that arrived through an upload link (Mcp\UploadLinks), saved as upload_file would save it. The temporary file is
+     * removed. The result names rows by number, as a tool's does.
+     *
+     * @return array<string, mixed>
+     */
+    public function receiveUpload(array $a, string $path): array
+    {
+        return $this->uploadFile($a, $path);
+    }
+
+    /**
+     * @param string|null $received a file already on the server (an upload link); otherwise url or data of $a
+     * @return array<string, mixed>
+     */
+    private function uploadFile(array $a, ?string $received = null): array
     {
         $folder = (int) ($a['folder'] ?? 0) ?: null;
         $displayName = basename(str_replace('\\', '/', trim((string) ($a['filename'] ?? ''))));
@@ -915,14 +930,15 @@ final class Tools
         if ($extension === '') {
             throw new \InvalidArgumentException('The file name needs an extension (e.g. photo.jpg, logo.svg, font.woff2).');
         }
-        $content = $this->fileContent($a);
+        $temporary = $received ?? (string) tempnam(sys_get_temp_dir(), 'talea-mcp-');
         // a connection limited to drafts publishes nothing, files neither: they wait for approval outside the web root (#150)
         $staged = \Talea\Core\MediaStaging::appliesTo($this->app->auth());
-        $temporary = tempnam(sys_get_temp_dir(), 'talea-mcp-');
-        file_put_contents($temporary, $content);
         try {
+            if ($received === null) {
+                file_put_contents($temporary, $this->fileContent($a));
+            }
             $data = match (true) {
-                $extension === 'svg' => Media::saveSvgContent($content, $displayName, $staged),
+                $extension === 'svg' => Media::saveSvgContent((string) file_get_contents($temporary), $displayName, $staged),
                 \Talea\Core\Files::isAttachment($displayName) => \Talea\Core\Files::saveFile($temporary, $displayName, $staged),
                 default => \Talea\Core\Images::saveFile($temporary, $displayName, $staged),
             };

@@ -214,6 +214,34 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->assertStringContainsString('Only a JPG, PNG or WebP image', $this->raw('replace_media', ['id' => $this->call('upload_file', ['filename' => 'logo.svg', 'data' => base64_encode('<svg xmlns="http://www.w3.org/2000/svg"/>')])['id'], 'data' => $this->png()]), 'an SVG is not replaced');
     }
 
+    public function testUploadLinksTakeARealFileOnce(): void
+    {
+        $answer = $this->call('request_upload', ['folder_name' => 'From disk', 'files' => [['filename' => 'photo.png', 'alt' => 'A black square'], ['filename' => 'virus.exe']]]);
+        [$photo, $exe] = array_map(fn (array $u): string => (string) parse_url($u['upload_url'], PHP_URL_PATH), $answer['uploads']);
+        $this->assertMatchesRegularExpression('#^/mcp/upload/[a-f0-9]{48}$#', $photo);
+        $http = $this->site()->client('curl');
+        $bytes = (string) base64_decode($this->png(30, 20));
+
+        $this->assertSame(400, $http->put($photo, '')->status, 'an empty body is refused and keeps the link');
+        $saved = $http->put($photo, $bytes);
+        $this->assertSame(201, $saved->status, $saved->body);
+        $file = json_decode($saved->body, true);
+        $this->assertSame(['A black square', '30×20', $answer['folder']], [$file['name'], $file['size'], $file['folder']], 'the file gets its description, real size and folder');
+        $this->assertSame('1', $this->sql("SELECT COUNT(*) FROM tl_change_log WHERE module = 'claude' AND action = 'upload_file' AND description = 'photo.png'"), 'logged as an upload');
+        $this->assertSame(404, $http->put($photo, $bytes)->status, 'a link takes one file');
+
+        $this->assertSame(422, $http->put($exe, 'MZ')->status, 'a file type Media does not take is refused');
+        $this->site()->exec("UPDATE tl_mcp_uploads SET expires_at = NOW() - INTERVAL 1 MINUTE WHERE used_at IS NULL");
+        $this->assertSame(404, $http->post($exe, $bytes)->status, 'an expired link takes nothing');
+        $this->assertSame(404, $http->put('/mcp/upload/' . str_repeat('a', 48), $bytes)->status, 'an unknown link takes nothing');
+
+        $token = 'talea_' . bin2hex(random_bytes(24));
+        $this->site()->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'removable', ?, NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', $token)]);
+        $next = (string) parse_url($this->site()->mcpResult('request_upload', ['files' => [['filename' => 'late.png']]], $token)['uploads'][0]['upload_url'], PHP_URL_PATH);
+        $this->site()->exec("DELETE FROM tl_api_tokens WHERE name = 'removable'");
+        $this->assertSame(404, $http->put($next, $bytes)->status, 'the link of a removed connection is gone');
+    }
+
     public function testEnquiryReadsAreLoggedAndEnquiriesCanBeUpdatedAndDeleted(): void
     {
         $reads = (int) $this->sql("SELECT COUNT(*) FROM tl_change_log WHERE module = 'claude' AND action = 'list_enquiries'");
