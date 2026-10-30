@@ -33,6 +33,10 @@ try {
             }
             $app = Talea\Core\App::boot($prefix, $owner);
             Talea\Core\ErrorReport::tag('area', 'cron');
+            if ($prefix !== null && $prefix !== $app->db()->ownerPrefix && Talea\Core\Sites::transferRefusal($app->db(), Talea\Core\Sites::currentId($app->db())) !== null) {
+                fwrite(STDOUT, "[{$prefix}] skipped: the site is being moved to another owner\n"); // its jobs would write what the copy then loses
+                break;
+            }
             $sites = Talea\Core\Sites::all($app->db());
             $ownerRun = $prefix === null || $prefix === $app->db()->ownerPrefix; // the owner's site 1: the owner-wide jobs, new sites, the children
             if ($prefix !== null && !$ownerRun && !in_array($prefix, array_slice(array_column($sites, 'prefix'), 1), true)) {

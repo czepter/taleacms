@@ -160,6 +160,19 @@ final class Sites
         return array_map('intval', array_column($db->all('SELECT site_id FROM {user_sites} WHERE user_id = ?', [(int) $user['user_id']]), 'site_id'));
     }
 
+    /**
+     * Is the site being moved to another owner (Core\SiteTransfer)? Anything written to it now would be lost after the copy, so the one door every
+     * way into a site by its number passes – MCP `site`, the sign-in handoff, cron – asks this. null = free; else the refusal.
+     */
+    public static function transferRefusal(Db $owner, int $siteId, bool $translate = false): ?string
+    {
+        if ($owner->value('SELECT 1 FROM {sites} WHERE site_id = ? AND transfer_to IS NOT NULL', [$siteId]) === null) {
+            return null;
+        }
+
+        return $translate ? t('This site is being moved to another owner.') : 'This site is being moved to another owner.';
+    }
+
     /** May this person work on that site? @param array<string, mixed>|null $user */
     public static function allows(Db $db, ?array $user, int $siteId): bool
     {
@@ -811,6 +824,9 @@ final class Sites
         if (!self::allows($db, $db->one('SELECT user_id, admin, sites_limited FROM {users} WHERE user_id = ?', [$userId]), $siteId)) {
             throw new \DomainException('This person may not work on that site.');
         }
+        if (($moving = self::transferRefusal($db, $siteId, true)) !== null) {
+            throw new \DomainException($moving);
+        }
         $token = bin2hex(random_bytes(32));
         // UTC: the token is written on one site and claimed on another, and the two may run in different time zones (date() or NOW() would stretch the 60 s)
         $db->insert('handoff_tokens', ['token_hash' => hash('sha256', $token), 'user_id' => $userId, 'site_id' => $siteId, 'network_hash' => self::networkHash($network), 'expires_at' => gmdate('Y-m-d H:i:s', time() + self::HANDOFF_SECONDS)]);
@@ -827,6 +843,9 @@ final class Sites
     public static function claimHandoff(Db $db, string $token, int $siteId, string $network): ?int
     {
         if (preg_match('/^[a-f0-9]{64}$/', $token) !== 1) {
+            return null;
+        }
+        if (self::transferRefusal($db, $siteId) !== null) {
             return null;
         }
         $hash = hash('sha256', $token);

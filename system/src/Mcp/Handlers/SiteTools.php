@@ -30,6 +30,9 @@ trait SiteTools
                     'parent' => $pid('site id (a look family\'s parent, set up): the new site takes its design system, classes, header and footer from it; omit for none')], ['name'])],
             ['set_look_parent', 'Puts a site into the look family of a parent site, or takes it out (multisite, administrators). A child takes its published design system, dark mode, classes (merged by name; its own extra classes stay) and header and footer (every language the parent has) from the parent; they are copied again whenever the parent publishes, and the child cannot change them (menus, pages and everything else stay its own). One level only: a parent cannot be a child, the same owner. Joining copies the parent\'s look at once and throws away the child\'s unpublished look draft – refused unless discard_draft is true. Leaving (parent empty) keeps the current copy; the child can roll back its look alone with restore_look_version.',
                 $s(['id' => $pid('id of the site (the child) from list_owner_sites'), 'parent' => $pid('id of the parent site; empty = leave the family'), 'discard_draft' => ['type' => 'boolean', 'description' => 'true = throw away the child\'s unpublished look draft when joining']], ['id'])],
+            ['transfer_site', 'Moves a site to another owner (operators of the installation only, several owners, destructive: the old site goes to the trash and stops answering at once). Always start with dry_run (the default): the result is the report of what moves – content, visitors\' data, settings and secrets, host names, media files – what becomes a local copy, which people are found in the new owner by e-mail, who loses access, warnings, blockers and a report_hash. Run it again with dry_run false and that report_hash to move the site; a hash from an older report is refused if the site changed meanwhile. The move is set up in the background within a few minutes: the new site keeps the id and state of the old one, the host names move with it, the old site goes to the trash for 30 days under a new id.',
+                $s(['id' => $pid('id of the site to move (from list_owner_sites of its owner; never an owner\'s first site)'), 'owner' => $pid('id of the owner that gets the site (Owners area)'),
+                    'dry_run' => ['type' => 'boolean', 'description' => 'true (default) = only the report; false = move the site'], 'report_hash' => $text('the hash of the report you showed the user (required when dry_run is false)')], ['id', 'owner'])],
             ['update_site', 'Renames a site, sets its state (live | paused | archived; an archived site may redirect to another with redirect_to) and its hub card (multisite, administrators): card_summary, card_image and show_in_hub decide what the Projects element shows about it on the other sites. Putting a site into the trash is trash_site.',
                 $s(['id' => $pid('site id from list_owner_sites'), 'name' => $text('new name'), 'status' => $text('live | paused | archived'), 'redirect_to' => $pid('site id an archived site redirects to; empty = none'),
                     'card_summary' => $text('one or two sentences for the hub card (at most 300 characters)'), 'card_image' => $text('media path of the hub card image, e.g. media/2026/10/studio.jpg; empty = none'),
@@ -161,6 +164,33 @@ trait SiteTools
 
         return ['site' => ['current' => false] + $this->siteOutput($site + ['domains' => []]),
             'next' => 'The site is set up in the background within a few minutes (ready: true in list_owner_sites) and starts paused. Add a host name with add_site_domain, then set it live with update_site.'];
+    }
+
+    /** transfer_site */
+    private function toolTransferSite(string $name, array $a): mixed
+    {
+        $this->siteAdmin();
+        $db = $this->app->db();
+        if (!\Talea\Core\Owners::isOperator($db, $this->app->auth()->user())) {
+            throw new \DomainException('Moving a site to another owner is for the operators of the installation (several owners, the first owner\'s administration).');
+        }
+        $found = \Talea\Core\SiteTransfer::find($db, (string) ($a['id'] ?? ''), (string) ($a['owner'] ?? ''));
+        if (is_string($found)) {
+            throw new \InvalidArgumentException($found);
+        }
+        $report = \Talea\Core\SiteTransfer::report($found['owner'], $found['site'], $found['target']);
+        if (($a['dry_run'] ?? true) !== false) {
+            return ['dry_run' => true, 'report' => $report, 'next' => $report['blockers'] !== [] ? 'The blockers have to be gone before this site can move.'
+                : 'Show the user what moves and the warnings. To move the site call transfer_site again with dry_run false and report_hash ' . $report['hash'] . ' – only when the user agrees.'];
+        }
+        $error = \Talea\Core\SiteTransfer::start($db, (array) $this->app->auth()->user(), (string) $a['id'], (string) $a['owner'], (string) ($a['report_hash'] ?? ''));
+        if ($error !== null) {
+            throw new \InvalidArgumentException($error);
+        }
+        \Talea\Admin\ChangeLog::write($this->app, 'owners', 'transfer', (string) $found['site']['name'] . ' → ' . (string) $found['target']['name']);
+
+        return ['dry_run' => false, 'queued' => true, 'site' => (string) $found['site']['public_id'], 'owner' => (string) $found['target']['public_id'],
+            'next' => 'The old site already answers 503. The move is set up in the background within a few minutes: the new site keeps this id, the host names move with it and the old site goes to the trash.'];
     }
 
     /** set_look_parent */

@@ -12,6 +12,7 @@ use Talea\Core\MediaFolder;
 use Talea\Core\Owners as OwnerRegistry;
 use Talea\Core\Response;
 use Talea\Core\SiteHealth;
+use Talea\Core\SiteTransfer as TransferRegistry;
 use Talea\Core\Sites as SiteRegistry;
 
 /**
@@ -195,6 +196,42 @@ final class Owners extends Module
         ChangeLog::write($this->app, 'owners', 'clone', $source['owner_name'] . ' / ' . ($source['site']['name'] !== '' ? $source['site']['name'] : $source['site']['slug']) . ' → ' . ($target['name'] !== '' ? $target['name'] : $target['prefix']) . ' / ' . $name);
 
         return $this->back('The copy is created. It is being set up in the background and appears as ready within a few minutes.');
+    }
+
+    /**
+     * Moves a site to another owner (Core\SiteTransfer): with a site and an owner chosen the page shows the dry-run report; the button sends its hash back
+     * and the request only queues the move (cron copies, moves the host names and trashes the old site). The list shows what is under way or failed.
+     */
+    protected function actionTransfer(): Response
+    {
+        $sites = array_values(array_filter(OwnerRegistry::allSites($this->db), fn (array $f): bool => $f['site']['prefix'] !== $f['owner']));
+        $owners = array_values(array_filter(OwnerRegistry::all($this->db), fn (array $o): bool => $o['ready_at'] !== null && $o['status'] !== 'archived'));
+        $site = $this->request->post('site') ?: $this->request->get('site');
+        $to = $this->request->post('to') ?: $this->request->get('to');
+        $user = $this->app->auth()->user();
+        if ($this->request->isPost() && $user !== null) {
+            $error = TransferRegistry::start($this->db, $user, $site, $to, $this->request->post('hash'));
+            if ($error === null) {
+                ChangeLog::write($this->app, 'owners', 'transfer', $site . ' → ' . $to);
+
+                return $this->back('The site is being moved in the background. The old site stops answering now; the new one is ready within a few minutes.', 'transfer');
+            }
+
+            return $this->back($error, 'transfer', ['site' => $site, 'to' => $to], 'error');
+        }
+        $report = null;
+        if ($site !== '' && $to !== '') {
+            $found = TransferRegistry::find($this->db, $site, $to);
+            $report = is_string($found) ? null : TransferRegistry::report($found['owner'], $found['site'], $found['target']);
+        }
+        $states = [];
+        foreach ($sites as $f) {
+            if ($f['site']['transfer_to'] !== null || $f['site']['transfer_error'] !== '') {
+                $states[] = $f;
+            }
+        }
+
+        return $this->view('transfer', 'Move a site', ['sites' => $sites, 'owners' => $owners, 'site' => $site, 'to' => $to, 'report' => $report, 'states' => $states]);
     }
 
     /**

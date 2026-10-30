@@ -2039,6 +2039,23 @@
             "openWorldHint": false
         }
     },
+    "transfer_site": {
+        "parameters": {
+            "dry_run": "boolean",
+            "id": "string",
+            "owner": "string",
+            "report_hash": "string"
+        },
+        "required": [
+            "id",
+            "owner"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "translation_status": {
         "parameters": {
             "status": "string",

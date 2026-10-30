@@ -300,6 +300,9 @@ final class Server
         if ($row['status'] === 'trashed') {
             throw new \InvalidArgumentException('This site is in the trash. Restore it first (restore_site).');
         }
+        if (($moving = \Talea\Core\Sites::transferRefusal($db, (int) $row['site_id'])) !== null) {
+            throw new \DomainException($moving);
+        }
         if ($row['ready_at'] === null) {
             throw new \InvalidArgumentException('This site is still being set up. Try again in a few minutes.');
         }
