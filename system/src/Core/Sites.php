@@ -24,6 +24,12 @@ final class Sites
         'form_steps', 'fleet_pairing', 'connectors', 'agent_schedules', 'fleet_sites', // external connections: a copy would act in the clone's name
     ];
 
+    /**
+     * What a transfer between owners (Core\SiteTransfer) does not copy: the queues, the sessions and links of visitors, the throttling counters and
+     * the migration state. Everything else – visitors' data, the change log, the statistics, the connections – moves with the business.
+     */
+    public const array TRANSFER_SKIP = ['migrations', 'jobs', 'mail', 'webhook_deliveries', 'connector_queue', 'newsletter_queue', 'subscription_queue', 'member_sessions', 'member_tokens', 'ip_checks'];
+
     /** A host name that is not verified after this many days is removed (the sites_cleanup job). */
     public const int UNVERIFIED_DAYS = 14;
 
@@ -44,7 +50,7 @@ final class Sites
      * null = no such domain. With several owners (TALEA_OWNERS) the domains of every set-up owner are read in one query – a host is
      * unique in the whole install – and the result names the owner's prefix; without, only this owner's.
      *
-     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, owner_status: string, owner_public_id: string, status: string, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool, verified: bool, kind: string}|null
+     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, owner_status: string, owner_public_id: string, status: string, transferring: bool, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool, verified: bool, kind: string}|null
      */
     public static function resolve(Db $db, string $host): ?array
     {
@@ -56,7 +62,7 @@ final class Sites
             $o = $db->forOwner($owner);
             $sites = $db->dialect()->quote($o->table('sites'));
             $domains = $db->dialect()->quote($o->table('site_domains'));
-            $selects[] = 'SELECT ' . $i . ' AS owner_idx, s.site_id, s.public_id, s.prefix, s.status, s.redirect_to_site_id, s.ready_at, d.is_primary, d.redirect_to_primary, d.verified_at, d.kind,
+            $selects[] = 'SELECT ' . $i . ' AS owner_idx, s.site_id, s.public_id, s.prefix, s.status, s.transfer_to, s.redirect_to_site_id, s.ready_at, d.is_primary, d.redirect_to_primary, d.verified_at, d.kind,
                 (SELECT p.host FROM ' . $domains . ' p WHERE p.site_id = s.site_id AND p.is_primary = TRUE ORDER BY p.domain_id LIMIT 1) AS primary_host
              FROM ' . $domains . ' d JOIN ' . $sites . ' s ON s.site_id = d.site_id WHERE d.host = ?';
         }
@@ -66,7 +72,7 @@ final class Sites
         $r = $rows[0] ?? null;
 
         return $r === null ? null : [
-            'site_id' => (int) $r['site_id'], 'public_id' => (string) $r['public_id'], 'prefix' => (string) $r['prefix'], 'owner_prefix' => $owners[(int) $r['owner_idx']], 'owner_status' => (string) ($statuses[$owners[(int) $r['owner_idx']]] ?? 'live'), 'owner_public_id' => $owners[(int) $r['owner_idx']] === $db->installPrefix ? '' : (string) ($publicIds[$owners[(int) $r['owner_idx']]] ?? ''), 'status' => (string) $r['status'],
+            'site_id' => (int) $r['site_id'], 'public_id' => (string) $r['public_id'], 'prefix' => (string) $r['prefix'], 'owner_prefix' => $owners[(int) $r['owner_idx']], 'owner_status' => (string) ($statuses[$owners[(int) $r['owner_idx']]] ?? 'live'), 'owner_public_id' => $owners[(int) $r['owner_idx']] === $db->installPrefix ? '' : (string) ($publicIds[$owners[(int) $r['owner_idx']]] ?? ''), 'status' => (string) $r['status'], 'transferring' => $r['transfer_to'] !== null,
             'redirect_to_site_id' => $r['redirect_to_site_id'] === null ? null : (int) $r['redirect_to_site_id'],
             'is_primary' => (bool) $r['is_primary'], 'redirect_to_primary' => (bool) $r['redirect_to_primary'], 'primary_host' => $r['primary_host'] === null ? null : (string) $r['primary_host'], 'ready' => $r['ready_at'] !== null,
             'verified' => $r['verified_at'] !== null || ($owners[(int) $r['owner_idx']] === $db->installPrefix && Domains::envVerified($host)), 'kind' => (string) $r['kind'],
@@ -433,6 +439,11 @@ final class Sites
         if ($source->prefix === $new->prefix) {
             throw new \RuntimeException('A site cannot be made from itself.');
         }
+        if (($site['transfer_by'] ?? null) !== null) {
+            SiteTransfer::provision($db, $site, $new, $source, $sourceOwnerDb); // the whole step, domains and the source's trash included
+
+            return;
+        }
         if (!empty($site['clone'])) {
             if ($cross) {
                 OwnerClone::copy($db, $new, $source, $sourceOwnerDb, $site, (int) ($site['source_site_id'] ?? 1));
@@ -467,15 +478,22 @@ final class Sites
      * $nulled names columns that are copied as NULL (table => columns): the users of another owner, which the target's foreign keys
      * to its own {users} would refuse.
      *
+     * $skip replaces the clone's list of tables left out (NOT_CLONED and the statistics): a transfer passes TRANSFER_SKIP. $mapped turns the user
+     * numbers of a column into those of the target owner's users (table => column => [source user => target user, else 'NULL' or '0' for
+     * a person with no counterpart]).
+     *
      * @param array<string, list<string>> $nulled
+     * @param list<string>|null $skip
+     * @param array<string, array<string, array{map: array<int, int>, else: string}>> $mapped
      */
-    public static function copyTables(Db $source, Db $new, array $nulled = []): void
+    public static function copyTables(Db $source, Db $new, array $nulled = [], ?array $skip = null, array $mapped = []): void
     {
         $dialect = $new->dialect();
         $tables = [];
         foreach ($dialect->dumpTables($new->pdo(), $source->prefix) as $real) {
             $table = substr($real, strlen($source->prefix));
-            if (!in_array($table, Db::OWNER_TABLES, true) && !in_array($table, Db::INSTALL_TABLES, true) && !in_array($table, self::NOT_CLONED, true) && !str_starts_with($table, 'stats_') && $new->tableExists($table)) {
+            $left = $skip !== null ? in_array($table, $skip, true) : in_array($table, self::NOT_CLONED, true) || str_starts_with($table, 'stats_');
+            if (!in_array($table, Db::OWNER_TABLES, true) && !in_array($table, Db::INSTALL_TABLES, true) && !$left && $new->tableExists($table)) {
                 $tables[] = $table;
             }
         }
@@ -486,7 +504,21 @@ final class Sites
             foreach ($tables as $table) {
                 $names = array_values(array_intersect($new->columns($table), $source->columns($table)));
                 $list = implode(', ', array_map($dialect->quote(...), $names));
-                $select = implode(', ', array_map(fn (string $c): string => in_array($c, $nulled[$table] ?? [], true) ? 'NULL' : $dialect->quote($c), $names));
+                $select = implode(', ', array_map(function (string $c) use ($table, $nulled, $mapped, $dialect): string {
+                    if (isset($mapped[$table][$c])) {
+                        $m = $mapped[$table][$c];
+                        $when = '';
+                        foreach ($m['map'] as $from => $to) {
+                            $when .= ' WHEN ' . (int) $from . ' THEN ' . (int) $to;
+                        }
+
+                        $else = $m['else'] === '0' ? '0' : 'NULL';
+
+                        return $when === '' ? $else : 'CASE ' . $dialect->quote($c) . $when . ' ELSE ' . $else . ' END';
+                    }
+
+                    return in_array($c, $nulled[$table] ?? [], true) ? 'NULL' : $dialect->quote($c);
+                }, $names));
                 $new->run('INSERT INTO ' . $dialect->quote($new->table($table)) . ' (' . $list . ') SELECT ' . $select . ' FROM ' . $dialect->quote($source->table($table)));
             }
         } finally {

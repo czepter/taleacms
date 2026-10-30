@@ -15,7 +15,7 @@ namespace Talea\Core;
 final class OwnerClone
 {
     /** Columns of the copied site tables, and of the target's components, that may name a media file: table => columns. */
-    private const array CONTENT = [
+    public const array CONTENT = [
         'pages' => ['image', 'text', 'build', 'build_draft'],
         'news' => ['image', 'intro', 'text', 'faq'],
         'tags' => ['description', 'image'],
@@ -50,20 +50,27 @@ final class OwnerClone
     /**
      * Fills the new site $new (migrated, in the owner of $db) from $source (a site of $sourceOwnerDb's owner). Called by Sites::provision.
      *
+     * $userMap non-null is a TRANSFER (Core\SiteTransfer): the site moves with its visitors' data and logs (Sites::TRANSFER_SKIP is all that stays behind), the
+     * user columns follow the people with the same e-mail instead of being cleared, and no clone rows are written (the caller logs the move).
+     *
      * @param array<string, mixed> $site the row of the new site in {sites}
+     * @param array<string, array<string, array{map: array<int, int>, else: string}>>|null $userMap
      */
-    public static function copy(Db $db, Db $new, Db $source, Db $sourceOwnerDb, array $site, int $sourceSiteId): void
+    public static function copy(Db $db, Db $new, Db $source, Db $sourceOwnerDb, array $site, int $sourceSiteId, ?array $userMap = null): void
     {
-        Sites::copyTables($source, $new, self::USER_COLUMNS);
+        Sites::copyTables($source, $new, self::USER_COLUMNS, $userMap === null ? null : Sites::TRANSFER_SKIP, $userMap ?? []);
         self::copyComponentsAndFacts($db, $new, $sourceOwnerDb, $sourceSiteId, (int) $site['site_id']);
         if ($new->tableExists('news_drafts')) {
-            $new->run('DELETE FROM {news_drafts}'); // a draft belongs to a user of the source owner
+            $new->run('DELETE FROM {news_drafts}' . ($userMap === null ? '' : ' WHERE user_id = 0')); // a draft belongs to a user of the source owner; a transfer keeps the ones of people it found again
         }
         $ownerId = Owners::publicIdOf($db, $db->ownerPrefix);
         $map = self::copyMedia($db, $new, $source, $sourceOwnerDb, $ownerId);
         self::rewrite($new, $map, $ownerId, self::CONTENT);
         self::rewrite($db, $map, $ownerId, ['components' => ['build', 'build_draft']], ' WHERE site_id = ' . (int) $site['site_id']);
         $name = fn (Db $d, int $id): string => (string) ($d->value('SELECT name FROM {sites} WHERE site_id = ?', [$id]) ?: 'main');
+        if ($userMap !== null) {
+            return;
+        }
         $from = Owners::nameOf($db, $sourceOwnerDb->ownerPrefix) . ' / ' . $name($sourceOwnerDb, $sourceSiteId);
         $to = Owners::nameOf($db, $db->ownerPrefix) . ' / ' . (string) $site['name'];
         // the other client's name stays out of a client's log: only owner 1's log (the operator's own) names the other side
@@ -98,22 +105,7 @@ final class OwnerClone
      */
     private static function copyMedia(Db $db, Db $new, Db $source, Db $sourceOwnerDb, string $targetOwnerId): array
     {
-        $found = [];
-        foreach (self::CONTENT as $table => $columns) {
-            if (!$new->tableExists($table)) {
-                continue;
-            }
-            foreach ($new->all('SELECT ' . implode(', ', $columns) . ' FROM {' . $table . '}') as $row) {
-                foreach (MediaHygiene::paths(implode(' ', array_map('strval', $row))) as $path) {
-                    $found[$path] = true;
-                }
-            }
-        }
-        foreach ($db->all('SELECT build, build_draft FROM {components} WHERE site_id = ?', [self::siteIdOf($db, $new)]) as $row) {
-            foreach (MediaHygiene::paths(implode(' ', array_map('strval', $row))) as $path) {
-                $found[$path] = true;
-            }
-        }
+        $found = self::usedPaths($db, $new, self::siteIdOf($db, $new));
         $usage = $new->tableExists('media_usage') ? array_map('intval', array_column($new->all('SELECT DISTINCT media_id FROM {media_usage}'), 'media_id')) : [];
         $map = [];
         $ids = [];
@@ -150,6 +142,34 @@ final class OwnerClone
         }
 
         return $map;
+    }
+
+    /**
+     * The media paths the content of a site names (its tables, its builds in the shared components table): path => true. Also what the report of a
+     * transfer measures on the source.
+     *
+     * @return array<string, true>
+     */
+    public static function usedPaths(Db $owner, Db $site, int $siteId): array
+    {
+        $found = [];
+        foreach (self::CONTENT as $table => $columns) {
+            if (!$site->tableExists($table)) {
+                continue;
+            }
+            foreach ($site->all('SELECT ' . implode(', ', $columns) . ' FROM {' . $table . '}') as $row) {
+                foreach (MediaHygiene::paths(implode(' ', array_map('strval', $row))) as $path) {
+                    $found[$path] = true;
+                }
+            }
+        }
+        foreach ($owner->all('SELECT build, build_draft FROM {components} WHERE site_id = ?', [$siteId]) as $row) {
+            foreach (MediaHygiene::paths(implode(' ', array_map('strval', $row))) as $path) {
+                $found[$path] = true;
+            }
+        }
+
+        return $found;
     }
 
     /** The number of the new site (its row is the one with its prefix). */

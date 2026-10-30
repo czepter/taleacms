@@ -119,6 +119,14 @@ final class App
             }
             exit($paused ? "This site is not public yet\n" : "Not found\n");
         }
+        if (!empty($site['transferring']) && $request->path() !== '/health') {
+            // being moved to another owner (Core\SiteTransfer): nothing may change while the copy runs, the admin included
+            http_response_code(503);
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Retry-After: 300');
+            header('X-Robots-Tag: noindex');
+            exit("This site is being moved. Please come back in a few minutes.\n");
+        }
         if ($site['kind'] === 'preview') {
             header('X-Robots-Tag: noindex, nofollow'); // a preview address is for the owner and the client, never for search engines (the page also says so: Front\Seo)
         }
