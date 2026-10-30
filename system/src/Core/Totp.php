@@ -35,7 +35,8 @@ final class Totp
     public static function step(string $secret, string $code, ?int $time = null): ?int
     {
         $code = preg_replace('/\s+/', '', $code) ?? '';
-        if (!preg_match('/^\d{6}$/', $code)) {
+        // an account with only passkeys has no secret: a code computed from an empty key must never pass
+        if ($secret === '' || !preg_match('/^\d{6}$/', $code)) {
             return null;
         }
         $step = intdiv($time ?? time(), 30);

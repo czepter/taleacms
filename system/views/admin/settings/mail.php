@@ -81,7 +81,7 @@ $field('mail_reply_to', 'Send replies to', 'email', 'Optional – when readers\'
 $field('mail_reply_to_name', 'Name for replies', 'text', 'Optional – the name shown with the reply address.', 'maxlength="100"');
 ?>
 </details>
-<p><button class="navigation" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Send a test e-mail to the site address')) ?></button> <span class="small-text"><?= e(t('Save the settings first – the test uses the saved values.')) ?></span></p>
+<p class="navigation-row"><button class="navigation" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Send a test e-mail to the site address')) ?></button> <span class="small-text"><?= e(t('Save the settings first – the test uses the saved values.')) ?></span></p>
 <p class="help"><?= e(t('The monthly report – its e-mail, the recipients and the archive to print or download – is under Settings → Reports.')) ?> <a href="<?= e($module->url('', ['tab' => 'reports'])) ?>"><?= e(t('Reports')) ?></a></p>
 <?php if (!empty($mail)): ?>
 <h2><?= e(t('Recent messages')) ?></h2>
