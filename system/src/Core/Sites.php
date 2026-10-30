@@ -74,13 +74,14 @@ final class Sites
     }
 
     /**
-     * Why an archive (Core\SiteImport) cannot be imported now, or null. The import empties the owner tables (media, components, facts) for
-     * the whole install, which would delete the other sites' files and the rows they share: so it is allowed only while the install has one site.
+     * Why an archive (Core\SiteImport) cannot be imported INTO THIS SITE now, or null. That import empties the owner tables (media, components, facts),
+     * which would delete the other sites' files and the rows they share: so it is allowed only while the install has one site. The way for
+     * an archive with several sites is a NEW site (Core\SiteImports), which only adds to those tables.
      */
     public static function importRefusal(Db $db): ?string
     {
         if (self::enabled() && (int) $db->value("SELECT COUNT(*) FROM {sites} WHERE status <> 'trashed'") > 1) {
-            return 'Importing an archive is only possible while the install has one site, because it replaces the media, components and facts every site uses. Create a further site as a clone of this one, or import in a single-site install.';
+            return 'Importing an archive here would replace the media, components and facts every site uses. Import it as a new site instead: Sites, Import a Talea archive.';
         }
 
         return null;
@@ -343,7 +344,7 @@ final class Sites
     /** Sites that cron has to set up: registered, not ready, not in the trash. @return list<array<string, mixed>> */
     public static function pending(Db $db): array
     {
-        return $db->all("SELECT * FROM {sites} WHERE ready_at IS NULL AND status <> 'trashed' ORDER BY site_id");
+        return $db->all("SELECT * FROM {sites} WHERE ready_at IS NULL AND status <> 'trashed' AND import_error = '' ORDER BY site_id"); // an import that failed waits for a person
     }
 
     /** Prefixes of the sites that are set up (the owner's first); what the cron loop runs. @return list<string> */
@@ -389,6 +390,10 @@ final class Sites
         $lines = [];
         foreach ($pending as $site) {
             try {
+                if (($site['import_file'] ?? '') !== '') {
+                    $lines[] = 'site ' . $site['prefix'] . ': ' . SiteImports::work($db, $site); // an archive: batches over several runs, ready when it is done
+                    continue;
+                }
                 self::provision($db, $site);
                 $lines[] = 'site ' . $site['prefix'] . ': ready';
             } catch (\Throwable $e) {
@@ -584,6 +589,7 @@ final class Sites
             $db->delete('components', ['site_id' => (int) $site['site_id']]); // its own rows of the shared tables; the number may be given out again
             $db->delete('facts', ['site_id' => (int) $site['site_id']]);
             $db->delete('sites', ['site_id' => (int) $site['site_id']]);
+            SiteImports::forget((string) $site['prefix']);
             $gone++;
         }
         // a host name that is still not verified after 14 days is let go, so a claim nobody follows up does not hold the name

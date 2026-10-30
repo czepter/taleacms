@@ -10,6 +10,14 @@
  * @var int $limit  TALEA_MAX_SITES, 0 = none
  */
 $state = function (array $s): string {
+    if (!$s['ready'] && ($s['import_error'] ?? '') !== '') {
+        return '<span class="badge badge-error">' . e(t('Import failed')) . '</span>';
+    }
+    if (!$s['ready'] && ($s['import_file'] ?? '') !== '') {
+        $p = Talea\Core\SiteImports::progress($s);
+
+        return '<span class="badge badge-pending">' . e(t('Importing… %d %%', (int) ($p['percent'] ?? 0))) . '</span>';
+    }
     if (!$s['ready']) {
         return '<span class="badge badge-pending">' . e(t('Setting up…')) . '</span>';
     }
@@ -18,7 +26,7 @@ $state = function (array $s): string {
 };
 $title = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (string) $s['slug'];
 ?>
-<?= $app->view->render('admin/list/head', ['count' => (string) count($sites), 'primary' => [$module->url('new'), t('New site')]]) ?>
+<?= $app->view->render('admin/list/head', ['count' => (string) count($sites), 'links' => [[$module->url('import'), t('Import a Talea archive')]], 'primary' => [$module->url('new'), t('New site')]]) ?>
 <?= $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Sites'), 'tabs' => [['label' => t('Sites'), 'url' => $module->url(), 'active' => true], ['label' => t('Overview'), 'url' => $module->url('overview'), 'active' => false]]]) ?>
 <p class="small-text"><?= e(t('Every site has its own pages, news, settings and look. Users, media files, components and facts are shared by all sites. New sites are set up in the background by the scheduled tasks.')) ?></p>
 <div class="tab-wrap"><table class="listing">
@@ -26,7 +34,7 @@ $title = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (str
 <tbody>
 <?php foreach ($sites as $s): $edit = $module->url('edit', ['id' => $s['public_id']]); $host = $s['domains'][0]['host'] ?? ''; $here = (int) $s['site_id'] === $current; ?>
 <tr>
-	<td class="cell-main"><div class="cell-text"><a class="cell-title" href="<?= e($edit) ?>"><?= bdi($title($s)) ?></a><?= $here ? '<span class="cell-sub">' . e(t('You are working on this site')) . '</span>' : '' ?></div></td>
+	<td class="cell-main"><div class="cell-text"><a class="cell-title" href="<?= e($edit) ?>"><?= bdi($title($s)) ?></a><?= $here ? '<span class="cell-sub">' . e(t('You are working on this site')) . '</span>' : '' ?><?= ($s['import_error'] ?? '') !== '' ? '<span class="cell-sub" role="alert">' . bdi((string) $s['import_error']) . '</span>' : '' ?></div></td>
 	<td><?= $state($s) ?></td>
 	<td class="cell-weak"><?= $host !== '' ? bdi($host) : e(t('none yet')) ?></td>
 	<td class="number"><?= $s['ready'] ? e(Talea\Core\Files::size((int) $s['bytes'])) : '' ?></td>

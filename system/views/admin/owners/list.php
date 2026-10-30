@@ -13,7 +13,7 @@ $state = function (array $o): string {
     return '<span class="badge' . ($o['status'] === 'live' ? ' badge-published' : ($o['status'] === 'paused' ? ' badge-draft' : '')) . '">' . e(t(['live' => 'Live', 'paused' => 'Paused', 'archived' => 'Archived'][$o['status']] ?? $o['status'])) . '</span>';
 };
 ?>
-<?= $app->view->render('admin/list/head', ['count' => (string) count($owners), 'links' => [[$module->url('clone'), t('Copy a site')]], 'primary' => [$module->url('new'), t('New owner')]]) ?>
+<?= $app->view->render('admin/list/head', ['count' => (string) count($owners), 'links' => [[$module->url('clone'), t('Copy a site')], [$module->url('import'), t('Import a Talea archive')]], 'primary' => [$module->url('new'), t('New owner')]]) ?>
 <p class="small-text"><?= e(t('Every owner has its own users, media, sites and settings. Nothing is shared between owners. You, the administrators of the first owner, can open the sites of the others.')) ?></p>
 <div class="tab-wrap"><table class="listing">
 <thead><tr><th scope="col"><?= e(t('Owner')) ?></th><th scope="col"><?= e(t('Kind')) ?></th><th scope="col"><?= e(t('State')) ?></th><th scope="col"><?= e(t('Sites')) ?></th><th scope="col"><?= e(t('Storage')) ?></th><th scope="col"><?= e(t('Open enquiries')) ?></th><th scope="col"><?= e(t('Broken links')) ?></th><th scope="col"><?= e(t('Images without description')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>

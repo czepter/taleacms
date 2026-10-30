@@ -198,6 +198,48 @@ final class Owners extends Module
     }
 
     /**
+     * The operators' way to bring an old site to a client: an archive from an older single-site install becomes a new site of the chosen owner
+     * (Core\SiteImports). The row and the file are all this request writes; the owner's own cron imports it, and the other sites keep working.
+     * The news keep no author unless the owner is the operator's own (the operator is not a user of the client).
+     */
+    protected function actionImport(): Response
+    {
+        $owners = array_values(array_filter(OwnerRegistry::all($this->db), fn (array $o): bool => $o['ready_at'] !== null && $o['status'] !== 'archived'));
+        if (!$this->request->isPost()) {
+            return $this->importForm($owners, '', '', '');
+        }
+        $name = trim(mb_substr($this->request->post('name'), 0, 120));
+        $to = $this->request->post('to');
+        $target = current(array_filter($owners, fn (array $o): bool => (string) $o['public_id'] === $to)) ?: null;
+        $error = SiteRegistry::limitRefusal($this->db) ?? match (true) {
+            $name === '' => 'Fill in the site name.',
+            $target === null => 'Choose the owner that gets the site.',
+            default => null,
+        };
+        if ($error === null) {
+            try {
+                $first = $target['prefix'] === $this->db->installPrefix;
+                Sites::importArchive($this->db->forOwner((string) $target['prefix']), $this->request, $name, $first ? (int) $this->app->auth()->id() : 0, true);
+            } catch (\RuntimeException $e) {
+                $error = $e->getMessage();
+            }
+        }
+        if ($error !== null) {
+            return $this->importForm($owners, $name, $to, $error);
+        }
+        ChangeLog::write($this->app, 'owners', 'import', ($target['name'] !== '' ? $target['name'] : $target['prefix']) . ' / ' . $name);
+
+        return $this->back('The archive is being imported in the background. The site appears as ready when it is done.');
+    }
+
+    /** @param list<array<string, mixed>> $owners */
+    private function importForm(array $owners, string $name, string $to, string $error): Response
+    {
+        return $this->view('import', 'Import a Talea archive', ['name' => $name, 'to' => $to, 'error' => $error, 'owners' => $owners, 'files' => \Talea\Core\SiteImport::listAll(),
+            'uploadLimit' => min(Sites::bytes((string) ini_get('upload_max_filesize')), Sites::bytes((string) ini_get('post_max_size')))]);
+    }
+
+    /**
      * @param list<array{owner: string, owner_name: string, owner_public_id: string, site: array<string, mixed>}> $sources
      * @param list<array<string, mixed>> $owners
      */

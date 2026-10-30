@@ -12,7 +12,11 @@ $id = (string) $site['public_id'];
 $hidden = '<input type="hidden" name="id" value="' . e($id) . '">';
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to sites')) ?></a></p>
-<?php if (!$site['ready']): ?>
+<?php if (!$site['ready'] && $site['import_error'] !== ''): ?>
+<p class="notice notice-error" role="alert"><?= e(t('The import stopped: %s', $site['import_error'])) ?> <?= e(t('Move this site to the trash and import the archive again.')) ?></p>
+<?php elseif (!$site['ready'] && $site['import_file'] !== ''): ?>
+<p class="notice notice-pending"><?= e(t('The archive is being imported by the scheduled tasks (%d %%). The site is ready when it is done.', (int) (Talea\Core\SiteImports::progress($site)['percent'] ?? 0))) ?></p>
+<?php elseif (!$site['ready']): ?>
 <p class="notice notice-pending"><?= e(t('This site is being set up by the scheduled tasks. It can be edited as soon as it is ready.')) ?></p>
 <?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>">
@@ -57,6 +61,15 @@ $hidden = '<input type="hidden" name="id" value="' . e($id) . '">';
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 
+<?php $people = $site['import_people'] !== null ? json_decode((string) $site['import_people'], true) : null; if (is_array($people) && $people !== []): ?>
+<h2><?= e(t('People in the archive')) ?></h2>
+<p class="small-text"><?= e(t('Accounts are not imported and the news belong to the person who imported them. These are the authors and booking staff the archive names – invite them in Users.')) ?></p>
+<ul>
+<?php foreach ($people as $person): ?>
+	<li><?= bdi((string) ($person['name'] ?? '')) ?><?= ($person['email'] ?? '') !== '' ? ' &lt;' . e((string) $person['email']) . '&gt;' : '' ?></li>
+<?php endforeach ?>
+</ul>
+<?php endif ?>
 <h2><?= e(t('Host names')) ?></h2>
 <p class="small-text"><?= e(t('The site answers to these host names. Point each one to this installation in the DNS. The primary one is where people are sent when they open the site from here.')) ?></p>
 <?php if ($site['domains'] === []): ?>

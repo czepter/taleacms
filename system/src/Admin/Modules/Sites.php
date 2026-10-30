@@ -9,8 +9,11 @@ use Talea\Admin\Module;
 use Talea\Admin\ChangeLog;
 use Talea\Core\Antispam;
 use Talea\Core\Domains;
+use Talea\Core\Owners as OwnerRegistry;
 use Talea\Core\Response;
 use Talea\Core\SiteHealth;
+use Talea\Core\SiteImport;
+use Talea\Core\SiteImports;
 use Talea\Core\SiteFigures;
 use Talea\Core\Sites as SiteRegistry;
 
@@ -156,6 +159,65 @@ final class Sites extends Module
         SiteRegistry::add($this->db, $name, SiteRegistry::freeSlug($this->db, $name), $source, $from !== '');
 
         return $this->back('The site is created. It is being set up in the background and appears as ready within a few minutes.');
+    }
+
+    /** Import a Talea archive (an export of an older single-site install) as a NEW site: the row and the file are all this request writes, cron imports it. */
+    protected function actionImport(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->importForm('', '');
+        }
+        $name = trim(mb_substr($this->request->post('name'), 0, 120));
+        $existing = $this->request->post('existing');
+        $refusal = SiteRegistry::limitRefusal($this->db) ?? ($name === '' ? 'Fill in the site name.' : null);
+        if ($refusal !== null) {
+            return $this->importForm($name, $existing, $refusal);
+        }
+        try {
+            self::importArchive($this->db, $this->request, $name, (int) $this->app->auth()->id(), OwnerRegistry::isFirst($this->db));
+        } catch (\RuntimeException $e) {
+            return $this->importForm($name, $existing, $e->getMessage());
+        }
+        ChangeLog::write($this->app, 'sites', 'import', $name);
+
+        return $this->back('The archive is being imported in the background. The site appears as ready when it is done; the other sites keep working meanwhile.');
+    }
+
+    /**
+     * Makes a site of $owner from the uploaded archive (field `file`) or, where the installation's own import folder is the person's (the first
+     * owner), from a file already there (field `existing`).
+     *
+     * @throws \RuntimeException
+     */
+    public static function importArchive(\Talea\Core\Db $owner, \Talea\Core\Request $request, string $name, int $admin, bool $fromFolder): void
+    {
+        $upload = $request->file('file');
+        if ($upload !== null && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $upload['tmp_name'])) {
+            SiteImports::create($owner, $name, (string) $upload['tmp_name'], (string) pathinfo((string) $upload['name'], PATHINFO_EXTENSION), $admin, move_uploaded_file(...));
+
+            return;
+        }
+        $path = $fromFolder ? SiteImport::path($request->post('existing')) : null;
+        if ($path === null) {
+            throw new \RuntimeException('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.');
+        }
+        SiteImports::create($owner, $name, $path, (string) pathinfo($path, PATHINFO_EXTENSION), $admin, rename(...));
+    }
+
+    private function importForm(string $name, string $existing, string $error = ''): Response
+    {
+        return $this->view('import', 'Import a Talea archive', ['name' => $name, 'existing' => $existing, 'error' => $error, 'files' => OwnerRegistry::isFirst($this->db) ? SiteImport::listAll() : [],
+            'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size')))]);
+    }
+
+    /** "8M" from php.ini to bytes. */
+    public static function bytes(string $value): int
+    {
+        $number = (int) $value;
+
+        return $number <= 0 ? PHP_INT_MAX : $number * match (strtolower(substr(trim($value), -1))) {
+            'g' => 1024 ** 3, 'm' => 1024 ** 2, 'k' => 1024, default => 1,
+        };
     }
 
     protected function actionEdit(): Response
