@@ -11,7 +11,7 @@ Status of phase B (#23): built (`image/builder/compose.js`; style properties `gr
 Section fields `layout`, `stack_from`). Deviations from the text above: the layer scale is stored by name and renders `z-index` -1 / 0 / 1 / 2;
 rows are `minmax(var(--tl-space-l), auto)` (the unit is fixed, a row still grows with its text, so a paragraph never overflows its cell);
 Stack to Compose reads the positions from the desktop canvas (on tablet or phone it writes one clean column); a tablet or phone placement is possible
-with `stack_from` = phone only. Phase C (focal point, canvas background) is not built.
+with `stack_from` = phone only. Phase C (crop mode, canvas background, replace by drop) is specified in section 3, not built.
 
 ## 1. Problem
 
@@ -69,9 +69,93 @@ the grid and resized by handles. Output is still CSS grid placement, not absolut
 
 ### Phase C: media on the canvas
 
-- **Focal point** for images (click a point; stored as `object-position` percentages) and crop-to-ratio (`pomer_stran`).
-- Section background (colour, image, video) editable from the canvas toolbar.
-- Replace image by drop onto it.
+Status: specified, not built. Phase C is about the picture inside a box, not the box: what part of a photo shows, in what
+shape, and what sits behind a section. Every write is a normal `Style` / `content` change of the current breakpoint, one
+`applyChange` per gesture, like phases A and B.
+
+**What exists today (the base Phase C builds on):**
+
+- A Media file has its own focal point (`media.focal_point`, `"x% y%"`, set by a tap in Media → edit, `Admin\Modules\Media::actionSave`).
+  `Front\ImageHtml::complete` adds it as an inline `object-position` to every `<img>` of that file on the site: builder pages, news
+  text, collections, galleries. So the old open question 5 is settled: the per-file focal point already reaches every image.
+  It is not reachable over MCP (`update_media` has no `focal_point`), and background images ignore it (`Style::css` writes
+  `background-position: center`).
+- Style properties `aspect_ratio` (choice: 1, 4/3, 3/2, 16/9, 21/9, 3/4) and `object_fit` (cover | contain), per breakpoint,
+  form fields only.
+- Background: style `background` (colour token), `background_image`, `overlay` (`--tl-overlay`), `gradient`; the Section
+  content field `background_video` (MP4/WebM from Media, not per breakpoint). Form fields only.
+- The toolbar of an image has Replace (Media picker) and alt. A file dropped on the canvas is always inserted as a new element.
+- Known gap: an image with a caption or a link renders `<figure>` / `<a>` around the `<img>` and the element's style lands on
+  the wrapper, so `aspect_ratio` / `object_fit` crop the wrapper, not the photo.
+
+#### C1. Crop mode: focal point and ratio of an image
+
+| | |
+|---|---|
+| Opened by | Toolbar button **Crop** on a selected image (crosshair icon); double-click on an image; Enter on a selected image. |
+| Canvas | The whole photo appears around the element box at its cover scale; the part outside the box is dimmed (the box is the crop frame and does not move). A crosshair marks the focal point. The rest of the overlay (handles, other toolbar buttons) hides. |
+| Pointer | Press anywhere on the photo (also on the dimmed part) and drag: the point stays under the pointer. While dragging, the photo holds still and the bright window slides over it to show what will be visible; on release the photo settles so the window is back on the element box. Snaps to 0 / 50 / 100 % on each axis within 3 %; Alt = no snap. |
+| Ratio | A strip in the toolbar: **Original**, 1:1, 4:3, 3:2, 16:9, 21:9, 3:4 (the existing `aspect_ratio` options). A ratio writes `aspect_ratio` and, if not set, `object_fit: cover`; Original removes `aspect_ratio`. |
+| Keyboard | Arrows move the point by 5 %, Shift+arrows by 1 %, Home = centre, 1–7 pick a ratio, Enter = done, Esc = cancel (restores the state before crop mode). Live value in `aria-live`: "Focal point 30 %, 70 %". |
+| Done | **Done** writes one `applyChange` (focal point and ratio together = one undo step). **Reset** removes `focal_point` (and `aspect_ratio`) in the current breakpoint. |
+| Breakpoints | Writes the device state the switcher shows. A phone ratio of 3:4 under a desktop 16:9 is the common case. The toolbar shows a dot when the state overrides an inherited value (as A7). |
+| Not offered | Locked elements, images inside components, `contain` fit (no crop: the button shows, disabled, "Shows the whole image"), SVG. |
+
+Precedence of the point: placement in this breakpoint → placement inherited from a wider breakpoint → the file's own focal point
+in Media → centre. The crop never cuts the file; Media keeps one original and its variants.
+
+#### C2. Background from the canvas
+
+A **Background** button in the toolbar of a section and of every container element (`TYPY[type].container`) opens a popover
+(Popover API, inside the overlay layer, anchored to the button, closes on Esc / outside click):
+
+| Tab | Controls | Writes |
+|---|---|---|
+| Colour | Swatches of the design-system colour tokens (read from the canvas, never recomputed), "none". A free colour stays in the panel. | `background` |
+| Image | Choose from Media, Upload, the current image with **Set focal point** (crop mode on the background, no ratio strip), Overlay: none / darken / darken more / darken at the bottom. | `background_image`, `background_focal`, `overlay` or `gradient` |
+| Video (section only) | Choose from Media (MP4/WebM), remove. Note: "Same video on every screen size. Hidden for visitors who ask for less motion; the image is shown instead." | content `background_video` |
+
+Each control is one undo step. Style values go to the current breakpoint; the popover title says which ("Background · phone").
+When the section's text colour fails contrast against the chosen colour (the builder check already computes this), the popover
+shows the check's warning line; it never blocks.
+
+#### C3. Replace by drop
+
+Dragging files over the canvas keeps today's insertion line, with two exceptions:
+
+| Drop target | Highlight | Result |
+|---|---|---|
+| One image file over an image element | The whole image outlined, label "Replace image · Shift: insert" | Upload, `content.src` = new file, placement `focal_point` removed in all states (it was for the old photo), ratio kept. |
+| One image file over a section / container that has a `background_image` in the current state | The element outlined, label "Replace background · Shift: insert" | Upload, `background_image` of the current state = new file, `background_focal` removed. |
+| One video file over a section that has a `background_video` | as above | `background_video` = new file. |
+| Shift held, several files, locked element, other cases | insertion line | Insert, as today (A10). |
+
+Alt text on replace (drop and the Replace button end in the same function): Media keeps an image's alt in its name (the description is a caption).
+A file picked from Media takes its name as the alt when it has one, otherwise the old alt stays. A file just uploaded or dropped has only its file name,
+so the old alt stays and the status line says "Image replaced. Check that the description still fits."; an empty alt is filled from the name. One drop =
+one undo step; a failed upload changes nothing.
+
+#### C4. Data model
+
+| Property | Type | CSS | Allowed on | States |
+|---|---|---|---|---|
+| `focal_point` (new) | `focal`: `"x% y%"`, integers 0–100 | `--tl-focal` + `object-position` | image elements | base, tablet, mobile |
+| `background_focal` (new) | `focal` | `background-position` (replaces the fixed `center`) and the section video's `object-position` | elements with a `background_image` or `background_video` | base, tablet, mobile |
+
+- `Build::sanitize` drops them (reported) on other types and in hover/active states, and drops values outside 0–100.
+- `ImageHtml::complete` writes the file's point as `object-position: var(--tl-focal, x% y%)`, so a placement wins over the file
+  and an inline style no longer beats the layered CSS. `Image::baseCss` lets the crop group (`aspect_ratio`, `object_fit`,
+  `focal_point`) reach the `<img>` inside a `<figure>` / `<a>` (the known gap above).
+- MCP: both properties reach `save_build` through `Style::PROPERTIES` and `ElementSchema` (builder style properties are not recorded in
+  `tools/contracts`); `update_media` gains `focal_point` (`"x% y%"` or `""`, checked by `Style::focal`), recorded in the tool contract and
+  the admin Media field's MCP counterpart (ParityTest).
+- No migration: style is JSON in the build; `media.focal_point` exists.
+
+#### C5. Non-goals of phase C
+
+Zoom or free-rectangle crop (it would need scaled images or server-side crops), cutting or re-encoding files, per-item focal
+points inside Gallery / Carousel / Before-after (the file's point applies there), writing the Media file's point from the canvas
+(that change would be live at once, outside the draft), backgrounds on non-container elements, video poster editing.
 
 ### Non-goals
 
@@ -83,7 +167,8 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
 - **Where the code goes:** the builder is native ES modules in `image/builder/` (#229, no bundler): the compose work is
   `overlay.js`, `handles.js`, `keys.js` and `compose.js`, which import what they use (`applyChange`, `find`, `state` from `core.js`,
   `previewDoc` from `canvas.js`) and share the toolkit `C` that `overlay.js` exports. `window.taleaBuilder` remains only as a handle
-  for the browser test (`tools/test-browser.mjs`); no module reads it.
+  for the browser test (`tools/test-browser.mjs`); no module reads it. Phase C adds `media.js` (crop mode, background popover,
+  replace by drop): its toolbar buttons go through `C.extras`, the drop target through `overlay.js`'s `fileDrop`.
 - **Overlay layer:** handles, guides and the marquee live in one overlay element inside the canvas iframe (like
   `#tl-bd-grip` and `#tl-bd-place` today), `pointer-events` only on the handles. It is never part of the saved page and
   never rendered on the public site (the canvas is `?build=draft&editor=1`).
@@ -123,6 +208,20 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
    `tools/test-lighthouse.sh` still 99–100 on the starter sites).
 8. Claude over MCP can create the same Compose placement (`save_build` / `edit_build` with the new properties).
 
+Phase C:
+
+9. With the mouse only: give a hero image a 16:9 crop on desktop and 3:4 on phone with the subject kept in view, put a photo
+   behind a section with a darkening overlay and move its focal point, and replace an image by dropping a file on it. Each is
+   one undo step; reloading shows the same result; the desktop crop is unchanged by the phone edit.
+10. The same with keyboard only (crop mode arrows, ratio digits; the background popover by Tab) and in touch emulation.
+11. Precedence: a placement point beats the Media file's point, which beats centre; an image with a caption or a link crops
+    the photo, not the figure (`tests/Unit/Builder/StyleTest.php`, `tests/Site/` for `ImageHtml`).
+12. `Build::sanitize` drops `focal_point` outside images, in hover states and out of range; `background_focal` without a
+    background; `tests/Unit/Builder/ComposeTest.php` (or a new `MediaOnCanvasTest.php`) has a case for each.
+13. Over MCP, `save_build` with `focal_point` / `background_focal` and `update_media` with `focal_point` give the same output
+    as the editor; `php tools/contracts.php` shows only additions.
+14. Pages that use none of it get no new per-element CSS; the Image base CSS gains one rule and a linked image without a caption carries `tl-linked`.
+
 ## 7. Milestones
 
 | Milestone | Contents | Size |
@@ -132,7 +231,9 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
 | M3 | A4 floating toolbar, A5 multi-select / group, A6 guides | L |
 | M4 | A8 keyboard, A10 file drop, browser tests for acceptance 1–3, 5 | M |
 | M5 | Phase B Compose section: style properties, sanitizer, vocabulary, contracts, editor placement, tidy-up | XL |
-| M6 | Phase C focal point, canvas background editing | M |
+| M6 | Phase C data: `focal_point`, `background_focal`, sanitize, CSS, `ImageHtml` precedence, figure fix, Vocabulary, contracts, `update_media` | S |
+| M7 | C1 crop mode (pointer, keyboard, ratio strip), browser tests 9–10 for crop | M |
+| M8 | C2 background popover, C3 replace by drop, browser tests 9–10 for both | M |
 
 M1–M4 ship without any data-model change and can be released incrementally.
 
@@ -143,5 +244,9 @@ M1–M4 ship without any data-model change and can be released incrementally.
 2. Row unit in Compose: fixed height per row (predictable) or content-sized rows with free spans?
 3. Does multi-select group move apply across different parents, or only among siblings?
 4. Hold the 12-column grid, or let the design system set the column count (also for the snap points)?
-5. Should phase C focal point also apply to existing images in news text and collections (affects `Images` and
-   `srcset`), or only builder images?
+5. ~~Should phase C focal point also apply to existing images in news text and collections?~~ Settled: the Media file's
+   point already applies everywhere (`ImageHtml::complete`); phase C adds a per-placement point for builder images only.
+6. Crop mode on a Gallery / Carousel item: open it on the item and write the Media file's point (live, outside the draft), or
+   leave galleries to Media → edit? The spec leaves them out (C5).
+7. Should "Replace image" also offer "Replace everywhere" (`Media::actionReplace`, swaps the file under every use)? It is
+   live at once, so it would need its own confirmation.
