@@ -218,7 +218,8 @@ trait CollectionTools
             return ['registration' => ['state' => $v['_registration'][0], 'registered' => \Talea\Core\Calendar::registered($db, $collection, $r, (array) \Talea\Core\Calendar::fields($collection)),
                 'places_left' => $v['places_left'][0] !== '' ? (int) $v['places_left'][0] : null]
                 + ($course !== null ? ['mode' => $course['mode'], 'waiting_list' => $course['waiting_list'], 'max_seats' => $course['max_seats'],
-                    'taken' => $counts['taken'], 'waiting' => $counts['requested'], 'waitlisted' => $counts['waitlisted']] : [])];
+                    'taken' => $counts['taken'], 'waiting' => $counts['requested'], 'waitlisted' => (int) $db->value("SELECT COALESCE(SUM(seats), 0) FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state = 'waitlisted' AND item_id IN ("
+                        . implode(',', array_fill(0, count($ids = \Talea\Core\Registrations::group($db, (int) $r['item_id'])), '?')) . ')', $ids)] : [])];
         };
 
         // a document library (2.11): how often each document was downloaded, and the stable address of its file

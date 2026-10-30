@@ -88,7 +88,7 @@ final class PublicIds
         'list_categories' => ['*.id' => 'categories'], 'create_category' => ['id' => 'categories'], 'update_category' => ['id' => 'categories'], 'delete_category' => ['deleted' => 'categories'],
         'list_media' => ['*.id' => 'media'], 'upload_file' => ['id' => 'media'], 'update_media' => ['id' => 'media'], 'delete_media' => ['deleted' => 'media'],
         'list_media_without_alt' => ['images.*.id' => 'media'],
-        'list_enquiries' => ['*.id' => 'enquiries'], 'list_registrations' => ['registrations.*.id' => 'enquiries'], 'update_enquiry' => ['id' => 'enquiries'], 'delete_enquiry' => ['trashed' => 'enquiries'],
+        'list_enquiries' => ['*.id' => 'enquiries'], 'list_registrations' => ['registrations.*.id' => 'enquiries'], 'update_registration' => ['registration' => 'enquiries'], 'cancel_course' => ['cancelled' => 'collection_items', 'offers.*' => 'collection_items'], 'update_enquiry' => ['id' => 'enquiries'], 'delete_enquiry' => ['trashed' => 'enquiries'],
         'triage_enquiries' => ['enquiries.*.id' => 'enquiries'], 'find_personal_data' => ['enquiry_ids.*' => 'enquiries'],
         'erase_personal_data' => ['kept_testimonials.*' => 'collection_items'],
         'update_settings' => ['saved.home_page' => 'pages', 'settings.home_page' => 'pages'],

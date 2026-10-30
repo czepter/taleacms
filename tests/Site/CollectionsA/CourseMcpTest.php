@@ -76,7 +76,7 @@ final class CourseMcpTest extends SiteTestCase
     public function testUpdateRegistrationConfirms(): void
     {
         $text = $this->mcpText('update_registration', ['registration' => $this->pidOf('anna@example.com'), 'action' => 'confirm', 'message' => 'See you']);
-        $this->assertStringNotContainsString('rror', $text);
+        $this->assertSame($this->pidOf('anna@example.com'), json_decode($text, true)['registration'], 'a public id');
         $this->assertSame('confirmed', $this->sq("SELECT seat_state FROM tl_enquiries WHERE email = 'anna@example.com'"));
         $this->assertGreaterThan(1, (int) $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'anna@example.com'"), 'the person is told, as with the button');
         $this->assertNotSame('', $this->mcpText('update_registration', ['registration' => $this->pidOf('anna@example.com'), 'action' => 'dance']));
@@ -85,7 +85,8 @@ final class CourseMcpTest extends SiteTestCase
 
     public function testCancelCourseOverMcp(): void
     {
-        $this->mcpText('cancel_course', ['item' => $this->itemPid('salsa'), 'offer' => [$this->itemPid('tango')], 'message' => 'The teacher is ill.']);
+        $result = $this->site()->mcpResult('cancel_course', ['item' => $this->itemPid('salsa'), 'offer' => [$this->itemPid('tango')], 'message' => 'The teacher is ill.']);
+        $this->assertSame([$this->itemPid('salsa'), [$this->itemPid('tango')]], [$result['cancelled'], $result['offers']], 'public ids, and the accepted offers');
         $this->assertSame('2', $this->sq("SELECT COUNT(*) FROM tl_enquiries WHERE seat_state = 'cancelled'"));
         $this->assertSame('Cancelled: Salsa', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'anna@example.com' ORDER BY mail_id DESC LIMIT 1"));
     }

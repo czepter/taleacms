@@ -70,8 +70,10 @@ trait RegistrationTools
     {
         [$k, $item] = $this->courseOf((int) ($a['item'] ?? 0));
         $offer = array_values(array_filter(array_map('intval', (array) ($a['offer'] ?? [])), fn (int $i): bool => $i > 0));
+        // offerable() keeps the open courses of the collection (at most 3): the rest of the ones asked for is dropped
+        $accepted = array_map(fn (array $o): int => (int) $o['item_id'], Registrations::offerable($this->app->db(), $k, $item, $offer));
         $mails = Registrations::cancelCourse($this->app, $k, $item, $offer, mb_substr(trim((string) ($a['message'] ?? '')), 0, 2000));
 
-        return ['cancelled' => (int) $item['item_id'], 'mails' => $mails];
+        return ['cancelled' => (int) $item['item_id'], 'mails' => $mails, 'offers' => $accepted];
     }
 }
