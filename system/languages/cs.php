@@ -968,6 +968,7 @@ return [
     'From top' => 'Odshora',
     'Full screen' => 'Přes celou obrazovku',
     'Full statistics' => 'Celá statistika',
+    'Full · waiting list open' => 'Obsazeno · čekací listina otevřena',
     'Gallery' => 'Galerie',
     'Gallery caption' => 'Popisek galerie',
     'Gap between elements' => 'Mezera mezi prvky',

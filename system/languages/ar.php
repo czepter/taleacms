@@ -370,6 +370,7 @@ return [
     'Frequently asked questions – also as structured data for search engines.' => 'الأسئلة الشائعة – وأيضًا كبيانات منظّمة لمحركات البحث.',
     'Friday' => 'الجمعة',
     'From' => 'من',
+    'Full · waiting list open' => 'مكتمل · قائمة الانتظار مفتوحة',
     'Gallery' => 'المعرض',
     'Gallery caption' => 'تعليق المعرض',
     'Get in touch – within 24 hours we will come back with a proposal for next steps.' => 'تواصل معنا – وسنعود إليك خلال 24 ساعة بمقترح للخطوات التالية.',

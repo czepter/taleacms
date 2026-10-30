@@ -370,6 +370,7 @@ return [
     'Frequently asked questions – also as structured data for search engines.' => '常见问题——同时作为供搜索引擎使用的结构化数据。',
     'Friday' => '星期五',
     'From' => '从',
+    'Full · waiting list open' => '已满 · 候补名单开放',
     'Gallery' => '相册',
     'Gallery caption' => '相册说明',
     'Get in touch – within 24 hours we will come back with a proposal for next steps.' => '联系我们——我们将在 24 小时内给出下一步建议。',

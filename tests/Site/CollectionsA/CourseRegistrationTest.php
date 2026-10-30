@@ -79,6 +79,20 @@ final class CourseRegistrationTest extends SiteTestCase
         $this->assertStringContainsString('You are on the waiting list.', $this->visitor()->get(preg_replace('/#.*/', '', $redirect))->body);
     }
 
+    public function testCoursePageAndListShowStatusAndFilter(): void
+    {
+        $this->mcpText('save_collection_item', ['collection' => 'courses-test', 'name' => 'Mambo', 'slug' => 'mambo', 'values' => ['start' => $this->siteDate('+40 days') . ' 18:00', 'schedule' => 'Wednesdays', 'level' => 'Beginner'], 'visible' => true]);
+        $this->site()->clearPageCache();
+        $page = $this->visitor()->get('/courses-test/salsa')->body;
+        $this->assertStringContainsString('Full · waiting list open', $page, 'full with the waiting list on');
+        $this->assertStringContainsString('Starts ', $page);
+        $this->assertStringNotContainsString('{{', $page);
+        $this->assertStringNotContainsString('Full · waiting list open', $this->visitor()->get('/courses-test/tango')->body, 'the list is off: nothing to open');
+        $list = $this->visitor()->get('/courses-test')->body;
+        $this->assertStringContainsString('Wednesdays', $list, 'the card shows the schedule');
+        $this->assertStringContainsString('Beginner', $list, 'filter button by level');
+    }
+
     public function testListOffShowsFull(): void
     {
         $stale = $this->visitor()->get('/courses-test/tango'); // drawn while there is a seat; the second visitor sends it after the seat went

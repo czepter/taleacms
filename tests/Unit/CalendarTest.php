@@ -85,4 +85,14 @@ final class CalendarTest extends TestCase
         $this->assertNull(Calendar::refuseProtected($k, $without));
         $this->assertSame([], Calendar::protectedKeys(['preset' => '', 'fields' => $k['fields']]));
     }
+
+    public function testCourseStatusStartsAndRunning(): void
+    {
+        $this->assertSame([t('Starts %s', format_date('2026-11-04')), t('Running since %s', format_date('2026-10-07')), '', ''], [
+            Calendar::courseStatus('2026-11-04 18:00', '2026-12-16', '2026-10-30 12:00'),
+            Calendar::courseStatus('2026-10-07 18:00', '2026-12-16', '2026-10-30 12:00'),
+            Calendar::courseStatus('2026-10-07 18:00', '2026-12-16', '2026-12-17 00:00'),
+            Calendar::courseStatus('', '', '2026-10-30 12:00'),
+        ]);
+    }
 }

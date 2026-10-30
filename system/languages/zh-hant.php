@@ -370,6 +370,7 @@ return [
     'Frequently asked questions – also as structured data for search engines.' => '常見問題 – 同時以結構化資料提供給搜尋引擎。',
     'Friday' => '星期五',
     'From' => '從',
+    'Full · waiting list open' => '額滿 · 候補名單開放',
     'Gallery' => '相簿',
     'Gallery caption' => '相簿說明',
     'Get in touch – within 24 hours we will come back with a proposal for next steps.' => '歡迎與我們聯絡 – 我們會在 24 小時內回覆，並提出後續步驟的建議。',

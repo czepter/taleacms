@@ -369,6 +369,7 @@ return [
     'Frequently asked questions – also as structured data for search engines.' => 'Häufige Fragen von Kunden – auch als strukturierte Daten für Suchmaschinen.',
     'Friday' => 'Freitag',
     'From' => 'Von',
+    'Full · waiting list open' => 'Ausgebucht · Warteliste offen',
     'Gallery' => 'Galerie',
     'Gallery caption' => 'Galerie-Beschriftung',
     'Get in touch – within 24 hours we will come back with a proposal for next steps.' => 'Melden Sie sich – innerhalb von 24 Stunden erhalten Sie von uns einen Vorschlag für das weitere Vorgehen.',

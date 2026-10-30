@@ -55,7 +55,7 @@ final class PresetsTest extends TestCase
         $f1Presets = \Talea\Builder\Presets::all();
         $this->assertSame([[20, true, 'Service', true], [30, true, '', true], [40, false, '', false], [50, false, 'FAQPage', false], [70, true, 'Product', true], [80, true, 'Event', true]], array_map(fn (string $k): array => [
             $f1Presets[$k]['order'], (bool) $f1Presets[$k]['detail'], (string) ($f1Presets[$k]['schema']['type'] ?? ''), is_callable($f1Presets[$k]['template'])], ['services', 'references', 'price_list', 'faq', 'machines', 'courses']), '2.11 presets: services, references, price_list, faq, machines and courses in order after people, with their pages and structured data');
-        $this->assertSame([['sort' => 'order', 'filter_field' => 'category', 'filters' => true], 'category', ['period' => 'upcoming', 'period_start_field' => 'start', 'period_end_field' => 'end', 'sort' => 'field', 'sort_field' => 'start']], [
+        $this->assertSame([['sort' => 'order', 'filter_field' => 'category', 'filters' => true], 'category', ['period' => 'upcoming', 'period_start_field' => 'start', 'period_end_field' => 'end', 'sort' => 'field', 'sort_field' => 'start', 'filter_field' => 'level', 'filters' => true]], [
             $f1Presets['price_list']['list'], $f1Presets['faq']['list']['filter_field'], $f1Presets['courses']['list']], '2.11 presets: the lists – a price list and FAQ filter by category, courses show the upcoming ones by start and end sorted by the start');
         $this->assertSame(['services', ['price' => 'price_from'], ['sku' => 'model'], ['startDate' => 'start', 'endDate' => 'end', 'location' => 'place', 'price' => 'price']], [$f1Presets['references']['fields'][5][3]['preset'], $f1Presets['services']['schema']['fields'],
             $f1Presets['machines']['schema']['fields'], $f1Presets['courses']['schema']['fields']], '2.11 presets: a reference links to the services preset, the schema maps price_from, sku and the event dates');
@@ -67,6 +67,6 @@ final class PresetsTest extends TestCase
             str_contains($f1Template('machines'), '{{datasheet_name}}') && str_contains($f1Template('machines'), '{{parameters}}'),
             str_contains($f1Template('courses'), '<strong>{{when}}</strong>') && str_contains($f1Template('courses'), '{{capacity}}') && str_contains($f1Template('courses'), '"type":"form"')], '2.11 presets: the item templates survive sanitizing and show the fields');
         $f1List = \Talea\Builder\Build::toJson(\Talea\Builder\Presets::listPage($f1Presets['courses'], 'Kurzy', 'kurzy', $f1Fields('courses')));
-        $this->assertSame([true, true, true, true], [str_contains($f1List, '"period":"upcoming"'), str_contains($f1List, '"sort_field":"start"'), str_contains($f1List, '<p>{{start}}</p>'), str_contains($f1List, '<p>{{place}}</p>')], '2.11 presets: the list page of courses lists the upcoming ones with the start and the place on the card');
+        $this->assertSame([true, true, true, true], [str_contains($f1List, '"period":"upcoming"'), str_contains($f1List, '"sort_field":"start"'), str_contains($f1List, '<p>{{start}}</p>'), str_contains($f1List, '<p>{{places_left}}</p>')], '2.11 presets: the list page of courses lists the upcoming ones with the start and the free places on the card');
     }
 }

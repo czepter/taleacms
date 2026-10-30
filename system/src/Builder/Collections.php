@@ -547,7 +547,11 @@ final class Collections
             $h[$p['key']] = [$value, $p['type']];
         }
         if ($db !== null && ($collection['preset'] ?? '') !== '') {
-            $h += \Talea\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
+            $calendar = \Talea\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
+            $h += $calendar;
+            if (isset($calendar['waiting_list'])) {
+                $h['waiting_list'] = $calendar['waiting_list']; // the placeholder says whether the list is open, not the field's on/off
+            }
             $h += Products::values($collection, $item); // a product for the enquiry basket and comparison (2.11)
         }
         foreach (\Talea\Core\Notices::placeholders($collection, $item) as $key => $value) {

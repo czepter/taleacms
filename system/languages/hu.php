@@ -370,6 +370,7 @@ return [
     'Frequently asked questions – also as structured data for search engines.' => 'Gyakori kérdések – strukturált adatként a keresőmotoroknak is.',
     'Friday' => 'péntek',
     'From' => 'Ettől',
+    'Full · waiting list open' => 'Betelt · a várólista nyitva',
     'Gallery' => 'Galéria',
     'Gallery caption' => 'Galéria felirata',
     'Get in touch – within 24 hours we will come back with a proposal for next steps.' => 'Keressen minket – 24 órán belül javaslatot küldünk a következő lépésekre.',

@@ -226,10 +226,10 @@ final class Calendar
         // a course (not repeating): how many people one registration may bring, the waiting list and where the course stands
         $course = isset($item['item_id']) ? Registrations::course($collection, $item) : null;
         $maxSeats = $course === null ? 1 : ($course['capacity'] > 0 ? min($course['max_seats'], $course['capacity']) : $course['max_seats']);
-        $standing = '';
-        if ($course !== null && $start !== '' && $endsAt >= $now) {
-            $standing = $start > $now ? t('Starts %s', format_date(substr($start, 0, 10))) : t('Running since %s', format_date(substr($start, 0, 10)));
-        }
+        $standing = $course !== null ? self::courseStatus($start, $get('end'), $now) : '';
+        // full with the waiting list open: the next registration would be waitlisted
+        $waiting = $course !== null && isset($item['item_id']) && Registrations::decide($course, Registrations::taken($db, (int) $item['item_id']), 1, $now) === 'waitlisted'
+            ? t('Full · waiting list open') : '';
 
         return [
             'when' => [self::when($start, $get('end')), 'text'],
@@ -238,9 +238,19 @@ final class Calendar
             'ical' => [$collection['detail'] && ($item['slug'] ?? '') !== '' ? $url($collection['slug'] . '/' . $item['slug'] . '.ics') : '', 'link'],
             'places_left' => [$capacity > 0 ? (string) max(0, $capacity - $registered) : '', 'text'],
             'course_status' => [$standing, 'text'],
-            'waiting_list' => [$course !== null && $course['waiting_list'] ? t('Waiting list') : '', 'text'],
+            'waiting_list' => [$waiting, 'text'],
             '_registration' => [$state, 'text', $maxSeats, $course !== null, $course !== null && $course['waiting_list']],
         ];
+    }
+
+    /** Where a course stands: "Starts 4 November" before the first session, "Running since 7 October" after it, empty once it ended or without a start. */
+    public static function courseStatus(string $start, string $end, string $now): string
+    {
+        if ($start === '' || self::endsAt($start, $end) < $now) {
+            return '';
+        }
+
+        return $start > $now ? t('Starts %s', format_date(substr($start, 0, 10))) : t('Running since %s', format_date(substr($start, 0, 10)));
     }
 
     /**
