@@ -37,7 +37,6 @@ final class MessageSettings
     public static function reset(Request $request): array
     {
         $id = $request->post('reset_message');
-
         $keys = isset(Messages::CATALOGUE[$id]) ? array_map(fn (string $part): string => Messages::key($id, $part, $request->post('language')), Messages::parts($id)) : [];
 
         return array_fill_keys($keys, '');

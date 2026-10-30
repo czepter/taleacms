@@ -86,7 +86,7 @@ final class Forms
         // A course (not repeating) is also placed by seats under a lock below; here only what is certain without it is refused.
         $course = null; // [collection, item, rules]
         if (preg_match('/^collection:(\d+)$/', $source, $m) && ($found = \Talea\Core\Calendar::itemForSubmission($this->app->db(), (int) $m[1], $back)) !== null) {
-            if (($rules = Registrations::course($found[0], $found[1])) !== null) {
+            if (($rules = Registrations::rules($this->app->db(), $found[0], $found[1])) !== null) {
                 $course = [$found[0], $found[1], $rules];
                 $early = Registrations::decide($rules, Registrations::taken($this->app->db(), (int) $found[1]['item_id']), 1, date('Y-m-d H:i'));
                 if ($early === 'closed' || $early === 'full') {

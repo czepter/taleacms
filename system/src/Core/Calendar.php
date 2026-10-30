@@ -293,7 +293,7 @@ final class Calendar
             || preg_match('#/' . preg_quote((string) $collection['slug'], '#') . '/([a-z0-9-]{1,160})/?(?:\?.*)?$#', $back, $m) !== 1) {
             return null;
         }
-        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = TRUE AND deleted_at IS NULL LIMIT 1', [$idk, $m[1]]);
+        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = TRUE AND deleted_at IS NULL ORDER BY CASE WHEN language = ? THEN 0 ELSE 1 END, item_id LIMIT 1', [$idk, $m[1], Language::siteColumn()]); // the version of the page's language first
         if ($item === null) {
             return null;
         }

@@ -282,18 +282,16 @@ final class Collections extends Module
         foreach (array_reverse(Registrations::list($this->db, (int) $item['item_id'])['confirmed']) as $row) { // first to register first
             $key = $row['source'] . "\0" . $row['element'];
             $forms[$key] ??= \Talea\Front\Forms::findElement($this->db, (string) $row['source'], (string) $row['element'], 'form');
-            $labels = ['text' => [], 'tel' => []];
+            $labels = [];
             foreach ((array) ($forms[$key]['content']['fields'] ?? []) as $field) {
-                if (isset($labels[$field['type'] ?? ''])) {
-                    $labels[$field['type']][] = (string) $field['label'];
+                if (($field['type'] ?? '') === 'tel') {
+                    $labels[] = (string) $field['label'];
                 }
             }
-            $name = '';
+            $name = Registrations::nameOf($forms[$key], (string) $row['data']);
             $phone = '';
             foreach ((json_decode((string) $row['data'], true) ?: []) as $answer) {
-                $label = (string) ($answer[0] ?? '');
-                $name = $name === '' && in_array($label, $labels['text'], true) ? (string) ($answer[1] ?? '') : $name;
-                $phone = $phone === '' && in_array($label, $labels['tel'], true) ? (string) ($answer[1] ?? '') : $phone;
+                $phone = $phone === '' && in_array((string) ($answer[0] ?? ''), $labels, true) ? (string) ($answer[1] ?? '') : $phone;
             }
             $people[] = ['name' => $name !== '' ? $name : (string) $row['email'], 'email' => (string) $row['email'], 'phone' => $phone, 'seats' => (int) $row['seats']];
         }

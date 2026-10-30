@@ -537,4 +537,40 @@ final class RegistrationsTest extends DatabaseTestCase
         $this->assertDoesNotMatchRegularExpression('~/de/_course~', $mails['a@example.com']);
         $this->assertSame('0', (string) (int) $this->db()->value('SELECT visible FROM {collection_items} WHERE item_id = ?', [$german['item_id']]));
     }
+
+    public function testTrashingALanguageVersionKeepsItsSeatsTaken(): void
+    {
+        $c = $this->collection('courses', 'courses');
+        $a = $this->item($c, 'salsa', ['start' => '2030-01-01 10:00', 'capacity' => '2']);
+        $b = $this->item($c, 'salsa-de', ['start' => '2030-01-01 10:00', 'capacity' => '2']);
+        $this->db()->update('collection_items', ['slug' => 'salsa', 'language' => 'de'], ['item_id' => $b['item_id']]);
+        $this->enquiry($b['item_id'], 'confirmed', 2);
+        $this->db()->update('collection_items', ['deleted_at' => date('Y-m-d H:i:s')], ['item_id' => $b['item_id']]);
+        $this->assertSame(2, Registrations::taken($this->db(), $a['item_id']));
+        $this->assertSame(2, Registrations::counts($this->db(), $a['item_id'])['taken']);
+        $this->assertCount(1, Registrations::list($this->db(), $a['item_id'])['confirmed']);
+    }
+
+    public function testSeatDecisionsUseTheRulesOfTheLowestItemOfTheGroup(): void
+    {
+        $c = $this->collection('courses', 'courses');
+        $one = $this->item($c, 'salsa', ['start' => '2030-01-01 10:00', 'capacity' => '1']);
+        $five = $this->item($c, 'salsa-de', ['start' => '2030-01-01 10:00', 'capacity' => '5']);
+        $this->db()->update('collection_items', ['slug' => 'salsa', 'language' => 'de'], ['item_id' => $five['item_id']]);
+        $mk = fn (int $item): int => $this->db()->insert('enquiries', ['created_at' => date('Y-m-d H:i:s'), 'source' => 'x', 'page' => '/c/x', 'data' => '[]', 'item_id' => $item, 'seats' => 1]);
+        // the German version (capacity 5) comes first, then the default one: the second is waitlisted whichever version it comes through
+        $this->assertSame('confirmed', Registrations::place($this->app(), $c, $five, $mk($five['item_id']), 1, ''));
+        $this->assertSame('waitlisted', Registrations::place($this->app(), $c, $five, $mk($five['item_id']), 1, ''));
+        $this->assertSame('waitlisted', Registrations::place($this->app(), $c, $one, $mk($one['item_id']), 1, ''));
+    }
+
+    public function testPromotingIntoWaitingClearsTheReminder(): void
+    {
+        $c = $this->collection('courses', 'courses');
+        $item = $this->item($c, 'salsa', ['start' => '2030-01-01 10:00', 'capacity' => '1', 'registration' => 'confirm']);
+        $id = $this->enquiry($item['item_id'], 'waitlisted');
+        $this->db()->update('enquiries', ['reminded_at' => '2026-10-01 10:00:00'], ['enquiry_id' => $id]);
+        $this->assertSame(1, Registrations::promote($this->app(), $c, $item, '2029-12-02 00:00'));
+        $this->assertNull($this->db()->value('SELECT reminded_at FROM {enquiries} WHERE enquiry_id = ?', [$id]));
+    }
 }

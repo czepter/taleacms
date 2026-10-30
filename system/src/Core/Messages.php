@@ -39,7 +39,6 @@ final class Messages
         'course_thanks_waitlisted' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
         'course_full' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
         'course_closed' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
-        
         'course_take_over' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
         // {date} is the start of the appointment ("2 Nov 2026 10:00"), {appointment} the service, person, time and place lines
         'booking_confirmation' => ['group' => 'bookings', 'kind' => 'mail', 'placeholders' => ['name', 'appointment', 'service', 'date', 'cancel deadline', 'site name'], 'links' => ['cancel link', 'calendar link']],

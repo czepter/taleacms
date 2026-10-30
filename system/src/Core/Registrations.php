@@ -95,7 +95,7 @@ final class Registrations
     public static function place(App $app, array $collection, array $item, int $enquiryId, int $seats, string $email): string
     {
         $db = $app->db();
-        $course = self::course($collection, $item);
+        $course = self::rules($db, $collection, $item);
         if ($course === null) {
             return 'closed';
         }
@@ -150,14 +150,25 @@ final class Registrations
         return '';
     }
 
-    /** Ids of the items that share the seats of this one: same collection, same slug (language versions). @return list<int> */
+    /** The rules for a seat decision: those of the seat group's lowest item (the one lockFor() locks), so language versions cannot disagree. */
+    public static function rules(Db $db, array $collection, array $item): ?array
+    {
+        $low = min(self::group($db, (int) $item['item_id']));
+        if ($low !== (int) $item['item_id'] && ($found = self::load($db, $low)) !== null) {
+            $item = $found[1];
+        }
+
+        return self::course($collection, $item);
+    }
+
+    /** Ids of the items that share the seats of this one: same collection, same slug (language versions), trashed ones too (their registrations still hold seats). @return list<int> */
     public static function group(Db $db, int $itemId): array
     {
         $item = $db->one('SELECT collection_id, slug FROM {collection_items} WHERE item_id = ?', [$itemId]);
         if ($item === null) {
             return [$itemId];
         }
-        $ids = array_map('intval', array_column($db->all('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND slug = ? AND deleted_at IS NULL', [(int) $item['collection_id'], $item['slug']]), 'item_id'));
+        $ids = array_map('intval', array_column($db->all('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND slug = ?', [(int) $item['collection_id'], $item['slug']]), 'item_id'));
 
         return $ids !== [] ? $ids : [$itemId];
     }
@@ -251,7 +262,7 @@ final class Registrations
     public static function promote(App $app, array $collection, array $item, string $now, ?array &$mails = null): int
     {
         $db = $app->db();
-        $course = self::course($collection, $item);
+        $course = self::rules($db, $collection, $item);
         if ($course === null || self::closed($course, $now)) {
             return 0;
         }
@@ -269,7 +280,8 @@ final class Registrations
                 break;
             }
             $row = $rows[array_search($id, array_column($rows, 'enquiry_id'), false)];
-            $db->update('enquiries', ['seat_state' => $course['mode'] === 'confirm' ? 'waiting' : 'confirmed', 'state_changed_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $id]);
+            $db->update('enquiries', ['seat_state' => $course['mode'] === 'confirm' ? 'waiting' : 'confirmed', 'state_changed_at' => date('Y-m-d H:i:s')]
+                + ($course['mode'] === 'confirm' ? ['reminded_at' => null] : []), ['enquiry_id' => $id]);
             $moved++;
             self::tell($app, $collection, $item, $course, $row, true, $mails);
         }
@@ -293,7 +305,7 @@ final class Registrations
             throw new \DomainException(t('This enquiry is not a course registration.'));
         }
         [$collection, $item] = $found;
-        if (($course = self::course($collection, $item)) === null) {
+        if (($course = self::rules($db, $collection, $item)) === null) {
             throw new \DomainException(t('This is not a course with seats.'));
         }
         $lock = self::lockFor($db, (int) $item['item_id']);
@@ -320,7 +332,7 @@ final class Registrations
             if ($action === 'promote' && $course['capacity'] > 0 && self::taken($db, (int) $item['item_id']) + (int) $row['seats'] > $course['capacity']) {
                 throw new \DomainException(t('There is no free seat for this registration.'));
             }
-            $db->update('enquiries', ['seat_state' => $to, 'state_changed_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $enquiryId]);
+            $db->update('enquiries', ['seat_state' => $to, 'state_changed_at' => date('Y-m-d H:i:s')] + ($to === 'waiting' ? ['reminded_at' => null] : []), ['enquiry_id' => $enquiryId]);
             if ($action === 'promote') {
                 self::tell($app, $collection, $item, $course, $row, false, $mails); // the holder did it by hand: no notification to the holder
             } elseif ((string) $row['email'] !== '') {
@@ -358,7 +370,7 @@ final class Registrations
         }
         foreach ($groups as $lock => $items) {
             $itemId = (int) array_key_first($items);
-            if (($found = self::load($db, $itemId)) === null || ($course = self::course($found[0], $found[1])) === null) {
+            if (($found = self::load($db, $itemId)) === null || ($course = self::rules($db, $found[0], $found[1])) === null) {
                 continue;
             }
             if (!$db->lock($lock, 5)) {
@@ -628,7 +640,7 @@ final class Registrations
         $mails = [];
         $state = '';
         try {
-            $course = self::course($collection, $item);
+            $course = self::rules($db, $collection, $item);
             $verdict = self::verdict($db, $course, (int) $item['item_id'], (string) $row['email'], $seats, date('Y-m-d H:i'));
             // an address that is already registered gets the answer a new one would get (no oracle): its state is decided here, nothing is stored
             $decision = $verdict === 'already' ? self::decide($course, self::taken($db, (int) $item['item_id']), $seats, date('Y-m-d H:i')) : $verdict;

@@ -110,6 +110,10 @@ trait EnquiryAndPopupTools
             if (isset($a['category']) && $triage['category'] === null) {
                 throw new \InvalidArgumentException('category must be one of: ' . implode(', ', $kinds) . '.');
             }
+            if ($triage['category'] === 'spam' && $this->app->auth()->draftsOnly()
+                && in_array((string) $db->value('SELECT seat_state FROM {enquiries} WHERE enquiry_id = ?', [$id]), ['confirmed', 'waiting', 'waitlisted'], true)) {
+                throw new \DomainException('A person decides on a course registration.');
+            }
             $before = \Talea\Core\Triage::categories($db, [$id]);
             if (\Talea\Core\Triage::save($db, $id, $triage, 'claude')) {
                 $changes['triage'] = true;

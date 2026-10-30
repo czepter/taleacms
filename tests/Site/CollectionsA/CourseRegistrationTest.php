@@ -266,4 +266,27 @@ final class CourseRegistrationTest extends SiteTestCase
         $form = $this->assertPage('/admin.php?module=collections&action=edit&id=' . $this->collectionId(), 200, 'Used by registration')->body;
         $this->assertStringContainsString('their type stays fixed', $form);
     }
+
+    public function testGermanVersionRegistersAndMailsInGerman(): void
+    {
+        $this->site()->setting('additional_languages', 'de');
+        $start = $this->siteDate('+30 days');
+        $this->mcpText('save_collection_item', ['collection' => 'courses-test', 'name' => 'Rumba DE', 'slug' => 'rumba', 'language' => 'de', 'values' => ['start' => "$start 18:00", 'end' => "$start 19:30",
+            'capacity' => '5', 'registration' => 'confirm'], 'visible' => true]);
+        $this->site()->clearPageCache();
+        $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
+        $visitor = $this->visitor();
+        $page = $visitor->get('/de/courses-test/rumba');
+        $this->assertSame(200, $page->status);
+        sleep(4);
+        $redirect = $visitor->post('/de/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/de/courses-test/rumba',
+            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Gerda', 'p1' => 'gerda@example.com', 'p3' => '1'])->redirect;
+        $this->assertStringContainsString('result=', $redirect);
+        $this->assertSame('de|waiting', $this->sq("SELECT CONCAT(language, '|', seat_state) FROM tl_enquiries WHERE email = 'gerda@example.com'"));
+        $this->assertSame('Wir haben deine Anfrage erhalten: Rumba DE', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'gerda@example.com' ORDER BY mail_id DESC LIMIT 1"), 'the welcome mail is German');
+
+        $this->act('rumba', 'gerda@example.com', 'confirm');
+        $this->assertSame('confirmed', $this->state('gerda@example.com'));
+        $this->assertSame('Bestätigt: Rumba DE', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'gerda@example.com' ORDER BY mail_id DESC LIMIT 1"), 'the confirmation is German too');
+    }
 }
