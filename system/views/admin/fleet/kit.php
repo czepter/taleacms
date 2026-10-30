@@ -37,7 +37,7 @@ $newest = $kits[0]['version'] ?? 0;
 <?php if ($sections === []): ?><span class="small-text"><?= e(t('The console has no saved sections.')) ?></span><?php endif ?>
 <?php foreach ($sections as $sec): ?><label><input type="checkbox" name="sections[]" value="<?= e($sec['public_id']) ?>"> <?= e((string) $sec['name']) ?></label> <?php endforeach ?>
 </div></div>
-<p><button class="btn" type="submit" data-confirm="<?= e(t('Publish kit version %d? Every site that receives the kit gets it as drafts with its next report.', $newest + 1)) ?>"><?= e(t('Publish a new kit version')) ?></button>
+<p class="navigation-row"><button class="btn" type="submit" data-confirm="<?= e(t('Publish kit version %d? Every site that receives the kit gets it as drafts with its next report.', $newest + 1)) ?>"><?= e(t('Publish a new kit version')) ?></button>
 <span class="help"><?= e(t('A component or section keeps a stable key (from its name): a site updates its copy instead of adding another.')) ?></span></p>
 </fieldset>
 </form>

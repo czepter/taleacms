@@ -31,7 +31,7 @@ $valid = hash_equals($expected, $_SERVER['HTTP_X_TALEA_SIGNATURE'] ?? '')
     &amp;&amp; abs(time() - (int) $ts) &lt; 300;</code></pre>
 </details>
 </fieldset>
-<p><button class="navigation" type="submit" formaction="<?= e($module->url('test_webhook')) ?>"><?= e(t('Send a test call')) ?></button> <span class="small-text"><?= e(t('Save the settings first – the test uses the saved values.')) ?></span></p>
+<p class="navigation-row"><button class="navigation" type="submit" formaction="<?= e($module->url('test_webhook')) ?>"><?= e(t('Send a test call')) ?></button> <span class="small-text"><?= e(t('Save the settings first – the test uses the saved values.')) ?></span></p>
 <h2><?= e(t('Delivery log')) ?></h2>
 <?php if ($deliveries === []): ?>
 <p class="small-text"><?= e(t('No webhook has been sent yet.')) ?></p>
