@@ -227,10 +227,10 @@ final class McpSitesTest extends SiteTestCase
         $this->assertFalse($tools['restore_site']['destructiveHint']);
     }
 
-    public function testAnArchiveImportIsRefusedWhileThereAreSeveralSites(): void
+    public function testTheClassicArchiveImportIsRefusedWhileThereAreSeveralSitesAndPointsToTheSitesArea(): void
     {
         $page = $this->site()->admin()->get('/admin.php?module=transfer');
-        $this->assertStringContainsString('only possible while the install has one site', $page->body);
+        $this->assertStringContainsString('Import it as a new site instead: Sites, Import a Talea archive.', $page->body);
         $this->assertStringNotContainsString('id="file-talea"', $page->body, 'no upload form');
         $backups = $this->site()->admin()->get('/admin.php?module=settings&tab=backups')->body;
         $this->assertTrue(!preg_match('/<button[^>]*restore_backup/', $backups) || str_contains($backups, 'puts back every site'), 'the restore says it covers every site');
