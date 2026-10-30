@@ -278,7 +278,7 @@ final class Sites
      * Registers a further site (paused: not public yet) and returns its prefix. Its tables come from the next Migrator::migrate(), its
      * settings (and with $clone its content) from provision(); until then ready_at is NULL.
      */
-    public static function add(Db $db, string $name, string $slug, int $source = 1, bool $clone = false, string $sourceOwner = ''): string
+    public static function add(Db $db, string $name, string $slug, int $source = 1, bool $clone = false, string $sourceOwner = '', int $lookParent = 0): string
     {
         // the next number whose prefix has no tables yet: after restoring an older backup or on a database shared with something else
         // the tables of a site that is not registered may still exist, and a new site must not take them over
@@ -287,7 +287,8 @@ final class Sites
             $n++;
         }
         self::forgetCurrent(); // a dropped site's prefix may be handed out again with a new number
-        $db->insert('sites', ['name' => $name, 'slug' => $slug, 'prefix' => $prefix, 'status' => 'paused', 'source_site_id' => $source, 'source_owner' => $sourceOwner, 'clone' => $clone, 'created_at' => date('Y-m-d H:i:s')]);
+        $db->insert('sites', ['name' => $name, 'slug' => $slug, 'prefix' => $prefix, 'status' => 'paused', 'source_site_id' => $source, 'source_owner' => $sourceOwner, 'clone' => $clone,
+            'look_parent_id' => $lookParent > 0 ? $lookParent : null, 'created_at' => date('Y-m-d H:i:s')]);
 
         return $prefix;
     }
@@ -458,6 +459,7 @@ final class Sites
         }
         $db->update('sites', ['ready_at' => date('Y-m-d H:i:s')], ['site_id' => (int) $site['site_id']]);
         Domains::addPreview($db, (int) $site['site_id'], (string) $site['slug']);
+        LookFamily::pushTo($db, $site); // a child made with a look parent takes its look now that its tables exist
     }
 
     /**
@@ -588,6 +590,7 @@ final class Sites
             self::dropTables($db, (string) $site['prefix']);
             $db->delete('components', ['site_id' => (int) $site['site_id']]); // its own rows of the shared tables; the number may be given out again
             $db->delete('facts', ['site_id' => (int) $site['site_id']]);
+            LookFamily::detachChildren($db, (int) $site['site_id'], 'The parent site was deleted.');
             $db->delete('sites', ['site_id' => (int) $site['site_id']]);
             SiteImports::forget((string) $site['public_id']);
             $gone++;
@@ -616,6 +619,9 @@ final class Sites
             return 'Choose another site that is set up as the target.';
         }
         $db->update('sites', ['name' => $name, 'status' => $status, 'redirect_to_site_id' => $status === 'archived' ? $redirectTo : null], ['site_id' => $siteId]);
+        if ($status === 'archived') {
+            LookFamily::detachChildren($db, $siteId, 'The parent site was archived.');
+        }
         \Talea\Front\Cache::clearAll(); // the Projects cards of the other sites show state and host
 
         return null;
@@ -667,6 +673,7 @@ final class Sites
         self::forgetCurrent();
         $db->run("UPDATE {sites} SET status = 'trashed', trashed_at = ?, redirect_to_site_id = NULL WHERE site_id = ? AND status <> 'trashed'", [date('Y-m-d H:i:s'), $siteId]);
         $db->run("UPDATE {sites} SET redirect_to_site_id = NULL WHERE redirect_to_site_id = ?", [$siteId]);
+        LookFamily::detachChildren($db, $siteId, 'The parent site was moved to the trash.');
         \Talea\Front\Cache::clearAll(); // the Projects cards of the other sites show state and host
 
         return null;

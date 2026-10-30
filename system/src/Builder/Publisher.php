@@ -34,6 +34,9 @@ final class Publisher
         self::version($app, ['part' => SiteParts::versionKey($row['type'], $row['language'], $variant)], $row['build'], $new, $row['updated_at'] ?? null);
         $app->db()->update('site_parts', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['type' => $row['type'], 'language' => $row['language'], 'variant' => $variant]);
         \Talea\Front\Cache::clear();
+        if (in_array($row['type'], ['header', 'footer'], true)) {
+            \Talea\Core\LookFamily::push($app->db(), $app->settings(), $app->auth()->user()['user_id'] ?? null); // a look family's children take the new header or footer
+        }
     }
 
     /**
