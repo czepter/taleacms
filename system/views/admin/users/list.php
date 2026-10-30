@@ -31,7 +31,7 @@ echo $app->view->render('admin/list/head', ['count' => (string) count($authors),
 		<span class="cell-sub"><?= bdi($a['username']) ?><?= $a['email'] !== '' ? ' · ' . bdi($a['email']) : '' ?></span>
 	</div></div></td>
 	<td><div class="cell-text"><span><span class="tag"><?= e($a['role_name'] ?? t(Talea\Core\Auth::TYPES[(int) $a['admin']] ?? '?')) ?></span></span><?= (string) $a['summary'] !== '' ? '<span class="cell-sub" title="' . e($a['summary']) . '">' . e($a['summary']) . '</span>' : '' ?></div></td>
-	<td><?= $a['totp_secret'] !== '' ? '<span class="cell-row nowrap" title="' . e(t('two-factor sign-in')) . '">' . $icon('shield') . e(t('2FA')) . '</span>' : '<span class="cell-row nowrap status-note-warning">' . $icon('shield') . e(t('password only')) . '</span>' ?></td>
+	<td><?= $a['totp_secret'] !== '' || (int) $a['passkeys'] > 0 ? '<span class="cell-row nowrap" title="' . e(t('two-factor sign-in')) . '">' . $icon('shield') . e(t('2FA')) . '</span>' : '<span class="cell-row nowrap status-note-warning">' . $icon('shield') . e(t('password only')) . '</span>' ?></td>
 	<td class="number"><?= (int) $a['news_count'] ?></td>
 	<td class="cell-weak"><?= e(format_ago($a['last_login_at'])) ?></td>
 	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $a['public_id'], 'name' => $name, 'edit' => $edit, 'menu' => $menu, 'csrf' => $csrf]) ?></td>

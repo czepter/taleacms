@@ -448,7 +448,7 @@ final class Privacy
             $s->bool('cookies_log') ? t('Consents are logged (time, a random identifier, the categories – no IP address)%s.', $s->int('cookies_log_months') > 0 ? ' ' . t('and deleted after %d months', $s->int('cookies_log_months')) : '') : t('Consents are not logged.'),
         ], $cookies)];
         $sections[] = ['heading' => t('Security'), 'lines' => array_values(array_filter([
-            t('Access to personal data: %d administration account(s); two-step sign-in %s.', (int) $db->value('SELECT COUNT(*) FROM {users} WHERE blocked = FALSE'), (int) $db->value("SELECT COUNT(*) FROM {users} WHERE blocked = FALSE AND totp_secret = ''") === 0 ? t('on for everyone') : t('not on for every account')),
+            t('Access to personal data: %d administration account(s); two-step sign-in %s.', (int) $db->value('SELECT COUNT(*) FROM {users} WHERE blocked = FALSE'), (int) $db->value("SELECT COUNT(*) FROM {users} u WHERE u.blocked = FALSE AND u.totp_secret = '' AND NOT EXISTS (SELECT 1 FROM {user_passkeys} k WHERE k.user_id = u.user_id)") === 0 ? t('on for everyone') : t('not on for every account')),
             t('Transport: %s.', $app->request->isHttps() ? 'HTTPS' : t('HTTP – switch the site to HTTPS')),
         ]))];
 
