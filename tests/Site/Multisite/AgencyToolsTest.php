@@ -36,11 +36,12 @@ final class AgencyToolsTest extends SiteTestCase
         return ['error' => ($result['isError'] ?? false) === true, 'text' => (string) ($result['content'][0]['text'] ?? '')];
     }
 
-    /** A person who is not an administrator: editors limited to the given site numbers (none = no rows). Returns the MCP token. */
-    private function editor(string $name, array $sites): string
+    /** A person who is not an administrator: an editor limited to the given site numbers (null = every site). Returns the MCP token. */
+    private function editor(string $name, ?array $sites): string
     {
         $site = $this->site();
-        $site->exec("INSERT INTO tl_users (username, password, email, admin) VALUES (?, ?, ?, 1)", [$name, password_hash('editor-pass-123', PASSWORD_DEFAULT), $name . '@example.test']);
+        $site->exec("INSERT INTO tl_users (username, password, email, admin, sites_limited) VALUES (?, ?, ?, 1, ?)", [$name, password_hash('editor-pass-123', PASSWORD_DEFAULT), $name . '@example.test', $sites !== null ? 1 : 0]);
+        $sites ??= [];
         foreach ($sites as $n) {
             $site->exec('INSERT INTO tl_user_sites (user_id, site_id) SELECT user_id, ? FROM tl_users WHERE username = ?', [$n, $name]);
         }
@@ -82,7 +83,7 @@ final class AgencyToolsTest extends SiteTestCase
         $site = $this->site();
         $this->editor('only1', [1]);
         $this->editor('only2', [2]);
-        $this->editor('everywhere', []);
+        $this->editor('everywhere', null);
 
         $b = $site->client('b1');
         $this->assertTrue($this->signsIn($b, '127.0.0.1', 'only1'));
@@ -94,6 +95,11 @@ final class AgencyToolsTest extends SiteTestCase
         $this->assertFalse($this->signsIn($site->client('b5'), 'second.test', 'only1'), 'limited to the first site: not on the second');
         $this->assertTrue($this->signsIn($site->client('b6'), '127.0.0.1', 'everywhere'));
         $this->assertTrue($this->signsIn($site->client('b7'), 'second.test', 'everywhere'));
+
+        // limited with no site at all: nowhere (an empty list never means every site)
+        $this->editor('nobody', []);
+        $this->assertFalse($this->signsIn($site->client('b8'), '127.0.0.1', 'nobody'));
+        $this->assertFalse($this->signsIn($site->client('b9'), 'second.test', 'nobody'));
 
         // a session that is running when the rows change ends at the next request
         $this->assertFalse($this->signedOut($b, '127.0.0.1'));
@@ -108,12 +114,36 @@ final class AgencyToolsTest extends SiteTestCase
         $site->exec("DELETE FROM tl_user_sites WHERE user_id = (SELECT user_id FROM tl_users WHERE username = 'admin')");
     }
 
+    public function testTheUsersFormSetsTheLimitExplicitly(): void
+    {
+        $site = $this->site();
+        $this->editor('formed', [2]);
+        $public = (string) $site->value("SELECT public_id FROM tl_users WHERE username = 'formed'");
+        $admin = $site->admin();
+        $save = function (array $extra) use ($admin, $public): void {
+            $page = $admin->get('/admin.php?module=users&action=edit&id=' . $public);
+            $admin->post('/admin.php?module=users&action=save', ['_csrf' => $page->csrf(), 'user_id' => $public, 'username' => 'formed', 'name' => 'Formed', 'email' => 'formed@example.test', 'admin' => '1'] + $extra);
+        };
+        $state = fn (): array => [(int) $site->value("SELECT sites_limited FROM tl_users WHERE username = 'formed'"), (int) $site->value("SELECT COUNT(*) FROM tl_user_sites WHERE user_id = (SELECT user_id FROM tl_users WHERE username = 'formed')")];
+
+        $save(['sites_scope' => 'chosen']); // the checklist was not part of the form (hidden): nothing changes
+        $this->assertSame([1, 1], $state(), 'a form without the checklist keeps the limit');
+        $save(['sites_shown' => '1', 'sites_scope' => 'chosen']);
+        $this->assertSame([1, 0], $state(), 'limited with nothing ticked: no site, not every site');
+        $this->assertFalse($this->signsIn($site->client('f1'), '127.0.0.1', 'formed'));
+        $save(['sites_shown' => '1', 'sites_scope' => 'chosen', 'sites' => [self::$second]]);
+        $this->assertSame([1, 1], $state());
+        $save(['sites_shown' => '1', 'sites_scope' => 'all', 'sites' => [self::$second]]);
+        $this->assertSame([0, 1], $state(), 'every site is an answer of its own; the ticked row stays, but the flag decides');
+        $this->assertTrue($this->signsIn($site->client('f2'), '127.0.0.1', 'formed'));
+    }
+
     public function testMcpFollowsTheSites(): void
     {
         $site = $this->site();
         $only2 = $this->editor('mcp2', [2]);
         $only1 = $this->editor('mcp1', [1]);
-        $all = $this->editor('mcpall', []);
+        $all = $this->editor('mcpall', null);
 
         $this->assertSame('The token is invalid or missing.', $site->mcp('list_pages', [], $only2)['error'] ?? null, 'the connection of a person who may not work on the first site');
         $this->assertFalse($this->call('list_pages', [], $only1)['error']);

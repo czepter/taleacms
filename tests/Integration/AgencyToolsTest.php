@@ -72,15 +72,15 @@ final class AgencyToolsTest extends DatabaseTestCase
     }
 
     /** @return array<string, mixed> */
-    private function user(string $name, int $admin, array $sites = []): array
+    private function user(string $name, int $admin, ?array $sites = null): array
     {
         $id = $this->db()->insert('users', ['username' => $name, 'password' => password_hash('long-enough-pass', PASSWORD_DEFAULT), 'name' => $name, 'email' => $name . '@a.example', 'admin' => $admin, 'language' => '', 'confirmed_at' => date('Y-m-d H:i:s')]);
-        Sites::setUserSites($this->db(), $id, $sites);
+        Sites::setUserSites($this->db(), $id, $sites ?? [], $sites !== null);
 
         return (array) $this->db()->one('SELECT * FROM {users} WHERE user_id = ?', [$id]);
     }
 
-    public function testNoRowsMeansEverySiteAndAdministratorsIgnoreTheRows(): void
+    public function testOnlyTheFlagLimitsAnEmptyListMeansNoSiteAndAdministratorsIgnoreIt(): void
     {
         $plain = $this->user('plain', Auth::EDITOR);
         $this->assertNull(Sites::limitedTo($this->db(), $plain));
@@ -89,6 +89,11 @@ final class AgencyToolsTest extends DatabaseTestCase
         $limited = $this->user('limited', Auth::EDITOR, [2]);
         $this->assertSame([2], Sites::limitedTo($this->db(), $limited));
         $this->assertSame([false, true], [Sites::allows($this->db(), $limited, 1), Sites::allows($this->db(), $limited, 2)]);
+
+        $nowhere = $this->user('nowhere', Auth::EDITOR, []);
+        $this->assertSame([], Sites::limitedTo($this->db(), $nowhere), 'limited with no rows: no site, never "every site"');
+        $this->assertSame([false, false], [Sites::allows($this->db(), $nowhere, 1), Sites::allows($this->db(), $nowhere, 2)]);
+        $this->assertFalse(Sites::allowsHere($this->db(), $nowhere));
 
         $admin = $this->user('boss', Auth::ADMIN, [2]);
         $this->assertNull(Sites::limitedTo($this->db(), $admin), 'rows of an administrator are ignored');
@@ -102,12 +107,25 @@ final class AgencyToolsTest extends DatabaseTestCase
     public function testRowsAreReplacedAndGoWithTheUser(): void
     {
         $u = $this->user('swap', Auth::AUTHOR, [1, 2]);
-        Sites::setUserSites($this->db(), (int) $u['user_id'], [2, 2]);
-        $this->assertSame([2], Sites::limitedTo($this->db(), $u));
-        Sites::setUserSites($this->db(), (int) $u['user_id'], []);
-        $this->assertNull(Sites::limitedTo($this->db(), $u), 'none = every site again');
-        Sites::setUserSites($this->db(), (int) $u['user_id'], [1]);
+        Sites::setUserSites($this->db(), (int) $u['user_id'], [2, 2], true);
+        $this->assertSame([2], Sites::limitedTo($this->db(), $u + ['sites_limited' => 1]));
+        Sites::setUserSites($this->db(), (int) $u['user_id'], [], true);
+        $this->assertSame([], Sites::limitedTo($this->db(), $u + ['sites_limited' => 1]), 'an empty list stays limited');
+        Sites::setUserSites($this->db(), (int) $u['user_id'], [], false);
+        $this->assertNull(Sites::limitedTo($this->db(), (array) $this->db()->one('SELECT * FROM {users} WHERE user_id = ?', [$u['user_id']])), 'every site again only by saying so');
+        Sites::setUserSites($this->db(), (int) $u['user_id'], [1], true);
         $this->db()->delete('users', ['user_id' => (int) $u['user_id']]);
+        $this->assertSame(0, (int) $this->db()->value('SELECT COUNT(*) FROM {user_sites} WHERE user_id = ?', [$u['user_id']]));
+    }
+
+    public function testTheRowsOfASiteInTheTrashSurviveASaveAndAClearRemovesThemAll(): void
+    {
+        $u = $this->user('keeps', Auth::EDITOR, [2]);
+        Sites::trash($this->db(), 2); // the list on screen does not show it, so a save from that list cannot name it
+        Sites::setUserSites($this->db(), (int) $u['user_id'], [], true);
+        $this->assertSame([2], array_map('intval', array_column($this->db()->all('SELECT site_id FROM {user_sites} WHERE user_id = ?', [$u['user_id']]), 'site_id')), 'the trashed site\'s row is kept');
+        $this->assertSame([2], Sites::limitedTo($this->db(), (array) $this->db()->one('SELECT * FROM {users} WHERE user_id = ?', [$u['user_id']])), 'still limited, not unlimited');
+        Sites::setUserSites($this->db(), (int) $u['user_id'], [], false, false);
         $this->assertSame(0, (int) $this->db()->value('SELECT COUNT(*) FROM {user_sites} WHERE user_id = ?', [$u['user_id']]));
     }
 

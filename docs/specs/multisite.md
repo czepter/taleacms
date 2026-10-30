@@ -282,8 +282,10 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
 
 Decisions of the night build, marked **Proposed** for the owner's review. Needs `TALEA_MULTISITE`; the limits of owners need `TALEA_OWNERS`.
 
-- **Roles per site.** Owner table `user_sites` (user_id, site_id; migration `20261106100047`, rows go with the user and with the site). A person
-  **without rows may work on every site** of the owner, one **with rows only on those**. **Administrators always have every site** (their rows are
+- **Roles per site.** Owner table `user_sites` (user_id, site_id; migration `20261106100047`, rows go with the user and with the site) and the flag
+  `users.sites_limited` (migration `20261107100147`; people who had rows are limited). A person **who is not limited may work on every site**, one **who is
+  limited only on the sites in their rows – limited with no rows works on none**: "every site" is never derived from an empty list (so a cascade after a
+  site's clean-up, a saved empty checklist or a trashed site cannot make anybody unlimited). **Administrators always have every site** (flag and rows are
   ignored; so are the operators' rows in a client owner): the limit is for editors, news authors and custom roles. `Sites::limitedTo/allows/allowsHere`
   is the one question; it is asked in these places:
   - `Auth::user()`: a signed-in person (session or "stay signed in") who may not work on this site is **treated as signed out there** and sees the sign-in
@@ -294,12 +296,14 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
   - The handoff: `Sites::handoffToken` refuses to make a token for such a person and `claimHandoff` returns nobody for one (a limit set after the token was made).
   - Lists: the site switcher, the inbox "all sites" filters (`Modules\Sites::inboxSites`) and the Overview (`SiteFigures::overview($db, $user)`) leave out
     the sites the person may not use. These screens are administrators' (who have every site), so the filter is defence in depth.
-  - Edited in Users (a "Sites" check list, shown when there is more than one site and for anybody but yourself; saving an administrator clears the rows). There is no
-    MCP tool for users, so there is none for this (ParityTest: users are an administration matter).
-  A site made later is not in anybody's existing list: a limited person is added to it by hand.
+  - Edited in Users ("Every site" / "Only the sites ticked" and a check list, shown when there is more than one site and for anybody but yourself; saving an
+    administrator clears flag and rows). The list changes only when the form carried it (`sites_shown`), and the rows of a site in the trash are kept (the list
+    does not show them). There is no MCP tool for users, so there is none for this (ParityTest: users are an administration matter).
+  A site made later is not in anybody's existing list: a limited person is added to it by hand. A site number is never given out twice (identity column,
+    also SQLite's AUTOINCREMENT), so no old row can point at a new site.
 - **Limits.** `TALEA_MAX_SITES` counts the sites that are not in the trash over **every owner** of the install (an owner not set up yet counts one);
-  `TALEA_MAX_OWNERS` counts the owner rows. Creating more is refused with a message in the Sites and Owners areas and by `create_site`. A limit lower than
-  what exists stops creation only; nothing is removed.
+  `TALEA_MAX_OWNERS` counts the owner rows. Creating more – and restoring a site from the trash (`Sites::restore`, admin and `restore_site`) – is refused with
+  a message in the Sites and Owners areas and by `create_site`. A limit lower than what exists stops creation only; nothing is removed.
 - **Health.** The Sites list shows per site the open enquiries (not resolved, not spam, not in the trash), the broken links and the storage; the Owners list per
   owner the sums over its sites, the images without a description and the storage. Media files belong to the owner (they are shared by its sites), so
   "images without a description" is **one number per owner**, not per site (`SiteHealth::mediaWithoutAlt`: the same test as the clean-up, without reading

@@ -9,6 +9,7 @@
  * @var bool $isSelf  the admin is editing their own account
  * @var array<string, string> $siteChoices  site public id => name (multisite)
  * @var list<string> $hasSites  public ids of the sites the user is limited to
+ * @var bool $sitesLimited  the user works only on the sites in $hasSites
  * @var array<string, string> $modules  ident => name (sections to which access is set)
  * @var list<string> $hasModules
  * @var bool $manual  access to sections is set manually (differs from the default for the role)
@@ -96,10 +97,13 @@ $role = [
 <div class="row">
 	<span class="caption"><?= e(t('Sites')) ?></span>
 	<div class="options">
+		<input type="hidden" name="sites_shown" value="1">
+		<label><input type="radio" name="sites_scope" value="all"<?= $sitesLimited ? '' : ' checked' ?>> <?= e(t('Every site')) ?></label><br>
+		<label><input type="radio" name="sites_scope" value="chosen"<?= $sitesLimited ? ' checked' : '' ?>> <?= e(t('Only the sites ticked')) ?></label><br>
 <?php foreach ($siteChoices as $publicId => $siteName): ?>
 		<label><input type="checkbox" name="sites[]" value="<?= e($publicId) ?>"<?= in_array($publicId, $hasSites, true) ? ' checked' : '' ?>> <?= bdi($siteName) ?></label><br>
 <?php endforeach ?>
-		<span class="help"><?= e(t('The sites this person may work on. Nothing chosen: every site. Administrators always have every site.')) ?></span>
+		<span class="help"><?= e(t('The sites this person may work on. “Only the sites ticked” with nothing ticked means no site at all. Administrators always have every site.')) ?></span>
 	</div>
 </div>
 <?php endif ?>

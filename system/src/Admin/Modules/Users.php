@@ -133,7 +133,10 @@ final class Users extends Module
             default => self::defaultModules((int) $data['admin']),
         };
 
-        // roles per site: the sites a person who is not an administrator may work on (none chosen = every site)
+        // roles per site: the sites a person who is not an administrator may work on. Only a form that showed the choice changes it; "all
+        // sites" is an explicit answer, and a limited person with nothing ticked has no site (Sites::limitedTo)
+        $sitesShown = $r->postBool('sites_shown');
+        $limited = $r->post('sites_scope') === 'chosen';
         $sites = [];
         foreach ($r->postList('sites') as $publicId) {
             $site = (int) $data['admin'] === Auth::ADMIN ? null : $this->db->byPublicId('sites', $publicId);
@@ -141,7 +144,7 @@ final class Users extends Module
                 $sites[] = (int) $site['site_id'];
             }
         }
-        $this->db->transaction(function () use (&$id, $data, $modules, $sites): void {
+        $this->db->transaction(function () use (&$id, $data, $modules, $sites, $sitesShown, $limited): void {
             if ($id > 0) {
                 $this->db->update('users', $data, ['user_id' => $id]);
                 if (isset($data['password'])) {
@@ -159,7 +162,11 @@ final class Users extends Module
                 $this->db->insert('user_permissions', ['user_id' => $id, 'module' => $ident]);
             }
             if (\Talea\Core\Sites::enabled()) {
-                \Talea\Core\Sites::setUserSites($this->db, $id, $sites);
+                if ((int) $data['admin'] === Auth::ADMIN) {
+                    \Talea\Core\Sites::setUserSites($this->db, $id, [], false, false); // an administrator has every site
+                } elseif ($sitesShown) {
+                    \Talea\Core\Sites::setUserSites($this->db, $id, $sites, $limited);
+                }
             }
         });
 
@@ -351,6 +358,7 @@ final class Users extends Module
 
         return $this->view('form', $id ? 'Edit user' : 'New user', [
             'siteChoices' => $siteChoices,
+            'sitesLimited' => $this->request->isPost() ? $this->request->post('sites_scope') === 'chosen' : ($id > 0 && (bool) ($author['sites_limited'] ?? false)),
             'hasSites' => $this->request->isPost() ? $this->request->postList('sites') : ($id > 0 && \Talea\Core\Sites::enabled() ? array_map(fn (array $r): string => (string) $this->db->publicId('sites', (int) $r['site_id']), $this->db->all('SELECT site_id FROM {user_sites} WHERE user_id = ?', [$id])) : []),
             'author' => $author,
             'customRoles' => $this->db->all('SELECT role_id, name, description FROM {role} ORDER BY name'),

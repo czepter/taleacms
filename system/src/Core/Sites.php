@@ -136,29 +136,21 @@ final class Sites
         return '(' . $column . ' IS NULL OR ' . $column . ' = ' . self::currentId($db) . ')';
     }
 
-    /** @var array<string, bool> memo: owner prefix => user_sites exists (only a yes is kept: the table appears with the migration) */
-    private static array $userSitesTable = [];
-
     /**
-     * The site numbers a person is limited to (roles per site, `user_sites`), or null = every site: multisite off, nobody signed in, an
-     * administrator (the owner's administrators and the operators' rows always have every site) or a person without rows.
+     * The site numbers a person is limited to (roles per site: `users.sites_limited` and the rows of `user_sites`), or null = every site:
+     * multisite off, nobody signed in, an administrator (the owner's administrators and the operators' rows always have every site) or a
+     * person who is not limited. A limited person with no rows works on no site: "unlimited" is never derived from an empty list.
      *
      * @param array<string, mixed>|null $user a row of {users}
      * @return list<int>|null
      */
     public static function limitedTo(Db $db, ?array $user): ?array
     {
-        if (!self::enabled() || $user === null || (int) ($user['admin'] ?? -1) === Auth::ADMIN) {
+        if (!self::enabled() || $user === null || (int) ($user['admin'] ?? -1) === Auth::ADMIN || empty($user['sites_limited'])) {
             return null;
         }
-        if (!(self::$userSitesTable[$db->ownerPrefix] ??= $db->tableExists('user_sites'))) {
-            unset(self::$userSitesTable[$db->ownerPrefix]);
 
-            return null;
-        }
-        $ids = array_map('intval', array_column($db->all('SELECT site_id FROM {user_sites} WHERE user_id = ?', [(int) $user['user_id']]), 'site_id'));
-
-        return $ids === [] ? null : $ids;
+        return array_map('intval', array_column($db->all('SELECT site_id FROM {user_sites} WHERE user_id = ?', [(int) $user['user_id']]), 'site_id'));
     }
 
     /** May this person work on that site? @param array<string, mixed>|null $user */
@@ -175,12 +167,20 @@ final class Sites
         return self::limitedTo($db, $user) === null || self::allows($db, $user, self::currentId($db));
     }
 
-    /** Replaces the sites a person is limited to (site numbers; none = every site). */
-    public static function setUserSites(Db $db, int $userId, array $siteIds): void
+    /**
+     * Sets whether a person is limited to some sites and which. The rows of a site in the trash are kept (the person has them again when the
+     * site is restored; the list on screen does not show them); $keepTrashed false clears every row (an administrator needs none).
+     *
+     * @param list<int> $siteIds site numbers
+     */
+    public static function setUserSites(Db $db, int $userId, array $siteIds, bool $limited, bool $keepTrashed = true): void
     {
-        $db->delete('user_sites', ['user_id' => $userId]);
+        $db->update('users', ['sites_limited' => $limited], ['user_id' => $userId]);
+        $db->run('DELETE FROM {user_sites} WHERE user_id = ?' . ($keepTrashed ? " AND site_id IN (SELECT site_id FROM {sites} WHERE status <> 'trashed')" : ''), [$userId]);
         foreach (array_unique(array_map('intval', $siteIds)) as $id) {
-            $db->insert('user_sites', ['user_id' => $userId, 'site_id' => $id]);
+            if ($db->value('SELECT 1 FROM {user_sites} WHERE user_id = ? AND site_id = ?', [$userId, $id]) === null) {
+                $db->insert('user_sites', ['user_id' => $userId, 'site_id' => $id]);
+            }
         }
     }
 
@@ -754,7 +754,7 @@ final class Sites
     public static function handoffToken(Db $db, int $userId, int $siteId, string $network): string
     {
         $db->run('DELETE FROM {handoff_tokens} WHERE expires_at < ?', [gmdate('Y-m-d H:i:s', time() - 3600)]);
-        if (!self::allows($db, $db->one('SELECT user_id, admin FROM {users} WHERE user_id = ?', [$userId]), $siteId)) {
+        if (!self::allows($db, $db->one('SELECT user_id, admin, sites_limited FROM {users} WHERE user_id = ?', [$userId]), $siteId)) {
             throw new \DomainException('This person may not work on that site.');
         }
         $token = bin2hex(random_bytes(32));
@@ -781,6 +781,6 @@ final class Sites
         $userId = $claimed === 1 ? (int) $db->value('SELECT user_id FROM {handoff_tokens} WHERE token_hash = ?', [$hash]) : null;
 
         // roles per site: a token for a person who may not work on this site (the limit changed meanwhile) signs nobody in
-        return $userId !== null && self::allows($db, $db->one('SELECT user_id, admin FROM {users} WHERE user_id = ?', [$userId]), $siteId) ? $userId : null;
+        return $userId !== null && self::allows($db, $db->one('SELECT user_id, admin, sites_limited FROM {users} WHERE user_id = ?', [$userId]), $siteId) ? $userId : null;
     }
 }
