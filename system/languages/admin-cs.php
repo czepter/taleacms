@@ -1707,6 +1707,8 @@ return [
     'Enquiries and sign-ups' => 'Poptávky a přihlášení',
     'Enquiries contain personal data – they should not be kept longer than necessary. 0 = keep forever.' => 'Poptávky obsahují osobní údaje – nemají ležet déle, než je potřeba. 0 = nemazat.',
     'Enquiries deleted: %d.' => 'Smazáno poptávek: %d.',
+    'Enquiries marked as not spam: %d.' => 'Poptávek označených jako ne spam: %d.',
+    'Enquiries marked as spam: %d.' => 'Poptávek označených jako spam: %d.',
     'Enquiries moved to the trash: %d. They can be restored for 30 days (Enquiries → Trash).' => 'Do koše přesunuto poptávek: %d. Obnovit je jde 30 dní (Poptávky → Koš).',
     'Enquiries nobody has opened yet' => 'Poptávky, které ještě nikdo neotevřel',
     'Enquiries older than the given number of months will be permanently deleted right away – including attachments. Save anyway?' => 'Poptávky starší než zadaný počet měsíců se hned natrvalo smažou – i s přílohami. Opravdu uložit?',

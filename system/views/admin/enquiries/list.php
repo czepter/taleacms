@@ -10,7 +10,7 @@
  * @var string $filter
  * @var int $pageNumber
  * @var int $perPage
- * @var string $kind the triage kind shown ('' = all but spam, '-' = not sorted yet)
+ * @var string $kind the triage kind shown ('' = all but spam, '-' = not sorted yet; spam has its own tab)
  * @var int $spam enquiries marked as spam
  * @var int $inTrash enquiries in the trash
  * @var string $search
@@ -20,6 +20,7 @@ use Talea\Admin\Modules\Enquiries;
 
 $pageCount = (int) ceil($total / $perPage);
 $trash = $filter === 'trash';
+$spamTab = $filter === 'spam';
 $preview = function (string $data): string {
     $items = json_decode($data, true) ?: [];
     $text = implode(' · ', array_filter(array_map(fn (array $d): string => (string) $d[1], $items), fn (string $v): bool => $v !== '' && mb_strlen($v) > 1));
@@ -32,15 +33,16 @@ echo $app->view->render('admin/list/head', ['count' => (string) $total,
     'secondary' => $total > 0 ? '<a class="navigation" href="' . e($module->url('csv')) . '">' . e(t('Export (CSV)')) . '</a>' : '']);
 $kinds = '<select name="category" aria-label="' . e(t('Kind')) . '" data-submit-on-change>';
 $kindNames = Talea\Core\Triage::names($app->settings());
-foreach (['' => t('All kinds'), '-' => t('Not sorted')] + $kindNames as $key => $name) {
-    $kinds .= '<option value="' . e($key) . '"' . ($kind === $key ? ' selected' : '') . '>' . e($name) . ($key === 'spam' && $spam > 0 ? ' (' . $spam . ')' : '') . '</option>';
+foreach (array_diff_key(['' => t('All kinds'), '-' => t('Not sorted')] + $kindNames, ['spam' => 1]) as $key => $name) {
+    $kinds .= '<option value="' . e($key) . '"' . ($kind === $key ? ' selected' : '') . '>' . e($name) . '</option>';
 }
 $kinds .= '</select>';
 echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'),
     'tabs' => [...array_map(fn (string $key, string $name): array => ['label' => t($name), 'url' => $module->url('', array_filter(['status' => $key, 'category' => $kind])), 'active' => $filter === $key],
         ['', 'open', 'mine', 'resolved'], ['All', 'To do', 'Mine', 'Resolved']),
+        ['label' => $kindNames['spam'] ?? t('Spam'), 'count' => $spam, 'url' => $module->url('', ['status' => 'spam']), 'active' => $spamTab],
         ['label' => t('Trash'), 'count' => $inTrash, 'url' => $module->url('', ['status' => 'trash']), 'active' => $trash]],
-    'action' => $app->url('admin.php'), 'hidden' => ['module' => 'enquiries'] + array_filter(['status' => $filter]), 'filters' => $trash ? '' : $kinds,
+    'action' => $app->url('admin.php'), 'hidden' => ['module' => 'enquiries'] + array_filter(['status' => $filter]), 'filters' => $trash || $spamTab ? '' : $kinds,
     'search' => ['name' => 'search', 'value' => $search, 'placeholder' => t('Name, e-mail or text'), 'label' => t('Search enquiries')]]);
 ?>
 <?php if ($enquiries === [] && $trash && $search === ''): ?>
@@ -110,6 +112,7 @@ echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'
 </div>
 <?= $app->view->render('admin/list/selection', ['form' => 'bulk', 'action' => $module->url('bulk'), 'csrf' => $csrf, 'actions' => [
     ['value' => 'vyridit', 'label' => t('Mark as resolved'), 'kind' => 'primary'],
+    $spamTab ? ['value' => 'not_spam', 'label' => t('Not spam')] : ['value' => 'spam', 'label' => t('Mark as spam')],
     ['value' => 'delete', 'label' => t('Move to trash'), 'kind' => 'danger', 'confirm' => t('Move the selected enquiries to the trash?')],
 ]]) ?>
 <?php endif ?>

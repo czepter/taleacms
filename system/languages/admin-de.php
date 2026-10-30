@@ -1710,6 +1710,8 @@ return [
     'Enquiries and sign-ups' => 'Anfragen und Anmeldungen',
     'Enquiries contain personal data – they should not be kept longer than necessary. 0 = keep forever.' => 'Anfragen enthalten personenbezogene Daten – sie sollten nicht länger als nötig aufbewahrt werden. 0 = dauerhaft aufbewahren.',
     'Enquiries deleted: %d.' => 'Gelöschte Anfragen: %d.',
+    'Enquiries marked as not spam: %d.' => 'Als kein Spam markierte Anfragen: %d.',
+    'Enquiries marked as spam: %d.' => 'Als Spam markierte Anfragen: %d.',
     'Enquiries moved to the trash: %d. They can be restored for 30 days (Enquiries → Trash).' => 'In den Papierkorb verschobene Anfragen: %d. Sie können 30 Tage lang wiederhergestellt werden (Anfragen → Papierkorb).',
     'Enquiries nobody has opened yet' => 'Anfragen, die noch niemand geöffnet hat',
     'Enquiries older than the given number of months will be permanently deleted right away – including attachments. Save anyway?' => 'Anfragen, die älter sind als die angegebene Anzahl an Monaten, werden sofort endgültig gelöscht – samt Anhängen. Trotzdem speichern?',
