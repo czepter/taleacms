@@ -19,7 +19,7 @@ final class ImageHtml
 
     public static function complete(Db $db, string $html): string
     {
-        if (!preg_match_all('#<img\b[^>]*?\bsrc="[^"]*?(media/\d{4}/\d{2}/[a-z0-9-]+?)(?:-1200|-nahled)?\.(jpg|png|webp)"#i', $html, $found, PREG_SET_ORDER)) {
+        if (!preg_match_all('#<img\b[^>]*?\bsrc="[^"]*?(media/' . \Talea\Core\MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+?)(?:-1200|-nahled)?\.(jpg|png|webp)"#i', $html, $found, PREG_SET_ORDER)) {
             return $html;
         }
         $paths = array_values(array_unique(array_map(fn (array $m): string => $m[1] . '.' . strtolower($m[2]), $found)));
@@ -36,7 +36,7 @@ final class ImageHtml
             }
         }
 
-        return preg_replace_callback('#<img\b([^>]*?)\bsrc="([^"]*?(media/\d{4}/\d{2}/[a-z0-9-]+?)(?:-1200|-nahled)?\.(jpg|png|webp))"([^>]*)>#i', function (array $m) use ($known): string {
+        return preg_replace_callback('#<img\b([^>]*?)\bsrc="([^"]*?(media/' . \Talea\Core\MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+?)(?:-1200|-nahled)?\.(jpg|png|webp))"([^>]*)>#i', function (array $m) use ($known): string {
             $o = $known[$m[3] . '.' . strtolower($m[4])] ?? null;
             $attributes = $m[1] . $m[5];
             if ($o === null) {

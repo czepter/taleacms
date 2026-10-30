@@ -10,6 +10,7 @@ use Talea\Admin\Modules\Pages;
 use Talea\Core\App;
 use Talea\Core\DraftComments;
 use Talea\Core\Language;
+use Talea\Core\Sites;
 use Talea\Front\SiteIdentity;
 use Talea\Builder\SiteParts;
 use Talea\Builder\DesignSystem;
@@ -245,7 +246,7 @@ trait BuilderTools
         $db = $this->app->db();
 
         return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'name' => $k['name'], 'properties' => self::fieldTypes($k['properties'], false), 'published' => $k['build'] !== null,
-            'unpublished_changes' => $k['build_draft'] !== null], \Talea\Builder\Components::all($db));
+            'unpublished_changes' => $k['build_draft'] !== null] + (Sites::enabled() ? ['shared' => \Talea\Builder\Components::isShared($k)] : []), \Talea\Builder\Components::all($db));
     }
 
     /** save_component */
@@ -268,12 +269,23 @@ trait BuilderTools
         }
         $data = ['name' => $name, 'updated_at' => date('Y-m-d H:i:s'), 'properties' => (string) json_encode(\Talea\Builder\Components::sanitizeProperties(
             self::fieldTypes(is_array($a['properties'] ?? null) ? $a['properties'] : ($current['properties'] ?? []), true)), JSON_UNESCAPED_UNICODE)];
+        // `shared` (several sites only): true = every site of the owner uses it, false = this site only (a shared one cannot go back); left out, a component keeps what it is
+        $shared = Sites::enabled() && isset($a['shared']) ? (bool) $a['shared'] : null;
+        if ($shared === false && $current !== null && \Talea\Builder\Components::isShared($current)) {
+            throw new \DomainException('A shared component stays shared – other sites may use it. delete_component removes it for all of them.');
+        }
+        if ($shared === true && $current !== null && !\Talea\Builder\Components::isShared($current) && ($refusal = \Talea\Builder\Components::formRefusal($current['build'], $current['build_draft'])) !== null) {
+            throw new \DomainException($refusal);
+        }
         if ($current !== null) {
             $db->update('components', $data, ['component_id' => $id]);
+            if ($shared === true && !\Talea\Builder\Components::isShared($current)) {
+                \Talea\Builder\Components::share($db, $id);
+            }
         } else {
-            $id = $db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('section')]])]);
+            $id = \Talea\Builder\Components::create($db, $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('section')]])], $shared === true);
         }
-        \Talea\Front\Cache::clear();
+        ($shared === true || ($current !== null && \Talea\Builder\Components::isShared($current))) ? \Talea\Front\Cache::clearAll() : \Talea\Front\Cache::clear();
         $k = (array) \Talea\Builder\Components::byId($db, $id);
 
         return ['id' => $id, 'name' => $k['name'], 'properties' => $k['properties'], 'use' => '{"type":"component","content":{"component":"' . $this->pid('components', $id) . '","values":{}}}',
@@ -347,8 +359,9 @@ trait BuilderTools
         };
 
         $need($auth->isAdmin(), 'Components can be deleted only by an administrator.');
-        $need($db->delete('components', ['component_id' => $id]) > 0, 'The component does not exist. Use list_components.');
-        \Talea\Front\Cache::clear();
+        $current = \Talea\Builder\Components::byId($db, $id); // another site's own component is not found
+        $need($current !== null && $db->delete('components', ['component_id' => $id]) > 0, 'The component does not exist. Use list_components.');
+        \Talea\Builder\Components::isShared((array) $current) ? \Talea\Front\Cache::clearAll() : \Talea\Front\Cache::clear();
 
         return ['deleted' => $id];
     }

@@ -16,6 +16,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 /**
  * Database structure: Phinx migrations in system/database/migrations (files YYYYMMDDHHMMSS_name.php, applied in that order,
  * recorded in the table {prefix}migrations). A new installation runs all of them; a site that got new files runs only those.
+ * Multisite: the owner prefix (owner tables and site 1) first, then every further site with its own prefix and log table
+ * (PrefixAdapter keeps the owner tables out of those runs), then every further owner the same way (docs/specs/multisite.md).
  *
  * Migrations run from the command line (`php bin/migrate`, the Docker entrypoint) and from the installer - never on a page
  * request. The administration only reports that some are pending (pending()).
@@ -33,24 +35,28 @@ final class Migrator
     /**
      * Phinx configuration for one database; phinx.php (the Phinx command line) returns the same.
      *
-     * @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string} $db
+     * @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,owner_prefix?:string,site_prefix?:string} $db
      * @return array<string, mixed>
      */
     public static function phinxConfig(array $db): array
     {
         $dialect = Dialect::forDriver($db['driver'] ?? 'mysql');
-        $prefix = $db['prefix'] ?? 'tl_';
+        $install = $db['prefix'] ?? 'tl_';
+        $owner = $db['owner_prefix'] ?? $install;
+        $prefix = $db['site_prefix'] ?? $owner;
         $environment = $dialect->phinx() + [
             'name' => $db['name'],
             'user' => $db['username'] ?? '', // Phinx's own option name
             'pass' => $db['password'] ?? '',
             'table_prefix' => $prefix,
+            'owner_prefix' => $owner,
+            'install_prefix' => $install,
         ];
+        if (class_exists(AdapterFactory::class)) {
+            AdapterFactory::instance()->registerWrapper('prefix', PrefixAdapter::class);
+        }
         if ($dialect instanceof Sqlite) {
             $environment['name'] = Sqlite::file($db['name']); // a file, no server
-            if (class_exists(AdapterFactory::class)) {
-                AdapterFactory::instance()->registerWrapper('prefix', SqlitePrefixAdapter::class);
-            }
         } else {
             $environment += !empty($db['socket']) ? ($dialect->name() === 'mysql' ? ['unix_socket' => $db['socket']] : ['host' => $db['socket']]) : ['host' => $db['host'] ?? 'localhost', 'port' => $db['port'] ?? $dialect->defaultPort()];
         }
@@ -74,7 +80,7 @@ final class Migrator
         return $files;
     }
 
-    /** @return array<string, string> version => file name of the migrations that have not been applied yet */
+    /** @return array<string, string> version => file name of the migrations the site of $db has not applied yet */
     public static function pending(Db $db): array
     {
         try {
@@ -86,32 +92,86 @@ final class Migrator
         return array_diff_key(self::files(), array_flip($applied));
     }
 
+    /** Pending migrations of any site of the database (every owner's prefix and every further site). */
+    public static function anyPending(Db $db): bool
+    {
+        foreach (Owners::connections($db) as $site) {
+            if (self::pending($site) !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
-     * Applies every pending migration. Two processes (two containers) must not migrate at once, so the whole run holds a lock.
+     * Applies every pending migration: the install (owner 1: the install tables and its owner tables) first, then owner 1's further
+     * sites, then each further owner (its owner tables and site 1) and its sites. Two processes (two containers) must not
+     * migrate at once, so the whole run holds a lock. A failure stops the run (the sites after it are not touched).
      *
-     * @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string} $config
-     * @return list<string> file names of the migrations applied
+     * @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,owner_prefix?:string,site_prefix?:string} $config
+     * @return list<string> file names of the migrations applied (of every site; a file applied to two sites is named twice)
      */
     public static function migrate(array $config): array
     {
         if (!self::available()) {
             throw new \RuntimeException('Phinx is not installed: run "composer install --no-dev" (the vendor/ folder is missing).');
         }
+        unset($config['site_prefix'], $config['owner_prefix']);
         $db = Db::fromConfig($config);
         $lock = substr('talea-migrate-' . hash('sha256', $db->databaseName() . '|' . $db->prefix), 0, 64);
         if (!$db->lock($lock, 60)) {
             throw new \RuntimeException('Another migration is running.');
         }
         try {
-            $pending = self::pending($db);
-            if ($pending !== []) {
-                $manager = new Manager(new Config(self::phinxConfig($config)), new ArrayInput([]), new BufferedOutput());
-                $manager->migrate('default');
+            $applied = self::migrateSite($db, $config);
+            // the owner run created the site registry (and the install's owners table); the further sites and owners are read after it
+            foreach (array_slice(Sites::prefixes($db), 1) as $prefix) {
+                array_push($applied, ...self::migrateSite($db->forSite($prefix), ['site_prefix' => $prefix] + $config));
+            }
+            foreach (array_slice(Owners::prefixes($db), 1) as $owner) {
+                $ownerDb = $db->forOwner($owner);
+                $ownerConfig = ['owner_prefix' => $owner] + $config;
+                array_push($applied, ...self::migrateSite($ownerDb, $ownerConfig)); // its owner tables and its site 1
+                foreach (array_slice(Sites::prefixes($ownerDb), 1) as $prefix) {
+                    array_push($applied, ...self::migrateSite($ownerDb->forSite($prefix), ['site_prefix' => $prefix] + $ownerConfig));
+                }
             }
 
-            return array_values($pending);
+            return $applied;
         } finally {
             $db->unlock($lock);
         }
+    }
+
+    /**
+     * Creates and migrates the tables of one further site that has none (Backup::restore brings back a site whose tables were dropped:
+     * a PostgreSQL or SQLite backup holds data only). The caller has found the prefix in the backup it restores.
+     */
+    public static function migratePrefix(Db $db, string $prefix): void
+    {
+        $owner = Owners::ownerOf($db->installPrefix, $prefix);
+        if ($prefix === $db->installPrefix || $owner === null || $db->config() === []) {
+            throw new \RuntimeException('The tables of ' . $prefix . ' cannot be created here.');
+        }
+        $config = ['owner_prefix' => $owner] + array_diff_key($db->config(), ['owner_prefix' => 1]);
+        $site = $db->forOwner($owner);
+        if ($prefix === $owner) {
+            self::migrateSite($site, $config); // a further owner's own tables and its site 1
+        } else {
+            self::migrateSite($site->forSite($prefix), ['site_prefix' => $prefix] + $config);
+        }
+    }
+
+    /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,owner_prefix?:string,site_prefix?:string} $config @return list<string> */
+    private static function migrateSite(Db $db, array $config): array
+    {
+        $pending = self::pending($db);
+        if ($pending !== []) {
+            $manager = new Manager(new Config(self::phinxConfig($config)), new ArrayInput([]), new BufferedOutput());
+            $manager->migrate('default');
+        }
+
+        return array_values($pending);
     }
 }

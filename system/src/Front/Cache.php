@@ -17,6 +17,18 @@ use Talea\Core\Response;
 final class Cache
 {
     private const string FOLDER = TALEA_ROOT . '/storage/cache/pages';
+
+    /** Multisite: a further site's own folder (useSite()); null = site 1, the folder above. */
+    private static ?string $siteFolder = null;
+    private static ?string $sitePrefix = null;
+    /** The install prefix (the first owner's site 1 and the folder above): clearAll() needs it to tell the owners' folders apart. */
+    private static string $installPrefix = 'tl_';
+
+    /** Set by App for every request/process. */
+    public static function useInstall(string $prefix): void
+    {
+        self::$installPrefix = $prefix;
+    }
     /** Only a safety net: a change and a new day clear the cache anyway. */
     private const int LINK_LIFETIME = 86400;
 
@@ -34,6 +46,24 @@ final class Cache
 
     /** @var resource|null lock of the page this request is regenerating right now */
     private static $lock = null;
+
+    /** A further site's pages go to their own folder (storage/cache/pages-tl2_), so clearing one site never empties another. */
+    public static function useSite(?string $prefix): void
+    {
+        self::$sitePrefix = $prefix;
+        self::$siteFolder = $prefix === null ? null : self::FOLDER . '-' . $prefix;
+    }
+
+    /** The prefix useSite() was given (null = site 1); an MCP call on a sibling site restores it afterwards. */
+    public static function site(): ?string
+    {
+        return self::$sitePrefix;
+    }
+
+    public static function folder(): string
+    {
+        return self::$siteFolder ?? self::FOLDER;
+    }
 
     public static function load(App $app): ?Response
     {
@@ -85,8 +115,8 @@ final class Cache
         if ($file === null) {
             return;
         }
-        if (!is_dir(self::FOLDER)) {
-            @mkdir(self::FOLDER, 0775, true);
+        if (!is_dir(self::folder())) {
+            @mkdir(self::folder(), 0775, true);
         }
         // a change was saved while this page was being built: it may show the old state, and nothing would replace it for a day
         if (self::$generation === null || self::$generation === self::generation()) {
@@ -100,7 +130,7 @@ final class Cache
         }
         if (random_int(1, 100) === 1) {
             // occasional cleanup: otherwise expired files would disappear only on a change in the administration
-            foreach (glob(self::FOLDER . '/*.html') ?: [] as $old) {
+            foreach (glob(self::folder() . '/*.html') ?: [] as $old) {
                 if (filemtime($old) < time() - self::LINK_LIFETIME) {
                     @unlink($old);
                 }
@@ -121,14 +151,14 @@ final class Cache
             return $produce();
         }
         // the .html extension only because of clear() - any change in the administration deletes these files too
-        $file = self::FOLDER . '/source-' . sha1($app->request->basePath() . '|' . $key) . '.html';
+        $file = self::folder() . '/source-' . sha1($app->request->basePath() . '|' . $key) . '.html';
         if (is_file($file) && filemtime($file) >= time() - self::LINK_LIFETIME && ($content = file_get_contents($file)) !== false && $content !== '') {
             return $content;
         }
         $generation = self::generation();
         $content = $produce();
-        if (!is_dir(self::FOLDER)) {
-            @mkdir(self::FOLDER, 0775, true);
+        if (!is_dir(self::folder())) {
+            @mkdir(self::folder(), 0775, true);
         }
         if ($generation === self::generation()) {
             @file_put_contents($file, $content, LOCK_EX);
@@ -139,14 +169,39 @@ final class Cache
 
     public static function clear(): void
     {
-        foreach (array_merge(glob(self::FOLDER . '/*.html') ?: [], glob(self::FOLDER . '/*.lock') ?: []) as $file) {
+        self::clearFolder(self::folder());
+    }
+
+    /**
+     * Clears the page cache of every site (storage/cache/pages and each pages-<prefix>): what a change to a row shared by all sites of
+     * the owner (a component or a fact, docs/specs/multisite.md) shows on.
+     */
+    public static function clearAll(): void
+    {
+        // every site of the owner being served, never another owner's: the letters of a prefix name its owner ("tl", "tlb")
+        $letters = fn (string $prefix): string => (string) preg_replace('/\d*_$/', '', $prefix);
+        $owner = $letters(self::$sitePrefix ?? self::$installPrefix);
+        $folders = $owner === $letters(self::$installPrefix) ? [self::FOLDER] : [];
+        foreach (glob(self::FOLDER . '-*', GLOB_ONLYDIR) ?: [] as $folder) {
+            if ($letters(substr(basename($folder), strlen('pages-'))) === $owner) {
+                $folders[] = $folder;
+            }
+        }
+        foreach ($folders as $folder) {
+            self::clearFolder($folder);
+        }
+    }
+
+    private static function clearFolder(string $folder): void
+    {
+        foreach (array_merge(glob($folder . '/*.html') ?: [], glob($folder . '/*.lock') ?: []) as $file) {
             @unlink($file);
         }
         // a new generation: its day empties the cache at midnight, its time starts the warm-up delay (maintain())
-        if (!is_dir(self::FOLDER)) {
-            @mkdir(self::FOLDER, 0775, true);
+        if (!is_dir($folder)) {
+            @mkdir($folder, 0775, true);
         }
-        @file_put_contents(self::FOLDER . '/generation', date('Y-m-d') . ' ' . bin2hex(random_bytes(8)), LOCK_EX);
+        @file_put_contents($folder . '/generation', date('Y-m-d') . ' ' . bin2hex(random_bytes(8)), LOCK_EX);
     }
 
     /**
@@ -164,12 +219,12 @@ final class Cache
 
             return 'new day, cleared';
         }
-        $since = time() - (int) @filemtime(self::FOLDER . '/generation');
+        $since = time() - (int) @filemtime(self::folder() . '/generation');
         if ($budget <= 0 || $since < self::WARM_DELAY || $app->settings()->bool('maintenance') || !function_exists('curl_init')) {
             return 'nothing to warm';
         }
         $key = TALEA_VERSION . ' ' . self::generation();
-        $state = json_decode((string) @file_get_contents(self::FOLDER . '/warmed'), true);
+        $state = json_decode((string) @file_get_contents(self::folder() . '/warmed'), true);
         $next = is_array($state) && ($state['key'] ?? '') === $key ? (int) $state['next'] : 0;
         $paths = self::warmPaths($app);
         if ($next >= count($paths)) {
@@ -195,7 +250,7 @@ final class Cache
             }
             $next++;
         }
-        @file_put_contents(self::FOLDER . '/warmed', (string) json_encode(['key' => $key, 'next' => $next]), LOCK_EX);
+        @file_put_contents(self::folder() . '/warmed', (string) json_encode(['key' => $key, 'next' => $next]), LOCK_EX);
 
         return 'warmed ' . ($next - $start) . ', ' . $next . ' of ' . count($paths);
     }
@@ -218,7 +273,7 @@ final class Cache
     /** Day and random id of the last clear(), '' before the first one. */
     private static function generation(): string
     {
-        return (string) @file_get_contents(self::FOLDER . '/generation');
+        return (string) @file_get_contents(self::folder() . '/generation');
     }
 
     /** Cache file for this request, or null when it should not be cached. */
@@ -226,7 +281,7 @@ final class Cache
     {
         $r = $app->request;
         $s = $app->settings();
-        if (!$s->bool('page_cache') || $r->isPost()) {
+        if (!$s->bool('page_cache') || $r->isPost() || ($app->site['kind'] ?? '') === 'preview') { // the pages of a preview address say noindex: they must not be handed to the site's own host
             return null;
         }
         $params = array_filter(array_keys($_GET), fn (int|string $k): bool => !preg_match(self::TRACKING_PARAMS, (string) $k));
@@ -239,6 +294,6 @@ final class Cache
             }
         }
 
-        return self::FOLDER . '/' . md5(TALEA_VERSION . '|' . $r->origin() . '|' . \Talea\Core\Language::code() . '|' . $r->path() . '|' . $r->getInt('page', 1)) . '.html';
+        return self::folder() . '/' . md5(TALEA_VERSION . '|' . $r->origin() . '|' . \Talea\Core\Language::code() . '|' . $r->path() . '|' . $r->getInt('page', 1)) . '.html';
     }
 }

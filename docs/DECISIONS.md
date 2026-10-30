@@ -19,7 +19,8 @@ Goal: a self-hosted website builder for small businesses and freelancers, withou
 
 ## Product
 
-- Self-install software plus an agency tool (fleet console). Docker-first, one install per site. Not a hosted SaaS.
+- Self-install software plus an agency tool (fleet console). Docker-first, one install per site by default; several sites of one
+  owner in one install behind `TALEA_MULTISITE` (see Multisite). Not a hosted SaaS.
 - Market: small businesses and freelancers, English-first, EU-hosted.
 - GPL v2 or later, with a NOTICE crediting Kaleta. Kaleta stays the reference for security fixes: they are ported first.
 - Revenue: everything free for now; decided again when an add-on marketplace comes back (after the dedicated update mechanism, #17).
@@ -74,9 +75,22 @@ Goal: a self-hosted website builder for small businesses and freelancers, withou
 - Third-party add-ons stay "copy a folder"; the site never downloads code.
 - Contracts and the deprecation policy are dropped until 4.0 (contract files are regenerated in the same commit as a change).
 
+## Multisite (decided on 29 October 2026)
+
+Reverses the earlier stay-out "multisite in one installation". Design: `docs/specs/multisite.md`.
+- **Owner = database, site = table prefix.** Site 1 keeps `tl_`; further sites get `tl{n}_` (`tl2_pages`), never a string that starts
+  with `tl_`, because backups select tables by prefix. Owner tables (accounts, media, components, facts, the Claude connection, the
+  site registry) always use `tl_` and are shared by the owner's sites. Isolation is structural: no `site_id` on content tables, no
+  scope scanner.
+- Behind `TALEA_MULTISITE`, off by default; off = today's single-site install by construction. The flag is operator control: a
+  client's administrator in a single-site install cannot create sites.
+- First phase serves one owner with many sites (a freelancer's projects). Several owners in one install (agencies) is a later
+  spec; until then agencies keep one install per site plus the fleet console, which stays unchanged.
+- Rejected: `owner_id`/`site_id` columns in one shared database (scoping in hundreds of queries, a backfill of the stats tables,
+  a scanner as the only guard against leaks); a Valkey backend and cache/lock interfaces with one implementation each.
+
 ## Stays out
 
-- **Multisite in one installation.** One install per site (Docker); many sites through the fleet console.
 - **Add-on marketplace, for now.**
 - E-commerce, payments, gift cards, donations.
 - **Blog comments and podcast feed.**

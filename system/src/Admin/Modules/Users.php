@@ -45,7 +45,7 @@ final class Users extends Module
     {
         $author = $this->db->one('SELECT * FROM {users} WHERE user_id = ?', [$this->idParam()]);
 
-        return $author === null ? $this->error('User does not exist.', 404) : $this->form($author);
+        return $author === null ? $this->error('User does not exist.', 404) : ($this->operatorRefusal((int) $author['user_id']) ?? $this->form($author));
     }
 
     protected function actionSave(): Response
@@ -58,6 +58,9 @@ final class Users extends Module
             return $refusal;
         }
         $id = $this->idParam('user_id');
+        if (($refusal = $this->operatorRefusal($id)) !== null) {
+            return $refusal;
+        }
         $isSelf = $id === $this->app->auth()->id();
         $data = [
             'username' => $r->post('username'),
@@ -130,7 +133,18 @@ final class Users extends Module
             default => self::defaultModules((int) $data['admin']),
         };
 
-        $this->db->transaction(function () use (&$id, $data, $modules): void {
+        // roles per site: the sites a person who is not an administrator may work on. Only a form that showed the choice changes it; "all
+        // sites" is an explicit answer, and a limited person with nothing ticked has no site (Sites::limitedTo)
+        $sitesShown = $r->postBool('sites_shown');
+        $limited = $r->post('sites_scope') === 'chosen';
+        $sites = [];
+        foreach ($r->postList('sites') as $publicId) {
+            $site = (int) $data['admin'] === Auth::ADMIN ? null : $this->db->byPublicId('sites', $publicId);
+            if ($site !== null && $site['status'] !== 'trashed') {
+                $sites[] = (int) $site['site_id'];
+            }
+        }
+        $this->db->transaction(function () use (&$id, $data, $modules, $sites, $sitesShown, $limited): void {
             if ($id > 0) {
                 $this->db->update('users', $data, ['user_id' => $id]);
                 if (isset($data['password'])) {
@@ -147,8 +161,18 @@ final class Users extends Module
             foreach ($modules as $ident) {
                 $this->db->insert('user_permissions', ['user_id' => $id, 'module' => $ident]);
             }
+            if (\Talea\Core\Sites::enabled()) {
+                if ((int) $data['admin'] === Auth::ADMIN) {
+                    \Talea\Core\Sites::setUserSites($this->db, $id, [], false, false); // an administrator has every site
+                } elseif ($sitesShown) {
+                    \Talea\Core\Sites::setUserSites($this->db, $id, $sites, $limited);
+                }
+            }
         });
 
+        if ($data['blocked'] || (int) $data['admin'] !== Auth::ADMIN) {
+            \Talea\Core\Owners::revokeOperator($this->db, $id); // an operator who is no longer an administrator loses their access to the other owners
+        }
         if ($invite) {
             (new \Talea\Admin\PasswordReset($this->app))->sendLink(['user_id' => $id] + $data, 'invitation');
 
@@ -158,10 +182,23 @@ final class Users extends Module
         return $this->back('User saved.');
     }
 
+    /**
+     * The row that stands for an operator of the installation (Core\Owners::operatorRow) is not the client's to edit, block, delete or
+     * give a password: it opens only through the operator's handoff and goes with the operator.
+     */
+    private function operatorRefusal(int $id): ?Response
+    {
+        if ($id > 0 && $this->db->value('SELECT 1 FROM {users} WHERE user_id = ? AND operator_user_id IS NOT NULL', [$id]) !== null) {
+            return $this->back('This account belongs to the operator of the installation and cannot be changed here.', '', [], 'error');
+        }
+
+        return null;
+    }
+
     /** The administrator sends the user a link to set a new password (valid for 3 days). */
     protected function actionPasswordLink(): Response
     {
-        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {users} WHERE user_id = ? AND email <> '' AND blocked = FALSE", [$this->idParam('user_id')]) : null;
+        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {users} WHERE user_id = ? AND email <> '' AND blocked = FALSE AND operator_user_id IS NULL", [$this->idParam('user_id')]) : null;
         if ($user === null) {
             return $this->back('The user has no e-mail or is blocked.', '', [], 'error');
         }
@@ -180,6 +217,9 @@ final class Users extends Module
             return $this->back();
         }
         $id = $this->idParam('user_id');
+        if (($refusal = $this->operatorRefusal($id)) !== null) {
+            return $refusal;
+        }
         $user = $this->db->one('SELECT user_id, blocked FROM {users} WHERE user_id = ?', [$id]);
         if ($user === null || !$user['blocked']) {
             return $this->back('The account is not blocked.', type: 'error');
@@ -196,6 +236,9 @@ final class Users extends Module
             return $this->back();
         }
         $id = $this->idParam('user_id');
+        if (($refusal = $this->operatorRefusal($id)) !== null) {
+            return $refusal;
+        }
         $token = $this->idParam('token_id', 'api_tokens');
         $client = $this->request->post('client_id');
         $removed = $token > 0 ? $this->db->delete('api_tokens', ['token_id' => $token, 'user_id' => $id]) : ($client !== '' ? $this->db->delete('api_tokens', ['user_id' => $id, 'client_id' => $client]) : 0);
@@ -272,7 +315,11 @@ final class Users extends Module
         if ($id === $this->app->auth()->id()) {
             return $this->back('You cannot delete yourself.', type: 'error');
         }
+        if (($refusal = $this->operatorRefusal($id)) !== null) {
+            return $refusal;
+        }
         $this->db->delete('users', ['user_id' => $id]);
+        \Talea\Core\Owners::revokeOperator($this->db, $id);
 
         return $this->back('The user has been deleted. Their news items remain, without an author.');
     }
@@ -300,7 +347,19 @@ final class Users extends Module
             $author['auto_blocked_at'] ?? null,
         ) : '';
 
+        $siteChoices = [];
+        if (\Talea\Core\Sites::enabled()) {
+            foreach (\Talea\Core\Sites::overview($this->db, false) as $site) {
+                if ($site['status'] !== 'trashed') {
+                    $siteChoices[(string) $site['public_id']] = (string) ($site['name'] !== '' ? $site['name'] : $site['slug']);
+                }
+            }
+        }
+
         return $this->view('form', $id ? 'Edit user' : 'New user', [
+            'siteChoices' => $siteChoices,
+            'sitesLimited' => $this->request->isPost() ? $this->request->post('sites_scope') === 'chosen' : ($id > 0 && (bool) ($author['sites_limited'] ?? false)),
+            'hasSites' => $this->request->isPost() ? $this->request->postList('sites') : ($id > 0 && \Talea\Core\Sites::enabled() ? array_map(fn (array $r): string => (string) $this->db->publicId('sites', (int) $r['site_id']), $this->db->all('SELECT site_id FROM {user_sites} WHERE user_id = ?', [$id])) : []),
             'author' => $author,
             'hasTwoStep' => $id > 0 && $this->app->auth()->hasTwoStep(['user_id' => $id, 'totp_secret' => $author['totp_secret'] ?? '']),
             'customRoles' => $this->db->all('SELECT role_id, name, description FROM {role} ORDER BY name'),

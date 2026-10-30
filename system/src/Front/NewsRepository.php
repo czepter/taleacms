@@ -56,7 +56,7 @@ final class NewsRepository
         $newsItem['image_srcset'] = Images::srcset(ltrim(substr($newsItem['image'], strlen($this->base)), '/'), $this->base);
         foreach (['intro', 'text'] as $part) {
             if (str_contains($newsItem[$part], 'media/')) {
-                $newsItem[$part] = preg_replace_callback('#<img\b(?![^>]*\bsrcset=)([^>]*?)\bsrc="([^"]*?(media/\d{4}/\d{2}/[^"]+))"#i', function (array $m): string {
+                $newsItem[$part] = preg_replace_callback('#<img\b(?![^>]*\bsrcset=)([^>]*?)\bsrc="([^"]*?(media/' . \Talea\Core\MediaFolder::OWNER . '\d{4}/\d{2}/[^"]+))"#i', function (array $m): string {
                     $srcset = Images::srcset($m[3], $this->base);
 
                     return $srcset === '' ? $m[0] : '<img' . $m[1] . 'src="' . $m[2] . '" srcset="' . e($srcset) . '" sizes="(max-width: 800px) 100vw, 800px"';

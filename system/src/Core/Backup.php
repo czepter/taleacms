@@ -6,6 +6,8 @@ namespace Talea\Core;
 
 /**
  * Database backups to storage/backups/ (not accessible from the web). Without mysqldump or pg_dump - works on shared hosting too; an SQLite site gets the same kind of file.
+ * One file holds every site of the database (multisite: the owner prefix and each further site's, and with several owners every owner's
+ * prefixes, docs/specs/multisite.md). It is the install's file: only owner 1 makes, restores and sees backups (Owners::sharedFilesRefusal()).
  */
 final class Backup
 {
@@ -27,6 +29,9 @@ final class Backup
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
         }
+        if (($refusal = Owners::sharedFilesRefusal($db)) !== null) {
+            throw new \RuntimeException($refusal); // the file holds every owner's data
+        }
         if (!is_dir(self::FOLDER) && !mkdir(self::FOLDER, 0775, true)) {
             throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }
@@ -38,16 +43,24 @@ final class Backup
 
         $pdo = $db->pdo();
         $dialect = $db->dialect();
-        $tables = $dialect->dumpTables($pdo, $db->prefix);
-        $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n" . $dialect->dumpPrologue($tables));
-        foreach ($tables as $table) {
+        $sites = []; // real table name => the Db of its site
+        $prefixes = [];
+        foreach (Owners::connections($db) as $site) {
+            $prefixes[] = $site->prefix;
+            foreach ($dialect->dumpTables($pdo, $site->prefix) as $table) {
+                $sites[$table] = $site;
+            }
+        }
+        $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n-- prefixes: " . implode(',', $prefixes) . "\n" . $dialect->dumpPrologue(array_keys($sites)));
+        foreach ($sites as $table => $site) {
+            $name = substr($table, strlen($site->prefix));
             // temporary data is not backed up
-            $structureOnly = in_array(substr($table, strlen($db->prefix)), ['stats_visitors', 'ip_checks'], true);
+            $structureOnly = in_array($name, ['stats_visitors', 'ip_checks'], true);
             $write($dialect->dumpStructure($pdo, $table));
             if ($structureOnly) {
                 continue;
             }
-            $columns = $db->columns(substr($table, strlen($db->prefix)));
+            $columns = $site->columns($name);
             $booleans = array_keys(array_intersect($columns, $dialect->dumpBooleanColumns($pdo, $table)));
             $head = $dialect->dumpInsert($table, $columns);
             $rows = $pdo->query('SELECT ' . implode(', ', array_map($dialect->quote(...), $columns)) . ' FROM ' . $dialect->quote($table), \PDO::FETCH_NUM);
@@ -90,6 +103,9 @@ final class Backup
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
         }
+        if (($refusal = Owners::sharedFilesRefusal($db)) !== null) {
+            throw new \RuntimeException($refusal);
+        }
         $path = self::path($file);
         if ($path === null) {
             throw new \RuntimeException('Backup does not exist.');
@@ -101,15 +117,29 @@ final class Backup
         // the first pass only checks (header, only tables of this installation, a complete last statement) – the database is
         // touched only when the whole file is OK; a damaged or foreign backup thus does not leave the database half restored
         $dialect = $db->dialect();
-        $count = self::walk($path, $gz, $db->prefix, $dialect->name(), null);
+        $registered = Owners::allPrefixes($db); // read before the restore replaces the registries
+        // the sites the file holds (its header line); an older file has none and is taken for the sites there are now
+        $prefixes = self::headerPrefixes($path, $gz, $db->installPrefix) ?? $registered;
+        $count = self::walk($path, $gz, $prefixes, $dialect->name(), null);
         @set_time_limit(300);
         $pdo = $db->pdo();
+        foreach ($prefixes as $prefix) {
+            if ($prefix !== $db->installPrefix && $dialect->dumpTables($pdo, $prefix) === []) {
+                Migrator::migratePrefix($db, $prefix); // a site dropped since the backup: its tables first (a PostgreSQL or SQLite backup has no structure)
+            }
+        }
         $tables = [];
         $dialect->restoreBegin($pdo);
         try {
-            self::walk($path, $gz, $db->prefix, $dialect->name(), function (string $statement) use ($pdo, &$tables, $db): mixed {
+            // sites made after the backup are not in the restored registry: their tables go, or they would be orphans (and on PostgreSQL
+            // a TRUNCATE of the owner tables fails while they still refer to them)
+            foreach (array_reverse(array_diff($registered, $prefixes)) as $gone) { // a site before its owner's tables
+                Sites::dropTables($db, $gone);
+            }
+            self::walk($path, $gz, $prefixes, $dialect->name(), function (string $statement) use ($pdo, &$tables, $prefixes): mixed {
                 if (preg_match('/^INSERT INTO [`"]([^`"]+)[`"]/', $statement, $m) === 1) {
-                    $tables[substr($m[1], strlen($db->prefix))] = true;
+                    $prefix = (string) self::prefixOf($prefixes, $m[1]);
+                    $tables[$prefix][substr($m[1], strlen($prefix))] = true;
                 }
 
                 return $pdo->exec($statement);
@@ -119,13 +149,55 @@ final class Backup
             throw $e;
         }
         $dialect->restoreEnd($pdo, false);
-        $db->syncSequences(...array_keys($tables)); // rows came back with their own numbers
+        Sites::forgetCurrent();
+        $connections = [];
+        foreach (Owners::connections($db) as $site) { // read again: the restored registries decide which owner a prefix belongs to
+            $connections[$site->prefix] = $site;
+        }
+        foreach ($tables as $prefix => $names) {
+            ($connections[$prefix] ?? $db->forSite($prefix))->syncSequences(...array_keys($names)); // rows came back with their own numbers
+        }
 
         return $count;
     }
 
-    /** @param (callable(string): mixed)|null $apply null = check only */
-    private static function walk(string $path, bool $gz, string $prefix, string $engine, ?callable $apply): int
+    /**
+     * The table prefixes a backup was made of (its "-- prefixes:" line), each owner's followed by its sites'; null for a file without the line.
+     *
+     * @return list<string>|null
+     * @throws \RuntimeException a prefix that cannot be one of this installation's sites
+     */
+    private static function headerPrefixes(string $path, bool $gz, string $install): ?array
+    {
+        $f = $gz ? gzopen($path, 'rb') : fopen($path, 'rb');
+        $found = null;
+        for ($i = 0; $i < 6 && ($row = $gz ? gzgets($f) : fgets($f)) !== false; $i++) {
+            if (preg_match('/^-- prefixes: (\S+)/', $row, $m) === 1) {
+                $found = explode(',', $m[1]);
+                break;
+            }
+        }
+        $gz ? gzclose($f) : fclose($f);
+        if ($found === null) {
+            return null;
+        }
+        foreach ($found as $prefix) {
+            if ($prefix !== $install && Owners::ownerOf($install, $prefix) === null) { // the shape of an owner's or a site's prefix of this install
+                throw new \RuntimeException('The backup was made with other table prefixes (' . $prefix . ') – the restore was stopped.');
+            }
+        }
+        if (!in_array($install, $found, true)) {
+            throw new \RuntimeException('The backup was made with other table prefixes (' . implode(', ', $found) . ') – the restore was stopped.');
+        }
+
+        return $found;
+    }
+
+    /**
+     * @param list<string> $prefixes table prefixes of this installation's sites
+     * @param (callable(string): mixed)|null $apply null = check only
+     */
+    private static function walk(string $path, bool $gz, array $prefixes, string $engine, ?callable $apply): int
     {
         $f = $gz ? gzopen($path, 'rb') : fopen($path, 'rb');
         $first = (string) ($gz ? gzgets($f) : fgets($f));
@@ -150,7 +222,7 @@ final class Backup
                 // a backup can contain only tables of this installation
                 if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO|TRUNCATE|DELETE FROM) ([^(;]+)/', $statement, $m) && preg_match_all('/[`"]([^`"]+)[`"]/', $m[2], $names) > 0) {
                     foreach ($names[1] as $name) {
-                        if (!str_starts_with($name, $prefix)) {
+                        if (self::prefixOf($prefixes, $name) === null) {
                             throw new \RuntimeException('The backup contains a foreign table ' . $name . ' – the restore was stopped.');
                         }
                     }
@@ -170,6 +242,24 @@ final class Backup
         return $count;
     }
 
+    /**
+     * The prefix of a real table name among the sites in the registry, null for a foreign table – also for a tl7_ table of a site
+     * that is not registered: it may belong to another installation in the same database.
+     *
+     * @param list<string> $prefixes
+     */
+    private static function prefixOf(array $prefixes, string $table): ?string
+    {
+        usort($prefixes, fn (string $a, string $b): int => strlen($b) <=> strlen($a)); // the longest first
+        foreach ($prefixes as $prefix) {
+            if (str_starts_with($table, $prefix)) {
+                return $prefix;
+            }
+        }
+
+        return null;
+    }
+
     /** @return list<array{file:string, size:int, time:int}> newest first */
     public static function listAll(): array
     {
@@ -183,9 +273,9 @@ final class Backup
     }
 
     /** Path to an existing backup by the name from the URL; null = invalid name. */
-    public static function path(string $file): ?string
+    public static function path(string $file, ?Db $for = null): ?string
     {
-        return preg_match('/^talea-[0-9a-z-]+\.sql(\.gz)?$/', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
+        return ($for === null || Owners::sharedFilesRefusal($for) === null) && preg_match('/^talea-[0-9a-z-]+\.sql(\.gz)?$/', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
     }
 
     /**
@@ -194,7 +284,7 @@ final class Backup
      */
     public static function createAutomatic(Db $db, Settings $settings): void
     {
-        if (!$settings->bool('auto_backups')) {
+        if (!$settings->bool('auto_backups') || Owners::sharedFilesRefusal($db) !== null) {
             return;
         }
         $last = self::listAll()[0]['time'] ?? 0;

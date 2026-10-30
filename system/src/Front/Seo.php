@@ -47,11 +47,20 @@ final class Seo
             . 'Canonical: ' . rtrim($siteUrl, '/') . "/.well-known/security.txt\n";
     }
 
+    /** Is this the install's preview subdomain of a site (TALEA_PREVIEW_DOMAIN)? Never indexed, whatever the site's own setting says. */
+    private function isPreview(): bool
+    {
+        return ($this->app->site['kind'] ?? '') === 'preview';
+    }
+
     public function robotsTxt(): string
     {
         $s = $this->app->settings();
         if (\Talea\Core\Demo::active()) {
             return "# The public demo of Talea is not indexed.\nUser-agent: *\nDisallow: /\n";
+        }
+        if ($this->isPreview()) {
+            return "# A preview address is never indexed.\nUser-agent: *\nDisallow: /\n";
         }
         if (!$s->bool('indexing')) {
             return "# Indexing of the site is turned off in Settings.\nUser-agent: *\nDisallow: /\n";
@@ -193,7 +202,7 @@ final class Seo
         }
         $s = $this->app->settings();
         $host = (string) parse_url($this->siteSettings, PHP_URL_HOST);
-        if (!$s->bool('indexnow') || $s->get('indexnow_key') === '' || !$s->bool('indexing') || in_array($host, ['localhost', '127.0.0.1'], true) || str_ends_with($host, '.test')) {
+        if (!$s->bool('indexnow') || $s->get('indexnow_key') === '' || !$s->bool('indexing') || $this->isPreview() || in_array($host, ['localhost', '127.0.0.1'], true) || str_ends_with($host, '.test')) {
             return;
         }
         $data = json_encode(['host' => $host, 'key' => $s->get('indexnow_key'), 'keyLocation' => $this->app->request->origin() . $this->app->request->basePath() . '/' . $s->get('indexnow_key') . '.txt', 'urlList' => [$this->app->request->origin() . $url]]);
@@ -339,7 +348,7 @@ final class Seo
         if ($s->get('cookies_mode') === 'external' && trim($s->get('cookies_external_code')) !== '') {
             $h[] = $s->get('cookies_external_code');
         }
-        if (!$s->bool('indexing')) {
+        if (!$s->bool('indexing') || $this->isPreview()) {
             $h[] = '<meta name="robots" content="noindex, nofollow">';
         } // noindex of an individual page or news item is printed by the template from $meta['noindex'] (and it omits the canonical URL)
         if ($s->get('verification_google') !== '') {

@@ -60,11 +60,11 @@ final class SiteIdentity
         if ($icon !== '') {
             $html .= '<link rel="icon" href="' . e((preg_match('#^(https?:)?/#', $icon) ? '' : $base . '/') . $icon) . "\">\n";
         }
-        $png = TALEA_ROOT . '/media/icon-180.png';
+        $png = TALEA_ROOT . '/' . \Talea\Core\MediaFolder::icon(180);
         if (is_file($png)) {
             $v = '?v=' . filemtime($png);
-            $html .= '<link rel="icon" type="image/png" sizes="32x32" href="' . e($base . '/media/icon-32.png' . $v) . "\">\n"
-                . '<link rel="apple-touch-icon" href="' . e($base . '/media/icon-180.png' . $v) . "\">\n";
+            $html .= '<link rel="icon" type="image/png" sizes="32x32" href="' . e($base . '/' . \Talea\Core\MediaFolder::icon(32) . $v) . "\">\n"
+                . '<link rel="apple-touch-icon" href="' . e($base . '/' . \Talea\Core\MediaFolder::icon(180) . $v) . "\">\n";
         }
         if ($html === '' && $fallback) {
             $html = '<link rel="icon" type="image/svg+xml" href="' . e($base . '/image/talea-mark.svg') . "\">\n"
@@ -82,8 +82,8 @@ final class SiteIdentity
         $name = $siteSettings->get('site_name') ?: 'Website';
         $icons = [];
         foreach ([192, 512] as $n) {
-            if (is_file(TALEA_ROOT . '/media/icon-' . $n . '.png')) {
-                $icons[] = ['src' => $base . '/media/icon-' . $n . '.png', 'sizes' => $n . 'x' . $n, 'type' => 'image/png', 'purpose' => 'any'];
+            if (is_file(TALEA_ROOT . '/' . \Talea\Core\MediaFolder::icon($n))) {
+                $icons[] = ['src' => $base . '/' . \Talea\Core\MediaFolder::icon($n), 'sizes' => $n . 'x' . $n, 'type' => 'image/png', 'purpose' => 'any'];
             }
         }
 

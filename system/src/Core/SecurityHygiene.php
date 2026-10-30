@@ -187,7 +187,7 @@ final class SecurityHygiene
     {
         return $db->all('SELECT u.user_id, u.username, u.name, u.admin, u.blocked, u.auto_blocked_at, u.last_login_at, u.confirmed_at, u.totp_secret,
             (SELECT MAX(t.used_at) FROM {api_tokens} t WHERE t.user_id = u.user_id) AS used_at, (SELECT COUNT(*) FROM {user_passkeys} k WHERE k.user_id = u.user_id) AS passkeys
-            FROM {users} u ORDER BY u.username');
+            FROM {users} u WHERE u.operator_user_id IS NULL ORDER BY u.username'); // an operator's row has no password of its own (Core\Owners)
     }
 
     /**

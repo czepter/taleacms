@@ -42,8 +42,21 @@ final class Bookings extends Module
         if (isset(Booking::STATUSES[$this->request->get('status')])) {
             $filter['status'] = $this->request->get('status');
         }
+        // multisite: "all sites" merges the bookings of every set-up site (people and services are per site, so those filters do not apply)
+        $sites = $this->request->get('sites') === 'all' ? Sites::inboxSites($this->app) : [];
+        $bookings = Booking::list($this->db, $filter + ['limit' => 500]);
+        if ($sites !== []) {
+            $bookings = [];
+            foreach ($sites as $site) {
+                foreach (Booking::list($this->db->forSite($site['prefix']), ['staff' => 0, 'service' => 0] + $filter + ['limit' => 500]) as $b) {
+                    $bookings[] = $b + ['site_id' => $site['site_id']];
+                }
+            }
+            usort($bookings, fn (array $a, array $b): int => [$a['starts_at'], $a['site_id'], $a['id']] <=> [$b['starts_at'], $b['site_id'], $b['id']]);
+            $bookings = array_slice($bookings, 0, 500);
+        }
         $byDay = [];
-        foreach (Booking::list($this->db, $filter + ['limit' => 500]) as $b) {
+        foreach ($bookings as $b) {
             $byDay[substr((string) $b['starts_at'], 0, 10)][] = $b;
         }
         if ($view === 'past' || $view === 'all') {
@@ -57,6 +70,7 @@ final class Bookings extends Module
             'waiting' => (int) $this->db->value("SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW()"),
             // the requests to confirm beside the agenda: the next ones that still lie ahead
             'requests' => Booking::list($this->db, ['from' => date('Y-m-d'), 'status' => 'pending', 'limit' => 8]),
+            'sites' => array_column($sites, null, 'site_id'), 'sitesFilter' => Sites::inboxFilter($this->app, $sites !== []),
             'months' => $s->int('enquiries_months'), 'expiry' => $s->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete', 'isAdmin' => $this->app->auth()->isAdmin()]);
     }
 

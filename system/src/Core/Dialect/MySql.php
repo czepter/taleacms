@@ -170,6 +170,11 @@ final class MySql extends Dialect
         return ['SET FOREIGN_KEY_CHECKS = 0', ...array_map(fn (string $t): string => 'DELETE FROM {' . $this->identifier($t) . '}', $tables), 'SET FOREIGN_KEY_CHECKS = 1'];
     }
 
+    public function foreignKeysOff(): array
+    {
+        return [['SET FOREIGN_KEY_CHECKS = 0'], ['SET FOREIGN_KEY_CHECKS = 1']];
+    }
+
     public function dumpTables(PDO $pdo, string $prefix): array
     {
         $stmt = $pdo->prepare('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name');

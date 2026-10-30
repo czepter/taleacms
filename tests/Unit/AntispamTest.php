@@ -6,6 +6,7 @@ namespace Talea\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Talea\Core\Antispam;
+use Talea\Core\Db;
 
 final class AntispamTest extends TestCase
 {
@@ -27,6 +28,34 @@ final class AntispamTest extends TestCase
     {
         $this->assertFalse(str_contains(\Talea\Core\Antispam::hash('203.0.113.7'), '203'), 'Antispam::hash: it is not the IP address');
         $this->assertSame(\Talea\Core\Antispam::hash('203.0.113.7'), \Talea\Core\Antispam::hash('203.0.113.7'), 'Antispam::hash: the same address = the same hash');
+    }
+
+    /** Multisite: with TALEA_SECRET_KEY every further site signs with its own key, site 1 keeps the plain one, so a link of one site is void on the others. */
+    public function testEnvironmentSecretGivesEachSiteItsOwnKey(): void
+    {
+        $secret = str_repeat('s3cret', 8);
+        putenv('TALEA_SECRET_KEY=' . $secret);
+        try {
+            $settings = \Talea\Tests\Support\FakeSettings::withSecretKey('');
+            $key = fn (string $prefix): string => (new Antispam(new \Talea\Core\Db('x', '', '', $prefix, 'tl_'), $settings))->key();
+            $this->assertSame(bin2hex(sodium_crypto_generichash('talea-signing|' . $secret, '', 32)), $key('tl_'), 'site 1 is unchanged');
+            $this->assertNotSame($key('tl_'), $key('tl2_'));
+            $this->assertNotSame($key('tl2_'), $key('tl3_'));
+            $this->assertSame($key('tl2_'), $key('tl2_'));
+        } finally {
+            putenv('TALEA_SECRET_KEY');
+        }
+    }
+
+    public function testMultisiteIsOffUnlessTheFlagIsSet(): void
+    {
+        $this->assertFalse(\Talea\Core\Sites::enabled());
+        putenv('TALEA_MULTISITE=1');
+        try {
+            $this->assertTrue(\Talea\Core\Sites::enabled());
+        } finally {
+            putenv('TALEA_MULTISITE');
+        }
     }
 
     public function testForwardedForOnlyFromTrustedProxy(): void
@@ -60,5 +89,15 @@ final class AntispamTest extends TestCase
         } finally {
             putenv('TALEA_TRUSTED_PROXIES');
         }
+    }
+
+    public function testScopedKey(): void
+    {
+        $site1 = new Db('sqlite::memory:', '', '', 'tl_', 'tl_', 'tl_');
+        $site2 = new Db('sqlite::memory:', '', '', 'tl_s2_', 'tl_', 'tl_');
+        $owner2 = new Db('sqlite::memory:', '', '', 'tl2_', 'tl2_', 'tl_');
+        $this->assertSame(['k', 'k', 'k', 'tl_s2_|k', 'tl2_|k', 'tl2_|k'], [
+            Antispam::scopedKey($site1, 'k'), Antispam::scopedKey($site1, 'k', true), Antispam::scopedKey($site2, 'k'),
+            Antispam::scopedKey($site2, 'k', true), Antispam::scopedKey($owner2, 'k'), Antispam::scopedKey($owner2, 'k', true)]);
     }
 }

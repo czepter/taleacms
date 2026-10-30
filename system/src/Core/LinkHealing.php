@@ -65,7 +65,9 @@ final class LinkHealing
         $changed = 0;
         foreach (self::PLACES as $table => [$keys, $columns]) {
             $where = implode(' OR ', array_map(fn (string $c): string => $c . ' LIKE ?', array_keys($columns)));
-            $rows = $db->all('SELECT ' . implode(', ', array_merge($keys, array_keys($columns))) . ' FROM {' . $table . '} WHERE ' . $where, array_fill(0, count($columns), $like));
+            // components are shared by the sites of an owner: only this site's own are rewritten (a shared one may link another site's addresses)
+            $own = $table === 'components' ? ' AND site_id = ' . Sites::currentId($db) : '';
+            $rows = $db->all('SELECT ' . implode(', ', array_merge($keys, array_keys($columns))) . ' FROM {' . $table . '} WHERE (' . $where . ')' . $own, array_fill(0, count($columns), $like));
             foreach ($rows as $row) {
                 $update = [];
                 foreach ($columns as $column => $kind) {

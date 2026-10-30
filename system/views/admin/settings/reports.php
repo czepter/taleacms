@@ -34,6 +34,9 @@ $monthName = static fn (string $month): string => Talea\Core\ReportPage::monthNa
 <p class="help"><?= e(t('In the first days of each month the site e-mails a short report about the previous month: traffic, enquiries and sign-ups, updates, backups, changes made by people and by Claude, the problems right now and what needs your decision. Counts and page addresses only – never names, e-mail addresses or the contents of enquiries, so the report can be forwarded. With the agency details from the General tab it carries the agency’s branding.')) ?></p>
 <?php
 $field('report_monthly', 'Send a monthly report by e-mail', 'flag', '');
+if (Talea\Core\AllSitesReport::available($app)) {
+    $field('report_all_sites', 'Include the other sites in this report', 'flag', 'The report carries a section for each of the other sites, and they send no report of their own.');
+}
 $field('report_recipients', 'Recipients', 'lines', 'One address per line or separated by commas, at most 10. Empty = the site e-mail (Settings → General).', 'maxlength="2000"');
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url('report_preview')) ?>" target="_blank" rel="noopener"><?= e(t('Preview last month')) ?></a> <button class="navigation" type="submit" formaction="<?= e($module->url('report_send')) ?>"><?= e(t('Send last month’s report now')) ?></button> <span class="small-text"><?= e(t('Save the settings first – sending uses the saved recipients.')) ?></span></p>

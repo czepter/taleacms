@@ -29,7 +29,7 @@ $tab = fn (string $value, string $label, int $count): array => ['label' => $labe
     $changed = $k['build_draft'] !== null && $k['build'] !== null;
 ?>
 <tr>
-	<td class="cell-main"><div class="cell-row"><span class="cell-icon"><?= $icon('layers') ?></span><div class="cell-text"><a class="cell-title" href="<?= e($builder) ?>"><?= e($k['name']) ?></a><span class="cell-sub"><?= $k['properties'] === [] ? e(t('no properties')) : implode(' ', array_map(fn (array $v): string => '<code>{{' . e($v['key']) . '}}</code>', $k['properties'])) ?></span></div></div></td>
+	<td class="cell-main"><div class="cell-row"><span class="cell-icon"><?= $icon('layers') ?></span><div class="cell-text"><a class="cell-title" href="<?= e($builder) ?>"><?= e($k['name']) ?></a><span class="cell-sub"><?= $k['properties'] === [] ? e(t('no properties')) : implode(' ', array_map(fn (array $v): string => '<code>{{' . e($v['key']) . '}}</code>', $k['properties'])) ?><?= \Talea\Core\Sites::enabled() && $k['site_id'] === null ? ' · ' . e(t('shared with all sites')) : '' ?></span></div></div></td>
 	<td><?php if ($k['usage'] === 0): ?><span class="status-note-warning"><?= e(t('nowhere – can be deleted')) ?></span><?php else: ?>
 		<button class="places" type="button" popovertarget="places-<?= e($k['public_id']) ?>" aria-label="<?= e(t('Where %s is used', $k['name'])) ?>"><span><?= e(t('%s×', (string) $k['usage'])) ?></span> <span class="cell-sub"><?= e(implode(', ', array_slice($k['places'], 0, 2))) ?></span></button>
 		<div class="row-menu" id="places-<?= e($k['public_id']) ?>" popover><p class="row-menu-note"><?= e(t('Used on')) ?></p><ul class="places-list"><?php foreach ($k['places'] as $place): ?><li><?= e($place) ?></li><?php endforeach ?></ul></div>

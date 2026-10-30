@@ -809,6 +809,10 @@ final class Prompts
                 . ' – their tools are not listed (a blog is News). Never rebuild such a feature with pages or a collection: ask the user to switch it on; an administrator does it with update_settings '
                 . '{"settings":{"extensions":[the extensions from site_info and the new key]}}, and its tools appear in the next conversation.';
         }
+        if (\Talea\Core\Sites::enabled()) {
+            $text .= ' SEVERAL SITES: this installation hosts more than one site. A tool works on the site this connection calls; pass the optional site argument (a site id from list_owner_sites) to run it on another site, '
+                . 'and name that site when you tell the user what you did. Administrators create and manage the sites with create_site, update_site and add_site_domain.';
+        }
         $address = \Talea\Core\Language::visitorAddress($app->settings());
         if ($address !== null) {
             $text .= ' GERMAN FORM OF ADDRESS: the German texts for visitors of this site (pages, news, replies to enquiries, e-mails) use the '

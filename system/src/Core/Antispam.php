@@ -36,7 +36,11 @@ final class Antispam
     {
         $secret = self::environmentSecret($this->settings);
         if ($secret !== null) {
-            return bin2hex(sodium_crypto_generichash('talea-signing|' . $secret, '', 32));
+            // a further site (multisite) and a further owner's site 1 sign with a key of their own from the shared secret (site prefixes are
+            // unique in the whole install), so a link of one site is void on the others; the install's own site 1 keeps the plain key
+            $site = $this->db->prefix === $this->db->installPrefix ? '' : '|' . $this->db->prefix;
+
+            return bin2hex(sodium_crypto_generichash('talea-signing|' . $secret . $site, '', 32));
         }
         $key = $this->settings->get('secret_key');
         if ($key === '') {
@@ -198,6 +202,14 @@ final class Antispam
         }
 
         return false;
+    }
+
+    /** A single-site install keeps its keys; further owners (or sites, $perSite) get their prefix in front, as the keys are row numbers or addresses. */
+    public static function scopedKey(Db $db, string $key, bool $perSite = false): string
+    {
+        $scope = $perSite ? $db->prefix : $db->ownerPrefix;
+
+        return $scope === $db->installPrefix ? $key : $scope . '|' . $key;
     }
 
     /**

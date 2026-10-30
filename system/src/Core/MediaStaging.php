@@ -57,7 +57,7 @@ final class MediaStaging
     private const array BUILDS = ['pages', 'site_parts', 'popups', 'components', 'collections', 'collection_templates'];
 
     /** A file under media/ as Images, Files and the SVG upload name it, or one of its variants (-1200, -nahled, .webp, .avif). */
-    private const string PATH = '#^media/\d{4}/\d{2}/[a-z0-9-]+\.[a-z0-9]+(?:\.(?:webp|avif))?$#D';
+    private const string PATH = '#^media/' . MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+\.[a-z0-9]+(?:\.(?:webp|avif))?$#D';
 
     /** Does a file stored by this caller wait for approval: a Claude connection limited to drafts. */
     public static function appliesTo(Auth $auth): bool
@@ -266,10 +266,14 @@ final class MediaStaging
     /**
      * The background job: waiting files published content uses go public; those nobody approved within DAYS days are deleted with
      * their rows, and so are files left without a row (an undone Claude session removed it) once they are older than that.
+     * Media belong to the owner: the content of every site counts before anything is deleted (multisite, docs/specs/multisite.md).
      */
     public static function cleanup(Db $db): string
     {
-        $published = self::promotePublished($db);
+        $published = 0;
+        foreach (Sites::readyPrefixes($db) as $prefix) {
+            $published += self::promotePublished($db->forSite($prefix));
+        }
         $deleted = 0;
         foreach ($db->all('SELECT media_id, image_path FROM {media} WHERE staged_at IS NOT NULL AND staged_at < NOW() - INTERVAL ' . self::DAYS . ' DAY') as $row) {
             foreach (self::files((string) $row['image_path'], true) as $file) {

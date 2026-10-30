@@ -419,7 +419,7 @@ final class News extends Module
         $image = null;
         if ($task === 'alt') {
             // only files from media/: the path is assembled from verified parts of the URL
-            $file = preg_match('#media/(\d{4}/\d{2}/[A-Za-z0-9._-]+\.(?:jpe?g|png|webp|gif))$#', (string) parse_url($this->request->post('image'), PHP_URL_PATH), $m) ? 'media/' . $m[1] : null;
+            $file = preg_match('#media/(' . \Talea\Core\MediaFolder::OWNER . '\d{4}/\d{2}/[A-Za-z0-9._-]+\.(?:jpe?g|png|webp|gif))$#', (string) parse_url($this->request->post('image'), PHP_URL_PATH), $m) ? 'media/' . $m[1] : null;
             $smaller = $file === null ? null : (string) preg_replace('/\.(\w+)$/', '-1200.$1', $file);
             $file = $smaller !== null && \Talea\Core\Files::isFile($smaller) ? $smaller : $file;
             $image = $file !== null && \Talea\Core\Files::isFile($file) ? TALEA_ROOT . '/' . $file : null;

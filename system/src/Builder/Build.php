@@ -37,7 +37,7 @@ final class Build
         Elements\Map::class, Elements\Embed::class, Elements\Breadcrumbs::class,
         Elements\Counter::class, Elements\Progress::class, Elements\Rating::class, Elements\Countdown::class, Elements\SocialLinks::class, Elements\Search::class,
         Elements\News::class, Elements\GoogleReviews::class, Elements\CollectionList::class, Elements\EnquiryButton::class, Elements\StoreLocator::class, Elements\Form::class, Elements\FormEmbed::class, Elements\Booking::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
-        Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\MemberMenu::class, Elements\StructuredData::class, Elements\CompanyDetails::class, Elements\PageContent::class,
+        Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\MemberMenu::class, Elements\StructuredData::class, Elements\CompanyDetails::class, Elements\PageContent::class, Elements\SiteCards::class,
     ];
 
     /** @return class-string<Element>|null */

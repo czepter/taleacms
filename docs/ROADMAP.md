@@ -505,7 +505,7 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
 - A chat with Claude inside the admin that runs on the site's own Anthropic key (decided on 3 October 2026) – "Ask Claude"
   hands the work to Claude through requests instead.
-- Multisite in one installation, e-commerce, memberships, a visitor-facing AI chat, a headless or GraphQL API, real-time
+- E-commerce, memberships, a visitor-facing AI chat, a headless or GraphQL API, real-time
   co-editing.
 - More style presets, approval workflows, PHP themes.
 - A fleet console that reaches into sites – remote commands or Claude tokens held by the console (decided on 2 October 2026).

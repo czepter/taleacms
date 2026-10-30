@@ -134,7 +134,7 @@ final class SiteExport
         // the drafts go along (build_draft): a site moved in the middle of a redesign keeps its unfinished work
         self::fields($f, 'site_parts', $all('site_parts', 'SELECT type, language, variant, name, pages, build, build_draft FROM {site_parts} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY type, language, variant', [], ['pages' => 'pages'] + $builds));
         // components ("component" elements refer to them by public id) and the library's own sections
-        self::fields($f, 'components', $all('components', 'SELECT component_id, public_id, name, properties, build, build_draft, kit_key FROM {components} ORDER BY component_id', [], $builds));
+        self::fields($f, 'components', $all('components', 'SELECT component_id, public_id, name, properties, build, build_draft, kit_key FROM {components} WHERE ' . Sites::visible($db) . ' ORDER BY component_id', [], $builds));
         // forms (docs/specs/form-builder.md): "form_embed" elements place them by public id; where one was adopted from stays this site's
         self::fields($f, 'forms', $all('forms', 'SELECT form_id, public_id, name, build, build_draft FROM {forms} ORDER BY form_id', [], $builds));
         self::fields($f, 'sections', $all('sections', 'SELECT section_id, public_id, name, element, kit_key FROM {sections} ORDER BY section_id', [], ['element' => 'element']));
@@ -150,7 +150,11 @@ final class SiteExport
         // a file waiting for approval (Core\MediaStaging) is not part of the site yet
         self::fields($f, 'media', $one('media', 'SELECT media_id, public_id, folder_id, name, description, author, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, created_at FROM {media} WHERE media_id > ? AND staged_at IS NULL ORDER BY media_id LIMIT 500', 'media_id', ['folder_id' => 'media_folders']));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
-        self::fields($f, 'facts', $db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} ORDER BY fact_key, language'));
+        $facts = []; // what this site shows: its own row of a key and language, else the shared one
+        foreach ($db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} WHERE ' . Sites::visible($db) . ' ORDER BY fact_key, language, site_id IS NULL') as $fact) {
+            $facts[$fact['fact_key'] . '|' . $fact['language']] ??= $fact;
+        }
+        self::fields($f, 'facts', array_values($facts));
         self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURRENT_DATE AND proposed = FALSE ORDER BY date_from'));
         // online booking (3.0, Core\Booking): the set-up goes along – the bookings themselves are personal data and stay
         self::fields($f, 'booking_services', $all('booking_services', 'SELECT id, public_id, name, duration_min, buffer_min, price_text, description, active, requires_confirmation, sort_order FROM {booking_services} ORDER BY id'));
@@ -351,6 +355,9 @@ final class SiteExport
         $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
             $path = 'media/' . ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen(TALEA_ROOT . '/media'))), '/');
+            if (MediaFolder::isOwnerDir(explode('/', $path)[1] ?? '')) {
+                continue; // a further owner's files are not owner 1's (this is the install's own archive and copy)
+            }
             if ($file->isFile() && !$file->isLink() && !preg_match('#(^|/)\.|\.php\d?$#i', $path)) {
                 $files[$path] = (int) $file->getSize();
             }

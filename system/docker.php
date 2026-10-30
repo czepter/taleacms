@@ -2,7 +2,7 @@
 /**
  * Talea - command line for containers (docker/). Configuration comes from TALEA_* environment variables, see docker/README.md.
  *
- *   php system/docker.php cron      run the background jobs that are due (what the /tasks address does for web cron)
+ *   php system/docker.php cron      run the background jobs that are due (what the /tasks address does for web cron), for every live site
  *   php system/docker.php site-url  store TALEA_SITE_URL as the site address when it differs (the entrypoint, on every start)
  *   php system/docker.php error-test send a test event to the error tracking (TALEA_ERROR_DSN, Core\ErrorReport)
  */
@@ -22,13 +22,62 @@ try {
                 fwrite(STDOUT, "Not installed yet (open the site and run the installer).\n");
                 break;
             }
-            $app = Talea\Core\App::boot();
+            // cron                         the install: owner 1's site 1, then its further sites and the further owners, each in a child process
+            // cron <site prefix>           a further site of owner 1
+            // cron <owner prefix> <prefix> a site of a further owner (the owner prefix again for its site 1: the owner-wide jobs run there)
+            $owner = isset($argv[3]) ? $argv[2] : null;
+            $prefix = $argv[3] ?? $argv[2] ?? null;
+            $install = Talea\Core\Config::load()['db']['prefix'] ?? 'tl_';
+            if ($owner !== null && (!in_array($owner, array_slice(Talea\Core\Owners::readyPrefixes(Talea\Core\Db::fromConfig(Talea\Core\Config::load()['db'])), 1), true) || Talea\Core\Owners::ownerOf($install, $prefix) !== $owner)) {
+                throw new RuntimeException("No further owner with the table prefix {$owner} that is set up.");
+            }
+            $app = Talea\Core\App::boot($prefix, $owner);
             Talea\Core\ErrorReport::tag('area', 'cron');
+            $sites = Talea\Core\Sites::all($app->db());
+            $ownerRun = $prefix === null || $prefix === $app->db()->ownerPrefix; // the owner's site 1: the owner-wide jobs, new sites, the children
+            if ($prefix !== null && !$ownerRun && !in_array($prefix, array_slice(array_column($sites, 'prefix'), 1), true)) {
+                throw new RuntimeException("No further site with the table prefix {$prefix}.");
+            }
             $app->request->setOrigin($app->settings()->get('site_url'));
             $app->applyTimezone();
             $app->settings()->set('tasks_last_run', (string) time()); // newsletters are sent only while cron runs
             foreach (Talea\Core\Scheduler::run($app, 'cron', 50.0) as $job => $result) {
-                fwrite(STDOUT, "{$job}: {$result}\n");
+                fwrite(STDOUT, ($prefix !== null ? "[{$prefix}] " : '') . "{$job}: {$result}\n");
+            }
+            if ($ownerRun && Talea\Core\Sites::enabled()) {
+                // new owners (the install's cron only), then new sites: their tables are made here, never on a page request (Admin\Modules\Sites only inserts the row)
+                if ($owner === null && Talea\Core\Owners::enabled()) {
+                    foreach (Talea\Core\Owners::provisionPending($app->db(), $app->config['db']) as $line) {
+                        fwrite(STDOUT, $line . "\n");
+                    }
+                }
+                foreach (Talea\Core\Sites::provisionPending($app->db(), $app->config['db']) as $line) {
+                    fwrite(STDOUT, $line . "\n");
+                }
+                if ($owner === null && ($added = Talea\Core\Domains::ensurePreviews($app->db())) > 0) {
+                    fwrite(STDOUT, "preview hosts added: {$added}\n"); // sites that existed before TALEA_PREVIEW_DOMAIN was set, and the first site of a new owner
+                }
+                $ready = Talea\Core\Sites::readyPrefixes($app->db());
+            }
+            if ($ownerRun) {
+                // multisite: every further live site in its own process, so no static state crosses from one site to another
+                $children = [];
+                foreach (array_slice(Talea\Core\Sites::all($app->db()), 1) as $site) {
+                    if ($site['status'] === 'live' && in_array($site['prefix'], $ready ?? array_column($sites, 'prefix'), true)) {
+                        $children[] = ($owner !== null ? escapeshellarg($owner) . ' ' : '') . escapeshellarg($site['prefix']);
+                    }
+                }
+                // a further owner: its site 1 first (the owner-wide jobs and its new sites), once per owner; a paused or archived owner runs nothing
+                if ($owner === null && Talea\Core\Owners::enabled()) {
+                    foreach (array_slice(Talea\Core\Owners::all($app->db()), 1) as $o) {
+                        if ($o['status'] === 'live' && $o['ready_at'] !== null) {
+                            $children[] = escapeshellarg((string) $o['prefix']) . ' ' . escapeshellarg((string) $o['prefix']);
+                        }
+                    }
+                }
+                foreach ($children as $args) {
+                    passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' cron ' . $args);
+                }
             }
             break;
         case 'site-url':

@@ -49,11 +49,11 @@ final class Appearance extends Module
         $siteSettings = $this->app->settings();
         $siteSettings->set('logo', mb_substr($r->post('logo'), 0, 255));
         $icon = mb_substr($r->post('favicon'), 0, 255);
-        if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(TALEA_ROOT . '/media/icon-180.png'))) {
+        if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(TALEA_ROOT . '/' . \Talea\Core\MediaFolder::icon(180)))) {
             // icons for phones and for installing the site are prepared from the icon once, when saving
             $ok = $icon !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#', $icon, $m) && !str_contains($m[1], '..') && Images::icons(TALEA_ROOT . '/' . $m[1]);
             if (!$ok) {
-                array_map(fn (int $n): bool => @unlink(TALEA_ROOT . '/media/icon-' . $n . '.png'), Images::ICON_SIZES);
+                array_map(fn (int $n): bool => @unlink(TALEA_ROOT . '/' . \Talea\Core\MediaFolder::icon($n)), Images::ICON_SIZES);
             }
         }
         $siteSettings->set('favicon', $icon);

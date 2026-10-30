@@ -331,8 +331,8 @@ final class SiteImport
     public function importData(array &$state): void
     {
         if (!$state['emptied']) {
-            if (!self::siteContent($this->db)['empty']) {
-                throw new \RuntimeException('The site already has its own content. A Talea export can be imported only into a new, empty site.');
+            if (!self::siteContent($this->db)['empty'] || Sites::importRefusal($this->db) !== null) {
+                throw new \RuntimeException(Sites::importRefusal($this->db) ?? 'The site already has its own content. A Talea export can be imported only into a new, empty site.');
             }
             $state['backup'] = Backup::create($this->db, 'before_import');
             $this->db->emptyTables(self::EMPTIED);
@@ -429,7 +429,7 @@ final class SiteImport
         }
         $tags = $clean['_tags'] ?? [];
         unset($clean['_tags']);
-        $clean = array_intersect_key($clean, array_flip($this->columns($table)));
+        $clean = array_intersect_key($clean + (in_array($table, ['components', 'facts'], true) ? ['site_id' => Sites::currentId($this->db)] : []), array_flip($this->columns($table))); // an imported component or fact belongs to this site
         try {
             $this->db->insert($table, $clean);
         } catch (\PDOException) {

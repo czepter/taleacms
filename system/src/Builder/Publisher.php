@@ -60,11 +60,14 @@ final class Publisher
     /** Component (versions under the key „component:<idm>“) – the change shows on all pages where it is used. */
     public static function component(App $app, array $component): void
     {
+        if (array_key_exists('site_id', $component) && $component['site_id'] === null && ($refusal = Components::formRefusal($component['build_draft'] ?? $component['build'])) !== null) {
+            throw new \DomainException($refusal);
+        }
         // a form inside a component sends as the page it is on: its enquiries are not reassigned here
         $new = FormRecords::adopt($app, 'component:' . (int) $component['component_id'], '', $component['build_draft'] ?? $component['build']);
         self::version($app, ['part' => 'component:' . (int) $component['component_id']], $component['build'], $new, $component['updated_at'] ?? null);
         $app->db()->update('components', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['component_id' => $component['component_id']]);
-        \Talea\Front\Cache::clear();
+        array_key_exists('site_id', $component) && $component['site_id'] === null ? \Talea\Front\Cache::clearAll() : \Talea\Front\Cache::clear(); // shared: every site shows it
     }
 
     /** Form (versions under the key „form:<id>“, docs/specs/form-builder.md) – the change shows wherever the form is placed. */
