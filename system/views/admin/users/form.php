@@ -6,6 +6,7 @@
  * @var string $csrf
  * @var array<string, mixed> $author
  * @var array<string, string> $errors
+ * @var bool $hasTwoStep  the account has an authenticator app or a passkey
  * @var bool $isSelf  the admin is editing their own account
  * @var array<string, string> $modules  ident => name (sections to which access is set)
  * @var list<string> $hasModules
@@ -90,10 +91,10 @@ $role = [
 		<span class="help"><?= e(t('An author usually has only News, an editor all content sections, an administrator everything. With a custom role, the role\'s sections apply.')) ?></span>
 	</div>
 </div>
-<?php if (!empty($author['totp_secret'])): ?>
+<?php if ($hasTwoStep): ?>
 <div class="row">
 	<span class="caption"><?= e(t('Two-factor sign-in')) ?></span>
-	<div class="options"><span class="badge badge-published"><?= e(t('on')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone and backup codes)')) ?></label></div>
+	<div class="options"><span class="badge badge-published"><?= e(t('on')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone or passkey device and the backup codes)')) ?></label></div>
 </div>
 <?php endif ?>
 <?php if (!$isSelf): ?>

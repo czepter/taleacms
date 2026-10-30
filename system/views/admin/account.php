@@ -103,7 +103,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <p><span class="badge badge-published"><?= e(t('on')) ?></span> <?= e(t('When signing in you enter a code from the app in addition to your password. Backup codes left: %d.', $codesLeft)) ?></p>
 <input type="hidden" name="op" value="totp_off">
 <div class="row"><label for="off-password"><?= e(t('Password to confirm')) ?></label><div><input class="textfield" type="password" id="off-password" name="current_password" size="30" autocomplete="current-password" required></div></div>
-<p class="buttons"><button class="navigation" type="submit"><?= e(t('Turn off two-factor sign-in')) ?></button></p>
+<p class="buttons"><button class="navigation" type="submit"><?= e(t($keys !== [] ? 'Turn off the code from the app' : 'Turn off two-factor sign-in')) ?></button></p>
 <?php elseif ($newSecret !== ''): ?>
 <input type="hidden" name="op" value="totp_confirm">
 <ol>
@@ -115,9 +115,13 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <div class="row"><label for="code"><?= e(t('Code from the app')) ?></label><div><input class="textfield" type="text" id="code" name="code" size="12" maxlength="7" inputmode="numeric" autocomplete="one-time-code" required autofocus></div></div>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Confirm and turn on')) ?>"></p>
 <?php else: ?>
+<?php if ($keys !== []): ?>
+<p><span class="badge badge-published"><?= e(t('on')) ?></span> <?= e(t('Your passkeys protect the sign-in. You can add a code from an authenticator app as well. Backup codes left: %d.', $codesLeft)) ?></p>
+<?php else: ?>
 <p><?= e(t('Your account is protected by a password only. With two-factor sign-in, nobody can sign in without your phone – even if they guess or steal the password.')) ?></p>
+<?php endif ?>
 <input type="hidden" name="op" value="totp_start">
-<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Turn on two-factor sign-in')) ?>"></p>
+<p class="buttons"><input class="btn" type="submit" value="<?= e(t($keys !== [] ? 'Add an authenticator app' : 'Turn on two-factor sign-in')) ?>"></p>
 <?php // the current password is asked for in this dialog when the form is sent (image/admin.js, data-reauth) ?>
 <dialog class="confirmation reauth" id="start-confirm" data-reauth="" aria-labelledby="start-confirm-title" aria-describedby="start-confirm-text">
 	<h2 id="start-confirm-title"><?= e(t('Turn on two-factor sign-in')) ?></h2>
@@ -130,11 +134,12 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 </fieldset>
 </form>
 
-<?php if ($username['totp_secret'] !== ''): ?>
 <form class="form" method="post" action="<?= $action ?>" data-passkey="<?= $action ?>">
 <?= $csrf ?>
 <fieldset><legend><?= e(t('Passkeys')) ?></legend>
-<p><?= e(t('Fingerprint, Face ID, Windows Hello or a security key instead of typing the code from the app. The code and the backup codes keep working – in case you do not have the device with you.')) ?></p>
+<p><?= e($username['totp_secret'] !== ''
+	? t('Fingerprint, Face ID, Windows Hello or a security key instead of typing the code from the app. The code and the backup codes keep working – in case you do not have the device with you.')
+	: t('Fingerprint, Face ID, Windows Hello or a security key. A passkey turns on two-factor sign-in: you sign in with it alone or with your password and the passkey, and you get backup codes in case you do not have the device with you.')) ?></p>
 <?php if ($keys !== []): ?>
 <div class="tab-wrap">
 <table class="listing">
@@ -145,7 +150,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 	<td><?= e($k['name']) ?></td>
 	<td class="number"><?= e(format_date((string) $k['created_at'])) ?></td>
 	<td class="number"><?= $k['used_at'] !== null ? e(format_date((string) $k['used_at'])) : '–' ?></td>
-	<td class="actions"><button class="navigation danger" type="submit" name="passkey_id" value="<?= e($k['public_id']) ?>" data-confirm="<?= e(t('Remove this passkey? You can still sign in with the code from the app.')) ?>"><?= e(t('Delete')) ?></button></td>
+	<td class="actions"><button class="navigation danger" type="submit" name="passkey_id" value="<?= e($k['public_id']) ?>" data-confirm="<?= e($username['totp_secret'] !== '' ? t('Remove this passkey? You can still sign in with the code from the app.') : t('Remove this passkey? Without another passkey or the code from the app, two-factor sign-in turns off.')) ?>"><?= e(t('Delete')) ?></button></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -154,14 +159,13 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <input type="hidden" name="op" value="passkey_delete">
 <?php endif ?>
 <div class="row"><label for="passkey-name"><?= e(t('Device name')) ?></label><div><input class="textfield" type="text" id="passkey-name" name="name" size="30" maxlength="80" placeholder="<?= e(t('e.g. MacBook, phone')) ?>"></div></div>
-<div class="row"><label for="passkey-password"><?= e(t('Current password')) ?></label><div><input class="textfield" type="password" id="passkey-password" name="current_password" size="30" autocomplete="current-password" data-passkey-password><span class="help"><?= e(t('Needed to add a passkey.')) ?></span></div></div>
+<div class="row"><label for="passkey-password"><?= e(t('Current password')) ?></label><div><input class="textfield" type="password" id="passkey-password" name="current_password" size="30" autocomplete="current-password" data-passkey-password><span class="help"><?= e(t('Needed to add or remove a passkey.')) ?></span></div></div>
 <p class="buttons"><button class="navigation" type="button" data-passkey-add><?= e(t('Add a passkey from this device')) ?></button></p>
 <p class="notice notice-error" data-passkey-error hidden role="alert"></p>
 <p class="help" data-passkey-unsupported hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
 </fieldset>
 </form>
 <script src="<?= e($app->url('image/passkeys.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
-<?php endif ?>
 <?php endif ?>
 
 <?php if ($claude && $tab === 'claude'): ?>
