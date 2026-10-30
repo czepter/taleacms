@@ -6,6 +6,7 @@ return [
     '%d days' => '%d 天',
     '%d min' => '%d 分钟',
     '%d people' => '%d 人',
+    '%d places left' => '尚余 %d 个名额',
     '%d reviews on Google' => 'Google 上的 %d 条评价',
     '%s from %s' => '%s，来自 %s',
     '%s will reply.' => '%s 会回复您。',

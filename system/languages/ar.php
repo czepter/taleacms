@@ -6,6 +6,7 @@ return [
     '%d days' => '%d يوم',
     '%d min' => '%d دقيقة',
     '%d people' => '%d أشخاص',
+    '%d places left' => 'تبقى %d مقاعد',
     '%d reviews on Google' => '%d تقييمًا على Google',
     '%s from %s' => '%s من %s',
     '%s will reply.' => 'سيردّ %s.',

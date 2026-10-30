@@ -81,15 +81,18 @@ final class CourseRegistrationTest extends SiteTestCase
 
     public function testCoursePageAndListShowStatusAndFilter(): void
     {
-        $this->mcpText('save_collection_item', ['collection' => 'courses-test', 'name' => 'Mambo', 'slug' => 'mambo', 'values' => ['start' => $this->siteDate('+40 days') . ' 18:00', 'schedule' => 'Wednesdays', 'level' => 'Beginner'], 'visible' => true]);
+        $this->mcpText('save_collection_item', ['collection' => 'courses-test', 'name' => 'Mambo', 'slug' => 'mambo', 'values' => ['start' => $this->siteDate('+40 days') . ' 18:00', 'schedule' => 'Wednesdays', 'level' => 'Beginner', 'price' => '120', 'capacity' => '8'], 'visible' => true]);
         $this->site()->clearPageCache();
         $page = $this->visitor()->get('/courses-test/salsa')->body;
         $this->assertStringContainsString('Full · waiting list open', $page, 'full with the waiting list on');
         $this->assertStringContainsString('Starts ', $page);
         $this->assertStringNotContainsString('{{', $page);
+        $this->assertStringNotContainsString('fully booked', $page, 'the waiting list is open: not simply fully booked');
         $this->assertStringNotContainsString('Full · waiting list open', $this->visitor()->get('/courses-test/tango')->body, 'the list is off: nothing to open');
         $list = $this->visitor()->get('/courses-test')->body;
         $this->assertStringContainsString('Wednesdays', $list, 'the card shows the schedule');
+        $this->assertStringContainsString('Price: 120', $list, 'the price with its label');
+        $this->assertStringContainsString('8 places left', $list);
         $this->assertStringContainsString('Beginner', $list, 'filter button by level');
     }
 

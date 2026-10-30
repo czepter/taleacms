@@ -234,7 +234,9 @@ final class Presets
         foreach ((array) $preset['card'] as $key) {
             // a field, or a value a feature computes for the preset (an event's {{when}}); an empty one leaves no paragraph
             if (is_string($key) && preg_match(Collections::KEY_PATTERN, $key) === 1) {
-                $card[] = $n('text', ['html' => '<p>{{' . $key . '}}</p>']);
+                // a preset may ask for a number with its label ({{price_line}}: "Price: 120"; 'card_labelled'), the free places read as a sentence; an empty one leaves no paragraph
+                $line = in_array($key, (array) ($preset['card_labelled'] ?? []), true) ? $key . '_line' : ($key === 'places_left' ? 'places_left_line' : $key);
+                $card[] = $n('text', ['html' => '<p>{{' . $line . '}}</p>']);
             }
         }
         if ($preset['detail']) {

@@ -16,6 +16,7 @@ return [
     '%d files in use were not deleted – remove them from the site first (the list shows where they are used).' => 'Nesmazáno %d použitých souborů – nejdřív je odeberte z webu (kde jsou použité, ukáže výpis).',
     '%d min' => '%d min',
     '%d people' => '%d osoby',
+    '%d places left' => 'Zbývá %d míst',
     '%d reviews on Google' => 'Recenzí na Google: %d',
     '%d subscribers are going to the mailing service; the site sends the rest gradually in the background.' => 'Do mailingové služby jde %d odběratelů; zbytek odešle web postupně na pozadí.',
     '%d updates pending - they will run the next time the administration loads' => 'čeká %d aktualizací - proběhnou při příštím načtení administrace',

@@ -6,6 +6,7 @@ return [
     '%d days' => '%d nap',
     '%d min' => '%d perc',
     '%d people' => '%d fő',
+    '%d places left' => 'Még %d hely van',
     '%d reviews on Google' => '%d értékelés a Google-on',
     '%s from %s' => '%s / %s',
     '%s will reply.' => '%s hamarosan válaszol Önnek.',

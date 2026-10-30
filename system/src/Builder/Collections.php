@@ -532,6 +532,7 @@ final class Collections
                 // for a link, a data attribute or a calculation
                 $h[$p['key']] = [self::displayNumber($value), 'text'];
                 $h[$p['key'] . '_raw'] ??= [$value, 'text'];
+                $h[$p['key'] . '_line'] ??= [$value !== '' ? $p['label'] . ': ' . self::displayNumber($value) : '', 'text']; // {{price_line}} = "Price: 1,490", empty without a value
                 continue;
             }
             if ($p['type'] === 'gallery') {

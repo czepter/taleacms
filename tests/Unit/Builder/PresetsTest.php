@@ -67,6 +67,6 @@ final class PresetsTest extends TestCase
             str_contains($f1Template('machines'), '{{datasheet_name}}') && str_contains($f1Template('machines'), '{{parameters}}'),
             str_contains($f1Template('courses'), '<strong>{{when}}</strong>') && str_contains($f1Template('courses'), '{{capacity}}') && str_contains($f1Template('courses'), '"type":"form"')], '2.11 presets: the item templates survive sanitizing and show the fields');
         $f1List = \Talea\Builder\Build::toJson(\Talea\Builder\Presets::listPage($f1Presets['courses'], 'Kurzy', 'kurzy', $f1Fields('courses')));
-        $this->assertSame([true, true, true, true], [str_contains($f1List, '"period":"upcoming"'), str_contains($f1List, '"sort_field":"start"'), str_contains($f1List, '<p>{{start}}</p>'), str_contains($f1List, '<p>{{places_left}}</p>')], '2.11 presets: the list page of courses lists the upcoming ones with the start and the free places on the card');
+        $this->assertSame([true, true, true, true], [str_contains($f1List, '"period":"upcoming"'), str_contains($f1List, '"sort_field":"start"'), str_contains($f1List, '<p>{{start}}</p>'), str_contains($f1List, '<p>{{price_line}}</p>') && str_contains($f1List, '<p>{{places_left_line}}</p>')], '2.11 presets: the list page of courses lists the upcoming ones with the start, the price with its label and the free places on the card');
     }
 }

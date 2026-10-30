@@ -234,8 +234,9 @@ final class Calendar
         return [
             'when' => [self::when($start, $get('end')), 'text'],
             'where' => [$place !== '' ? $place : ($get('online') !== '' ? t('Online') : ''), 'text'],
-            'event_status' => [$endsAt < $now ? t('This event has ended.') : ($state === 'full' ? t('This event is fully booked.') : ''), 'text'],
+            'event_status' => [$endsAt < $now ? t('This event has ended.') : ($state === 'full' && $waiting === '' ? t('This event is fully booked.') : ''), 'text'],
             'ical' => [$collection['detail'] && ($item['slug'] ?? '') !== '' ? $url($collection['slug'] . '/' . $item['slug'] . '.ics') : '', 'link'],
+            'places_left_line' => [$capacity > 0 ? t('%d places left', max(0, $capacity - $registered)) : '', 'text'],
             'places_left' => [$capacity > 0 ? (string) max(0, $capacity - $registered) : '', 'text'],
             'course_status' => [$standing, 'text'],
             'waiting_list' => [$waiting, 'text'],

@@ -5,6 +5,7 @@ return [
     '%d days' => '%d giorni',
     '%d min' => '%d min',
     '%d people' => '%d persone',
+    '%d places left' => 'Restano %d posti',
     '%d reviews on Google' => '%d recensioni su Google',
     '%s from %s' => '%s da %s',
     '%s will reply.' => '%s le risponderà.',
