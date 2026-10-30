@@ -33,6 +33,9 @@ final class UploadLinks
     /** PUT /mcp/upload/<token> */
     public static function receive(App $app, string $token): Response
     {
+        if (($refused = Server::gate($app)) !== null) {
+            return $refused;
+        }
         $db = $app->db();
         $db->run('DELETE FROM {mcp_uploads} WHERE expires_at < NOW() - INTERVAL 1 DAY');
         $hash = hash('sha256', $token);
@@ -47,8 +50,15 @@ final class UploadLinks
         if ($user === null) {
             return self::error(404, 'The connection that asked for the link no longer exists.');
         }
-        $app->auth()->signInAs($user);
-        $app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
+        // the same checks as a tool call to /mcp, now: the connection may since have lost the access or the 2FA it needs
+        if (($refused = Server::signIn($app, $user)) !== null) {
+            $release();
+
+            return $refused;
+        }
+        if (!Catalog::allows((string) $user['connection_access'], 'upload_file')) {
+            return self::error(403, 'The connection may no longer upload files.');
+        }
         $arguments = ['filename' => $link['filename'], 'alt' => $link['alt'], 'folder' => $link['folder_id']];
         $refusal = \Talea\Core\Guardrails::refusal($app, 'upload_file', Catalog::access('upload_file'), $arguments, (string) $user['connection_name']);
         if ($refusal !== null) {

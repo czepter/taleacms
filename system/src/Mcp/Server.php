@@ -34,16 +34,47 @@ final class Server
     {
     }
 
-    public function handle(): Response
+    /**
+     * What every Claude request must pass before its token is looked at – /mcp and the upload links (UploadLinks): the
+     * extension is on and the request comes over HTTPS (or to a local address). null = it passes.
+     */
+    public static function gate(App $app): ?Response
     {
-        $r = $this->app->request;
-        \Talea\Extension\Registry::boot($this->app); // add-ons may add tools (3.0)
-        if (!Extensions::isEnabled($this->app->settings(), 'claude')) {
+        $r = $app->request;
+        \Talea\Extension\Registry::boot($app); // add-ons may add tools (3.0)
+        if (!Extensions::isEnabled($app->settings(), 'claude')) {
             return Response::json(['error' => 'The Claude connection is switched off (Extensions menu).'], 404);
         }
         $isLocal = in_array((string) parse_url($r->origin(), PHP_URL_HOST), ['localhost', '127.0.0.1'], true);
         if (!$r->isHttps() && !$isLocal) {
             return Response::json(['error' => 'MCP is available over HTTPS only.'], 403);
+        }
+
+        return null;
+    }
+
+    /**
+     * Signs the request in as a connection (a row of CONNECTION_SQL); the answer refuses it when the site requires two-factor
+     * sign-in its user has not turned on. null = signed in.
+     *
+     * @param array<string, mixed> $user
+     */
+    public static function signIn(App $app, array $user): ?Response
+    {
+        $app->auth()->signInAs($user);
+        $app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
+        if ($app->auth()->isMissingRequired2fa($app->settings())) {
+            return Response::json(['error' => 'The site requires two-factor sign-in. Turn it on in the admin under My account – the connection does not work until then.'], 403);
+        }
+
+        return null;
+    }
+
+    public function handle(): Response
+    {
+        $r = $this->app->request;
+        if (($refused = self::gate($this->app)) !== null) {
+            return $refused;
         }
         if (!$r->isPost()) {
             return new Response('', 405, ['Allow' => 'POST']);
@@ -54,10 +85,8 @@ final class Server
             return new Response(json_encode(['error' => 'The token is invalid or missing.']), 401, ['Content-Type' => 'application/json',
                 'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Talea\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
-        $this->app->auth()->signInAs($user);
-        $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
-        if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
-            return Response::json(['error' => 'The site requires two-factor sign-in. Turn it on in the admin under My account – the connection does not work until then.'], 403);
+        if (($refused = self::signIn($this->app, $user)) !== null) {
+            return $refused;
         }
 
         $message = json_decode((string) file_get_contents('php://input'), true);

@@ -238,6 +238,8 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $token = 'talea_' . bin2hex(random_bytes(24));
         $this->site()->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'removable', ?, NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', $token)]);
         $next = (string) parse_url($this->site()->mcpResult('request_upload', ['files' => [['filename' => 'late.png']]], $token)['uploads'][0]['upload_url'], PHP_URL_PATH);
+        $this->site()->exec("UPDATE tl_api_tokens SET access = 'read' WHERE name = 'removable'");
+        $this->assertSame(403, $http->put($next, $bytes)->status, 'a connection made read-only since uploads nothing');
         $this->site()->exec("DELETE FROM tl_api_tokens WHERE name = 'removable'");
         $this->assertSame(404, $http->put($next, $bytes)->status, 'the link of a removed connection is gone');
     }

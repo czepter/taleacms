@@ -97,7 +97,7 @@ final class AuthenticationTest extends TestCase
             \Talea\Core\Auth::sessionValid($now333 - 24 * 3600, $now333 - 60, $now333), \Talea\Core\Auth::sessionValid($now333 - 23 * 3600, $now333 - 7 * 3600, $now333),
             \Talea\Core\Auth::IDLE_LIMIT, \Talea\Core\Auth::SESSION_LIMIT,
             // the tokens of Claude connections are not sessions: the MCP server signs the user in without one
-            str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Mcp/Server.php'), '$this->app->auth()->signInAs($user);')], '3.3.3 (N60): a sign-in ends after 8 idle hours or 24 hours in total, however often the admin keeps it alive');
+            str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Mcp/Server.php'), '$app->auth()->signInAs($user);')], '3.3.3 (N60): a sign-in ends after 8 idle hours or 24 hours in total, however often the admin keeps it alive');
         $cloudflareSettings = FakeSettings::site(['trusted_proxy' => 'cloudflare']);
         $this->assertSame(['2001:db8:1:2::/64', '203.0.113.9', '162.158.1.1', [true, true, true, true]], [
             \Talea\Core\Antispam::visitorKey(new \Talea\Core\Request([], [], ['REMOTE_ADDR' => '162.158.1.1', 'HTTP_CF_CONNECTING_IP' => '2001:db8:1:2:3:4:5:6']), $cloudflareSettings),
