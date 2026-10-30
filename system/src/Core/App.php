@@ -43,6 +43,11 @@ final class App
                 $config['db']['owner_prefix'] = $ownerPrefix;
             }
             \Talea\Front\Cache::useSite($sitePrefix);
+            if (isset($config['db']['owner_prefix'])) {
+                // a cron child of a further owner: its uploads live in its own folder (MediaFolder)
+                $owner = array_column(Owners::all(Db::fromConfig($config['db'])), 'public_id', 'prefix');
+                MediaFolder::useOwner((string) ($owner[$config['db']['owner_prefix']] ?? ''));
+            }
         }
         if ($config === null) {
             $base = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
@@ -63,6 +68,7 @@ final class App
             $site = self::routeHost($config);
             if ($site['owner_prefix'] !== ($config['db']['prefix'] ?? 'tl_')) {
                 $config['db']['owner_prefix'] = $site['owner_prefix'];
+                MediaFolder::useOwner($site['owner_public_id']);
             }
             if ($site['prefix'] !== ($config['db']['prefix'] ?? 'tl_')) {
                 $config['db']['site_prefix'] = $site['prefix'];

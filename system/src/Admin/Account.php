@@ -41,6 +41,12 @@ final class Account
         $op = $r->isPost() ? ($db->internalId('api_tokens', $r->post('delete_token')) > 0 ? 'token_delete' : ($r->post('disconnect_client') !== '' ? 'app_disconnect' : ($r->post('tool_set_switch') !== '' ? 'tool_set' : $r->post('op')))) : '';
         $tab = $this->tab(self::OP_TABS[$op] ?? $r->get('tab'));
 
+        if ($r->isPost() && ($user['operator_user_id'] ?? null) !== null) {
+            // the row that stands for an operator has no password, e-mail, second factor or token of its own to change (Core\Owners)
+            $app->session->flash('error', 'This account belongs to the operator of the installation and cannot be changed here.');
+
+            return Response::redirect($app->url('admin.php?action=account&tab=' . $tab));
+        }
         if ($r->isPost()) {
             $message = null;
             switch ($op) {

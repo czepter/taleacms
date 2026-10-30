@@ -134,13 +134,7 @@ final class Health
             $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
         }
         $add(t('Operation'), t('Search engine indexing'), $siteSettings->bool('indexing') ? 'ok' : 'warning', $siteSettings->bool('indexing') ? t('allowed') : t('disabled on the SEO and GEO tab - the site will not appear in search results'));
-        $media = 0;
-        if (is_dir(TALEA_ROOT . '/media')) {
-            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $file) {
-                $media += $file->getSize();
-            }
-        }
-        $add(t('Operation'), t('Media size'), 'ok', self::size($media));
+        $add(t('Operation'), t('Media size'), 'ok', self::size(MediaFolder::bytes(MediaFolder::dir())));
         $remote = explode('|', $app->settings()->get('remote_backup_status'), 2);
         if ($app->settings()->get('remote_backup') !== 'off') {
             $add(t('Operation'), t('Off-site backups'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'warning', ($remote[1] ?? '') === 'ok' ? t('last copy uploaded %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('last attempt %s failed: %s', $remote[0], $remote[1]) : t('no copy has been made yet')));

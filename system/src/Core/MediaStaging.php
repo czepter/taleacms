@@ -57,7 +57,7 @@ final class MediaStaging
     private const array BUILDS = ['pages', 'site_parts', 'popups', 'components', 'collections', 'collection_templates'];
 
     /** A file under media/ as Images, Files and the SVG upload name it, or one of its variants (-1200, -nahled, .webp, .avif). */
-    private const string PATH = '#^media/\d{4}/\d{2}/[a-z0-9-]+\.[a-z0-9]+(?:\.(?:webp|avif))?$#D';
+    private const string PATH = '#^media/' . MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+\.[a-z0-9]+(?:\.(?:webp|avif))?$#D';
 
     /** Does a file stored by this caller wait for approval: a Claude connection limited to drafts. */
     public static function appliesTo(Auth $auth): bool

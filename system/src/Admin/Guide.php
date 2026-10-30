@@ -65,6 +65,7 @@ final class Guide
         'addons' => 'addons',
         'fleet' => 'fleet-console',
         'sites' => 'sites',
+        'owners' => 'sites',
     ];
 
     /** Settings tab => article#anchor */

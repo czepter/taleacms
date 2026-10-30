@@ -75,7 +75,7 @@ final class Images
 
         $extension = self::TYPES[$info[2]];
         $name = pathinfo($fileName, PATHINFO_FILENAME);
-        $folder = 'media/' . date('Y/m');
+        $folder = MediaFolder::dir() . '/' . date('Y/m');
         if (!is_dir($root . '/' . $folder) && !mkdir($root . '/' . $folder, 0775, true)) {
             throw new \RuntimeException('Cannot create the folder ' . $folder . ' - check the write permissions.');
         }
@@ -133,7 +133,7 @@ final class Images
      */
     public static function replace(string $old, array $file): array
     {
-        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $old, $m)) {
+        if (!preg_match('#^(media/' . MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $old, $m)) {
             throw new \RuntimeException('Only a JPG, PNG or WebP image can be replaced.');
         }
         $new = self::save($file); // verifies, shrinks and re-encodes the uploaded file
@@ -155,7 +155,7 @@ final class Images
      */
     public static function shrinkFile(string $path): array
     {
-        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $path, $m) || !Files::isFile($path)) {
+        if (!preg_match('#^(media/' . MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $path, $m) || !Files::isFile($path)) {
             throw new \RuntimeException('Only a JPG, PNG or WebP image can be made smaller.');
         }
         $image = @imagecreatefromstring((string) file_get_contents(TALEA_ROOT . '/' . $path));
@@ -197,7 +197,7 @@ final class Images
     public static function delete(string ...$paths): void
     {
         foreach ($paths as $path) {
-            if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#', $path, $m)) {
+            if (!preg_match('#^(media/' . MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#', $path, $m)) {
                 continue;
             }
             // together with the image its variants for srcset and WebP are removed too, also a copy waiting for approval (MediaStaging)
@@ -317,13 +317,16 @@ final class Images
         }
         $pageNumber = min(imagesx($image), imagesy($image));
         [$x, $y] = [intdiv(imagesx($image) - $pageNumber, 2), intdiv(imagesy($image) - $pageNumber, 2)];
+        if (!is_dir(TALEA_ROOT . '/' . MediaFolder::dir())) {
+            @mkdir(TALEA_ROOT . '/' . MediaFolder::dir(), 0775, true); // a further owner's folder exists once it has something in it
+        }
         foreach (self::ICON_SIZES as $n) {
             $icon = imagecreatetruecolor($n, $n);
             imagealphablending($icon, false);
             imagesavealpha($icon, true);
             imagefill($icon, 0, 0, imagecolorallocatealpha($icon, 0, 0, 0, 127));
             imagecopyresampled($icon, $image, 0, 0, $x, $y, $n, $n, $pageNumber, $pageNumber);
-            imagepng($icon, TALEA_ROOT . '/media/icon-' . $n . '.png', 9);
+            imagepng($icon, TALEA_ROOT . '/' . MediaFolder::icon($n), 9);
         }
 
         return true;
@@ -336,7 +339,7 @@ final class Images
         if (isset($cache[$path . '|' . $base])) {
             return $cache[$path . '|' . $base];
         }
-        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)(-1200|-nahled)?\.(jpg|png|webp)$#', $path, $m)) {
+        if (!preg_match('#^(media/' . MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+?)(-1200|-nahled)?\.(jpg|png|webp)$#', $path, $m)) {
             return '';
         }
         $variants = [];

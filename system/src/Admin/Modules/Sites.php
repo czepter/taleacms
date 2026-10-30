@@ -6,6 +6,8 @@ namespace Talea\Admin\Modules;
 
 use Talea\Admin\Kernel;
 use Talea\Admin\Module;
+use Talea\Admin\ChangeLog;
+use Talea\Core\Owners as OwnerRegistry;
 use Talea\Core\Response;
 use Talea\Core\SiteFigures;
 use Talea\Core\Sites as SiteRegistry;
@@ -123,14 +125,22 @@ final class Sites extends Module
             return $this->form($name, $from, 'Fill in the site name.');
         }
         $source = $this->currentId();
+        $sourceOwner = '';
         if ($from !== '') {
             $row = $this->db->byPublicId('sites', $from);
+            $foreign = $row === null && OwnerRegistry::isOperator($this->db, $this->app->auth()->user()) ? OwnerRegistry::findSite($this->db, $from) : null;
+            if ($foreign !== null) {
+                // a site of another owner: an operator's copy (Core\OwnerClone), made by cron with the files and rows copied, nothing linked
+                $row = $foreign['site'];
+                $sourceOwner = $foreign['owner'];
+                ChangeLog::write($this->app, 'owners', 'clone', $foreign['owner_name'] . ' / ' . $row['name'] . ' → ' . $name);
+            }
             if ($row === null || $row['status'] === 'trashed' || $row['ready_at'] === null) {
                 return $this->form($name, $from, 'Choose a site that is set up to copy.');
             }
             $source = (int) $row['site_id'];
         }
-        SiteRegistry::add($this->db, $name, SiteRegistry::freeSlug($this->db, $name), $source, $from !== '');
+        SiteRegistry::add($this->db, $name, SiteRegistry::freeSlug($this->db, $name), $source, $from !== '', $sourceOwner);
 
         return $this->back('The site is created. It is being set up in the background and appears as ready within a few minutes.');
     }
@@ -263,7 +273,8 @@ final class Sites extends Module
     {
         $ready = array_values(array_filter(SiteRegistry::overview($this->db), fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed'));
 
-        return $this->view('form', 'New site', ['name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready]);
+        return $this->view('form', 'New site', ['name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready,
+            'foreign' => OwnerRegistry::isOperator($this->db, $this->app->auth()->user()) ? OwnerRegistry::foreignSites($this->db) : []]);
     }
 
     /** @param array<string, mixed> $site */

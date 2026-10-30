@@ -112,7 +112,7 @@ final class Media extends Module
         preg_match_all('/data-id="(\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/', $all, $m);
         // the editor puts the public id of the image there; the number is what older texts carry
         $ids = array_map(fn (string $id): int => ctype_digit($id) ? (int) $id : $db->internalId('media', $id), $m[1]);
-        preg_match_all('#media/\d{4}/\d{2}/[A-Za-z0-9._-]+\.[a-z0-9]{2,5}#', $all, $paths); // images and attachments (PDF, documents…)
+        preg_match_all('#media/' . \Talea\Core\MediaFolder::OWNER . '\d{4}/\d{2}/[A-Za-z0-9._-]+\.[a-z0-9]{2,5}#', $all, $paths); // images and attachments (PDF, documents…)
         foreach (array_unique($paths[0]) as $path) {
             $ido = $db->value('SELECT media_id FROM {media} WHERE image_path = ? OR thumb_path = ?', [$path, $path]);
             if ($ido !== null) {
@@ -280,7 +280,7 @@ final class Media extends Module
             throw new \RuntimeException('The SVG file could not be read (max. 2 MB, valid SVG).');
         }
         $root = \Talea\Core\MediaStaging::root($staged);
-        $folder = 'media/' . date('Y/m');
+        $folder = \Talea\Core\MediaFolder::dir() . '/' . date('Y/m');
         if (!is_dir($root . '/' . $folder)) {
             mkdir($root . '/' . $folder, 0775, true);
         }

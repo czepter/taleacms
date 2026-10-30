@@ -45,7 +45,7 @@ final class Users extends Module
     {
         $author = $this->db->one('SELECT * FROM {users} WHERE user_id = ?', [$this->idParam()]);
 
-        return $author === null ? $this->error('User does not exist.', 404) : $this->form($author);
+        return $author === null ? $this->error('User does not exist.', 404) : ($this->operatorRefusal((int) $author['user_id']) ?? $this->form($author));
     }
 
     protected function actionSave(): Response
@@ -58,6 +58,9 @@ final class Users extends Module
             return $refusal;
         }
         $id = $this->idParam('user_id');
+        if (($refusal = $this->operatorRefusal($id)) !== null) {
+            return $refusal;
+        }
         $isSelf = $id === $this->app->auth()->id();
         $data = [
             'username' => $r->post('username'),
@@ -149,6 +152,9 @@ final class Users extends Module
             }
         });
 
+        if ($data['blocked'] || (int) $data['admin'] !== Auth::ADMIN) {
+            \Talea\Core\Owners::revokeOperator($this->db, $id); // an operator who is no longer an administrator loses their access to the other owners
+        }
         if ($invite) {
             (new \Talea\Admin\PasswordReset($this->app))->sendLink(['user_id' => $id] + $data, 'invitation');
 
@@ -158,10 +164,23 @@ final class Users extends Module
         return $this->back('User saved.');
     }
 
+    /**
+     * The row that stands for an operator of the installation (Core\Owners::operatorRow) is not the client's to edit, block, delete or
+     * give a password: it opens only through the operator's handoff and goes with the operator.
+     */
+    private function operatorRefusal(int $id): ?Response
+    {
+        if ($id > 0 && $this->db->value('SELECT 1 FROM {users} WHERE user_id = ? AND operator_user_id IS NOT NULL', [$id]) !== null) {
+            return $this->back('This account belongs to the operator of the installation and cannot be changed here.', '', [], 'error');
+        }
+
+        return null;
+    }
+
     /** The administrator sends the user a link to set a new password (valid for 3 days). */
     protected function actionPasswordLink(): Response
     {
-        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {users} WHERE user_id = ? AND email <> '' AND blocked = FALSE", [$this->idParam('user_id')]) : null;
+        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {users} WHERE user_id = ? AND email <> '' AND blocked = FALSE AND operator_user_id IS NULL", [$this->idParam('user_id')]) : null;
         if ($user === null) {
             return $this->back('The user has no e-mail or is blocked.', '', [], 'error');
         }
@@ -180,6 +199,9 @@ final class Users extends Module
             return $this->back();
         }
         $id = $this->idParam('user_id');
+        if (($refusal = $this->operatorRefusal($id)) !== null) {
+            return $refusal;
+        }
         $user = $this->db->one('SELECT user_id, blocked FROM {users} WHERE user_id = ?', [$id]);
         if ($user === null || !$user['blocked']) {
             return $this->back('The account is not blocked.', type: 'error');
@@ -196,6 +218,9 @@ final class Users extends Module
             return $this->back();
         }
         $id = $this->idParam('user_id');
+        if (($refusal = $this->operatorRefusal($id)) !== null) {
+            return $refusal;
+        }
         $token = $this->idParam('token_id', 'api_tokens');
         $client = $this->request->post('client_id');
         $removed = $token > 0 ? $this->db->delete('api_tokens', ['token_id' => $token, 'user_id' => $id]) : ($client !== '' ? $this->db->delete('api_tokens', ['user_id' => $id, 'client_id' => $client]) : 0);
@@ -272,7 +297,11 @@ final class Users extends Module
         if ($id === $this->app->auth()->id()) {
             return $this->back('You cannot delete yourself.', type: 'error');
         }
+        if (($refusal = $this->operatorRefusal($id)) !== null) {
+            return $refusal;
+        }
         $this->db->delete('users', ['user_id' => $id]);
+        \Talea\Core\Owners::revokeOperator($this->db, $id);
 
         return $this->back('The user has been deleted. Their news items remain, without an author.');
     }

@@ -142,7 +142,7 @@ final class Owners
      * Registers a further owner (not set up yet) and returns its prefix. Its tables come from the next Migrator::migrate(), its first
      * site from the migration; provisionPending() (cron) sets ready_at. A number whose prefix already has tables is skipped.
      */
-    public static function add(Db $db, string $name, string $kind = 'organisation'): string
+    public static function add(Db $db, string $name, string $kind = 'organisation', string $adminEmail = ''): string
     {
         if (!in_array($kind, self::KINDS, true)) {
             throw new \InvalidArgumentException('The kind of an owner is person or organisation.');
@@ -151,7 +151,7 @@ final class Owners
         while ($db->dialect()->dumpTables($db->pdo(), $prefix = self::prefixFor($db->installPrefix, $n)) !== []) {
             $n++;
         }
-        $db->insert('owners', ['name' => trim(mb_substr($name, 0, 120)), 'kind' => $kind, 'prefix' => $prefix, 'status' => 'live', 'created_at' => date('Y-m-d H:i:s')]);
+        $db->insert('owners', ['name' => trim(mb_substr($name, 0, 120)), 'kind' => $kind, 'prefix' => $prefix, 'status' => 'live', 'admin_email' => mb_substr(trim($adminEmail), 0, 190), 'created_at' => date('Y-m-d H:i:s')]);
 
         return $prefix;
     }
@@ -203,5 +203,197 @@ final class Owners
         $stmt->execute(array_fill(0, count($owners), $host));
 
         return $stmt->fetchColumn() !== false;
+    }
+
+    /** @return array<string, mixed>|null the owner with this public id */
+    public static function byPublicId(Db $db, string $publicId): ?array
+    {
+        return $db->byPublicId('owners', $publicId);
+    }
+
+    /** The public id of the owner with this prefix ('' for owner 1: its files sit directly in media/). */
+    public static function publicIdOf(Db $db, string $prefix): string
+    {
+        return $prefix === $db->installPrefix ? '' : (string) $db->value('SELECT public_id FROM {owners} WHERE prefix = ?', [$prefix]);
+    }
+
+    /** The name of the owner with this prefix, or its prefix while it has none. */
+    public static function nameOf(Db $db, string $prefix): string
+    {
+        $name = (string) $db->value('SELECT name FROM {owners} WHERE prefix = ?', [$prefix]);
+
+        return $name !== '' ? $name : $prefix;
+    }
+
+    /* ---------- operators: administrators of owner 1, working in the other owners ---------- */
+
+    /** Is this user of owner 1 still an unblocked administrator, i.e. may the row that stands for them in another owner still be used? */
+    public static function operatorValid(Db $db, int $operatorUserId): bool
+    {
+        return $db->forOwner($db->installPrefix)->value('SELECT 1 FROM {users} WHERE user_id = ? AND admin = ? AND blocked = FALSE', [$operatorUserId, Auth::ADMIN]) !== null;
+    }
+
+    /**
+     * The row of {users} in the owner $target that stands for the operator (an administrator of owner 1), made on first use. It is a
+     * full administrator of that owner, flagged with `operator_user_id`, and cannot sign in or be reached any other way than the handoff:
+     * its password is random and thrown away, it has no e-mail (no reset link), and the client's Users module, Account and password
+     * reset all refuse it. A blocked row is released again (the operator was valid when this is called).
+     *
+     * @param array<string, mixed> $operator the operator's row in owner 1's {users}
+     */
+    public static function operatorRow(Db $target, array $operator): int
+    {
+        $name = mb_substr('Operator: ' . ((string) $operator['name'] !== '' ? $operator['name'] : $operator['username']), 0, 100);
+        $id = $target->value('SELECT user_id FROM {users} WHERE operator_user_id = ?', [(int) $operator['user_id']]);
+        if ($id !== null) {
+            $target->update('users', ['name' => $name, 'admin' => Auth::ADMIN, 'role' => null, 'blocked' => 0, 'auto_blocked_at' => null], ['user_id' => (int) $id]);
+
+            return (int) $id;
+        }
+        $username = 'operator-' . (int) $operator['user_id'];
+        while ($target->value('SELECT 1 FROM {users} WHERE username = ?', [$username]) !== null) {
+            $username = 'operator-' . bin2hex(random_bytes(3)); // a client user already took the name
+        }
+
+        return $target->insert('users', ['username' => $username, 'password' => password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT), 'name' => $name, 'email' => '', 'admin' => Auth::ADMIN,
+            'language' => '', 'confirmed_at' => date('Y-m-d H:i:s'), 'operator_user_id' => (int) $operator['user_id']]);
+    }
+
+    /** Is this signed-in user an operator: an unblocked administrator of owner 1, or the row that stands for one in another owner? @param array<string, mixed>|null $user */
+    public static function isOperator(Db $db, ?array $user): bool
+    {
+        if ($user === null || !self::enabled() || (int) ($user['admin'] ?? -1) !== Auth::ADMIN) {
+            return false;
+        }
+        $operator = $user['operator_user_id'] ?? null;
+
+        return $operator !== null ? self::operatorValid($db, (int) $operator) : (self::isFirst($db) && empty($user['blocked']));
+    }
+
+    /**
+     * The sites of the OTHER set-up owners that an operator may copy (cross-owner clone): set up, not in the trash.
+     *
+     * @return list<array{owner: string, owner_name: string, site: array<string, mixed>}>
+     */
+    public static function foreignSites(Db $db): array
+    {
+        $out = [];
+        foreach (self::all($db) as $o) {
+            if ($o['prefix'] === $db->ownerPrefix || $o['ready_at'] === null) {
+                continue;
+            }
+            foreach ($db->forOwner((string) $o['prefix'])->all("SELECT * FROM {sites} WHERE ready_at IS NOT NULL AND status <> 'trashed' ORDER BY site_id") as $site) {
+                $out[] = ['owner' => (string) $o['prefix'], 'owner_name' => (string) ($o['name'] !== '' ? $o['name'] : $o['prefix']), 'site' => $site];
+            }
+        }
+
+        return $out;
+    }
+
+    /** A site of another set-up owner by its public id (site ids are UUIDs, unique across owners), or null. @return array{owner: string, owner_name: string, site: array<string, mixed>}|null */
+    public static function findSite(Db $db, string $publicId): ?array
+    {
+        foreach (self::foreignSites($db) as $f) {
+            if ($f['site']['public_id'] === $publicId) {
+                return $f;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Removes the rows that stand for an operator from every further owner (they take their tokens and sessions with them). Only owner 1
+     * has operators; called when one is deleted, blocked or no longer an administrator. Returns how many rows went.
+     */
+    public static function revokeOperator(Db $db, int $operatorUserId): int
+    {
+        if (!self::isFirst($db) || !self::enabled()) {
+            return 0;
+        }
+        $removed = 0;
+        foreach (self::readyPrefixes($db) as $prefix) {
+            if ($prefix !== $db->installPrefix) {
+                $removed += $db->forOwner($prefix)->delete('users', ['operator_user_id' => $operatorUserId]);
+            }
+        }
+
+        return $removed;
+    }
+
+    /**
+     * The one-time token that signs an operator into a site of another owner: written in the TARGET owner's {handoff_tokens}, for that
+     * site and the operator's row there, valid for Sites::HANDOFF_SECONDS (UTC) and used up by the first claim. Only an unblocked
+     * administrator of owner 1 gets one, and only for a live owner that is set up. Returns [token, primary host] or an error text.
+     *
+     * @param array<string, mixed> $operator the signed-in user of owner 1
+     * @return array{0: string, 1: string}|string
+     */
+    public static function handoff(Db $db, array $operator, string $ownerPublicId, string $sitePublicId): array|string
+    {
+        if (!self::enabled() || !self::isFirst($db) || (int) ($operator['admin'] ?? -1) !== Auth::ADMIN || !self::operatorValid($db, (int) $operator['user_id'])) {
+            return 'Only the operators of the installation can open another owner\'s site.';
+        }
+        $owner = self::byPublicId($db, $ownerPublicId);
+        if ($owner === null || $owner['ready_at'] === null || $owner['status'] !== 'live' || $owner['prefix'] === $db->installPrefix) {
+            return 'This owner cannot be opened now.';
+        }
+        $target = $db->forOwner((string) $owner['prefix']);
+        $site = $target->byPublicId('sites', $sitePublicId);
+        $host = $site === null ? null : Sites::primaryHost($target, (int) $site['site_id']);
+        if ($site === null || $site['status'] === 'trashed' || $site['ready_at'] === null) {
+            return 'This site cannot be opened now.';
+        }
+        if ($host === null) {
+            return 'Add a host name to this site first.';
+        }
+
+        $row = self::operatorRow($target, $operator);
+        try {
+            // the client's change log shows who came in (the name of the row reads "Operator: …")
+            $target->forSite((string) $site['prefix'])->insert('change_log', ['created_at' => date('Y-m-d H:i:s'), 'user_id' => $row, 'user_name' => mb_substr('Operator: ' . ((string) $operator['name'] !== '' ? $operator['name'] : $operator['username']), 0, 100), 'via' => '', 'module' => 'owners', 'action' => 'operator_opened', 'description' => 'Opened by an operator of the installation']);
+        } catch (\Throwable) {
+            // the log must not stop the sign-in
+        }
+
+        return [Sites::handoffToken($target, $row, (int) $site['site_id']), $host];
+    }
+
+    /**
+     * Invites the first administrator an operator named: a user in the owner's {users} (made here, with a password nobody knows) and the
+     * e-mail with the link to set one, valid for 3 days like every invitation. The link points at the owner's first site, so the owner
+     * needs a host name; the mail goes out through the install's own mail setup. Returns an error text, null = sent.
+     *
+     * @param array<string, mixed> $owner the row of {owners}
+     */
+    public static function invite(Db $db, array $owner, Settings $mailSettings, Request $request): ?string
+    {
+        $email = (string) $owner['admin_email'];
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return 'Enter the e-mail address of the first administrator.';
+        }
+        $target = $db->forOwner((string) $owner['prefix']);
+        $host = $owner['ready_at'] === null ? null : Sites::primaryHost($target, 1);
+        if ($host === null) {
+            return 'The owner needs to be set up and have a host name before the invitation can be sent.';
+        }
+        $user = $target->one('SELECT * FROM {users} WHERE email = ? AND operator_user_id IS NULL', [$email]);
+        if ($user === null) {
+            $base = substr((string) preg_replace('/[^a-zA-Z0-9._-]/', '', strstr($email, '@', true) ?: 'admin'), 0, 30) ?: 'admin';
+            for ($username = $base, $n = 2; $target->value('SELECT 1 FROM {users} WHERE username = ?', [$username]) !== null; $n++) {
+                $username = $base . $n;
+            }
+            $id = $target->insert('users', ['username' => $username, 'password' => password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT), 'name' => '', 'email' => $email, 'admin' => Auth::ADMIN, 'language' => '', 'confirmed_at' => date('Y-m-d H:i:s')]);
+            $user = (array) $target->one('SELECT * FROM {users} WHERE user_id = ?', [$id]);
+        }
+        $token = bin2hex(random_bytes(32));
+        $target->update('users', ['reset_token_hash' => hash('sha256', $token), 'reset_sent_at' => date('Y-m-d H:i:s', time() + 71 * 3600)], ['user_id' => (int) $user['user_id']]);
+        $link = Sites::originOn($request, $host) . $request->basePath() . '/' . \Talea\Admin\Kernel::path('action=password&token=' . $token);
+        $name = (string) ($owner['name'] !== '' ? $owner['name'] : $owner['prefix']);
+        Mail::send($mailSettings, $email, t('Invitation to the administration') . ' – ' . $name,
+            t('Hello,') . "\n\n" . t('you have been given access to the administration of the website %s. Your username is %s.', $name, (string) $user['username'])
+            . "\n\n" . t('Set your password at this address (valid for 3 days, single use):') . "\n" . $link);
+
+        return null;
     }
 }

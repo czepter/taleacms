@@ -41,12 +41,13 @@ final class Sites
      * null = no such domain. With several owners (TALEA_OWNERS) the domains of every set-up owner are read in one query – a host is
      * unique in the whole install – and the result names the owner's prefix; without, only this owner's.
      *
-     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, owner_status: string, status: string, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool}|null
+     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, owner_status: string, owner_public_id: string, status: string, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool}|null
      */
     public static function resolve(Db $db, string $host): ?array
     {
         $owners = Owners::enabled() ? Owners::readyPrefixes($db) : [$db->ownerPrefix];
         $statuses = Owners::enabled() ? array_column(Owners::all($db), 'status', 'prefix') : [];
+        $publicIds = Owners::enabled() ? array_column(Owners::all($db), 'public_id', 'prefix') : [];
         $selects = [];
         foreach ($owners as $i => $owner) {
             $o = $db->forOwner($owner);
@@ -61,7 +62,7 @@ final class Sites
         $r = $rows[0] ?? null;
 
         return $r === null ? null : [
-            'site_id' => (int) $r['site_id'], 'public_id' => (string) $r['public_id'], 'prefix' => (string) $r['prefix'], 'owner_prefix' => $owners[(int) $r['owner_idx']], 'owner_status' => (string) ($statuses[$owners[(int) $r['owner_idx']]] ?? 'live'), 'status' => (string) $r['status'],
+            'site_id' => (int) $r['site_id'], 'public_id' => (string) $r['public_id'], 'prefix' => (string) $r['prefix'], 'owner_prefix' => $owners[(int) $r['owner_idx']], 'owner_status' => (string) ($statuses[$owners[(int) $r['owner_idx']]] ?? 'live'), 'owner_public_id' => $owners[(int) $r['owner_idx']] === $db->installPrefix ? '' : (string) ($publicIds[$owners[(int) $r['owner_idx']]] ?? ''), 'status' => (string) $r['status'],
             'redirect_to_site_id' => $r['redirect_to_site_id'] === null ? null : (int) $r['redirect_to_site_id'],
             'is_primary' => (bool) $r['is_primary'], 'redirect_to_primary' => (bool) $r['redirect_to_primary'], 'primary_host' => $r['primary_host'] === null ? null : (string) $r['primary_host'], 'ready' => $r['ready_at'] !== null,
         ];
@@ -195,7 +196,7 @@ final class Sites
      * Registers a further site (paused: not public yet) and returns its prefix. Its tables come from the next Migrator::migrate(), its
      * settings (and with $clone its content) from provision(); until then ready_at is NULL.
      */
-    public static function add(Db $db, string $name, string $slug, int $source = 1, bool $clone = false): string
+    public static function add(Db $db, string $name, string $slug, int $source = 1, bool $clone = false, string $sourceOwner = ''): string
     {
         // the next number whose prefix has no tables yet: after restoring an older backup or on a database shared with something else
         // the tables of a site that is not registered may still exist, and a new site must not take them over
@@ -204,7 +205,7 @@ final class Sites
             $n++;
         }
         self::forgetCurrent(); // a dropped site's prefix may be handed out again with a new number
-        $db->insert('sites', ['name' => $name, 'slug' => $slug, 'prefix' => $prefix, 'status' => 'paused', 'source_site_id' => $source, 'clone' => $clone, 'created_at' => date('Y-m-d H:i:s')]);
+        $db->insert('sites', ['name' => $name, 'slug' => $slug, 'prefix' => $prefix, 'status' => 'paused', 'source_site_id' => $source, 'source_owner' => $sourceOwner, 'clone' => $clone, 'created_at' => date('Y-m-d H:i:s')]);
 
         return $prefix;
     }
@@ -323,14 +324,25 @@ final class Sites
         if ($new->prefix === $db->ownerPrefix || !$new->tableExists('settings')) {
             throw new \RuntimeException('The tables of site ' . $site['prefix'] . ' do not exist yet: migrate first.');
         }
-        $sourcePrefix = (string) ($db->value('SELECT prefix FROM {sites} WHERE site_id = ?', [(int) ($site['source_site_id'] ?? 1)]) ?? $db->ownerPrefix);
-        $source = $db->forSite($sourcePrefix);
+        // a copy of a site of another owner (an operator's doing, OwnerClone): the source is read from THAT owner's registry
+        $sourceOwner = (string) ($site['source_owner'] ?? '');
+        $cross = $sourceOwner !== '' && $sourceOwner !== $db->ownerPrefix;
+        if ($cross && !OwnerClone::isKnownOwner($db, $sourceOwner)) {
+            throw new \RuntimeException('The owner of the site to copy does not exist or is not set up.');
+        }
+        $sourceOwnerDb = $cross ? $db->forOwner($sourceOwner) : $db;
+        $sourcePrefix = (string) ($sourceOwnerDb->value('SELECT prefix FROM {sites} WHERE site_id = ?', [(int) ($site['source_site_id'] ?? 1)]) ?? $sourceOwnerDb->ownerPrefix);
+        $source = $sourceOwnerDb->forSite($sourcePrefix);
         if ($source->prefix === $new->prefix) {
             throw new \RuntimeException('A site cannot be made from itself.');
         }
         if (!empty($site['clone'])) {
-            self::copyTables($source, $new);
-            self::copyOwnRows($db, $new, (int) ($site['source_site_id'] ?? 1), (int) $site['site_id']);
+            if ($cross) {
+                OwnerClone::copy($db, $new, $source, $sourceOwnerDb, $site, (int) ($site['source_site_id'] ?? 1));
+            } else {
+                self::copyTables($source, $new);
+                self::copyOwnRows($db, $new, (int) ($site['source_site_id'] ?? 1), (int) $site['site_id']);
+            }
             // an allow-list: only the settings that may move to another site (SiteExport::SETTINGS, with their language variants) and the
             // account settings stay; the rest (secrets, tokens, keys) is made again on first use
             foreach ($new->all('SELECT name FROM {settings}') as $r) {
@@ -351,13 +363,13 @@ final class Sites
     }
 
     /** INSERT … SELECT of every copied table of $source into $new (parents first on PostgreSQL, checks off on MySQL and SQLite). */
-    private static function copyTables(Db $source, Db $new): void
+    public static function copyTables(Db $source, Db $new): void
     {
         $dialect = $new->dialect();
         $tables = [];
         foreach ($dialect->dumpTables($new->pdo(), $source->prefix) as $real) {
             $table = substr($real, strlen($source->prefix));
-            if (!in_array($table, Db::OWNER_TABLES, true) && !in_array($table, self::NOT_CLONED, true) && !str_starts_with($table, 'stats_') && $new->tableExists($table)) {
+            if (!in_array($table, Db::OWNER_TABLES, true) && !in_array($table, Db::INSTALL_TABLES, true) && !in_array($table, self::NOT_CLONED, true) && !str_starts_with($table, 'stats_') && $new->tableExists($table)) {
                 $tables[] = $table;
             }
         }
@@ -386,16 +398,24 @@ final class Sites
      * versions and the experiments' variants point at the new copies. A component the source did not own (a shared one) keeps its number.
      * Runs again after a half-done run: the rows of an earlier try are removed first.
      */
-    private static function copyOwnRows(Db $db, Db $new, int $sourceId, int $siteId): void
+    public static function copyOwnRows(Db $db, Db $new, int $sourceId, int $siteId, ?Db $from = null): void
     {
         $db->delete('components', ['site_id' => $siteId]);
         $db->delete('facts', ['site_id' => $siteId]);
         $ids = [];
         $own = ['component_id' => 1, 'public_id' => 1, 'site_id' => 1, 'id' => 1];
-        foreach ($db->all('SELECT * FROM {components} WHERE site_id = ? ORDER BY component_id', [$sourceId]) as $row) {
+        // another owner's site ($from): its shared rows come along too, as the new site's own – nothing is linked across owners
+        $scope = $from === null ? 'site_id = ?' : '(site_id = ? OR site_id IS NULL)';
+        foreach (($from ?? $db)->all('SELECT * FROM {components} WHERE ' . $scope . ' ORDER BY component_id', [$sourceId]) as $row) {
             $ids[(int) $row['component_id']] = $db->insert('components', array_diff_key($row, $own) + ['site_id' => $siteId]);
         }
-        foreach ($db->all('SELECT * FROM {facts} WHERE site_id = ? ORDER BY id', [$sourceId]) as $row) {
+        $local = [];
+        foreach (($from ?? $db)->all('SELECT * FROM {facts} WHERE ' . $scope . ' ORDER BY site_id IS NULL, id', [$sourceId]) as $row) {
+            $key = $row['fact_key'] . '|' . $row['language'];
+            if ($from !== null && isset($local[$key])) {
+                continue; // the site's own fact wins over the shared one with the same key and language
+            }
+            $local[$key] = true;
             $db->insert('facts', array_diff_key($row, $own) + ['site_id' => $siteId]);
         }
         if ($ids === []) {

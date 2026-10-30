@@ -25,8 +25,8 @@ trait SiteTools
         return [
             ['list_owner_sites', 'The sites of this installation (multisite, administrators, read-only): id, name, status (live | paused | archived | trashed), whether it is set up, the host names with the primary one, and where an archived site redirects. Pass a site\'s id as the site argument of any other tool to work on that site instead of the one this connection calls.',
                 $s([])],
-            ['create_site', 'Creates a further site (multisite, administrators): empty, or a copy of another site with clone_of (its content and look, never its visitors\' data). It starts paused and is set up in the background within a few minutes; add a host name with add_site_domain and set it live with update_site.',
-                $s(['name' => $text('name of the site'), 'clone_of' => $pid('site id from list_owner_sites to copy (omit for an empty site)')], ['name'])],
+            ['create_site', 'Creates a further site (multisite, administrators): empty, or a copy of another site with clone_of (its content and look, never its visitors\' data; operators of the installation may copy a site of another owner). It starts paused and is set up in the background within a few minutes; add a host name with add_site_domain and set it live with update_site.',
+                $s(['name' => $text('name of the site'), 'clone_of' => $pid('site id from list_owner_sites to copy (omit for an empty site); an operator of the installation may also name a site of another owner, which is copied with its media, components and facts, nothing linked')], ['name'])],
             ['update_site', 'Renames a site, sets its state (live | paused | archived; an archived site may redirect to another with redirect_to) and its hub card (multisite, administrators): card_summary, card_image and show_in_hub decide what the Projects element shows about it on the other sites. Putting a site into the trash is trash_site.',
                 $s(['id' => $pid('site id from list_owner_sites'), 'name' => $text('new name'), 'status' => $text('live | paused | archived'), 'redirect_to' => $pid('site id an archived site redirects to; empty = none'),
                     'card_summary' => $text('one or two sentences for the hub card (at most 300 characters)'), 'card_image' => $text('media path of the hub card image, e.g. media/2026/10/studio.jpg; empty = none'),
@@ -112,14 +112,22 @@ trait SiteTools
         }
         $source = Sites::currentId($db);
         $clone = isset($a['clone_of']) && $a['clone_of'] !== '';
+        $sourceOwner = '';
         if ($clone) {
-            $from = $this->siteByPublicId($a['clone_of']);
+            $foreign = $db->byPublicId('sites', (string) $a['clone_of']) === null && \Talea\Core\Owners::isOperator($db, $this->app->auth()->user()) ? \Talea\Core\Owners::findSite($db, (string) $a['clone_of']) : null;
+            if ($foreign !== null) {
+                // an operator copies a site of another owner: files, components and facts are copied, nothing is linked (Core\OwnerClone)
+                $from = $foreign['site'];
+                $sourceOwner = $foreign['owner'];
+            } else {
+                $from = $this->siteByPublicId($a['clone_of']);
+            }
             if ($from['ready_at'] === null) {
                 throw new \InvalidArgumentException('The site to copy is not set up yet.');
             }
             $source = (int) $from['site_id'];
         }
-        $prefix = Sites::add($db, $title, Sites::freeSlug($db, $title), $source, $clone);
+        $prefix = Sites::add($db, $title, Sites::freeSlug($db, $title), $source, $clone, $sourceOwner);
         $site = $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$prefix]) ?? throw new \DomainException('The site could not be created.');
 
         return ['site' => $this->siteOutput($site + ['domains' => []]),

@@ -135,6 +135,7 @@ final class Kernel
         Modules\Addons::class,
         Modules\Transfer::class,
         Modules\Sites::class,
+        Modules\Owners::class,
         Modules\ChangeLog::class,
         Modules\Status::class,
         Modules\Fleet::class,
@@ -151,7 +152,7 @@ final class Kernel
      * screen), label]. An entry shows only when the person may open its module.
      */
     public const array SETTINGS_MENU = [
-        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries'], ['sites', '', 'Sites']],
+        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries'], ['sites', '', 'Sites'], ['owners', '', 'Owners']],
         'People' => [['users', '', 'Users and roles']],
         'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
         'Features' => [['extensions', '', 'Features and add-ons'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'ai', 'AI']],

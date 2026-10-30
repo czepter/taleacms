@@ -355,6 +355,9 @@ final class SiteExport
         $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
             $path = 'media/' . ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen(TALEA_ROOT . '/media'))), '/');
+            if (MediaFolder::isOwnerDir(explode('/', $path)[1] ?? '')) {
+                continue; // a further owner's files are not owner 1's (this is the install's own archive and copy)
+            }
             if ($file->isFile() && !$file->isLink() && !preg_match('#(^|/)\.|\.php\d?$#i', $path)) {
                 $files[$path] = (int) $file->getSize();
             }

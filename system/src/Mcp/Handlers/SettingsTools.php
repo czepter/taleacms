@@ -92,7 +92,7 @@ trait SettingsTools
                     // as in Appearance
                     $ok = \Talea\Core\Images::icons(TALEA_ROOT . '/' . $path);
                 } elseif ($key === 'favicon') {
-                    array_map(fn (int $n): bool => @unlink(TALEA_ROOT . '/media/icon-' . $n . '.png'), \Talea\Core\Images::ICON_SIZES);
+                    array_map(fn (int $n): bool => @unlink(TALEA_ROOT . '/' . \Talea\Core\MediaFolder::icon($n)), \Talea\Core\Images::ICON_SIZES);
                 }
                 if (!$ok) {
                     $errors[$key] = 'A path to a file from Media (media/…) or from the system (image/…); an icon must be convertible to PNG.';

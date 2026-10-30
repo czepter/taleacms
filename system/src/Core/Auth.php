@@ -133,11 +133,12 @@ final class Auth
      */
     private function account(string $login): ?array
     {
-        $user = $this->db->one('SELECT * FROM {users} WHERE username = ?', [$login]);
+        // the row that stands for an operator (Core\Owners::operatorRow) never signs in with a password: only the handoff opens it
+        $user = $this->db->one('SELECT * FROM {users} WHERE username = ? AND operator_user_id IS NULL', [$login]);
         if ($user !== null || !str_contains($login, '@')) {
             return $user;
         }
-        $matches = $this->db->all('SELECT * FROM {users} WHERE email = ? LIMIT 2', [$login]);
+        $matches = $this->db->all('SELECT * FROM {users} WHERE email = ? AND operator_user_id IS NULL LIMIT 2', [$login]);
 
         return count($matches) === 1 ? $matches[0] : null;
     }
@@ -265,7 +266,7 @@ final class Auth
             return null;
         }
         $token = $this->db->one('SELECT * FROM {user_remember_tokens} WHERE token_hash = ? AND expires_at > NOW()', [hash('sha256', $cookie)]);
-        $user = $token === null ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$token['user_id']]);
+        $user = $token === null ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE AND operator_user_id IS NULL', [$token['user_id']]);
         if ($user === null || !hash_equals(self::passwordHash((string) $user['password']), (string) $token['fingerprint'])) {
             $this->forget();
 
@@ -455,7 +456,7 @@ final class Auth
         $key = $this->db->one('SELECT * FROM {user_passkeys} WHERE credential_hash = ?' . ($pending !== null ? ' AND user_id = ?' : ''),
             array_merge([hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))], $pending !== null ? [(int) $pending['user_id']] : []));
         $userId = $pending !== null ? (int) $pending['user_id'] : (int) ($key['user_id'] ?? 0);
-        $user = $userId === 0 ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$userId]);
+        $user = $userId === 0 ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE AND operator_user_id IS NULL', [$userId]);
         // no lock check: a passkey assertion cannot be guessed, so it opens a locked account (as first step or as second factor);
         // everything else about it is still verified below, and wrong ones still count
         try {
@@ -497,8 +498,8 @@ final class Auth
      */
     public function signInFromHandoff(int $userId): bool
     {
-        $user = $this->db->one('SELECT user_id, password FROM {users} WHERE user_id = ? AND blocked = FALSE AND admin = ?', [$userId, self::ADMIN]);
-        if ($user === null) {
+        $user = $this->db->one('SELECT user_id, password, operator_user_id FROM {users} WHERE user_id = ? AND blocked = FALSE AND admin = ?', [$userId, self::ADMIN]);
+        if ($user === null || (($user['operator_user_id'] ?? null) !== null && !Owners::operatorValid($this->db, (int) $user['operator_user_id']))) {
             return false;
         }
         $this->session->regenerate();
@@ -534,8 +535,8 @@ final class Auth
         }
         $id = $this->session->get('user_id');
         $user = is_int($id) ? $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$id]) : null;
-        if ($user === null) {
-            return null;
+        if ($user === null || (($user['operator_user_id'] ?? null) !== null && !Owners::operatorValid($this->db, (int) $user['operator_user_id']))) {
+            return null; // an operator's row lives only as long as the operator is an unblocked administrator of owner 1
         }
         $hash = $this->session->get('fingerprint');
         if ($hash === null) {
