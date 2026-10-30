@@ -160,4 +160,29 @@ final class CourseRegistrationTest extends SiteTestCase
         $this->act('rumba', 'dora@example.com', 'confirm'); // does not apply any more: an error, nothing changes
         $this->assertSame('cancelled', $this->state('dora@example.com'));
     }
+
+    public function testRegistrationOfAnotherCourseIsRefused(): void
+    {
+        $pid = $this->site()->publicId('enquiries', (int) $this->sq("SELECT enquiry_id FROM tl_enquiries WHERE email = 'bob@example.com' ORDER BY enquiry_id DESC LIMIT 1"));
+        $before = $this->state('bob@example.com');
+        $this->adminPost('/admin.php?module=collections&action=registration', ['id' => $this->collectionId(), 'item' => $this->itemPid('rumba'), 'registration' => $pid, 'do' => 'cancel'], $this->screen('rumba'));
+        $this->assertSame($before, $this->state('bob@example.com'), 'a registration of Salsa cannot be handled through Rumba');
+    }
+
+    public function testNeedsTheEnquiriesRight(): void
+    {
+        $site = $this->site();
+        $site->exec('INSERT INTO tl_users (username, password, name, admin, last_login_at, confirmed_at) VALUES (?, ?, ?, ?, NOW(), NOW())', ['seats-editor', password_hash($site->password, PASSWORD_DEFAULT), 'seats-editor', 1]);
+        $site->exec("INSERT INTO tl_user_permissions (user_id, module) SELECT user_id, 'collections' FROM tl_users WHERE username = 'seats-editor'");
+        $client = $site->client('seats-editor');
+        $site->signIn($client, 'seats-editor');
+
+        $this->assertPage($this->screen('salsa'), 403, [], $client);
+        $page = $this->assertPage('/admin.php?module=collections&action=items&id=' . $this->collectionId(), 200, '3 of 3', $client);
+        $this->assertStringNotContainsString('/admin/collections/registrations', $page->body, 'the counts show, the link to personal data does not');
+        $before = $this->state('bob@example.com');
+        $pid = $site->publicId('enquiries', (int) $this->sq("SELECT enquiry_id FROM tl_enquiries WHERE email = 'bob@example.com' ORDER BY enquiry_id DESC LIMIT 1"));
+        $client->post('/admin.php?module=collections&action=registration', ['_csrf' => $site->csrf($client), 'id' => $this->collectionId(), 'item' => $this->itemPid('salsa'), 'registration' => $pid, 'do' => 'cancel']);
+        $this->assertSame($before, $this->state('bob@example.com'));
+    }
 }

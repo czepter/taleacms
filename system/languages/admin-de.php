@@ -5779,6 +5779,7 @@ return [
     'You cannot delete yourself.' => 'Sie können sich nicht selbst löschen.',
     'You cannot edit this image.' => 'Sie können dieses Bild nicht bearbeiten.',
     'You cannot remove administrator rights from your own account.' => 'Sie können Ihrem eigenen Konto die Administratorrechte nicht entziehen.',
+    'You do not have access to the registrations.' => 'Sie haben keinen Zugriff auf die Anmeldungen.',
     'You do not have access to this module.' => 'Sie haben keinen Zugriff auf dieses Modul.',
     'You do not have to put a look for your brand together by hand: connect Claude and write, for example, “Set the look of the site to our brand – primary colour #0E6E6E, serif headings, subtle rounding”. It saves the colours and fonts to the design system, and you see the result here.' => 'Sie müssen das Erscheinungsbild Ihrer Marke nicht von Hand zusammenstellen: Verbinden Sie Claude und schreiben Sie zum Beispiel „Stelle das Erscheinungsbild der Website auf unsere Marke ein – Primärfarbe #0E6E6E, Serifen-Überschriften, dezente Rundung“. Claude speichert die Farben und Schriften im Designsystem, und Sie sehen das Ergebnis hier.',
     'You have the right to access, rectify and erase your data, to restrict processing and to object. You can lodge a complaint with the data protection authority.' => 'Sie haben das Recht auf Auskunft, Berichtigung und Löschung Ihrer Daten, auf Einschränkung der Verarbeitung und auf Widerspruch. Sie können sich bei der Datenschutzbehörde beschweren.',

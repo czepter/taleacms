@@ -5772,6 +5772,7 @@ return [
     'You cannot delete yourself.' => 'Nemůžete smazat sám sebe.',
     'You cannot edit this image.' => 'Obrázek nemůžete upravit.',
     'You cannot remove administrator rights from your own account.' => 'Vlastní účet nemůžete zbavit práv správce.',
+    'You do not have access to the registrations.' => 'Nemáte přístup k přihláškám.',
     'You do not have access to this module.' => 'K tomuto modulu nemáte přístup.',
     'You do not have to put a look for your brand together by hand: connect Claude and write, for example, “Set the look of the site to our brand – primary colour #0E6E6E, serif headings, subtle rounding”. It saves the colours and fonts to the design system, and you see the result here.' => 'Vzhled podle vaší značky nemusíte skládat ručně: připojte Clauda a napište mu třeba „Nastav vzhled webu podle naší značky – hlavní barva #0E6E6E, titulky patkovým písmem, jemné zaoblení“. Barvy a písma uloží do design systému, výsledek uvidíte tady.',
     'You have the right to access, rectify and erase your data, to restrict processing and to object. You can lodge a complaint with the data protection authority.' => 'Máte právo na přístup k údajům, opravu, výmaz, omezení zpracování a námitku. Stížnost můžete podat u Úřadu pro ochranu osobních údajů.',

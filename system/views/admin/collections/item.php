@@ -43,7 +43,7 @@ $shareImage = (string) $p['image'];
 $shareTitle = (string) ($p['share_title'] ?? '') !== '' ? (string) $p['share_title'] : ($p['seo_title'] !== '' ? (string) $p['seo_title'] : (string) $p['name']);
 $shareDescription = (string) ($p['share_description'] ?? '') !== '' ? (string) $p['share_description'] : (string) $p['description'];
 $actions = '';
-if ($seats !== null) {
+if ($seats !== null && $app->auth()->hasModule('enquiries')) {
     $actions .= '<a class="navigation" href="' . e($module->url('registrations', ['id' => $k['public_id'], 'item' => $p['public_id']])) . '">' . e(t('Registrations')) . ' · '
         . e($seats['course']['capacity'] > 0 ? t('%d of %d', $seats['taken'], $seats['course']['capacity']) : (string) $seats['taken']) . '</a>';
 }

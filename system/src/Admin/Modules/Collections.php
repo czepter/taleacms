@@ -232,6 +232,9 @@ final class Collections extends Module
     /** The registration screen of a course: seats, then the registrations by state with the actions that apply. */
     protected function actionRegistrations(): Response
     {
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            return $this->error('You do not have access to the registrations.', 403); // personal data: the same right as Enquiries
+        }
         [$k, $item, $course] = $this->courseOfRequest();
         if ($course === null) {
             return $this->error('This is not a course with seats.', 404);
@@ -263,6 +266,9 @@ final class Collections extends Module
     {
         if (!$this->request->isPost()) {
             return $this->back();
+        }
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            return $this->back('You do not have access to the registrations.', '', [], 'error');
         }
         [$k, $item, $course] = $this->courseOfRequest();
         if ($course === null) {

@@ -151,7 +151,8 @@ $summary = function (array $p) use ($fields): string {
 <?php endif ?>
 <?php if ($seats !== null): $s = $seats[(int) $p['item_id']] ?? null; $capacity = (int) ($s['course']['capacity'] ?? 0); ?>
 	<td><?php if ($s === null): ?><span class="cell-weak">–</span><?php else: ?>
-		<a href="<?= e($module->url('registrations', ['id' => $k['public_id'], 'item' => $p['public_id']])) ?>"><?= e($capacity > 0 ? t('%d of %d', $s['taken'], $capacity) : (string) $s['taken']) ?></a>
+<?php $seatText = e($capacity > 0 ? t('%d of %d', $s['taken'], $capacity) : (string) $s['taken']); ?>
+		<?= $app->auth()->hasModule('enquiries') ? '<a href="' . e($module->url('registrations', ['id' => $k['public_id'], 'item' => $p['public_id']])) . '">' . $seatText . '</a>' : $seatText ?>
 		<?php if ($s['requested'] > 0): ?><span class="tag tag-warning"><?= e(t('Requests wait')) ?></span><?php endif ?>
 		<?php if ($s['waitlisted'] > 0): ?><span class="cell-weak">· <?= e(t('%d waiting', $s['waitlisted'])) ?></span><?php elseif ($capacity > 0 && $s['taken'] >= $capacity && !$s['course']['waiting_list']): ?><span class="cell-weak">· <?= e(t('waiting list off')) ?></span><?php endif ?>
 	<?php endif ?></td>
