@@ -32,7 +32,7 @@ final class BookingConfirmationTest extends SiteTestCase
         $day = self::$day;
         $this->bookingText('save_booking_service', ['id' => $this->site()->publicId('booking_services', self::$service), 'requires_confirmation' => true]);
         $this->assertSame('1', $this->q('SELECT requires_confirmation FROM tl_booking_services WHERE id = ' . self::$service), '3.3 booking: the service needs confirmation');
-        $this->site()->setting('booking_pending_mail', 'Hi {name}, we got your message.');
+        $this->site()->setting('message_booking_pending_body', 'Hi {name}, we got your message.');
         $this->assertStringContainsString('result=pending', $this->book(['slot' => "$day 15:00", 'name' => 'Pavla Request', 'email' => 'pavla-bk@example.cz', 'consent' => '1']), "3.3 booking: a visitor's request comes back as pending");
         $this->assertSame('pending|1', $this->q("SELECT CONCAT(status, '|', hold_until IS NOT NULL) FROM tl_bookings WHERE email = 'pavla-bk@example.cz'"), '3.3 booking: saved as pending with a hold');
         $this->assertSame('1|1|1', $this->q("SELECT CONCAT((SELECT COUNT(*) FROM tl_mail WHERE recipient = 'pavla-bk@example.cz' AND subject LIKE 'We received your request for%' AND body LIKE '%Hi Pavla Request, we got your message.%'), '|', (SELECT COUNT(*) FROM tl_mail WHERE recipient = 'jana-bk@example.cz' AND subject LIKE 'Request waiting for your answer%'), '|', (SELECT COUNT(*) FROM tl_mail WHERE recipient = 'pavla-bk@example.cz'))"), "3.3 booking: the customer got the acknowledgement in the site's own words, the person the notification, nobody a confirmation");

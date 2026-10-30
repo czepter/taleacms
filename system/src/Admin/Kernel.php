@@ -153,7 +153,7 @@ final class Kernel
         'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries']],
         'People' => [['users', '', 'Users and roles']],
         'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
-        'Features' => [['extensions', '', 'Features and add-ons'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'ai', 'AI']],
+        'Features' => [['extensions', '', 'Features and add-ons'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'messages', 'Messages'], ['settings', 'ai', 'AI']],
         'Data and system' => [['settings', 'backups', 'Backups'], ['settings', 'reports', 'Reports'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
     ];
 

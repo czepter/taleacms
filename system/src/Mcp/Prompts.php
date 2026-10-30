@@ -449,9 +449,10 @@ final class Prompts
 
                 With `update_settings`: `booking_lead_hours` (the earliest booking, in hours ahead), `booking_horizon_days`
                 (how far ahead), `booking_cancel_hours` (until when the customer's cancel link works),
-                `booking_reminder_hours` (0 = no reminder), `booking_hold_hours` (how long a request holds its time), and
-                your own texts `booking_pending_thanks`, `booking_pending_mail` and `booking_declined_mail` (empty = the
-                built-in ones), in the site's language and tone.
+                `booking_reminder_hours` (0 = no reminder), `booking_hold_hours` (how long a request holds its time). The
+                e-mails and messages customers read are the settings `message_<id>_<subject|body>[_<language>]`, for example
+                `message_booking_pending_body` or `message_booking_confirmation_subject` (empty = the built-in text); a wrong
+                {placeholder} is refused with the list of the right ones, and `update_settings` returns the texts that are set.
 
                 ## 6. The booking page
 

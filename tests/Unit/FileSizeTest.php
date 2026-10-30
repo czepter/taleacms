@@ -22,7 +22,7 @@ final class FileSizeTest extends TestCase
     private const array CEILINGS = [
         'image/web.js' => 1045,
         'system/src/Admin/Modules/Pages.php' => 1087,
-        'system/src/Admin/Modules/Settings.php' => 921,
+        'system/src/Admin/Modules/Settings.php' => 914,
         'system/src/Core/Booking.php' => 1400,
         'system/src/Core/SiteImport.php' => 1172,
         'system/src/Core/WpImport.php' => 1392,

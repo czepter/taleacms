@@ -30,6 +30,9 @@ final class PromptsTest extends TestCase
             [$task, $closing] = explode(Prompts::RUNNERS_HEADING, $text) + [1 => ''];
             preg_match_all('/\b[a-z0-9]+(?:_[a-z0-9]+)+\b/', $task, $words);
             foreach (array_diff(array_unique($words[0]), $known) as $word) {
+                if (\Talea\Core\Messages::parseKey($word) !== null) {
+                    continue; // a message text is a setting (message_<id>_<part>)
+                }
                 $unknown[] = $prompt['name'] . ': ' . $word;
             }
             foreach (Prompts::toolsIn($task) as $tool) {

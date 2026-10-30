@@ -26,7 +26,7 @@ final class ParityTest extends TestCase
         $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
             'acknowledge_instructions' => 'admin: a person confirms having checked changed instructions for Claude (#149) – a connection must not clear the notice about a change it may have made itself',
             'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log',
-            'test_mail' => 'admin: mail server settings', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
+            'test_mail' => 'admin: mail server settings', 'message_test' => 'admin: sends a test to the signed-in person', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
             'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
             'hours_add' => 'save_hours_exception', 'hours_delete' => 'delete_hours_exception', 'hours_sign' => $readOnly,
             'hours_apply' => 'save_hours_exception', 'hours_discard' => 'delete_hours_exception', // a proposal from a drafts-only connection (3.2)

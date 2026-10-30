@@ -160,7 +160,8 @@ trait SettingsTools
             if ($clean === null) {
                 $type = (string) \Talea\Admin\Modules\Settings::fieldType($key);
                 $errors[$key] = !preg_match(self::MCP_SETTINGS, $key) ? 'This setting cannot be changed through MCP (only in the administration).'
-                    : (str_starts_with($type, 'choice:') ? 'Invalid value. Allowed: ' . implode(', ', array_map(fn (string $v): string => $v === '' ? '"" (empty)' : $v, explode('|', substr($type, 7)))) : 'Invalid value.');
+                    : (str_starts_with($type, 'message:') ? (\Talea\Core\Messages::check(substr($type, 8), is_scalar($value) ? (string) $value : '') ?? 'Too long: at most ' . \Talea\Core\Messages::MAX . ' characters.')
+                    : (str_starts_with($type, 'choice:') ? 'Invalid value. Allowed: ' . implode(', ', array_map(fn (string $v): string => $v === '' ? '"" (empty)' : $v, explode('|', substr($type, 7)))) : 'Invalid value.'));
                 continue;
             }
             $siteSettings->set($key, $clean);
@@ -186,6 +187,7 @@ trait SettingsTools
         $current['stats'] = \Talea\Front\Stats::enabled($siteSettings) ? '1' : '0'; // the Statistics feature (3.2)
         $current += ['extensions' => \Talea\Core\Extensions::enabled($siteSettings), 'additional_languages' => \Talea\Core\Language::additional($siteSettings),
             'claude_instructions' => $siteSettings->get('claude_instructions'),
+            'messages' => \Talea\Core\Messages::overrides($siteSettings) ?: new \stdClass(), // the e-mail and page texts of courses and bookings that differ from their template (key => text)
             'screen' => \Talea\Front\Screen::settings($siteSettings)]; // on, seconds, collections, news, hours, clock – never the secret address
 
         return ['saved' => $stored ?: new \stdClass(), 'errors' => $errors ?: new \stdClass(), 'settings' => $current];

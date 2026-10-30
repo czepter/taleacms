@@ -20,6 +20,9 @@ use Talea\Front\FormMail;
  */
 final class Messages
 {
+    /** The longest own text of a message. */
+    public const int MAX = 5000;
+
     /** @var array<string, array{group: string, kind: string, placeholders: list<string>, links: list<string>}> */
     public const array CATALOGUE = [
         'course_registered' => ['group' => 'courses', 'kind' => 'mail', 'placeholders' => ['name', 'course', 'dates', 'schedule', 'place', 'seats', 'site name'], 'links' => []],
@@ -108,6 +111,81 @@ final class Messages
             'booking_cancel_page' => t('Your appointment is cancelled. You are welcome to book another time.'),
             default => '',
         };
+    }
+
+    /** The name of a message in the settings screen. */
+    public static function title(string $id): string
+    {
+        return match ($id) {
+            'course_registered' => t('Registered'), 'course_request' => t('Request received'), 'course_waitlisted' => t('On the waiting list'),
+            'course_confirmed' => t('Confirmed'), 'course_declined' => t('Declined'), 'course_moved_up' => t('Moved up from the waiting list'),
+            'course_cancelled' => t('Registration cancelled'), 'course_course_cancelled' => t('Course cancelled, other courses offered'), 'course_already' => t('Already registered'),
+            'course_thanks_registered' => t('Thank you: registered'), 'course_thanks_request' => t('Thank you: request'), 'course_thanks_waitlisted' => t('Thank you: waiting list'),
+            'course_full' => t('Course full'), 'course_closed' => t('Registration closed'), 'course_take_over' => t('Taking over a seat'),
+            'booking_confirmation' => t('Appointment confirmed'), 'booking_pending' => t('Request received'), 'booking_declined' => t('Request declined'),
+            'booking_proposal' => t('Other times proposed'), 'booking_cancelled' => t('Appointment cancelled by us'), 'booking_reminder' => t('Reminder'),
+            'booking_thanks' => t('Thank you: booked'), 'booking_pending_thanks' => t('Thank you: request'), 'booking_cancel_page' => t('Appointment cancelled on the cancel page'),
+            default => $id,
+        };
+    }
+
+    /** The parts of a message: a mail has a subject and a text, a page only a text. @return list<string> */
+    public static function parts(string $id): array
+    {
+        return (self::CATALOGUE[$id]['kind'] ?? '') === 'mail' ? ['subject', 'body'] : ['body'];
+    }
+
+    /** The message, part and language a settings key stands for (`message_<id>_<part>[_<language>]`); null when it is none. @return array{id: string, part: string, language: string}|null */
+    public static function parseKey(string $key): ?array
+    {
+        if (preg_match('/^message_([a-z_]+)_(subject|body)(?:_(' . Language::TAG . '))?$/D', $key, $m) !== 1 || !isset(self::CATALOGUE[$m[1]]) || !in_array($m[2], self::parts($m[1]), true)) {
+            return null;
+        }
+
+        return ['id' => $m[1], 'part' => $m[2], 'language' => $m[3] ?? ''];
+    }
+
+    /** The own texts that are set (key => text): the messages that differ from their template. @return array<string, string> */
+    public static function overrides(Settings $s): array
+    {
+        $out = [];
+        foreach ($s->db()->pairs('SELECT name, value FROM {settings}') as $key => $value) {
+            if (self::parseKey((string) $key) !== null && trim((string) $value) !== '') {
+                $out[(string) $key] = (string) $value;
+            }
+        }
+        ksort($out);
+
+        return $out;
+    }
+
+    /** The groups the Messages screen offers: courses once a collection is a calendar, bookings while the feature is on. @return list<string> */
+    public static function groups(Db $db, Settings $s): array
+    {
+        $groups = [];
+        foreach (\Talea\Builder\Collections::all($db) as $collection) {
+            if (Calendar::fields($collection) !== null) {
+                $groups[] = 'courses';
+                break;
+            }
+        }
+        if (Extensions::isEnabled($s, 'bookings')) {
+            $groups[] = 'bookings';
+        }
+
+        return $groups;
+    }
+
+    /** Example values for a test mail: in brackets, never a realistic person or figure. @return array<string, string> */
+    public static function sample(string $id): array
+    {
+        $values = [];
+        foreach ([...self::CATALOGUE[$id]['placeholders'], ...self::CATALOGUE[$id]['links']] as $name) {
+            $values[$name] = $name === 'name' ? '[Participant’s name]' : '[' . ucfirst($name) . ']';
+        }
+        unset($values['site name']);
+
+        return $values;
     }
 
     /** The setting that holds an own text: `message_<id>_<part>`, with `_<language>` for a language version. */
