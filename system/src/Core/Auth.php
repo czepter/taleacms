@@ -112,6 +112,9 @@ final class Auth
         // the failure counter is reset only by a completed sign-in (recordSignIn): with two-factor sign-in a correct password
         // must not wipe the wrong codes counted so far, or the per-account lock would never be reached (3.3.2, N7)
 
+        if (($noAccess = self::noAccessHere($this->db, $user)) !== null) {
+            return $noAccess; // asked after the password: it is not a way to find out which accounts exist
+        }
         $this->session->regenerate();
         if ($user['totp_secret'] !== '') {
             // the password matches, but the account has two-factor sign-in: only the code from the app completes the sign-in
@@ -123,6 +126,12 @@ final class Auth
         $this->startSignIn((int) $user['user_id'], (string) $this->db->value('SELECT password FROM {users} WHERE user_id = ?', [$user['user_id']]), $remember);
 
         return null;
+    }
+
+    /** Roles per site: why this account may not work on the site $db is connected to, or null. @param array<string, mixed> $user */
+    private static function noAccessHere(Db $db, array $user): ?string
+    {
+        return Sites::allowsHere($db, $user) ? null : t('You have no access to this site.');
     }
 
     /**
@@ -521,6 +530,9 @@ final class Auth
     {
         if ($this->user === false) {
             $this->user = $this->sessionUser() ?? $this->restoreSignIn();
+            if ($this->user !== null && !Sites::allowsHere($this->db, $this->user)) {
+                $this->user = null; // roles per site: a person who may not work on this site is signed out here
+            }
         }
 
         return $this->user;

@@ -29,7 +29,7 @@ final class Db
     public const array PUBLIC_ID_TABLES = ['users', 'categories', 'news', 'tags', 'media', 'media_folders', 'pages', 'collections', 'collection_items', 'popups', 'components', 'forms', 'sections', 'enquiries', 'subscribers', 'newsletters', 'redirects', 'api_tokens', 'user_passkeys', 'bookings', 'booking_services', 'booking_staff', 'requests', 'fleet_sites', 'experiments', 'members', 'member_groups', 'monthly_reports', 'sites', 'owners'];
 
     /** Tables shared by every site of the owner: always under the owner prefix. Every other table exists once per site prefix. */
-    public const array OWNER_TABLES = ['users', 'user_passkeys', 'user_permissions', 'user_remember_tokens', 'user_devices', 'role', 'media', 'media_folders', 'components', 'facts', 'fact_history', 'api_tokens', 'oauth_clients', 'oauth_codes', 'agent_sessions', 'agent_journal', 'sites', 'site_domains', 'handoff_tokens'];
+    public const array OWNER_TABLES = ['users', 'user_passkeys', 'user_permissions', 'user_remember_tokens', 'user_devices', 'role', 'media', 'media_folders', 'components', 'facts', 'fact_history', 'api_tokens', 'oauth_clients', 'oauth_codes', 'agent_sessions', 'agent_journal', 'sites', 'site_domains', 'handoff_tokens', 'user_sites'];
 
     /** Tables of the install, shared by every owner (several owners, docs/specs/multisite.md): always under the install prefix, the configured base prefix. */
     public const array INSTALL_TABLES = ['owners'];

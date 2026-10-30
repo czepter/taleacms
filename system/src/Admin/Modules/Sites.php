@@ -10,6 +10,7 @@ use Talea\Admin\ChangeLog;
 use Talea\Core\Domains;
 use Talea\Core\Owners as OwnerRegistry;
 use Talea\Core\Response;
+use Talea\Core\SiteHealth;
 use Talea\Core\SiteFigures;
 use Talea\Core\Sites as SiteRegistry;
 
@@ -46,10 +47,11 @@ final class Sites extends Module
         $current = (int) $app->site['site_id'];
         $name = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (string) $s['slug'];
         $out = ['current' => '', 'others' => []];
+        $user = $app->auth()->user();
         foreach (SiteRegistry::overview($app->db(), false) as $s) {
             if ((int) $s['site_id'] === $current) {
                 $out['current'] = $name($s);
-            } elseif ($s['ready'] && $s['status'] !== 'trashed' && $s['domains'] !== []) {
+            } elseif ($s['ready'] && $s['status'] !== 'trashed' && $s['domains'] !== [] && SiteRegistry::allows($app->db(), $user, (int) $s['site_id'])) {
                 $out['others'][] = ['public_id' => (string) $s['public_id'], 'name' => $name($s)];
             }
         }
@@ -70,8 +72,9 @@ final class Sites extends Module
         }
         $current = (int) ($app->site['site_id'] ?? 1);
         $out = [];
+        $user = $app->auth()->user();
         foreach (SiteRegistry::overview($app->db(), false) as $s) {
-            if ($s['ready'] && $s['status'] !== 'trashed') {
+            if ($s['ready'] && $s['status'] !== 'trashed' && SiteRegistry::allows($app->db(), $user, (int) $s['site_id'])) {
                 $out[] = ['site_id' => (int) $s['site_id'], 'prefix' => (string) $s['prefix'], 'public_id' => (string) $s['public_id'], 'name' => $s['name'] !== '' ? (string) $s['name'] : (string) $s['slug'],
                     'current' => (int) $s['site_id'] === $current, 'can_open' => $s['domains'] !== []];
             }
@@ -99,15 +102,29 @@ final class Sites extends Module
     protected function actionList(): Response
     {
         $sites = SiteRegistry::overview($this->db);
+        foreach ($sites as &$s) {
+            $s['health'] = $s['ready'] && $s['status'] !== 'trashed' ? SiteHealth::site($this->db->forSite((string) $s['prefix'])) : null;
+        }
+        unset($s);
 
         return $this->view('list', 'Sites', ['sites' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] !== 'trashed')),
-            'trash' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] === 'trashed')), 'current' => $this->currentId()]);
+            'trash' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] === 'trashed')), 'current' => $this->currentId(),
+            'mediaWithoutAlt' => SiteHealth::mediaWithoutAlt($this->db), 'limit' => SiteRegistry::limit('MAX_SITES')]);
+    }
+
+    /** The usage of this owner's sites per month as a CSV (administrators; an operator gets every owner's in the Owners area). */
+    protected function actionUsage(): Response
+    {
+        $csv = SiteHealth::usageCsv($this->db, $this->request->getInt('months'));
+        ChangeLog::write($this->app, 'sites', 'export CSV', '');
+
+        return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="usage-' . date('Y-m-d') . '.csv"']);
     }
 
     /** The Overview tab: the figures of every set-up site for 7 and 30 days, one row each, and the totals. */
     protected function actionOverview(): Response
     {
-        return $this->view('overview', 'Sites', ['figures' => SiteFigures::overview($this->db), 'periods' => SiteFigures::PERIODS]);
+        return $this->view('overview', 'Sites', ['figures' => SiteFigures::overview($this->db, $this->app->auth()->user()), 'periods' => SiteFigures::PERIODS]);
     }
 
     protected function actionNew(): Response
@@ -122,6 +139,9 @@ final class Sites extends Module
         }
         $name = trim(mb_substr($this->request->post('name'), 0, 120));
         $from = $this->request->post('from');
+        if (($limit = SiteRegistry::limitRefusal($this->db)) !== null) {
+            return $this->form($name, $from, $limit);
+        }
         if ($name === '') {
             return $this->form($name, $from, 'Fill in the site name.');
         }

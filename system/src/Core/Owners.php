@@ -138,6 +138,14 @@ final class Owners
         return array_map(fn (Db $c): string => $c->prefix, self::connections($db));
     }
 
+    /** Why one more owner may not be made (TALEA_MAX_OWNERS, counting every owner row), or null. */
+    public static function limitRefusal(Db $db): ?string
+    {
+        $max = Sites::limit('MAX_OWNERS');
+
+        return $max > 0 && count(self::all($db)) >= $max ? t('The limit of %d owners for this installation is reached. Raise TALEA_MAX_OWNERS or remove an owner first.', $max) : null;
+    }
+
     /**
      * Registers a further owner (not set up yet) and returns its prefix. Its tables come from the next Migrator::migrate(), its first
      * site from the migration; provisionPending() (cron) sets ready_at. A number whose prefix already has tables is skipped.

@@ -10,6 +10,7 @@ use Talea\Admin\Module;
 use Talea\Core\MediaFolder;
 use Talea\Core\Owners as OwnerRegistry;
 use Talea\Core\Response;
+use Talea\Core\SiteHealth;
 use Talea\Core\Sites as SiteRegistry;
 
 /**
@@ -47,10 +48,20 @@ final class Owners extends Module
                 $sites = (int) $ownerDb->value("SELECT COUNT(*) FROM {sites} WHERE status <> 'trashed'");
                 $bytes += MediaFolder::bytes(MediaFolder::dirOf($o['prefix'] === $this->db->installPrefix ? '' : (string) $o['public_id']));
             }
-            $rows[] = $o + ['ready' => $ready, 'sites' => $sites, 'bytes' => $bytes, 'first' => $o['prefix'] === $this->db->installPrefix];
+            $rows[] = $o + ['ready' => $ready, 'sites' => $sites, 'bytes' => $bytes, 'first' => $o['prefix'] === $this->db->installPrefix,
+                'health' => $ready ? SiteHealth::owner($this->db->forOwner((string) $o['prefix'])) : null];
         }
 
-        return $this->view('list', 'Owners', ['owners' => $rows]);
+        return $this->view('list', 'Owners', ['owners' => $rows, 'limit' => SiteRegistry::limit('MAX_OWNERS')]);
+    }
+
+    /** The usage of every owner's sites per month as a CSV (operators; an owner's administrators get their own from the Sites area). */
+    protected function actionUsage(): Response
+    {
+        $csv = SiteHealth::usageCsvAll($this->db, $this->request->getInt('months'));
+        ChangeLog::write($this->app, 'owners', 'export CSV', '');
+
+        return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="usage-all-owners-' . date('Y-m-d') . '.csv"']);
     }
 
     protected function actionNew(): Response
@@ -66,6 +77,9 @@ final class Owners extends Module
         $name = trim(mb_substr($this->request->post('name'), 0, 120));
         $kind = $this->request->post('kind');
         $email = trim($this->request->post('admin_email'));
+        if (($limit = OwnerRegistry::limitRefusal($this->db)) !== null) {
+            return $this->form($name, $kind, $email, $limit);
+        }
         if ($name === '') {
             return $this->form($name, $kind, $email, 'Fill in the name of the owner.');
         }

@@ -249,6 +249,43 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
 - **Open:** an alias that redirects to a primary host that is not verified yet sends visitors to a 404; DNS lookups of the TXT check use the container's
   resolver; no automatic re-verification (a host stays verified until removed); the proxy's ask is rate limited per network, not per name.
 
+## Agency tools (stage D) – Proposed
+
+Decisions of the night build, marked **Proposed** for the owner's review. Needs `TALEA_MULTISITE`; the limits of owners need `TALEA_OWNERS`.
+
+- **Roles per site.** Owner table `user_sites` (user_id, site_id; migration `20261106100047`, rows go with the user and with the site). A person
+  **without rows may work on every site** of the owner, one **with rows only on those**. **Administrators always have every site** (their rows are
+  ignored; so are the operators' rows in a client owner): the limit is for editors, news authors and custom roles. `Sites::limitedTo/allows/allowsHere`
+  is the one question; it is asked in these places:
+  - `Auth::user()`: a signed-in person (session or "stay signed in") who may not work on this site is **treated as signed out there** and sees the sign-in
+    page – the simplest and safest answer, since the session is host-bound and nothing of the site is shown. `Auth::login` answers "You have no access to this
+    site." only after the password was right, so the message does not reveal which accounts exist; nothing is recorded as a sign-in.
+  - MCP: `Server::user()` returns no connection for a person who may not work on the site the token calls (401, like an invalid token); the `site`
+    argument (`onSite`) answers "Unknown site" for a site the person may not use – the same text as for an id that does not exist.
+  - The handoff: `Sites::handoffToken` refuses to make a token for such a person and `claimHandoff` returns nobody for one (a limit set after the token was made).
+  - Lists: the site switcher, the inbox "all sites" filters (`Modules\Sites::inboxSites`) and the Overview (`SiteFigures::overview($db, $user)`) leave out
+    the sites the person may not use. These screens are administrators' (who have every site), so the filter is defence in depth.
+  - Edited in Users (a "Sites" check list, shown when there is more than one site and for anybody but yourself; saving an administrator clears the rows). There is no
+    MCP tool for users, so there is none for this (ParityTest: users are an administration matter).
+  A site made later is not in anybody's existing list: a limited person is added to it by hand.
+- **Limits.** `TALEA_MAX_SITES` counts the sites that are not in the trash over **every owner** of the install (an owner not set up yet counts one);
+  `TALEA_MAX_OWNERS` counts the owner rows. Creating more is refused with a message in the Sites and Owners areas and by `create_site`. A limit lower than
+  what exists stops creation only; nothing is removed.
+- **Health.** The Sites list shows per site the open enquiries (not resolved, not spam, not in the trash), the broken links and the storage; the Owners list per
+  owner the sums over its sites, the images without a description and the storage. Media files belong to the owner (they are shared by its sites), so
+  "images without a description" is **one number per owner**, not per site (`SiteHealth::mediaWithoutAlt`: the same test as the clean-up, without reading
+  any file). MCP `list_owner_sites` carries `health` for each set-up site. An owner's administrator reads only its own owner; the Owners area is the operators'.
+- **Usage CSV** (`SiteHealth::usageCsv`): per site and month (the last 12 by default, `months=` up to 24) – storage, e-mails sent, bookings, enquiries received.
+  Storage is the size now and sits on the current month's row only (it is not recorded over time); e-mails sent come from the mail queue, which keeps 30 days, so
+  older months read low. **The writing assistant is not in the file: it does not record its calls** (only the wizard and the Ask box write a change-log row).
+  Administrators download their own owner's file in the Sites area, operators every owner's in the Owners area (`usageCsvAll`); `;`-separated with a byte order
+  mark like the other exports, cells that start like a formula are quoted. Both are read-only actions (ParityTest `read`).
+- **Smoke test** (`tests/Integration/AgencySmokeTest.php`, all three engines): two owners with ten sites each are registered, migrated, set up and given a host; each host
+  is resolved to its owner and site and the scheduler runs once on every site but owner 1's first (its owner jobs write the install's backup folder). SQLite is the
+  slow one (about 75 s for the migrations); the test's budget is 240 s.
+- **Open:** a site made later is not added to the limited people automatically; the limit is not shown to a limited person anywhere but at the sign-in; storage
+  history and AI usage would need recording first.
+
 ## Phases (phase 1 is done)
 
 - **Phase 0** (no behaviour change): two prefixes in `Db`, the site registry with the row for site 1, the migration loop,

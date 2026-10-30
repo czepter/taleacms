@@ -23,7 +23,7 @@ trait SiteTools
     private static function siteDefinitions(\Closure $s, \Closure $text, \Closure $pid): array
     {
         return [
-            ['list_owner_sites', 'The sites of this installation (multisite, administrators, read-only): id, name, status (live | paused | archived | trashed), whether it is set up, the host names with the primary one, and where an archived site redirects. Pass a site\'s id as the site argument of any other tool to work on that site instead of the one this connection calls.',
+            ['list_owner_sites', 'The sites of this installation (multisite, administrators, read-only): id, name, status (live | paused | archived | trashed), whether it is set up, the host names with the primary one, and where an archived site redirects. Each set-up site carries health: its open enquiries and broken links. Pass a site\'s id as the site argument of any other tool to work on that site instead of the one this connection calls.',
                 $s([])],
             ['create_site', 'Creates a further site (multisite, administrators): empty, or a copy of another site with clone_of (its content and look, never its visitors\' data; operators of the installation may copy a site of another owner). It starts paused and is set up in the background within a few minutes; add a host name with add_site_domain and set it live with update_site.',
                 $s(['name' => $text('name of the site'), 'clone_of' => $pid('site id from list_owner_sites to copy (omit for an empty site); an operator of the installation may also name a site of another owner, which is copied with its media, components and facts, nothing linked')], ['name'])],
@@ -99,7 +99,8 @@ trait SiteTools
     private function toolListOwnerSites(string $name, array $a): mixed
     {
         $this->siteAdmin();
-        $sites = array_map(fn (array $s): array => $this->siteOutput($s), Sites::overview($this->app->db(), false));
+        $db = $this->app->db();
+        $sites = array_map(fn (array $s): array => $this->siteOutput($s) + ($s['ready'] && $s['status'] !== 'trashed' ? ['health' => \Talea\Core\SiteHealth::site($db->forSite((string) $s['prefix']))] : []), Sites::overview($db, false));
 
         return ['sites' => $sites, 'next' => 'Pass a site\'s id as the site argument of any other tool to work on that site. create_site, update_site and add_site_domain manage the sites.'];
     }
@@ -112,6 +113,9 @@ trait SiteTools
         $title = trim(mb_substr((string) ($a['name'] ?? ''), 0, 120));
         if ($title === '') {
             throw new \InvalidArgumentException('Give the site a name.');
+        }
+        if (($limit = Sites::limitRefusal($db)) !== null) {
+            throw new \InvalidArgumentException($limit);
         }
         $source = Sites::currentId($db);
         $clone = isset($a['clone_of']) && $a['clone_of'] !== '';

@@ -198,6 +198,11 @@ request; admin area `Modules\Sites` with the sign-in handoff between hosts. Sign
 the site tools are `Mcp\Handlers\SiteTools` (administrators, flag on). `agent_journal.site_prefix` makes undo write back on the right site. A Talea archive
 import is refused with several sites (`SiteImport::refusal()`). Flag off = nothing here is consulted. Never fall back to site 1 when a prefix or a
 site id is unknown (`Sites::currentId()` throws).
+Agency tools (`TALEA_OWNERS`, docs/specs/multisite.md): several owners are table-prefix groups (`Core\Owners`, install table `owners`, operators = administrators of owner 1,
+media folder per owner, `Core\OwnerClone`). **Roles per site:** owner table `user_sites` (no rows = every site; administrators always have every site);
+`Sites::allows/limitedTo/allowsHere` is asked by `Auth::user()` (a person who may not work here is signed out), `Auth::login`, `Mcp\Server::user()` and `onSite()`, the handoff
+and the switcher/inbox/overview lists. `TALEA_MAX_SITES` / `TALEA_MAX_OWNERS` limit the install (`Sites::limitRefusal`, `Owners::limitRefusal`, admin and MCP).
+`Core\SiteHealth` gives the health columns and the usage CSV; only the Owners area (operators) walks several owners.
 
 ## Import and export
 

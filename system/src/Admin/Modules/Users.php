@@ -133,7 +133,15 @@ final class Users extends Module
             default => self::defaultModules((int) $data['admin']),
         };
 
-        $this->db->transaction(function () use (&$id, $data, $modules): void {
+        // roles per site: the sites a person who is not an administrator may work on (none chosen = every site)
+        $sites = [];
+        foreach ($r->postList('sites') as $publicId) {
+            $site = (int) $data['admin'] === Auth::ADMIN ? null : $this->db->byPublicId('sites', $publicId);
+            if ($site !== null && $site['status'] !== 'trashed') {
+                $sites[] = (int) $site['site_id'];
+            }
+        }
+        $this->db->transaction(function () use (&$id, $data, $modules, $sites): void {
             if ($id > 0) {
                 $this->db->update('users', $data, ['user_id' => $id]);
                 if (isset($data['password'])) {
@@ -149,6 +157,9 @@ final class Users extends Module
             $this->db->delete('user_permissions', ['user_id' => $id]);
             foreach ($modules as $ident) {
                 $this->db->insert('user_permissions', ['user_id' => $id, 'module' => $ident]);
+            }
+            if (\Talea\Core\Sites::enabled()) {
+                \Talea\Core\Sites::setUserSites($this->db, $id, $sites);
             }
         });
 
@@ -329,7 +340,18 @@ final class Users extends Module
             $author['auto_blocked_at'] ?? null,
         ) : '';
 
+        $siteChoices = [];
+        if (\Talea\Core\Sites::enabled()) {
+            foreach (\Talea\Core\Sites::overview($this->db, false) as $site) {
+                if ($site['status'] !== 'trashed') {
+                    $siteChoices[(string) $site['public_id']] = (string) ($site['name'] !== '' ? $site['name'] : $site['slug']);
+                }
+            }
+        }
+
         return $this->view('form', $id ? 'Edit user' : 'New user', [
+            'siteChoices' => $siteChoices,
+            'hasSites' => $this->request->isPost() ? $this->request->postList('sites') : ($id > 0 && \Talea\Core\Sites::enabled() ? array_map(fn (array $r): string => (string) $this->db->publicId('sites', (int) $r['site_id']), $this->db->all('SELECT site_id FROM {user_sites} WHERE user_id = ?', [$id])) : []),
             'author' => $author,
             'customRoles' => $this->db->all('SELECT role_id, name, description FROM {role} ORDER BY name'),
             'summary' => $summary,

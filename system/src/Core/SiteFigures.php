@@ -13,14 +13,15 @@ final class SiteFigures
     public const array PERIODS = [7, 30];
 
     /**
+     * @param array<string, mixed>|null $user whoever asks: only the sites they may work on are listed (nobody given = all)
      * @return array{sites: list<array{site_id: int, public_id: string, name: string, status: string, periods: array<int, array<string, int|float|null>>}>, totals: array<int, array<string, int|float|null>>}
      */
-    public static function overview(Db $db): array
+    public static function overview(Db $db, ?array $user = null): array
     {
         $sites = [];
         $totals = array_fill_keys(self::PERIODS, ['visits' => 0, 'views' => 0, 'enquiries' => 0, 'bookings' => 0, 'signups' => 0]);
         foreach (Sites::overview($db, false) as $s) {
-            if (!$s['ready'] || $s['status'] === 'trashed') {
+            if (!$s['ready'] || $s['status'] === 'trashed' || !Sites::allows($db, $user, (int) $s['site_id'])) { // roles per site
                 continue;
             }
             $siteDb = $db->forSite((string) $s['prefix']);

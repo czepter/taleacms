@@ -132,6 +132,82 @@ final class Sites
         return '(' . $column . ' IS NULL OR ' . $column . ' = ' . self::currentId($db) . ')';
     }
 
+    /** @var array<string, bool> memo: owner prefix => user_sites exists (only a yes is kept: the table appears with the migration) */
+    private static array $userSitesTable = [];
+
+    /**
+     * The site numbers a person is limited to (roles per site, `user_sites`), or null = every site: multisite off, nobody signed in, an
+     * administrator (the owner's administrators and the operators' rows always have every site) or a person without rows.
+     *
+     * @param array<string, mixed>|null $user a row of {users}
+     * @return list<int>|null
+     */
+    public static function limitedTo(Db $db, ?array $user): ?array
+    {
+        if (!self::enabled() || $user === null || (int) ($user['admin'] ?? -1) === Auth::ADMIN) {
+            return null;
+        }
+        if (!(self::$userSitesTable[$db->ownerPrefix] ??= $db->tableExists('user_sites'))) {
+            unset(self::$userSitesTable[$db->ownerPrefix]);
+
+            return null;
+        }
+        $ids = array_map('intval', array_column($db->all('SELECT site_id FROM {user_sites} WHERE user_id = ?', [(int) $user['user_id']]), 'site_id'));
+
+        return $ids === [] ? null : $ids;
+    }
+
+    /** May this person work on that site? @param array<string, mixed>|null $user */
+    public static function allows(Db $db, ?array $user, int $siteId): bool
+    {
+        $limit = self::limitedTo($db, $user);
+
+        return $limit === null || in_array($siteId, $limit, true);
+    }
+
+    /** May this person work on the site $db is the connection of? A signed-in person who may not is treated as signed out (Auth::user, Mcp\Server). @param array<string, mixed>|null $user */
+    public static function allowsHere(Db $db, ?array $user): bool
+    {
+        return self::limitedTo($db, $user) === null || self::allows($db, $user, self::currentId($db));
+    }
+
+    /** Replaces the sites a person is limited to (site numbers; none = every site). */
+    public static function setUserSites(Db $db, int $userId, array $siteIds): void
+    {
+        $db->delete('user_sites', ['user_id' => $userId]);
+        foreach (array_unique(array_map('intval', $siteIds)) as $id) {
+            $db->insert('user_sites', ['user_id' => $userId, 'site_id' => $id]);
+        }
+    }
+
+    /** The environment's whole number (TALEA_MAX_SITES, TALEA_MAX_OWNERS), 0 = no limit. */
+    public static function limit(string $name): int
+    {
+        return max(0, (int) Config::env($name));
+    }
+
+    /**
+     * Sites of the whole install that are not in the trash, over every owner (an owner that is not set up yet counts its first site).
+     * The limit is the install's, so this counts across owners on purpose; it is only compared with a number, never listed.
+     */
+    public static function installCount(Db $db): int
+    {
+        $count = 0;
+        foreach (Owners::enabled() ? Owners::all($db) : [['prefix' => $db->ownerPrefix, 'ready_at' => 'x']] as $o) {
+            $count += $o['ready_at'] === null ? 1 : (int) $db->forOwner((string) $o['prefix'])->value("SELECT COUNT(*) FROM {sites} WHERE status <> 'trashed'");
+        }
+
+        return $count;
+    }
+
+    /** Why one more site may not be made (TALEA_MAX_SITES), or null. */
+    public static function limitRefusal(Db $db): ?string
+    {
+        $max = self::limit('MAX_SITES');
+
+        return $max > 0 && self::installCount($db) >= $max ? t('The limit of %d sites for this installation is reached. Delete a site or ask the operator to raise the limit.', $max) : null;
+    }
+
     /** The host to send people to: the primary one, else the first that answers (a verified host, then the preview one); null while the site has none. */
     public static function primaryHost(Db $db, int $siteId): ?string
     {
@@ -648,6 +724,9 @@ final class Sites
     public static function handoffToken(Db $db, int $userId, int $siteId): string
     {
         $db->run('DELETE FROM {handoff_tokens} WHERE expires_at < ?', [gmdate('Y-m-d H:i:s', time() - 3600)]);
+        if (!self::allows($db, $db->one('SELECT user_id, admin FROM {users} WHERE user_id = ?', [$userId]), $siteId)) {
+            throw new \DomainException('This person may not work on that site.');
+        }
         $token = bin2hex(random_bytes(32));
         // UTC: the token is written on one site and claimed on another, and the two may run in different time zones (date() or NOW() would stretch the 60 s)
         $db->insert('handoff_tokens', ['token_hash' => hash('sha256', $token), 'user_id' => $userId, 'site_id' => $siteId, 'expires_at' => gmdate('Y-m-d H:i:s', time() + self::HANDOFF_SECONDS)]);
@@ -664,6 +743,9 @@ final class Sites
         $hash = hash('sha256', $token);
         $claimed = $db->run('UPDATE {handoff_tokens} SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at > ? AND site_id = ?', [gmdate('Y-m-d H:i:s'), $hash, gmdate('Y-m-d H:i:s'), $siteId])->rowCount();
 
-        return $claimed === 1 ? (int) $db->value('SELECT user_id FROM {handoff_tokens} WHERE token_hash = ?', [$hash]) : null;
+        $userId = $claimed === 1 ? (int) $db->value('SELECT user_id FROM {handoff_tokens} WHERE token_hash = ?', [$hash]) : null;
+
+        // roles per site: a token for a person who may not work on this site (the limit changed meanwhile) signs nobody in
+        return $userId !== null && self::allows($db, $db->one('SELECT user_id, admin FROM {users} WHERE user_id = ?', [$userId]), $siteId) ? $userId : null;
     }
 }

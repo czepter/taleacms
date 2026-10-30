@@ -294,6 +294,9 @@ final class Server
         if ($row === null) {
             throw new \InvalidArgumentException('Unknown site. list_owner_sites gives the ids of the sites of this installation.');
         }
+        if (!\Talea\Core\Sites::allows($db, (array) $this->user, (int) $row['site_id'])) {
+            throw new \InvalidArgumentException('Unknown site. list_owner_sites gives the ids of the sites of this installation.'); // roles per site: the same answer as for an id that does not exist
+        }
         if ($row['status'] === 'trashed') {
             throw new \InvalidArgumentException('This site is in the trash. Restore it first (restore_site).');
         }
@@ -527,6 +530,9 @@ final class Server
             }
 
             return null;
+        }
+        if (!\Talea\Core\Sites::allowsHere($db, $token)) {
+            return null; // roles per site: a person who may not work on the site this connection calls has no connection to it
         }
 
         return $token;
