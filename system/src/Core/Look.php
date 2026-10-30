@@ -41,7 +41,7 @@ final class Look
         return self::$active !== null;
     }
 
-    /** @return array{design_system?: array<string, mixed>, classes?: array<string, ?array>, menus?: array<string, ?array>} */
+    /** @return array{design_system?: array<string, mixed>, classes?: array<string, ?array>, menus?: array<string, ?array>, parts?: array<string, mixed>, rollback?: string} */
     public static function draft(Settings $s): array
     {
         $draft = json_decode($s->get('look_draft'), true);
