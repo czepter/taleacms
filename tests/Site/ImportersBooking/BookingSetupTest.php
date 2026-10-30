@@ -47,6 +47,26 @@ final class BookingSetupTest extends SiteTestCase
         }
     }
 
+    public function testASingleServiceCanBeSlim(): void
+    {
+        $this->bookingFixture();
+        $this->site()->mcp('create_page', ['title' => 'Slim booking', 'slug' => 'slim-booking', 'visible' => true]);
+        $page = $this->site()->publicId('pages', (int) $this->site()->value("SELECT page_id FROM tl_pages WHERE slug = 'slim-booking'"));
+        $slim = fn (string $show): array => ['id' => 'bk' . str_replace('_', '', $show), 'type' => 'booking', 'content' => ['single_service' => $show]];
+        $this->site()->mcp('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [$slim('no_heading'), $slim('no_description'), $slim('none')]]]]]);
+        $forms = [];
+        preg_match_all('~<form[^>]*data-booking="(bk[a-z]+)".*?</form>~s', $this->site()->client()->get('/slim-booking')->body, $found, PREG_SET_ORDER);
+        foreach ($found as [$html, $id]) {
+            $forms[$id] = $html;
+        }
+        $this->assertStringNotContainsString('data-step="service"', $forms['bknoheading'], 'booking: no_heading leaves out the "Service" heading');
+        $this->assertStringContainsString('Wash, cut, blow-dry', $forms['bknoheading'], 'booking: no_heading keeps the description');
+        $this->assertStringContainsString('data-step="service"', $forms['bknodescription'], 'booking: no_description keeps the heading');
+        $this->assertStringNotContainsString('Wash, cut, blow-dry', $forms['bknodescription'], 'booking: no_description leaves out the description');
+        $this->assertStringNotContainsString('Haircut test', $forms['bknone'], 'booking: none shows nothing of the service');
+        $this->assertStringContainsString('type="hidden" name="service"', $forms['bknone'], 'booking: none still sends the service');
+    }
+
     public function testFreeTimesAndDays(): void
     {
         $this->bookingFixture();
