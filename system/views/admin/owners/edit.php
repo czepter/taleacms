@@ -55,6 +55,22 @@ $first = $sites[0] ?? null;
 </table></div>
 <p class="small-text"><?= e(t('You sign in there as “Operator” with the rights of an administrator. The owner’s own administrators cannot change or delete that account.')) ?></p>
 
+<?php $pending = []; foreach ($sites as $s) { foreach ($s['domains'] as $d) { if ($d['kind'] === 'domain' && $d['verified_at'] === null) { $pending[] = $d; } } } ?>
+<?php if ($pending !== []): ?>
+<h2><?= e(t('Host names waiting for verification')) ?></h2>
+<p class="small-text"><?= e(t('The owner proves a host name with a DNS record. If it cannot, you can vouch for it here without a check.')) ?></p>
+<div class="tab-wrap"><table class="listing">
+<tbody>
+<?php foreach ($pending as $d): ?>
+<tr>
+	<td class="cell-main"><span class="cell-title"><?= bdi($d['host']) ?></span></td>
+	<td class="cell-actions"><form class="inline" method="post" action="<?= e($module->url('domain_verify')) ?>" data-confirm="<?= e(t('Mark this host name as verified without a check?')) ?>"><?= $csrf . $hidden ?><input type="hidden" name="host" value="<?= e($d['host']) ?>"><button class="navigation" type="submit"><?= e(t('Mark as verified')) ?></button></form></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table></div>
+<?php endif ?>
+
 <?php if ($first !== null && $first['domains'] === []): ?>
 <form class="form" method="post" action="<?= e($module->url('domain_add')) ?>">
 <?= $csrf . $hidden ?>

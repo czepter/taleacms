@@ -25,8 +25,8 @@ trait SiteTools
         return [
             ['list_owner_sites', 'The sites of this installation (multisite, administrators, read-only): id, name, status (live | paused | archived | trashed), whether it is set up, the host names with the primary one, and where an archived site redirects. Each set-up site carries health: its open enquiries and broken links. Pass a site\'s id as the site argument of any other tool to work on that site instead of the one this connection calls.',
                 $s([])],
-            ['create_site', 'Creates a further site (multisite, administrators): empty, or a copy of another site with clone_of (its content and look, never its visitors\' data; operators of the installation may copy a site of another owner). It starts paused and is set up in the background within a few minutes; add a host name with add_site_domain and set it live with update_site.',
-                $s(['name' => $text('name of the site'), 'clone_of' => $pid('site id from list_owner_sites to copy (omit for an empty site); an operator of the installation may also name a site of another owner, which is copied with its media, components and facts, nothing linked')], ['name'])],
+            ['create_site', 'Creates a further site (multisite, administrators): empty, or a copy of another site with clone_of (its content and look, never its visitors\' data). It starts paused and is set up in the background within a few minutes; add a host name with add_site_domain and set it live with update_site. Only on a connection of the installation\'s own first owner (an operator): clone_of may name a site of another owner, which is copied with its media, components and facts but never its mail or AI settings, nothing linked, and owner makes the copy in another owner.',
+                $s(['name' => $text('name of the site'), 'clone_of' => $pid('site id from list_owner_sites to copy (omit for an empty site); an operator of the installation may also name a site of another owner'), 'owner' => $pid('operators only: id of the owner (Owners area) that gets the new site; omit for the owner this connection belongs to')], ['name'])],
             ['update_site', 'Renames a site, sets its state (live | paused | archived; an archived site may redirect to another with redirect_to) and its hub card (multisite, administrators): card_summary, card_image and show_in_hub decide what the Projects element shows about it on the other sites. Putting a site into the trash is trash_site.',
                 $s(['id' => $pid('site id from list_owner_sites'), 'name' => $text('new name'), 'status' => $text('live | paused | archived'), 'redirect_to' => $pid('site id an archived site redirects to; empty = none'),
                     'card_summary' => $text('one or two sentences for the hub card (at most 300 characters)'), 'card_image' => $text('media path of the hub card image, e.g. media/2026/10/studio.jpg; empty = none'),
@@ -35,7 +35,7 @@ trait SiteTools
                 $s(['id' => $pid('site id from list_owner_sites')], ['id'])],
             ['restore_site', 'Takes a site out of the trash (multisite, administrators); it comes back paused.',
                 $s(['id' => $pid('trashed site id from list_owner_sites')], ['id'])],
-            ['add_site_domain', 'Gives a site a host name such as www.example.com (multisite, administrators; lower-case, no scheme, port or path). The first host of a site is its primary one. With several owners a host added by a client starts unverified and does not answer until it is verified: the result gives verify_with (a token address and a DNS TXT record); once the host points to the installation, call check_site_domain.',
+            ['add_site_domain', 'Gives a site a host name such as www.example.com (multisite, administrators; lower-case, no scheme, port or path). The first host of a site is its primary one. With several owners a host added by a client starts unverified and does not answer until it is verified: the result gives verify_with (a DNS TXT record; the first owner may also use a token address); once the host points to the installation, call check_site_domain.',
                 $s(['id' => $pid('site id from list_owner_sites'), 'host' => $text('host name'), 'primary' => ['type' => 'boolean', 'description' => 'true = make it the primary host name'],
                     'redirect_to_primary' => ['type' => 'boolean', 'description' => 'true = this host answers with a 301 to the primary host (not for the primary one)']], ['id', 'host'])],
             ['check_site_domain', 'Checks that a host name of a site points to this installation (multisite, administrators): it fetches the token address over HTTP, else looks for the DNS TXT record, and marks the host verified when one of them matches. Hosts that are already verified answer at once.',
@@ -57,7 +57,7 @@ trait SiteTools
             'card' => ['summary' => (string) $site['card_summary'], 'image' => (string) $site['card_image'], 'show_in_hub' => (bool) $site['show_in_hub']]];
         if ($withDomains) {
             $out['domains'] = array_map(fn (array $d): array => ['host' => (string) $d['host'], 'primary' => (bool) $d['is_primary'], 'redirect_to_primary' => (bool) $d['redirect_to_primary'], 'kind' => (string) $d['kind'], 'verified' => $d['verified_at'] !== null]
-                + ($d['verified_at'] === null ? ['verify_with' => ['http' => 'http://' . $d['host'] . '/.well-known/talea-domain/' . $d['token'], 'dns_txt' => ['name' => '_talea.' . $d['host'], 'value' => \Talea\Core\Domains::txtValue((string) $d['token'])]]] : []), (array) ($site['domains'] ?? []));
+                + ($d['verified_at'] === null ? ['verify_with' => (\Talea\Core\Domains::dnsOnly($this->app->db()) ? [] : ['http' => 'http://' . $d['host'] . '/.well-known/talea-domain/' . $d['token']]) + ['dns_txt' => ['name' => '_talea.' . $d['host'], 'value' => \Talea\Core\Domains::txtValue((string) $d['token'])]]] : []), (array) ($site['domains'] ?? []));
         }
 
         return $out;
@@ -109,25 +109,36 @@ trait SiteTools
     private function toolCreateSite(string $name, array $a): mixed
     {
         $this->siteAdmin();
-        $db = $this->app->db();
+        $own = $this->app->db();
+        $operator = \Talea\Core\Owners::isOperator($own, $this->app->auth()->user()); // owner 1's administration only: a client's connection is never one
+        $db = $own;
+        if (isset($a['owner']) && $a['owner'] !== '') {
+            $owner = $operator ? \Talea\Core\Owners::byPublicId($own, (string) $a['owner']) : null;
+            if ($owner === null || $owner['ready_at'] === null || $owner['status'] === 'archived') {
+                throw new \InvalidArgumentException('No such owner.');
+            }
+            $db = $own->forOwner((string) $owner['prefix']);
+        }
         $title = trim(mb_substr((string) ($a['name'] ?? ''), 0, 120));
         if ($title === '') {
             throw new \InvalidArgumentException('Give the site a name.');
         }
-        if (($limit = Sites::limitRefusal($db)) !== null) {
+        if (($limit = Sites::limitRefusal($own)) !== null) {
             throw new \InvalidArgumentException($limit);
         }
-        $source = Sites::currentId($db);
+        $source = $db === $own ? Sites::currentId($db) : 1;
         $clone = isset($a['clone_of']) && $a['clone_of'] !== '';
         $sourceOwner = '';
         if ($clone) {
-            $foreign = $db->byPublicId('sites', (string) $a['clone_of']) === null && \Talea\Core\Owners::isOperator($db, $this->app->auth()->user()) ? \Talea\Core\Owners::findSite($db, (string) $a['clone_of']) : null;
-            if ($foreign !== null) {
-                // an operator copies a site of another owner: files, components and facts are copied, nothing is linked (Core\OwnerClone)
-                $from = $foreign['site'];
-                $sourceOwner = $foreign['owner'];
-            } else {
-                $from = $this->siteByPublicId($a['clone_of']);
+            $from = is_string($a['clone_of']) ? $db->byPublicId('sites', $a['clone_of']) : null;
+            if ($from === null && $operator && is_string($a['clone_of'])) {
+                // a site of another owner (an operator's copy, Core\OwnerClone): files, components and facts are copied, nothing is linked
+                $foreign = \Talea\Core\Owners::findSite($db, $a['clone_of']);
+                $from = $foreign['site'] ?? null;
+                $sourceOwner = (string) ($foreign['owner'] ?? '');
+            }
+            if ($from === null || $from['status'] === 'trashed') {
+                throw new \InvalidArgumentException('No such site. list_owner_sites gives the ids.');
             }
             if ($from['ready_at'] === null) {
                 throw new \InvalidArgumentException('The site to copy is not set up yet.');
@@ -137,7 +148,7 @@ trait SiteTools
         $prefix = Sites::add($db, $title, Sites::freeSlug($db, $title), $source, $clone, $sourceOwner);
         $site = $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$prefix]) ?? throw new \DomainException('The site could not be created.');
 
-        return ['site' => $this->siteOutput($site + ['domains' => []]),
+        return ['site' => ['current' => false] + $this->siteOutput($site + ['domains' => []]),
             'next' => 'The site is set up in the background within a few minutes (ready: true in list_owner_sites) and starts paused. Add a host name with add_site_domain, then set it live with update_site.'];
     }
 

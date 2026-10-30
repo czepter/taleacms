@@ -7,8 +7,8 @@ namespace Talea\Admin\Modules;
 use Talea\Admin\Kernel;
 use Talea\Admin\Module;
 use Talea\Admin\ChangeLog;
+use Talea\Core\Antispam;
 use Talea\Core\Domains;
-use Talea\Core\Owners as OwnerRegistry;
 use Talea\Core\Response;
 use Talea\Core\SiteHealth;
 use Talea\Core\SiteFigures;
@@ -146,22 +146,14 @@ final class Sites extends Module
             return $this->form($name, $from, 'Fill in the site name.');
         }
         $source = $this->currentId();
-        $sourceOwner = '';
         if ($from !== '') {
-            $row = $this->db->byPublicId('sites', $from);
-            $foreign = $row === null && OwnerRegistry::isOperator($this->db, $this->app->auth()->user()) ? OwnerRegistry::findSite($this->db, $from) : null;
-            if ($foreign !== null) {
-                // a site of another owner: an operator's copy (Core\OwnerClone), made by cron with the files and rows copied, nothing linked
-                $row = $foreign['site'];
-                $sourceOwner = $foreign['owner'];
-                ChangeLog::write($this->app, 'owners', 'clone', $foreign['owner_name'] . ' / ' . $row['name'] . ' → ' . $name);
-            }
+            $row = $this->db->byPublicId('sites', $from); // this owner's sites only: copying across owners is the operators' tool in the Owners area
             if ($row === null || $row['status'] === 'trashed' || $row['ready_at'] === null) {
                 return $this->form($name, $from, 'Choose a site that is set up to copy.');
             }
             $source = (int) $row['site_id'];
         }
-        SiteRegistry::add($this->db, $name, SiteRegistry::freeSlug($this->db, $name), $source, $from !== '', $sourceOwner);
+        SiteRegistry::add($this->db, $name, SiteRegistry::freeSlug($this->db, $name), $source, $from !== '');
 
         return $this->back('The site is created. It is being set up in the background and appears as ready within a few minutes.');
     }
@@ -236,20 +228,6 @@ final class Sites extends Module
         return $error === null ? $this->back('The host name is verified and answers now.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
     }
 
-    /** An operator vouches for a host without a check (the owner cannot reach its DNS, a host listed by hand). */
-    protected function actionDomainVerify(): Response
-    {
-        $site = $this->site();
-        $domain = $site === null ? null : $this->domain((int) $site['site_id']);
-        if (!$this->request->isPost() || $site === null || $domain === null || !OwnerRegistry::isOperator($this->db, $this->app->auth()->user())) {
-            return $this->back();
-        }
-        Domains::markVerified($this->db, (int) $site['site_id'], (int) $domain['domain_id']);
-        ChangeLog::write($this->app, 'sites', 'domain', (string) $domain['host'] . ': verified by an operator');
-
-        return $this->back('The host name is marked as verified.', 'edit', ['id' => $site['public_id']]);
-    }
-
     protected function actionDomainRemove(): Response
     {
         $site = $this->site();
@@ -298,7 +276,7 @@ final class Sites extends Module
         if ($host === null) {
             return $this->back('Add a host name to this site first.', 'edit', ['id' => $site['public_id']], 'error');
         }
-        $token = SiteRegistry::handoffToken($this->db, $this->app->auth()->id(), (int) $site['site_id']);
+        $token = SiteRegistry::handoffToken($this->db, $this->app->auth()->id(), (int) $site['site_id'], Antispam::visitorKey($this->request, $this->app->settings()));
 
         // `to`: an administration address on that site to land on (an inbox row of another site), see SiteRegistry::landing()
         $to = SiteRegistry::landing($this->request->post('to'));
@@ -322,8 +300,7 @@ final class Sites extends Module
     {
         $ready = array_values(array_filter(SiteRegistry::overview($this->db), fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed'));
 
-        return $this->view('form', 'New site', ['name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready,
-            'foreign' => OwnerRegistry::isOperator($this->db, $this->app->auth()->user()) ? OwnerRegistry::foreignSites($this->db) : []]);
+        return $this->view('form', 'New site', ['name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready]);
     }
 
     /** @param array<string, mixed> $site */
@@ -333,6 +310,6 @@ final class Sites extends Module
         $row = current(array_filter($overview, fn (array $s): bool => (int) $s['site_id'] === (int) $site['site_id']));
 
         return $this->view('edit', (string) ($site['name'] !== '' ? $site['name'] : $site['slug']), ['site' => $row, 'others' => array_values(array_filter($overview, fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed' && (int) $s['site_id'] !== (int) $site['site_id'])),
-            'current' => $this->currentId(), 'host' => SiteRegistry::requestHost($this->request), 'operator' => OwnerRegistry::isOperator($this->db, $this->app->auth()->user())]);
+            'current' => $this->currentId(), 'host' => SiteRegistry::requestHost($this->request), 'dnsOnly' => Domains::dnsOnly($this->db)]);
     }
 }

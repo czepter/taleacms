@@ -248,7 +248,7 @@ final class Kernel
         if ($app->site !== null && $request->get('handoff') !== '' && !$request->isPost()) {
             // multisite: an administrator sent over from another site of the owner (Modules\Sites::actionHandoff). The token is used up
             // here and the address is left at once, so it is not kept in the browser's history; a failure ends at the sign-in page.
-            $user = \Talea\Core\Sites::claimHandoff($app->db(), $request->get('handoff'), (int) $app->site['site_id']);
+            $user = \Talea\Core\Sites::claimHandoff($app->db(), $request->get('handoff'), (int) $app->site['site_id'], \Talea\Core\Antispam::visitorKey($request, $app->settings()));
             if ($user !== null) {
                 $app->auth()->signInFromHandoff($user);
             }

@@ -233,7 +233,7 @@ final class OwnersIsolationTest extends SiteTestCase
     {
         $site = $this->site();
         $token = bin2hex(random_bytes(32));
-        $site->exec('INSERT INTO tl_handoff_tokens (token_hash, user_id, site_id, expires_at) VALUES (?, 1, 1, ?)', [hash('sha256', $token), gmdate('Y-m-d H:i:s', time() + 60)]);
+        $site->exec('INSERT INTO tl_handoff_tokens (token_hash, user_id, site_id, network_hash, expires_at) VALUES (?, 1, 1, ?, ?)', [hash('sha256', $token), hash('sha256', 'talea-handoff|127.0.0.1'), gmdate('Y-m-d H:i:s', time() + 60)]);
         $b = $site->client('handoff-b');
         $b->get('/admin.php?handoff=' . $token, $this->host(true));
         $this->assertStringContainsString('name="password"', $b->get('/admin.php?module=pages', $this->host(true))->body, 'B has no such token: not signed in');

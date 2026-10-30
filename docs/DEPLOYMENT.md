@@ -150,12 +150,16 @@ flag is off. Cookies are host-only; the session store is shared, but a session o
 
 A host routes only after it was shown to point at this install. In a single-owner install (no `TALEA_OWNERS`) nothing changes: a host added
 in the Sites area, over MCP or by an operator is verified at once. With `TALEA_OWNERS=1` a host added by a client administrator starts
-**unverified** and answers a bare 404 until one of two checks passes, started by **Check now** (Sites → the site → Host names, or the MCP tool
-`check_site_domain`); an operator can also mark it verified, and `TALEA_VERIFIED_HOSTS` (comma separated) vouches for hosts by name.
+**unverified** and answers a bare 404 until it passes a check, started by **Check now** (Sites → the site → Host names, or the MCP tool
+`check_site_domain`); an operator (an administrator of owner 1, in the Owners area) can also mark it verified, and `TALEA_VERIFIED_HOSTS`
+(comma separated) vouches for **owner 1's** hosts by name (never for a client's). A client's host that is not verified after 14 days is
+removed, and an unverified name never blocks the owner who can prove it.
 
 1. Point the host (A/AAAA or CNAME) at the container, as for any domain.
-2. Show that it is yours, either way: `http://<host>/.well-known/talea-domain/<token>` answers with the token (the install does this on its
-   own for any host that has a pending token), or a TXT record `_talea.<host>` holds `talea-verify=<token>`. The token is shown next to the host.
+2. Show that it is yours. For a **client owner** only a TXT record `_talea.<host>` holding `talea-verify=<token>` counts (any name that
+   already points at the install would pass the token file). **Owner 1** may also use `http://<host>/.well-known/talea-domain/<token>`, which
+   answers with the token (the install does this on its own for any host that has a pending token). The token is shown next to the host.
+   Single-word names and IP addresses are refused as client host names.
 3. The check is made by the server and refuses internal addresses (loopback, private and link-local ranges, redirects are not followed).
 
 **On-demand TLS.** Let the proxy ask the install before it fetches a certificate for a name. `GET /_talea/tls-allowed?domain=<host>` answers

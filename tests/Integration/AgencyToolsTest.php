@@ -127,18 +127,18 @@ final class AgencyToolsTest extends DatabaseTestCase
     {
         $admin = $this->user('hand-admin', Auth::ADMIN);
         $limited = $this->user('hand-limited', Auth::EDITOR, [1]);
-        $token = Sites::handoffToken($this->db(), (int) $admin['user_id'], 2);
-        $this->assertSame((int) $admin['user_id'], Sites::claimHandoff($this->db(), $token, 2));
+        $token = Sites::handoffToken($this->db(), (int) $admin['user_id'], 2, '203.0.113.1');
+        $this->assertSame((int) $admin['user_id'], Sites::claimHandoff($this->db(), $token, 2, '203.0.113.1'));
 
         try {
-            Sites::handoffToken($this->db(), (int) $limited['user_id'], 2);
+            Sites::handoffToken($this->db(), (int) $limited['user_id'], 2, '203.0.113.1');
             $this->fail('a token for a site the person may not work on');
         } catch (\DomainException) {
             $this->assertTrue(true);
         }
         // a token written before the limit was set is void
-        $this->db()->insert('handoff_tokens', ['token_hash' => hash('sha256', str_repeat('b', 64)), 'user_id' => (int) $limited['user_id'], 'site_id' => 2, 'expires_at' => gmdate('Y-m-d H:i:s', time() + 60)]);
-        $this->assertNull(Sites::claimHandoff($this->db(), str_repeat('b', 64), 2));
+        $this->db()->insert('handoff_tokens', ['token_hash' => hash('sha256', str_repeat('b', 64)), 'user_id' => (int) $limited['user_id'], 'site_id' => 2, 'network_hash' => hash('sha256', 'talea-handoff|203.0.113.1'), 'expires_at' => gmdate('Y-m-d H:i:s', time() + 60)]);
+        $this->assertNull(Sites::claimHandoff($this->db(), str_repeat('b', 64), 2, '203.0.113.1'));
     }
 
     public function testTheOverviewListsOnlyTheSitesThePersonMayWorkOn(): void

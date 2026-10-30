@@ -24,6 +24,9 @@ final class Sites
         'form_steps', 'fleet_pairing', 'connectors', 'agent_schedules', 'fleet_sites', // external connections: a copy would act in the clone's name
     ];
 
+    /** A host name that is not verified after this many days is removed (the sites_cleanup job). */
+    public const int UNVERIFIED_DAYS = 14;
+
     /** A trashed site is dropped for good after this many days. */
     public const int TRASH_DAYS = 30;
 
@@ -58,14 +61,15 @@ final class Sites
              FROM ' . $domains . ' d JOIN ' . $sites . ' s ON s.site_id = d.site_id WHERE d.host = ?';
         }
         $rows = $db->all(implode(' UNION ALL ', $selects), array_fill(0, count($selects), $host));
-        usort($rows, fn (array $a, array $b): int => (int) $a['owner_idx'] <=> (int) $b['owner_idx']);
+        // a verified row beats an unverified one of another owner (a client may add a name it does not own yet); then the owner's order
+        usort($rows, fn (array $a, array $b): int => [$a['verified_at'] === null, (int) $a['owner_idx']] <=> [$b['verified_at'] === null, (int) $b['owner_idx']]);
         $r = $rows[0] ?? null;
 
         return $r === null ? null : [
             'site_id' => (int) $r['site_id'], 'public_id' => (string) $r['public_id'], 'prefix' => (string) $r['prefix'], 'owner_prefix' => $owners[(int) $r['owner_idx']], 'owner_status' => (string) ($statuses[$owners[(int) $r['owner_idx']]] ?? 'live'), 'owner_public_id' => $owners[(int) $r['owner_idx']] === $db->installPrefix ? '' : (string) ($publicIds[$owners[(int) $r['owner_idx']]] ?? ''), 'status' => (string) $r['status'],
             'redirect_to_site_id' => $r['redirect_to_site_id'] === null ? null : (int) $r['redirect_to_site_id'],
             'is_primary' => (bool) $r['is_primary'], 'redirect_to_primary' => (bool) $r['redirect_to_primary'], 'primary_host' => $r['primary_host'] === null ? null : (string) $r['primary_host'], 'ready' => $r['ready_at'] !== null,
-            'verified' => $r['verified_at'] !== null || Domains::envVerified($host), 'kind' => (string) $r['kind'],
+            'verified' => $r['verified_at'] !== null || ($owners[(int) $r['owner_idx']] === $db->installPrefix && Domains::envVerified($host)), 'kind' => (string) $r['kind'],
         ];
     }
 
@@ -298,12 +302,21 @@ final class Sites
         return $slug;
     }
 
-    /** The host as the domains table keeps it (lower-case, no port, scheme or path), or null when it is not a host name. */
-    public static function normalizeHost(string $input): ?string
+    /**
+     * The host as the domains table keeps it (lower-case, no port, scheme or path), or null when it is not a host name. With $publicName
+     * (a name a client adds) an IP address and a one-word name ("localhost", "intranet") are refused too: they are no names to verify.
+     */
+    public static function normalizeHost(string $input, bool $publicName = false): ?string
     {
         $host = strtolower(trim($input));
+        if (preg_match('/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/', $host) !== 1) {
+            return null;
+        }
+        if ($publicName && (!str_contains($host, '.') || filter_var($host, FILTER_VALIDATE_IP) !== false || preg_match('/^[0-9.]+$/', $host) === 1)) {
+            return null;
+        }
 
-        return preg_match('/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/', $host) === 1 ? $host : null;
+        return $host;
     }
 
     /**
@@ -572,8 +585,10 @@ final class Sites
             $db->delete('sites', ['site_id' => (int) $site['site_id']]);
             $gone++;
         }
+        // a host name that is still not verified after 14 days is let go, so a claim nobody follows up does not hold the name
+        $expired = $db->run('DELETE FROM {site_domains} WHERE verified_at IS NULL AND created_at < ?', [date('Y-m-d H:i:s', time() - self::UNVERIFIED_DAYS * 86400)])->rowCount();
 
-        return 'dropped ' . $gone;
+        return 'dropped ' . $gone . ($expired > 0 ? ', ' . $expired . ' unverified host name(s) expired' : '');
     }
 
     /** Renames a site and sets its state; an archived site may point at another site (301 to its primary host). Returns an error text, null = saved. */
@@ -663,7 +678,7 @@ final class Sites
      */
     public static function addDomain(Db $db, int $siteId, string $input, bool $verify = false): ?string
     {
-        $host = self::normalizeHost($input);
+        $host = self::normalizeHost($input, $verify);
         if ($host === null) {
             return 'Enter a host name such as www.example.com – no http://, no port, no path.';
         }
@@ -675,7 +690,10 @@ final class Sites
         }
         $first = $db->value("SELECT 1 FROM {site_domains} WHERE site_id = ? AND kind = 'domain'", [$siteId]) === null;
         $db->insert('site_domains', ['site_id' => $siteId, 'host' => $host, 'is_primary' => $first, 'redirect_to_primary' => false,
-            'verified_at' => $verify ? null : date('Y-m-d H:i:s'), 'token' => $verify ? Domains::newToken() : null]);
+            'verified_at' => $verify ? null : date('Y-m-d H:i:s'), 'token' => $verify ? Domains::newToken() : null, 'created_at' => date('Y-m-d H:i:s')]);
+        if (!$verify) {
+            Domains::dropUnverified($db, $host); // the name is proven now: another owner's earlier, unproven claim goes
+        }
         \Talea\Front\Cache::clearAll(); // the Projects cards of the other sites show state and host
 
         return null;
@@ -728,8 +746,12 @@ final class Sites
         return preg_match('/^module=[a-z_]{1,30}(&(action|status|id)=[A-Za-z0-9_-]{1,40}){0,3}$/D', $to) === 1 ? $to : null;
     }
 
-    /** A one-time token for the sign-in on another site: only its sha256 is kept. */
-    public static function handoffToken(Db $db, int $userId, int $siteId): string
+    /**
+     * A one-time token for the sign-in on another site: only its sha256 is kept, with a hash of the network of the person who asked for
+     * it ($network = Antispam::visitorKey of that request). The claim must come from the same network, so a link that leaks (a proxy log,
+     * a referrer, a client's script on the target host) signs nobody in from elsewhere.
+     */
+    public static function handoffToken(Db $db, int $userId, int $siteId, string $network): string
     {
         $db->run('DELETE FROM {handoff_tokens} WHERE expires_at < ?', [gmdate('Y-m-d H:i:s', time() - 3600)]);
         if (!self::allows($db, $db->one('SELECT user_id, admin FROM {users} WHERE user_id = ?', [$userId]), $siteId)) {
@@ -737,19 +759,24 @@ final class Sites
         }
         $token = bin2hex(random_bytes(32));
         // UTC: the token is written on one site and claimed on another, and the two may run in different time zones (date() or NOW() would stretch the 60 s)
-        $db->insert('handoff_tokens', ['token_hash' => hash('sha256', $token), 'user_id' => $userId, 'site_id' => $siteId, 'expires_at' => gmdate('Y-m-d H:i:s', time() + self::HANDOFF_SECONDS)]);
+        $db->insert('handoff_tokens', ['token_hash' => hash('sha256', $token), 'user_id' => $userId, 'site_id' => $siteId, 'network_hash' => self::networkHash($network), 'expires_at' => gmdate('Y-m-d H:i:s', time() + self::HANDOFF_SECONDS)]);
 
         return $token;
     }
 
-    /** Uses a token up on the site it was made for; the user id it vouches for, or null (unknown, used, expired, another site). */
-    public static function claimHandoff(Db $db, string $token, int $siteId): ?int
+    private static function networkHash(string $network): string
+    {
+        return hash('sha256', 'talea-handoff|' . $network);
+    }
+
+    /** Uses a token up on the site it was made for, from the network it was made for; the user id it vouches for, or null (unknown, used, expired, another site, another network). */
+    public static function claimHandoff(Db $db, string $token, int $siteId, string $network): ?int
     {
         if (preg_match('/^[a-f0-9]{64}$/', $token) !== 1) {
             return null;
         }
         $hash = hash('sha256', $token);
-        $claimed = $db->run('UPDATE {handoff_tokens} SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at > ? AND site_id = ?', [gmdate('Y-m-d H:i:s'), $hash, gmdate('Y-m-d H:i:s'), $siteId])->rowCount();
+        $claimed = $db->run('UPDATE {handoff_tokens} SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at > ? AND site_id = ? AND network_hash = ?', [gmdate('Y-m-d H:i:s'), $hash, gmdate('Y-m-d H:i:s'), $siteId, self::networkHash($network)])->rowCount();
 
         $userId = $claimed === 1 ? (int) $db->value('SELECT user_id FROM {handoff_tokens} WHERE token_hash = ?', [$hash]) : null;
 

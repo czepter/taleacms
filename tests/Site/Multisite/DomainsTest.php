@@ -20,7 +20,7 @@ final class DomainsTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_PREVIEW_DOMAIN' => 'preview.test', 'TALEA_VERIFIED_HOSTS' => 'vouched.test']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_PREVIEW_DOMAIN' => 'preview.test', 'TALEA_VERIFIED_HOSTS' => 'vouched.test', 'TALEA_TRUSTED_PROXIES' => '127.0.0.1']];
     }
 
     private function on(string $host, string $path): Response
@@ -47,6 +47,8 @@ final class DomainsTest extends SiteTestCase
         $this->assertSame(['preview', 0], [$site->value("SELECT kind FROM tl_site_domains WHERE host = 'main.preview.test'"), (int) $site->value("SELECT is_primary FROM tl_site_domains WHERE host = 'main.preview.test'")]);
         $site->signIn($site->admin()); // the first sign-in came before site 1 had a domain
         $site->exec("INSERT INTO tl_site_domains (site_id, host, is_primary, redirect_to_primary, verified_at, token) VALUES (1, 'pending.test', FALSE, FALSE, NULL, ?)", [self::TOKEN]);
+        // the list of hosts the operator vouches for counts for a name that is a host of owner 1 (a name nobody added routes nowhere)
+        $site->exec("INSERT INTO tl_site_domains (site_id, host, is_primary, redirect_to_primary, verified_at, token) VALUES (1, 'vouched.test', FALSE, FALSE, NULL, 'ffffffffffffffffffffffffffffffff')");
     }
 
     public function testAHostThatIsNotVerifiedDoesNotRoute(): void
@@ -111,8 +113,8 @@ final class DomainsTest extends SiteTestCase
         $this->assertSame(302, $check->status);
         $this->assertNull($site->value("SELECT verified_at FROM tl_site_domains WHERE host = 'pending.test'"));
 
-        $this->postSites('domain_verify', ['id' => $id, 'host' => 'pending.test']); // the administrator of owner 1 is an operator only with several owners
-        $this->assertNull($site->value("SELECT verified_at FROM tl_site_domains WHERE host = 'pending.test'"), 'without several owners nobody is an operator');
+        $this->postSites('domain_verify', ['id' => $id, 'host' => 'pending.test']); // vouching for a host is the Owners area's: not an action of the Sites area
+        $this->assertNull($site->value("SELECT verified_at FROM tl_site_domains WHERE host = 'pending.test'"), 'the Sites area cannot mark a host verified');
         $site->exec("UPDATE tl_site_domains SET verified_at = CURRENT_TIMESTAMP, token = NULL WHERE host = 'pending.test'");
         $this->assertSame(200, $this->on('pending.test', '/')->status, 'verified: it routes');
         $this->assertSame(404, $this->on('pending.test', '/.well-known/talea-domain/' . self::TOKEN)->status, 'and no longer carries a token');
@@ -121,9 +123,23 @@ final class DomainsTest extends SiteTestCase
     public function testTheQuestionIsRateLimited(): void
     {
         $limited = 0;
-        for ($i = 0; $i < 330 && $limited === 0; $i++) {
+        for ($i = 0; $i < 640 && $limited === 0; $i++) {
             $limited = $this->on('127.0.0.1', '/_talea/tls-allowed?domain=x.test')->status === 429 ? $i : 0;
         }
-        $this->assertGreaterThan(0, $limited, 'the proxy is slowed down after a few hundred questions a minute');
+        $this->assertGreaterThan(0, $limited, 'one name is slowed down after a few hundred questions a minute');
+        // the proxy's address is the same for every name, a flood of random names must not lock out the others: counted per name
+        $this->assertSame(404, $this->on('127.0.0.1', '/_talea/tls-allowed?domain=y.test')->status, 'another name is still answered');
+        $this->assertSame(200, $this->on('127.0.0.1', '/_talea/tls-allowed?domain=127.0.0.1')->status);
+    }
+
+    public function testTheTokenPathHasItsOwnCounter(): void
+    {
+        // asking for tokens (a guess) is counted per network apart from the certificate questions, which are per name
+        $status = 0;
+        for ($i = 0; $i < 640 && $status !== 429; $i++) {
+            $status = $this->on('pending.test', '/.well-known/talea-domain/' . str_repeat('0', 32))->status;
+        }
+        $this->assertSame(429, $status);
+        $this->assertSame(200, $this->on('127.0.0.1', '/_talea/tls-allowed?domain=127.0.0.1')->status, 'the certificate questions are not affected');
     }
 }

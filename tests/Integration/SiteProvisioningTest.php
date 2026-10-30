@@ -193,17 +193,20 @@ final class SiteProvisioningTest extends DatabaseTestCase
     public function testAHandoffTokenWorksOnceOnItsSiteOnly(): void
     {
         $user = $this->db()->insert('users', ['username' => 'owner', 'password' => 'x', 'email' => 'owner@example.test']);
-        $token = Sites::handoffToken($this->db(), $user, 2);
+        $token = Sites::handoffToken($this->db(), $user, 2, '198.51.100.9');
 
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $token);
         $this->assertSame(0, (int) $this->db()->value('SELECT COUNT(*) FROM {handoff_tokens} WHERE token_hash = ?', [$token]), 'only the sha256 is stored');
-        $this->assertNull(Sites::claimHandoff($this->db(), $token, 1), 'bound to its target site');
-        $this->assertSame($user, Sites::claimHandoff($this->db(), $token, 2));
-        $this->assertNull(Sites::claimHandoff($this->db(), $token, 2), 'single use');
-        $this->assertNull(Sites::claimHandoff($this->db(), 'not-a-token', 2));
+        $this->assertNull(Sites::claimHandoff($this->db(), $token, 1, '198.51.100.9'), 'bound to its target site');
+        $this->assertSame($user, Sites::claimHandoff($this->db(), $token, 2, '198.51.100.9'));
+        $this->assertNull(Sites::claimHandoff($this->db(), $token, 2, '198.51.100.9'), 'single use');
+        $other = Sites::handoffToken($this->db(), $user, 2, '198.51.100.9');
+        $this->assertNull(Sites::claimHandoff($this->db(), $other, 2, '203.0.113.200'), 'claimed from another network: refused');
+        $this->assertSame($user, Sites::claimHandoff($this->db(), $other, 2, '198.51.100.9'), 'and the refused claim did not use it up');
+        $this->assertNull(Sites::claimHandoff($this->db(), 'not-a-token', 2, '198.51.100.9'));
 
-        $late = Sites::handoffToken($this->db(), $user, 2);
+        $late = Sites::handoffToken($this->db(), $user, 2, '198.51.100.9');
         $this->db()->run('UPDATE {handoff_tokens} SET expires_at = ? WHERE token_hash = ?', [gmdate('Y-m-d H:i:s', time() - 5), hash('sha256', $late)]);
-        $this->assertNull(Sites::claimHandoff($this->db(), $late, 2), 'expired after 60 seconds');
+        $this->assertNull(Sites::claimHandoff($this->db(), $late, 2, '198.51.100.9'), 'expired after 60 seconds');
     }
 }

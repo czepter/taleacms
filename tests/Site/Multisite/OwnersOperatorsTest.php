@@ -27,13 +27,13 @@ final class OwnersOperatorsTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_SECRET]];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_SECRET, 'TALEA_TRUSTED_PROXIES' => '127.0.0.1']];
     }
 
     /** @return array<string, string> */
     private function env(): array
     {
-        return ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_SECRET];
+        return ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_SECRET, 'TALEA_TRUSTED_PROXIES' => '127.0.0.1'];
     }
 
     /** @return list<string> */
@@ -465,12 +465,13 @@ final class OwnersOperatorsTest extends SiteTestCase
         $site->exec("UPDATE tl_pages SET text = ? WHERE slug = 'alpha-picture'", ['<p><img src="/' . $pathA . '" alt="a"></p>']);
         $home = 'alpha-picture';
 
-        $operator = $this->operatorOnBeta('operator-b4');
-        $form = $operator->get('/admin.php?module=sites&action=new', $this->host(true));
-        $this->assertSame(200, $form->status);
+        // the copy is made in owner 1's administration (the Owners area), never from inside the client
         $alphaSite = (string) $site->value('SELECT public_id FROM tl_sites WHERE site_id = 1');
-        $this->assertStringContainsString($alphaSite, $form->body, 'the operator is offered the other owner\'s sites');
-        $r = $operator->post('/admin.php?module=sites&action=create', ['_csrf' => $form->csrf(), 'name' => 'From Alpha', 'from' => $alphaSite], $this->host(true));
+        $admin = $site->admin();
+        $form = $admin->get('/admin.php?module=owners&action=clone');
+        $this->assertSame(200, $form->status);
+        $this->assertStringContainsString($alphaSite, $form->body, 'the operator picks the source among every owner\'s sites');
+        $r = $admin->post('/admin.php?module=owners&action=clone', ['_csrf' => $form->csrf(), 'name' => 'From Alpha', 'from' => $alphaSite, 'to' => self::$betaOwner]);
         $this->assertSame(302, $r->status);
         $this->assertSame('tl_', $site->value("SELECT source_owner FROM tlb_sites WHERE name = 'From Alpha'"));
         $this->assertStringContainsString('ready', $site->cli(['system/docker.php', 'cron'], $this->env()));
@@ -482,12 +483,33 @@ final class OwnersOperatorsTest extends SiteTestCase
         $this->assertSame(1, (int) $site->value('SELECT COUNT(*) FROM tlb_media WHERE image_path = ?', ['media/' . $betaId . '/' . $ym . '/' . basename($pathA)]));
         $this->assertSame(1, (int) $site->value("SELECT COUNT(*) FROM tlb2_change_log WHERE action = 'clone_in'"));
 
-        // a client administrator (not the operator row) is not offered other owners' sites, and cannot name one
-        $form = $this->betaAdmin()->get('/admin.php?module=sites&action=new', $this->host(true));
-        $this->assertStringNotContainsString($alphaSite, $form->body);
-        $before = (int) $site->value('SELECT COUNT(*) FROM tlb_sites');
-        $this->betaAdmin()->post('/admin.php?module=sites&action=create', ['_csrf' => $form->csrf(), 'name' => 'Sneaky', 'from' => $alphaSite], $this->host(true));
-        $this->assertSame($before, (int) $site->value('SELECT COUNT(*) FROM tlb_sites'));
+        // neither a client administrator nor the operator's row INSIDE the client is offered other owners' sites or can name one: the operator row
+        // lives in the client's origin, where the client's own scripts run
+        foreach (['client administrator' => $this->betaAdmin(), 'operator row' => $this->operatorOnBeta('operator-b4')] as $who => $browser) {
+            $form = $browser->get('/admin.php?module=sites&action=new', $this->host(true));
+            $this->assertStringNotContainsString($alphaSite, $form->body, $who);
+            $before = (int) $site->value('SELECT COUNT(*) FROM tlb_sites');
+            $browser->post('/admin.php?module=sites&action=create', ['_csrf' => $form->csrf(), 'name' => 'Sneaky ' . $who, 'from' => $alphaSite], $this->host(true));
+            $this->assertSame($before, (int) $site->value('SELECT COUNT(*) FROM tlb_sites'), $who);
+            $this->assertNotSame(200, $browser->get('/admin.php?module=owners&action=clone', $this->host(true))->status, $who . ': the Owners area is not there');
+            $before = (int) $site->value('SELECT COUNT(*) FROM tlb_sites');
+            $browser->post('/admin.php?module=owners&action=clone', ['_csrf' => $form->csrf(), 'name' => 'Sneaky 2', 'from' => $alphaSite, 'to' => self::$betaOwner], $this->host(true));
+            $this->assertSame($before, (int) $site->value('SELECT COUNT(*) FROM tlb_sites'), $who);
+        }
+    }
+
+    public function testAnOperatorCopiesIntoAnotherOwnerOverMcpOnTheirOwnConnectionOnly(): void
+    {
+        $site = $this->site();
+        $alphaSite = (string) $site->value('SELECT public_id FROM tl_sites WHERE site_id = 1');
+        $r = $this->mcp(false, 'create_site', ['name' => 'Over MCP', 'clone_of' => $alphaSite, 'owner' => self::$betaOwner]);
+        $this->assertFalse($r['error'], $r['text']);
+        $this->assertSame(['tl_', 1], [$site->value("SELECT source_owner FROM tlb_sites WHERE name = 'Over MCP'"), (int) $site->value("SELECT source_site_id FROM tlb_sites WHERE name = 'Over MCP'")]);
+        $this->assertSame(0, (int) $site->value("SELECT COUNT(*) FROM tl_sites WHERE name = 'Over MCP'"));
+        // a connection of the client names neither another owner nor a site of one
+        $r = $this->mcp(true, 'create_site', ['name' => 'Not allowed', 'owner' => (string) $site->value("SELECT public_id FROM tl_owners WHERE prefix = 'tl_'")]);
+        $this->assertTrue($r['error']);
+        $this->assertSame(0, (int) $site->value("SELECT COUNT(*) FROM tl_sites WHERE name = 'Not allowed'"));
     }
 
     public function testPausingAndArchivingAnOwnerFromTheOwnersArea(): void
@@ -519,14 +541,57 @@ final class OwnersOperatorsTest extends SiteTestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', (string) $row['token']);
         $this->assertSame(404, $site->client('visitor')->get('/', ['Host: client-own.test:' . $site->port])->status, 'it does not route until verified');
 
-        // the client cannot vouch for it; the operator (a signed-in administrator of owner 1) can, in the client's Sites area through the handoff
+        // the client cannot vouch for it, nor can the operator's row inside the client; the operator in owner 1's administration can
         $client->post('/admin.php?module=sites&action=domain_verify', ['_csrf' => $form->csrf(), 'id' => $betaSite, 'host' => 'client-own.test'], $this->host(true));
         $this->assertNull($site->value("SELECT verified_at FROM tlb_site_domains WHERE host = 'client-own.test'"));
         $operator = $this->operatorOnBeta('operator-verify');
         $edit = $operator->get('/admin.php?module=sites&action=edit&id=' . $betaSite, $this->host(true));
-        $this->assertStringContainsString('Mark as verified', $edit->body);
-        $operator->post('/admin.php?module=sites&action=domain_verify', ['_csrf' => $edit->csrf(), 'id' => $betaSite, 'host' => 'client-own.test'], $this->host(true));
+        $this->assertStringNotContainsString('Mark as verified', $edit->body, 'the row in the client\'s origin has no such power');
+        foreach (['/admin.php?module=sites&action=domain_verify', '/admin.php?module=owners&action=domain_verify'] as $path) {
+            $operator->post($path, ['_csrf' => $edit->csrf(), 'id' => $betaSite, 'host' => 'client-own.test'], $this->host(true));
+        }
+        $this->assertNull($site->value("SELECT verified_at FROM tlb_site_domains WHERE host = 'client-own.test'"));
+        // adding a host from there is a client's add: unverified
+        $operator->post('/admin.php?module=sites&action=domain_add', ['_csrf' => $edit->csrf(), 'id' => $betaSite, 'host' => 'operator-row.test'], $this->host(true));
+        $this->assertNull($site->value("SELECT verified_at FROM tlb_site_domains WHERE host = 'operator-row.test'"));
+        $this->assertNotNull($site->value("SELECT token FROM tlb_site_domains WHERE host = 'operator-row.test'"));
+
+        $admin = $site->admin();
+        $page = $admin->get('/admin.php?module=owners&action=edit&id=' . self::$betaOwner);
+        $this->assertStringContainsString('Mark as verified', $page->body);
+        $admin->post('/admin.php?module=owners&action=domain_verify', ['_csrf' => $page->csrf(), 'id' => self::$betaOwner, 'host' => 'client-own.test']);
         $this->assertNotNull($site->value("SELECT verified_at FROM tlb_site_domains WHERE host = 'client-own.test'"));
         $this->assertSame(200, $site->client('visitor')->get('/', ['Host: client-own.test:' . $site->port])->status);
     }
+
+    public function testTheOperatorsSessionInAClientEndsWhenTheOperatorsPasswordChanges(): void
+    {
+        $site = $this->site();
+        $site->exec("INSERT INTO tl_users (username, password, name, email, admin, language) SELECT 'op2', password, 'Second operator', 'op2@alpha.example', 2, '' FROM tl_users WHERE username = 'admin'");
+        $mine = $site->client('op2-owner1');
+        $mine->post('/admin.php', ['_csrf' => $mine->get('/admin.php')->csrf(), 'username' => 'op2', 'password' => $site->password]);
+        $r = $this->post($mine, false, '/admin.php?module=owners&action=handoff', ['id' => self::$betaOwner, 'site' => (string) $site->value('SELECT public_id FROM tlb_sites WHERE site_id = 1')], '/admin.php?module=owners&action=edit&id=' . self::$betaOwner);
+        $this->assertSame(303, $r->status);
+        $inClient = $site->client('op2-client');
+        $inClient->get(substr($r->headers['location'], strlen('http://localhost:' . $site->port)), $this->host(true));
+        $this->assertStringNotContainsString('name="password"', $inClient->get('/admin.php?module=pages', $this->host(true))->body, 'signed in as the operator');
+        $site->exec("UPDATE tl_users SET password = ? WHERE username = 'op2'", [password_hash('a-brand-new-password-1', PASSWORD_DEFAULT)]);
+        $this->assertStringContainsString('name="password"', $inClient->get('/admin.php?module=pages', $this->host(true))->body, 'the operator changed their password: the session in the client ends');
+    }
+
+    public function testAHandoffLinkClaimedFromAnotherNetworkSignsNobodyIn(): void
+    {
+        $site = $this->site();
+        $site->exec('DELETE FROM tlb_handoff_tokens');
+        $r = $this->post($site->admin(), false, '/admin.php?module=owners&action=handoff', ['id' => self::$betaOwner, 'site' => (string) $site->value('SELECT public_id FROM tlb_sites WHERE site_id = 1')], '/admin.php?module=owners&action=edit&id=' . self::$betaOwner);
+        $path = substr($r->headers['location'], strlen('http://localhost:' . $site->port));
+        $elsewhere = $site->client('elsewhere');
+        $elsewhere->get($path, [...$this->host(true), 'X-Forwarded-For: 198.51.100.7']);
+        $this->assertStringContainsString('name="password"', $elsewhere->get('/admin.php?module=pages', $this->host(true))->body, 'another network');
+        $this->assertNull($site->value('SELECT used_at FROM tlb_handoff_tokens'));
+        $home = $site->client('same-network');
+        $home->get($path, $this->host(true));
+        $this->assertStringNotContainsString('name="password"', $home->get('/admin.php?module=pages', $this->host(true))->body, 'the network that asked for it');
+    }
+
 }

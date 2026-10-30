@@ -6,7 +6,7 @@
  * @var list<array<string, mixed>> $others  the other sites that are set up (targets of an archived site)
  * @var int $current
  * @var string $host  the host name of this request
- * @var bool $operator  the person is an operator of the installation (may mark a host verified)
+ * @var bool $dnsOnly  a host name of this owner is verified by the DNS record alone
  */
 $id = (string) $site['public_id'];
 $hidden = '<input type="hidden" name="id" value="' . e($id) . '">';
@@ -76,9 +76,6 @@ $hidden = '<input type="hidden" name="id" value="' . e($id) . '">';
 <?php else: ?>
 <?php if ($d['verified_at'] === null): ?>
 		<form class="inline" method="post" action="<?= e($module->url('domain_check')) ?>"><?= $csrf . $hidden . $field ?><button class="navigation" type="submit"><?= e(t('Check now')) ?></button></form>
-<?php if ($operator): ?>
-		<form class="inline" method="post" action="<?= e($module->url('domain_verify')) ?>" data-confirm="<?= e(t('Mark this host name as verified without a check?')) ?>"><?= $csrf . $hidden . $field ?><button class="navigation" type="submit"><?= e(t('Mark as verified')) ?></button></form>
-<?php endif ?>
 <?php endif ?>
 <?php if (!$d['is_primary']): ?>
 		<form class="inline" method="post" action="<?= e($module->url('domain_primary')) ?>"><?= $csrf . $hidden . $field ?><button class="navigation" type="submit"><?= e(t('Make primary')) ?></button></form>
@@ -91,11 +88,18 @@ $hidden = '<input type="hidden" name="id" value="' . e($id) . '">';
 <?php if ($d['verified_at'] === null && $d['kind'] === 'domain'): ?>
 <tr>
 	<td colspan="4" class="small-text">
+<?php if ($dnsOnly): ?>
+		<?= e(t('Point the host name to this installation in the DNS. Then show that it is yours with this TXT record:')) ?>
+		<ul>
+			<li><code>_talea.<?= e($d['host']) ?></code> = <code><?= e(Talea\Core\Domains::txtValue((string) $d['token'])) ?></code></li>
+		</ul>
+<?php else: ?>
 		<?= e(t('Point the host name to this installation in the DNS. Then show that it is yours, in one of two ways:')) ?>
 		<ul>
 			<li><?= e(t('Let this address answer on the host name:')) ?> <code>http://<?= e($d['host']) ?>/.well-known/talea-domain/<?= e($d['token']) ?></code> <?= e(t('(it does as soon as the host name points here)')) ?></li>
 			<li><?= e(t('Or add this TXT record:')) ?> <code>_talea.<?= e($d['host']) ?></code> = <code><?= e(Talea\Core\Domains::txtValue((string) $d['token'])) ?></code></li>
 		</ul>
+<?php endif ?>
 	</td>
 </tr>
 <?php endif ?>

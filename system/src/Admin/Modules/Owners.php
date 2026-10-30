@@ -7,6 +7,7 @@ namespace Talea\Admin\Modules;
 use Talea\Admin\ChangeLog;
 use Talea\Admin\Kernel;
 use Talea\Admin\Module;
+use Talea\Core\Antispam;
 use Talea\Core\MediaFolder;
 use Talea\Core\Owners as OwnerRegistry;
 use Talea\Core\Response;
@@ -162,6 +163,69 @@ final class Owners extends Module
         return $error === null ? $this->back(t('The invitation has been sent to %s.', $owner['admin_email']), 'edit', ['id' => $owner['public_id']]) : $this->back($error, 'edit', ['id' => $owner['public_id']], 'error');
     }
 
+    /**
+     * The operators' tool for starting a site from another site: any set-up site of any owner (the target's own too) is copied into the
+     * chosen owner. Across owners nothing stays linked (Core\OwnerClone: files, components and facts are copied); the row is all this
+     * request writes, cron sets the copy up. The target owner counts the new site against the installation's limit like any other.
+     */
+    protected function actionClone(): Response
+    {
+        $sources = OwnerRegistry::allSites($this->db);
+        $owners = array_values(array_filter(OwnerRegistry::all($this->db), fn (array $o): bool => $o['ready_at'] !== null && $o['status'] !== 'archived'));
+        if (!$this->request->isPost()) {
+            return $this->cloneForm($sources, $owners, '', '', '', '');
+        }
+        $name = trim(mb_substr($this->request->post('name'), 0, 120));
+        $from = $this->request->post('from');
+        $to = $this->request->post('to');
+        $source = current(array_filter($sources, fn (array $f): bool => $f['site']['public_id'] === $from)) ?: null;
+        $target = current(array_filter($owners, fn (array $o): bool => (string) $o['public_id'] === $to)) ?: null;
+        $error = ($limit = SiteRegistry::limitRefusal($this->db)) !== null ? $limit : match (true) {
+            $name === '' => 'Fill in the site name.',
+            $source === null => 'Choose a site that is set up to copy.',
+            $target === null => 'Choose the owner that gets the copy.',
+            default => null,
+        };
+        if ($error !== null) {
+            return $this->cloneForm($sources, $owners, $name, $from, $to, $error);
+        }
+        $targetDb = $this->db->forOwner((string) $target['prefix']);
+        $sourceOwner = $source['owner'] === $target['prefix'] ? '' : $source['owner'];
+        SiteRegistry::add($targetDb, $name, SiteRegistry::freeSlug($targetDb, $name), (int) $source['site']['site_id'], true, $sourceOwner);
+        ChangeLog::write($this->app, 'owners', 'clone', $source['owner_name'] . ' / ' . ($source['site']['name'] !== '' ? $source['site']['name'] : $source['site']['slug']) . ' → ' . ($target['name'] !== '' ? $target['name'] : $target['prefix']) . ' / ' . $name);
+
+        return $this->back('The copy is created. It is being set up in the background and appears as ready within a few minutes.');
+    }
+
+    /**
+     * @param list<array{owner: string, owner_name: string, owner_public_id: string, site: array<string, mixed>}> $sources
+     * @param list<array<string, mixed>> $owners
+     */
+    private function cloneForm(array $sources, array $owners, string $name, string $from, string $to, string $error = ''): Response
+    {
+        return $this->view('clone', 'Copy a site', ['name' => $name, 'from' => $from, 'to' => $to, 'error' => $error, 'sources' => $sources, 'owners' => $owners]);
+    }
+
+    /** An operator vouches for a host name of a client without a check (the owner cannot reach its DNS): verified, and the same name unverified at other owners goes. */
+    protected function actionDomainVerify(): Response
+    {
+        $owner = $this->owner();
+        if (!$this->request->isPost() || $owner === null || $owner['ready_at'] === null || $owner['prefix'] === $this->db->installPrefix) {
+            return $this->back();
+        }
+        $ownerDb = $this->db->forOwner((string) $owner['prefix']);
+        $domain = $ownerDb->one("SELECT * FROM {site_domains} WHERE host = ? AND kind = 'domain'", [$this->request->post('host')]);
+        if ($domain === null) {
+            return $this->back('The host name does not exist.', 'edit', ['id' => $owner['public_id']], 'error');
+        }
+        $error = \Talea\Core\Domains::markVerified($ownerDb, (int) $domain['site_id'], (int) $domain['domain_id']);
+        if ($error === null) {
+            ChangeLog::write($this->app, 'owners', 'domain', $owner['name'] . ': ' . $domain['host'] . ' verified by an operator');
+        }
+
+        return $error === null ? $this->back('The host name is marked as verified.', 'edit', ['id' => $owner['public_id']]) : $this->back($error, 'edit', ['id' => $owner['public_id']], 'error');
+    }
+
     /** Opens a site of another owner: a one-time token in THAT owner's tables, then the browser goes to the site's primary host (Admin\Kernel signs the operator in there). */
     protected function actionHandoff(): Response
     {
@@ -170,7 +234,7 @@ final class Owners extends Module
         if (!$this->request->isPost() || $owner === null || $user === null) {
             return $this->back();
         }
-        $result = OwnerRegistry::handoff($this->db, $user, (string) $owner['public_id'], $this->request->post('site'));
+        $result = OwnerRegistry::handoff($this->db, $user, (string) $owner['public_id'], $this->request->post('site'), Antispam::visitorKey($this->request, $this->app->settings()));
         if (is_string($result)) {
             return $this->back($result, 'edit', ['id' => $owner['public_id']], 'error');
         }

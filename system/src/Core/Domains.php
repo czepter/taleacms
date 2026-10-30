@@ -12,7 +12,7 @@ namespace Talea\Core;
  */
 final class Domains
 {
-    /** Questions per minute and network that /_talea/tls-allowed and the token path answer; more get 429. */
+    /** Questions per minute that /_talea/tls-allowed (per name, and per network unless it comes from the trusted proxy) and the token path (per network) answer; more get 429. */
     private const int ASKS_PER_MINUTE = 300;
 
     /** Tests replace the two network lookups: fn (array $target): ?string (the body of the answer), fn (string $name): list<string> (TXT values). */
@@ -121,20 +121,65 @@ final class Domains
         if ($token === '' || Outbound::host($host) === null) {
             return 'This host name cannot be checked.';
         }
-        // the install answers the token file on every name that points here, the preview zone's wildcard included: that proves nothing there, DNS only
-        $http = self::inPreviewZone($host) ? 'Names under the preview domain are verified with the DNS record only.' : self::viaHttp($host, $token);
-        if ($http !== null && self::viaDns($host, $token) !== null) {
-            return $http;
+        // the install answers the token file on every name that points here, the preview zone's wildcard included, and any name that
+        // already points at the install (an address of the install, a foreign site behind the same proxy) would pass it: for a client owner
+        // only the DNS record proves anything. Owner 1 (the install's own) may also use the token file.
+        if (self::dnsOnly($owner) || self::inPreviewZone($host)) {
+            $failure = self::viaDns($host, $token);
+            if ($failure !== null) {
+                return self::inPreviewZone($host) ? 'Names under the preview domain are verified with the DNS record only.' : $failure;
+            }
+        } else {
+            $http = self::viaHttp($host, $token);
+            if ($http !== null && self::viaDns($host, $token) !== null) {
+                return $http;
+            }
         }
-        $owner->update('site_domains', ['verified_at' => date('Y-m-d H:i:s'), 'token' => null], ['domain_id' => (int) $domain['domain_id']]);
+
+        return self::verify($owner, (int) $domain['site_id'], (int) $domain['domain_id']);
+    }
+
+    /** Is this owner's host verified by the DNS record alone? True for every owner but the install's own (owner 1); false without several owners. */
+    public static function dnsOnly(Db $owner): bool
+    {
+        return Owners::enabled() && $owner->ownerPrefix !== $owner->installPrefix;
+    }
+
+    /** The operator vouches for a host (the Owners area, owner 1's administration): verified without a check. Returns an error text, null = verified. */
+    public static function markVerified(Db $owner, int $siteId, int $domainId): ?string
+    {
+        return self::verify($owner, $siteId, $domainId);
+    }
+
+    /**
+     * Marks a host verified and removes the unverified rows of the same name in the other owners (a name was first claimed by someone
+     * who could not prove it). Refused when another owner has the name verified already. Returns an error text, null = done.
+     */
+    private static function verify(Db $owner, int $siteId, int $domainId): ?string
+    {
+        $host = (string) $owner->value('SELECT host FROM {site_domains} WHERE domain_id = ? AND site_id = ?', [$domainId, $siteId]);
+        if ($host === '') {
+            return 'The host name does not exist.';
+        }
+        foreach (Owners::enabled() ? Owners::readyPrefixes($owner) : [] as $prefix) {
+            if ($prefix !== $owner->ownerPrefix && $owner->forOwner($prefix)->value('SELECT 1 FROM {site_domains} WHERE host = ? AND verified_at IS NOT NULL', [$host]) !== null) {
+                return 'This host name is already used by a site.';
+            }
+        }
+        $owner->update('site_domains', ['verified_at' => date('Y-m-d H:i:s'), 'token' => null], ['domain_id' => $domainId, 'site_id' => $siteId]);
+        self::dropUnverified($owner, $host);
 
         return null;
     }
 
-    /** The operator vouches for a host: verified without a check. */
-    public static function markVerified(Db $owner, int $siteId, int $domainId): void
+    /** Deletes the unverified rows of a host name in every OTHER owner (called when the name becomes verified). */
+    public static function dropUnverified(Db $owner, string $host): void
     {
-        $owner->update('site_domains', ['verified_at' => date('Y-m-d H:i:s'), 'token' => null], ['domain_id' => $domainId, 'site_id' => $siteId]);
+        foreach (Owners::enabled() ? Owners::readyPrefixes($owner) : [] as $prefix) {
+            if ($prefix !== $owner->ownerPrefix) {
+                $owner->forOwner($prefix)->run('DELETE FROM {site_domains} WHERE host = ? AND verified_at IS NULL', [$host]);
+            }
+        }
     }
 
     /** http://<host>/.well-known/talea-domain/<token> must answer with the token. null = it does, otherwise the reason. */
@@ -205,10 +250,12 @@ final class Domains
             header('X-Robots-Tag: noindex');
             exit($body);
         };
-        if (Antispam::tally(Antispam::network((string) ($_SERVER['REMOTE_ADDR'] ?? '')), 'tls-ask', 60) > self::ASKS_PER_MINUTE) {
-            $answer(429, "Too many requests\n");
-        }
+        $server = $request->serverValues();
         if ($token !== null) {
+            // the token path is asked by whoever guesses: counted per network (behind TALEA_TRUSTED_PROXIES the visitor's, not the proxy's)
+            if (Antispam::tally(Antispam::network(Antispam::visitorIp($server, '')), 'domain-token', 60) > self::ASKS_PER_MINUTE) {
+                $answer(429, "Too many requests\n");
+            }
             $host = Sites::requestHost($request);
             foreach (Owners::enabled() ? Owners::readyPrefixes($db) : [$db->ownerPrefix] as $owner) {
                 if ($db->forOwner($owner)->value('SELECT 1 FROM {site_domains} WHERE host = ? AND token = ? AND verified_at IS NULL', [$host, $token]) !== null) {
@@ -217,9 +264,16 @@ final class Domains
             }
             $answer(404, "Not found\n");
         }
+        // the proxy asks for every name it meets, a flood of random names included: counted per NAME, so one name's questions never lock out
+        // another; the question of the trusted proxy itself (its address is the same for all names) is not counted per network
         $host = Sites::normalizeHost($request->get('domain')) ?? '';
+        $fromProxy = Antispam::inList((string) ($server['REMOTE_ADDR'] ?? ''), array_filter(array_map('trim', explode(',', Config::env('TRUSTED_PROXIES')))));
+        if (Antispam::tally('name:' . $host, 'tls-ask-name', 60) > self::ASKS_PER_MINUTE
+            || (!$fromProxy && Antispam::tally(Antispam::network((string) ($server['REMOTE_ADDR'] ?? '')), 'tls-ask', 60) > self::ASKS_PER_MINUTE)) {
+            $answer(429, "Too many requests\n");
+        }
         $site = $host === '' ? null : Sites::resolve($db, $host);
-        $allowed = $host !== '' && (self::envVerified($host) || ($site !== null && $site['verified'] && $site['status'] !== 'trashed' && ($site['owner_status'] ?? 'live') !== 'archived'));
+        $allowed = $site !== null && $site['verified'] && $site['status'] !== 'trashed' && ($site['owner_status'] ?? 'live') !== 'archived';
         $answer($allowed ? 200 : 404, $allowed ? "ok\n" : "Not found\n");
     }
 }

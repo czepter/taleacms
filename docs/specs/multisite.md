@@ -186,19 +186,34 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
 
 ### Operators, owner administration, media per owner, cross-owner clone (stage B) – Proposed
 
-- **Operators** are the administrators of owner 1 (`Owners::isOperator`: an unblocked administrator of owner 1, or the row that stands for
-  one in another owner). Nothing is configured: a client owner has no operators of its own, and an editor of owner 1 is no operator.
+- **Operators** are the administrators of owner 1 (`Owners::isOperator`: an unblocked administrator of owner 1 **asking from owner 1's own
+  administration**). The row that stands for an operator inside a client owner is NOT one there: it is an ordinary administrator of that owner,
+  because the client's own scripts (head code, components) run in the client's origin with that session. Operator powers – copying a site across
+  owners, vouching for a host, adding a host without verification – exist only in owner 1's administration (the Owners area) and on an MCP
+  connection of owner 1. Nothing is configured: a client owner has no operators of its own, and an editor of owner 1 is no operator.
 - **Owners area** (Settings → Owners, `Admin\Modules\Owners`, only with `TALEA_OWNERS`, only in owner 1's administration; the module is
   not offered anywhere else and its actions answer like an unknown module). List: name, kind, state, sites, storage (tables of all its sites plus its
   media folder). Create: name, kind and the e-mail of the first administrator (`owners.admin_email`); the row is all the request writes, cron
   sets the owner up. Pause/archive/live through `Owners::setStatus` (owner 1 cannot be paused). Add the first host name to the owner's
   first site (`Sites::addDomain`, install-wide unique), then **Send the invitation**: `Owners::invite` makes the administrator in the owner's
   `users` (a password nobody knows) and mails a link valid for 3 days to the owner's first host, through the install's mail setup. Further host
-  names and sites are the owner's own business. No MCP tool: the area is an operator's tool (ParityTest says so per action).
+  names and sites are the owner's own business. **Copy a site** (Owners → Copy a site) picks any set-up site of any owner and the owner that gets
+  the copy; **Mark as verified** (owner → Host names waiting for verification) vouches for a client's host. The copy is also MCP `create_site`
+  with `clone_of` and, for another owner, `owner` – on owner 1's connections only; the rest has no tool (ParityTest says so per action).
 - **Cross-owner handoff** (`Owners::handoff`, action `handoff`): only an unblocked administrator of owner 1 asking from owner 1, for a live owner
-  that is set up and a site of it that is set up with a primary host. The token is written in the TARGET owner's `handoff_tokens` (so owner 1's
-  and every other owner's table never know it), bound to that site, 60 seconds in UTC, single use (`Sites::claimHandoff`, unchanged). It signs in
-  the operator's row in the target owner (`Owners::operatorRow`), made on first use.
+  that is set up and a site of it that is set up. The token is written in the TARGET owner's `handoff_tokens` (so owner 1's
+  and every other owner's table never know it), bound to that site and to the network of the person who asked (below), 60 seconds in UTC, single
+  use (`Sites::claimHandoff`). It signs in the operator's row in the target owner (`Owners::operatorRow`), made on first use. It lands on the site's
+  **preview host** when `TALEA_PREVIEW_DOMAIN` is set (the install controls that DNS), else on a **verified** host of the site; with neither there is
+  nothing to open. Documented risk: with no preview domain the landing host is the client's own verified name.
+- **Handoff tokens (every handoff, also inside one owner) are bound to the network of whoever asked** (`handoff_tokens.network_hash`, sha256 of
+  `Antispam::visitorKey`, i.e. REMOTE_ADDR or the address behind `TALEA_TRUSTED_PROXIES`/Cloudflare, an IPv6 address by its /64). A claim from another
+  network is refused and does not use the token up. Behind a CDN whose edge address changes between two requests of the same person, set
+  `TALEA_TRUSTED_PROXIES` so the visitor's own address counts.
+- **The operator's session in a client** also depends on the operator's password: the session keeps a fingerprint of the operator's password in owner 1
+  (`Owners::operatorFingerprint`), compared on every request, so a new password of the operator ends it; turning two-factor sign-in on or off, removing a
+  passkey, an administrator's 2FA reset or "end stay signed in" of the operator remove the operator's rows in the clients (`Auth::forgetOtherDevices` →
+  `Owners::revokeOperator`).
 - **The operator row** is a normal administrator row of the client's `users` flagged with `operator_user_id` (owner 1's user number; migration
   `20261104100047`), named "Operator: <name>", without e-mail, with a random password nobody has. It cannot escalate and cannot be used by
   the client: password sign-in and passkey, "stay signed in", password reset and MCP/OAuth tokens skip it (`operator_user_id IS NULL` in
@@ -220,11 +235,17 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
   `sites.source_owner` and is set up by cron like any clone. Copy semantics, nothing is linked: the site tables are copied as in a clone
   within one owner (never the install tables); the source's components and facts – its own and the ones it shared in its owner – become LOCAL
   rows of the new site with new ids and the builds are repointed; the media files its content (and its news usage) names are copied, with
-  their variants, into the target owner's folder with new `media` rows (an earlier copy of the same file is reused), and the paths in the copied
+  their variants, into the target owner's folder with new `media` rows (an earlier copy of the SAME file is reused; a different file already under that
+  name is never touched – the copy gets a stem of its own and the paths in the content follow), and the paths in the copied
   content, settings, classes, menus and components are rewritten; authors, revision users, drafts of people and booking staff, which point at users
-  of the source owner, are cleared. Waiting (staged) files are not copied. Both sites get a row in their change log (`clone_out` on the source,
-  `clone_in` on the copy) and the request itself is logged in the operator's.
-- **Rate-limit counters** (`storage/cache/limits`) are still shared by the owners (a visitor's address counts across them); open.
+  of the source owner, are copied as NULL inside the `INSERT … SELECT` (the target's foreign keys to its own users would refuse them). Of the settings
+  only `SiteExport::SETTINGS` (without `site_url`) cross owners – **never the account settings** (SMTP, mail identity, AI key). Waiting (staged) files are
+  not copied. Both sites get a row in their change log (`clone_out` on the source, `clone_in` on the copy); a client's log says only "Created as a
+  copy by the installation's operator" / "Copied by the installation's operator", the names stand in owner 1's log, and the request itself is logged in
+  the operator's.
+- **Rate-limit counters** (`storage/cache/limits`): a visitor's address still counts across the owners (open), but a key built from a row number or
+  an account is prefixed with the owner (reset allowance per account, OAuth refresh, member link per e-mail) or the site (page password), so two owners'
+  user number 1 do not share a budget.
 
 ## Domains and certificates (stage C) – Proposed
 
@@ -232,22 +253,30 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
   migration `20261105100047` marks the hosts that exist verified. `Sites::resolve` returns `verified` (the row, or `TALEA_VERIFIED_HOSTS`) and `kind`;
   `App::routeHost` answers an unverified host like an unknown one (bare 404, `/health` excepted). `Sites::addDomain(…, $verify)` makes the host
   unverified with a token when `Domains::needsVerification` says so: only with `TALEA_OWNERS` and not for operators. Without several owners the
-  solopreneur install is unchanged: verified on add. Operators may mark a host verified (Sites → Host names; not a tool); `TALEA_VERIFIED_HOSTS` vouches by name.
-- **Checks** (`Core\Domains::check`, "Check now" in the Sites area and MCP `check_site_domain`, listed as an open-world tool): first
-  `http://<host>/.well-known/talea-domain/<token>` must answer 200 with the token, else `TXT _talea.<host>` must hold `talea-verify=<token>`. The host is the
+  solopreneur install is unchanged: verified on add. Operators may mark a host verified (Owners → the owner → Host names waiting for verification, in owner 1's administration only; not a tool);
+  `TALEA_VERIFIED_HOSTS` vouches by name **for owner 1's hosts only** (`Sites::resolve`), never for a client's add or a later check.
+- **Checks** (`Core\Domains::check`, "Check now" in the Sites area and MCP `check_site_domain`, listed as an open-world tool): **owner 1**: first
+  `http://<host>/.well-known/talea-domain/<token>` must answer 200 with the token, else `TXT _talea.<host>` must hold `talea-verify=<token>`.
+  **A client owner (`Domains::dnsOnly`): the TXT record only** – the token file would be answered for any name that already points at the install.
+  A name a client adds must be a public name (`Sites::normalizeHost($host, true)`: at least two labels, no IP literal). The host is the
   client's input, so the fetch goes through `Links::target` (the one safe-target helper: `Outbound` normalisation, every resolved address public, standard
   ports, pinned connection, no redirects, 256 bytes) – never to loopback, private, link-local or CGNAT addresses; tests may fetch `127.0.0.1` only with
   `TALEA_LINKS_LOCAL=1`, as the link check does. The token file is answered by `Domains::answerEarly` for the host that has the pending token and no other.
-- **`GET /_talea/tls-allowed?domain=`** is answered in `App::routeHost` before routing, on any host: 200 for a verified host, a host in `TALEA_VERIFIED_HOSTS` and
-  a preview address (not of a trashed site or an archived owner), 404 for the rest, identical bodies, `no-store`, never the owner. Rate limit: `Antispam::tally`,
-  300 a minute per network, then 429 (shared with the token path).
+- **Competing claims.** A host is unique per owner by key; across owners only VERIFIED rows block (`Owners::hostTaken`): a name nobody has proven does
+  not hold it against the owner who can. When a name is verified (check, operator, or added verified), the unverified rows of the same name in every other
+  owner are deleted (`Domains::dropUnverified`) and a name already verified elsewhere cannot be verified; routing prefers the verified row. An unverified
+  host is removed after 14 days (`site_domains.created_at`, in the `sites_cleanup` job).
+- **`GET /_talea/tls-allowed?domain=`** is answered in `App::routeHost` before routing, on any host: 200 for a verified host (owner 1's list `TALEA_VERIFIED_HOSTS`
+  included) and a preview address (not of a trashed site or an archived owner), 404 for the rest, identical bodies, `no-store`, never the owner. Rate limit:
+  `Antispam::tally` **per requested name**, 300 a minute, then 429, and per network unless the question comes from a trusted proxy (`TALEA_TRUSTED_PROXIES`):
+  a flood of random names does not lock out the others. The token path has a counter of its own, per visitor network.
 - **Preview subdomains** (`TALEA_PREVIEW_DOMAIN`): `kind = preview`, verified, never primary, not removable. Owner 1: `{slug}.{preview}`; owner n:
   `{slug}.{letters}.{preview}` (`tlb_` → `b`). Added by `Sites::provision` for a new site and by cron (`Domains::ensurePreviews`, the install's run) for the sites
   that have none – once. Always noindex: `X-Robots-Tag` in `routeHost`, the robots meta and `robots.txt` in `Front\Seo`, no IndexNow, and no page cache
   (`Front\Cache::file`), because the cache key follows the site address and not the host. `Sites::primaryHost` (handoff, switcher) prefers a verified host, so a
   site whose own host is not verified yet is still reachable through its preview address; a preview row does not count as the "first domain".
 - **Open:** an alias that redirects to a primary host that is not verified yet sends visitors to a 404; DNS lookups of the TXT check use the container's
-  resolver; no automatic re-verification (a host stays verified until removed); the proxy's ask is rate limited per network, not per name.
+  resolver; no automatic re-verification (a host stays verified until removed).
 
 ## Agency tools (stage D) – Proposed
 

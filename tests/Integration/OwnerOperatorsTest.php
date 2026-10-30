@@ -15,6 +15,8 @@ use Talea\Tests\Support\DatabaseTestCase;
 #[CoversClass(Owners::class)]
 final class OwnerOperatorsTest extends DatabaseTestCase
 {
+    private const string NET = '203.0.113.5';
+
     private static bool $made = false;
 
     protected function setUp(): void
@@ -127,12 +129,14 @@ final class OwnerOperatorsTest extends DatabaseTestCase
         $op = $this->operator('v5');
         $this->assertTrue(Owners::isOperator($this->db(), $op));
         $this->assertFalse(Owners::isOperator($this->db(), $editor));
+        $this->assertFalse(Owners::isOperator($this->db(), ['operator_user_id' => 1] + $op), 'an operator row is never one, wherever it is asked');
         $this->assertFalse(Owners::isOperator($this->db(), null));
         $this->assertFalse(Owners::isOperator($this->beta(), ['user_id' => 1, 'admin' => Auth::ADMIN, 'blocked' => 0]), 'a client administrator is no operator');
         $row = (array) $this->beta()->one('SELECT * FROM {users} WHERE user_id = ?', [Owners::operatorRow($this->beta(), $op)]);
-        $this->assertTrue(Owners::isOperator($this->beta(), $row), 'the row that stands for an operator is one while the operator is valid');
+        $this->assertFalse(Owners::isOperator($this->beta(), $row), 'the row that stands for an operator inside a client is an ordinary administrator of it: its session lives in the client\'s origin');
+        $this->assertTrue(Owners::operatorValid($this->beta(), (int) $op['user_id']), 'it still lives as long as the operator is valid');
         $this->db()->update('users', ['admin' => Auth::EDITOR], ['user_id' => (int) $op['user_id']]);
-        $this->assertFalse(Owners::isOperator($this->beta(), $row));
+        $this->assertFalse(Owners::operatorValid($this->beta(), (int) $op['user_id']));
         putenv('TALEA_OWNERS');
         $this->assertFalse(Owners::isOperator($this->db(), $this->operator('v6')), 'nothing without the flag');
     }
@@ -144,7 +148,7 @@ final class OwnerOperatorsTest extends DatabaseTestCase
         $ownerId = (string) $this->db()->value("SELECT public_id FROM {owners} WHERE prefix = 'tlb_'");
         $siteId = (string) $beta->value('SELECT public_id FROM {sites} WHERE site_id = 1');
 
-        $made = Owners::handoff($this->db(), $op, $ownerId, $siteId);
+        $made = Owners::handoff($this->db(), $op, $ownerId, $siteId, self::NET);
         $this->assertIsArray($made);
         [$token, $host] = $made;
         $this->assertSame('beta.example', $host);
@@ -158,13 +162,48 @@ final class OwnerOperatorsTest extends DatabaseTestCase
         $this->assertSame([(int) $op['user_id'], Auth::ADMIN], [(int) $userRow['operator_user_id'], (int) $userRow['admin']]);
 
         // bound to the owner, the site and one use
-        $this->assertNull(Sites::claimHandoff($this->db(), $token, 1), 'owner 1 does not know it');
-        $this->assertNull(Sites::claimHandoff($beta, $token, 2), 'another site of the owner does not');
-        $this->assertSame((int) $row['user_id'], Sites::claimHandoff($beta, $token, 1));
-        $this->assertNull(Sites::claimHandoff($beta, $token, 1), 'used up');
-        [$late] = Owners::handoff($this->db(), $op, $ownerId, $siteId);
+        $this->assertNull(Sites::claimHandoff($this->db(), $token, 1, self::NET), 'owner 1 does not know it');
+        $this->assertNull(Sites::claimHandoff($beta, $token, 2, self::NET), 'another site of the owner does not');
+        $this->assertSame((int) $row['user_id'], Sites::claimHandoff($beta, $token, 1, self::NET));
+        $this->assertNull(Sites::claimHandoff($beta, $token, 1, self::NET), 'used up');
+        [$late] = Owners::handoff($this->db(), $op, $ownerId, $siteId, self::NET);
         $beta->update('handoff_tokens', ['expires_at' => gmdate('Y-m-d H:i:s', time() - 1)], ['token_hash' => hash('sha256', $late)]);
-        $this->assertNull(Sites::claimHandoff($beta, $late, 1), 'expired');
+        $this->assertNull(Sites::claimHandoff($beta, $late, 1, self::NET), 'expired');
+    }
+
+    public function testAHandoffIsBoundToTheNetworkOfWhoAskedForIt(): void
+    {
+        $op = $this->operator('net1');
+        $beta = $this->beta();
+        $ownerId = (string) $this->db()->value("SELECT public_id FROM {owners} WHERE prefix = 'tlb_'");
+        $siteId = (string) $beta->value('SELECT public_id FROM {sites} WHERE site_id = 1');
+        [$token] = Owners::handoff($this->db(), $op, $ownerId, $siteId, self::NET);
+        $this->assertNull(Sites::claimHandoff($beta, $token, 1, '198.51.100.77'), 'a link claimed from another network signs nobody in');
+        $this->assertNotNull(Sites::claimHandoff($beta, $token, 1, self::NET), 'the refused claim did not use it up');
+    }
+
+    public function testACrossOwnerHandoffLandsOnThePreviewHostWhenOneIsConfiguredElseOnAVerifiedHost(): void
+    {
+        $op = $this->operator('land1');
+        $beta = $this->beta();
+        $ownerId = (string) $this->db()->value("SELECT public_id FROM {owners} WHERE prefix = 'tlb_'");
+        $siteId = (string) $beta->value('SELECT public_id FROM {sites} WHERE site_id = 1');
+        // the client's own, not yet verified name is no place to send an operator
+        $beta->insert('site_domains', ['site_id' => 1, 'host' => 'unproven.example', 'is_primary' => false, 'redirect_to_primary' => false, 'verified_at' => null, 'token' => str_repeat('a', 32)]);
+        $beta->update('site_domains', ['is_primary' => false], ['site_id' => 1]);
+        $beta->update('site_domains', ['is_primary' => true], ['host' => 'unproven.example']);
+        $this->assertSame('beta.example', Owners::handoff($this->db(), $op, $ownerId, $siteId, self::NET)[1], 'a verified host, although another one is primary');
+        $beta->delete('site_domains', ['host' => 'beta.example']);
+        $this->assertIsString(Owners::handoff($this->db(), $op, $ownerId, $siteId, self::NET), 'only an unverified host: nowhere to land');
+        $beta->insert('site_domains', ['site_id' => 1, 'host' => 'beta.example', 'is_primary' => false, 'redirect_to_primary' => false, 'verified_at' => date('Y-m-d H:i:s')]);
+
+        putenv('TALEA_PREVIEW_DOMAIN=preview.test');
+        try {
+            $this->assertTrue(\Talea\Core\Domains::addPreview($beta, 1, 'main'));
+            $this->assertSame('main.b.preview.test', Owners::handoff($this->db(), $op, $ownerId, $siteId, self::NET)[1], 'the install\'s own DNS');
+        } finally {
+            putenv('TALEA_PREVIEW_DOMAIN');
+        }
     }
 
     public function testNobodyButAnOperatorGetsAHandoffAndNeverToAnUnfitTarget(): void
@@ -175,21 +214,21 @@ final class OwnerOperatorsTest extends DatabaseTestCase
         $count = fn (): int => (int) $beta->value('SELECT COUNT(*) FROM {handoff_tokens}');
         $before = $count();
 
-        $this->assertIsString(Owners::handoff($this->db(), $this->operator('n1', Auth::EDITOR), $ownerId, $siteId), 'an editor');
+        $this->assertIsString(Owners::handoff($this->db(), $this->operator('n1', Auth::EDITOR), $ownerId, $siteId, self::NET), 'an editor');
         $blocked = $this->operator('n2');
         $this->db()->update('users', ['blocked' => 1], ['user_id' => (int) $blocked['user_id']]);
-        $this->assertIsString(Owners::handoff($this->db(), $blocked, $ownerId, $siteId), 'a blocked administrator');
-        $this->assertIsString(Owners::handoff($beta, $this->operator('n3'), $ownerId, $siteId), 'asked from inside a client owner');
+        $this->assertIsString(Owners::handoff($this->db(), $blocked, $ownerId, $siteId, self::NET), 'a blocked administrator');
+        $this->assertIsString(Owners::handoff($beta, $this->operator('n3'), $ownerId, $siteId, self::NET), 'asked from inside a client owner');
         $op = $this->operator('n4');
-        $this->assertIsString(Owners::handoff($this->db(), $op, 'no-such-owner', $siteId));
-        $this->assertIsString(Owners::handoff($this->db(), $op, (string) $this->db()->value("SELECT public_id FROM {owners} WHERE prefix = 'tl_'"), $siteId), 'owner 1 itself');
-        $this->assertIsString(Owners::handoff($this->db(), $op, $ownerId, '3c2b6a52-0d42-4a43-9a0e-5f5f0c1f7a11'), 'a site of nobody');
-        $this->assertIsString(Owners::handoff($this->db(), $op, $ownerId, (string) $this->db()->value('SELECT public_id FROM {sites} WHERE site_id = 1')), 'owner 1\'s own site id');
+        $this->assertIsString(Owners::handoff($this->db(), $op, 'no-such-owner', $siteId, self::NET));
+        $this->assertIsString(Owners::handoff($this->db(), $op, (string) $this->db()->value("SELECT public_id FROM {owners} WHERE prefix = 'tl_'"), $siteId, self::NET), 'owner 1 itself');
+        $this->assertIsString(Owners::handoff($this->db(), $op, $ownerId, '3c2b6a52-0d42-4a43-9a0e-5f5f0c1f7a11', self::NET), 'a site of nobody');
+        $this->assertIsString(Owners::handoff($this->db(), $op, $ownerId, (string) $this->db()->value('SELECT public_id FROM {sites} WHERE site_id = 1'), self::NET), 'owner 1\'s own site id');
         Owners::setStatus($this->db(), 'tlb_', 'paused');
-        $this->assertIsString(Owners::handoff($this->db(), $op, $ownerId, $siteId), 'a paused owner');
+        $this->assertIsString(Owners::handoff($this->db(), $op, $ownerId, $siteId, self::NET), 'a paused owner');
         Owners::setStatus($this->db(), 'tlb_', 'live');
         putenv('TALEA_OWNERS');
-        $this->assertIsString(Owners::handoff($this->db(), $op, $ownerId, $siteId), 'without the flag');
+        $this->assertIsString(Owners::handoff($this->db(), $op, $ownerId, $siteId, self::NET), 'without the flag');
         $this->assertSame($before, $count(), 'not one token was written');
     }
 

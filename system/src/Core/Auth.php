@@ -311,6 +311,7 @@ final class Auth
     {
         $this->db->run('DELETE FROM {user_remember_tokens} WHERE user_id = ? AND token_hash <> ?', [$idu, self::rememberHash()]);
         $this->db->run('DELETE FROM {user_devices} WHERE user_id = ? AND token_hash <> ?', [$idu, self::deviceHash()]);
+        Owners::revokeOperator($this->db, $idu); // an operator's rows in the clients go too (their sessions in the clients with them); made again at the next handoff
     }
 
     /** Ends the "stay signed in" token of this browser and drops its cookie. */
@@ -508,12 +509,16 @@ final class Auth
     public function signInFromHandoff(int $userId): bool
     {
         $user = $this->db->one('SELECT user_id, password, operator_user_id FROM {users} WHERE user_id = ? AND blocked = FALSE AND admin = ?', [$userId, self::ADMIN]);
-        if ($user === null || (($user['operator_user_id'] ?? null) !== null && !Owners::operatorValid($this->db, (int) $user['operator_user_id']))) {
+        $fingerprint = ($user['operator_user_id'] ?? null) === null ? null : Owners::operatorFingerprint($this->db, (int) $user['operator_user_id']);
+        if ($user === null || (($user['operator_user_id'] ?? null) !== null && $fingerprint === null)) {
             return false;
         }
         $this->session->regenerate();
         $this->recordSignIn($userId);
         $this->startSignIn($userId, (string) $user['password']);
+        if ($fingerprint !== null) {
+            $this->session->set('operator_fp', $fingerprint); // checked on every request (sessionUser)
+        }
 
         return true;
     }
@@ -547,8 +552,16 @@ final class Auth
         }
         $id = $this->session->get('user_id');
         $user = is_int($id) ? $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$id]) : null;
-        if ($user === null || (($user['operator_user_id'] ?? null) !== null && !Owners::operatorValid($this->db, (int) $user['operator_user_id']))) {
-            return null; // an operator's row lives only as long as the operator is an unblocked administrator of owner 1
+        if ($user === null) {
+            return null;
+        }
+        if (($user['operator_user_id'] ?? null) !== null) {
+            // an operator's row lives only as long as the operator is an unblocked administrator of owner 1 AND keeps the password the
+            // session was opened with: a new password of the operator ends it
+            $fingerprint = Owners::operatorFingerprint($this->db, (int) $user['operator_user_id']);
+            if ($fingerprint === null || !hash_equals($fingerprint, (string) $this->session->get('operator_fp', ''))) {
+                return null;
+            }
         }
         $hash = $this->session->get('fingerprint');
         if ($hash === null) {

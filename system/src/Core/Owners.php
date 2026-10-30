@@ -200,13 +200,14 @@ final class Owners
     }
 
     /**
-     * Does any owner of the install use this host? A host name is unique in the whole install, not per owner: routing reads every
-     * owner's domains (and so does adding one). Without several owners only this owner's domains exist.
+     * Is this host name taken for the owner $db is connected to? Its own rows count whatever their state; another owner's only when
+     * VERIFIED: a name that nobody has shown to be theirs must not block the owner who can (Domains::dropUnverified removes the
+     * competing rows once the name is verified). Without several owners only this owner's domains exist.
      */
     public static function hostTaken(Db $db, string $host): bool
     {
         $owners = self::enabled() ? self::readyPrefixes($db) : [$db->ownerPrefix];
-        $sql = implode(' UNION ALL ', array_map(fn (string $p): string => 'SELECT 1 FROM ' . $db->dialect()->quote($db->forOwner($p)->table('site_domains')) . ' WHERE host = ?', $owners));
+        $sql = implode(' UNION ALL ', array_map(fn (string $p): string => 'SELECT 1 FROM ' . $db->dialect()->quote($db->forOwner($p)->table('site_domains')) . ' WHERE host = ?' . ($p === $db->ownerPrefix ? '' : ' AND verified_at IS NOT NULL'), $owners));
         $stmt = $db->pdo()->prepare($sql);
         $stmt->execute(array_fill(0, count($owners), $host));
 
@@ -242,6 +243,18 @@ final class Owners
     }
 
     /**
+     * What a session of an operator's row in a client keeps of the operator's password: the same short hash as a session's own fingerprint
+     * (Auth::passwordHash) of the operator's password in owner 1, or null when the operator is no longer valid. The row has a password
+     * nobody knows, so without this the session would outlive a change of the operator's password (a stolen laptop, a new password).
+     */
+    public static function operatorFingerprint(Db $db, int $operatorUserId): ?string
+    {
+        $password = self::operatorValid($db, $operatorUserId) ? $db->forOwner($db->installPrefix)->value('SELECT password FROM {users} WHERE user_id = ?', [$operatorUserId]) : null;
+
+        return is_string($password) ? Auth::passwordHash($password) : null;
+    }
+
+    /**
      * The row of {users} in the owner $target that stands for the operator (an administrator of owner 1), made on first use. It is a
      * full administrator of that owner, flagged with `operator_user_id`, and cannot sign in or be reached any other way than the handoff:
      * its password is random and thrown away, it has no e-mail (no reset link), and the client's Users module, Account and password
@@ -267,35 +280,48 @@ final class Owners
             'language' => '', 'confirmed_at' => date('Y-m-d H:i:s'), 'operator_user_id' => (int) $operator['user_id']]);
     }
 
-    /** Is this signed-in user an operator: an unblocked administrator of owner 1, or the row that stands for one in another owner? @param array<string, mixed>|null $user */
+    /**
+     * Is this signed-in user an operator, and is this owner 1's administration? Operator powers (copying a site across owners, vouching for
+     * a host, adding a host without verification) are granted ONLY here: an unblocked administrator of owner 1 asking from owner 1. The row
+     * that stands for an operator inside a client owner is an ordinary administrator of that owner and nothing more, because a client's own
+     * script (head code, a component) runs on the client's host with that session and must not reach the installation.
+     *
+     * @param array<string, mixed>|null $user
+     */
     public static function isOperator(Db $db, ?array $user): bool
     {
-        if ($user === null || !self::enabled() || (int) ($user['admin'] ?? -1) !== Auth::ADMIN) {
-            return false;
-        }
-        $operator = $user['operator_user_id'] ?? null;
-
-        return $operator !== null ? self::operatorValid($db, (int) $operator) : (self::isFirst($db) && empty($user['blocked']));
+        return $user !== null && self::enabled() && self::isFirst($db) && (int) ($user['admin'] ?? -1) === Auth::ADMIN && empty($user['blocked']) && ($user['operator_user_id'] ?? null) === null;
     }
 
     /**
-     * The sites of the OTHER set-up owners that an operator may copy (cross-owner clone): set up, not in the trash.
+     * Every set-up owner's sites that are not in the trash (the owner's own first), for the operators' copy between owners.
+     *
+     * @return list<array{owner: string, owner_name: string, owner_public_id: string, site: array<string, mixed>}>
+     */
+    public static function allSites(Db $db): array
+    {
+        $out = [];
+        foreach (self::all($db) as $o) {
+            if ($o['ready_at'] === null) {
+                continue;
+            }
+            foreach ($db->forOwner((string) $o['prefix'])->all("SELECT * FROM {sites} WHERE ready_at IS NOT NULL AND status <> 'trashed' ORDER BY site_id") as $site) {
+                $out[] = ['owner' => (string) $o['prefix'], 'owner_name' => (string) ($o['name'] !== '' ? $o['name'] : $o['prefix']), 'owner_public_id' => (string) $o['public_id'], 'site' => $site];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The sites of the OTHER set-up owners than the one $db is connected to (what an operator may copy into it): set up, not in the trash.
      *
      * @return list<array{owner: string, owner_name: string, site: array<string, mixed>}>
      */
     public static function foreignSites(Db $db): array
     {
-        $out = [];
-        foreach (self::all($db) as $o) {
-            if ($o['prefix'] === $db->ownerPrefix || $o['ready_at'] === null) {
-                continue;
-            }
-            foreach ($db->forOwner((string) $o['prefix'])->all("SELECT * FROM {sites} WHERE ready_at IS NOT NULL AND status <> 'trashed' ORDER BY site_id") as $site) {
-                $out[] = ['owner' => (string) $o['prefix'], 'owner_name' => (string) ($o['name'] !== '' ? $o['name'] : $o['prefix']), 'site' => $site];
-            }
-        }
-
-        return $out;
+        return array_values(array_map(fn (array $f): array => ['owner' => $f['owner'], 'owner_name' => $f['owner_name'], 'site' => $f['site']],
+            array_filter(self::allSites($db), fn (array $f): bool => $f['owner'] !== $db->ownerPrefix)));
     }
 
     /** A site of another set-up owner by its public id (site ids are UUIDs, unique across owners), or null. @return array{owner: string, owner_name: string, site: array<string, mixed>}|null */
@@ -332,12 +358,14 @@ final class Owners
     /**
      * The one-time token that signs an operator into a site of another owner: written in the TARGET owner's {handoff_tokens}, for that
      * site and the operator's row there, valid for Sites::HANDOFF_SECONDS (UTC) and used up by the first claim. Only an unblocked
-     * administrator of owner 1 gets one, and only for a live owner that is set up. Returns [token, primary host] or an error text.
+     * administrator of owner 1 gets one, and only for a live owner that is set up. The token is bound to the operator's network ($network,
+     * Antispam::visitorKey). It lands on the site's preview host when TALEA_PREVIEW_DOMAIN is set (the install controls that DNS), otherwise
+     * on a VERIFIED host of the site: a client's own, unverified name could be pointed anywhere. Returns [token, host] or an error text.
      *
      * @param array<string, mixed> $operator the signed-in user of owner 1
      * @return array{0: string, 1: string}|string
      */
-    public static function handoff(Db $db, array $operator, string $ownerPublicId, string $sitePublicId): array|string
+    public static function handoff(Db $db, array $operator, string $ownerPublicId, string $sitePublicId, string $network): array|string
     {
         if (!self::enabled() || !self::isFirst($db) || (int) ($operator['admin'] ?? -1) !== Auth::ADMIN || !self::operatorValid($db, (int) $operator['user_id'])) {
             return 'Only the operators of the installation can open another owner\'s site.';
@@ -348,12 +376,12 @@ final class Owners
         }
         $target = $db->forOwner((string) $owner['prefix']);
         $site = $target->byPublicId('sites', $sitePublicId);
-        $host = $site === null ? null : Sites::primaryHost($target, (int) $site['site_id']);
         if ($site === null || $site['status'] === 'trashed' || $site['ready_at'] === null) {
             return 'This site cannot be opened now.';
         }
+        $host = self::landingHost($target, (int) $site['site_id']);
         if ($host === null) {
-            return 'Add a host name to this site first.';
+            return 'Add a verified host name to this site first.';
         }
 
         $row = self::operatorRow($target, $operator);
@@ -364,7 +392,25 @@ final class Owners
             // the log must not stop the sign-in
         }
 
-        return [Sites::handoffToken($target, $row, (int) $site['site_id']), $host];
+        return [Sites::handoffToken($target, $row, (int) $site['site_id'], $network), $host];
+    }
+
+    /** Where an operator lands in a client's site: its preview host (the install's own DNS) when there is one, else a verified host, the primary first; null = none. */
+    private static function landingHost(Db $target, int $siteId): ?string
+    {
+        $rows = $target->all('SELECT host, kind, is_primary, verified_at FROM {site_domains} WHERE site_id = ? ORDER BY is_primary DESC, domain_id', [$siteId]);
+        foreach ($rows as $r) {
+            if ($r['kind'] === 'preview' && Domains::previewDomain() !== '') {
+                return (string) $r['host'];
+            }
+        }
+        foreach ($rows as $r) {
+            if ($r['kind'] === 'domain' && $r['verified_at'] !== null) {
+                return (string) $r['host'];
+            }
+        }
+
+        return null;
     }
 
     /**

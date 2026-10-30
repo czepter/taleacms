@@ -64,6 +64,12 @@ final class DomainsTest extends DatabaseTestCase
         return (array) $this->db()->one('SELECT * FROM {site_domains} WHERE host = ?', [$host]);
     }
 
+    /** A host that waits for its check, written as a row: the name checks themselves are tested through addDomain elsewhere (the HTTP check may fetch 127.0.0.1 only). */
+    private function pending(string $host, ?\Talea\Core\Db $owner = null): void
+    {
+        ($owner ?? $this->db())->insert('site_domains', ['site_id' => 1, 'host' => $host, 'is_primary' => false, 'redirect_to_primary' => false, 'verified_at' => null, 'token' => Domains::newToken(), 'created_at' => date('Y-m-d H:i:s')]);
+    }
+
     public function testAHostAddedWithoutVerificationIsVerifiedAtOnce(): void
     {
         $this->assertNull(Sites::addDomain($this->db(), 1, 'one.example'));
@@ -103,10 +109,114 @@ final class DomainsTest extends DatabaseTestCase
         $this->assertTrue(Sites::resolve($this->db(), 'vouched.example')['verified']);
     }
 
+    public function testTheEnvironmentVouchesForOwnerOnesHostsOnly(): void
+    {
+        putenv('TALEA_OWNERS=1');
+        putenv('TALEA_VERIFIED_HOSTS=vouched.example, mine.example');
+        $beta = $this->db()->forOwner('tlb_');
+        $this->assertNull(Sites::addDomain($beta, 1, 'vouched.example', true));
+        $row = (array) $beta->one("SELECT * FROM {site_domains} WHERE host = 'vouched.example'");
+        $this->assertNull($row['verified_at'], 'a client\'s add is not vouched for by the list');
+        $this->assertFalse(Sites::resolve($this->db(), 'vouched.example')['verified'], 'and routes as unverified');
+        Domains::$fetch = fn (): ?string => $row['token'];
+        Domains::$txt = fn (): array => [];
+        $this->assertNotNull(Domains::check($beta, $row), 'a later check does not pass without the record');
+        $this->assertNull(Sites::addDomain($this->db(), 1, 'mine.example', true));
+        $this->assertTrue(Sites::resolve($this->db(), 'mine.example')['verified'], 'owner 1 keeps the list');
+    }
+
+    public function testNamesAClientAddsMustBePublicNames(): void
+    {
+        foreach (['localhost', 'intranet', '127.0.0.1', '10.0.0.5', '203.0.113.9', '::1', '2130706433', '1.2'] as $bad) {
+            $this->assertNotNull(Sites::addDomain($this->db(), 1, $bad, true), $bad);
+            $this->assertSame([], $this->domain($bad), $bad);
+        }
+        $this->assertNull(Sites::normalizeHost('localhost', true));
+        $this->assertSame('localhost', Sites::normalizeHost('localhost'), 'the operator\'s own add keeps single-label names');
+        $this->assertSame('www.example.com', Sites::normalizeHost('WWW.example.com', true));
+    }
+
+    public function testAClientOwnerVerifiesByTheDnsRecordAloneAndOwnerOneAlsoByHttp(): void
+    {
+        putenv('TALEA_OWNERS=1');
+        putenv('TALEA_LINKS_LOCAL=1');
+        $beta = $this->db()->forOwner('tlb_');
+        $this->assertTrue(Domains::dnsOnly($beta));
+        $this->assertFalse(Domains::dnsOnly($this->db()));
+        $this->assertNull(Sites::addDomain($beta, 1, 'client-only-dns.example', true));
+        $d = (array) $beta->one("SELECT * FROM {site_domains} WHERE host = 'client-only-dns.example'");
+        $asked = 0;
+        Domains::$fetch = function () use (&$asked, $d): ?string {
+            $asked++;
+
+            return $d['token']; // a name that already points at the install would answer this
+        };
+        Domains::$txt = fn (): array => [];
+        $this->assertNotNull(Domains::check($beta, $d), 'the token file proves nothing for a client');
+        $this->assertSame(0, $asked, 'it is not even fetched');
+        Domains::$txt = fn (): array => [Domains::txtValue((string) $d['token'])];
+        $this->assertNull(Domains::check($beta, $d));
+        $this->assertNotNull((array) $beta->one("SELECT verified_at FROM {site_domains} WHERE host = 'client-only-dns.example'")['verified_at']);
+
+        // owner 1 may still use the token file
+        $this->pending('127.0.0.1');
+        $one = $this->domain('127.0.0.1');
+        Domains::$txt = fn (): array => [];
+        Domains::$fetch = fn (): ?string => $one['token'];
+        $this->assertNull(Domains::check($this->db(), $one));
+    }
+
+    public function testAnUnverifiedNameOfOneOwnerDoesNotBlockTheOthersAndIsDroppedWhenVerified(): void
+    {
+        putenv('TALEA_OWNERS=1');
+        $beta = $this->db()->forOwner('tlb_');
+        $this->assertNull(Sites::addDomain($beta, 1, 'squat.example', true), 'a client claims a name without proof');
+        $this->assertNull(Sites::addDomain($this->db(), 1, 'squat.example', true), 'the real owner is not blocked by it');
+        $this->assertSame(1, (int) $beta->value("SELECT COUNT(*) FROM {site_domains} WHERE host = 'squat.example'"));
+        $this->assertSame('tl_', Sites::resolve($this->db(), 'squat.example')['owner_prefix'], 'both unverified: either way a 404');
+
+        Domains::$txt = fn (): array => [Domains::txtValue((string) $this->domain('squat.example')['token'])];
+        $this->assertNull(Domains::check($this->db(), $this->domain('squat.example')), 'verified by the DNS record');
+        $this->assertSame(0, (int) $beta->value("SELECT COUNT(*) FROM {site_domains} WHERE host = 'squat.example'"), 'the unproven claim of the other owner is gone');
+        $this->assertTrue(Owners::hostTaken($beta, 'squat.example'), 'and the name is taken for everybody else now');
+        $this->assertNotNull(Sites::addDomain($beta, 1, 'squat.example', true));
+
+        // a verified row beats an unverified one of another owner in routing
+        $this->pending('twice.example');
+        $this->pending('twice.example', $beta);
+        $beta->update('site_domains', ['verified_at' => date('Y-m-d H:i:s')], ['host' => 'twice.example']);
+        $this->assertSame('tlb_', Sites::resolve($this->db(), 'twice.example')['owner_prefix']);
+        $this->assertTrue(Sites::resolve($this->db(), 'twice.example')['verified']);
+    }
+
+    public function testAHostThatIsAlreadyVerifiedAtAnotherOwnerCannotBeVerified(): void
+    {
+        putenv('TALEA_OWNERS=1');
+        $beta = $this->db()->forOwner('tlb_');
+        $this->assertNull(Sites::addDomain($this->db(), 1, 'taken.example'));
+        $this->pending('taken.example', $beta);
+        $row = (array) $beta->one("SELECT * FROM {site_domains} WHERE host = 'taken.example'");
+        Domains::$txt = fn (): array => [Domains::txtValue((string) $row['token'])];
+        $this->assertSame('This host name is already used by a site.', Domains::check($beta, $row));
+        $this->assertNotNull(Domains::markVerified($beta, 1, (int) $row['domain_id']));
+        $this->assertNull($beta->value("SELECT verified_at FROM {site_domains} WHERE host = 'taken.example'"));
+    }
+
+    public function testUnverifiedNamesExpireAfterFourteenDays(): void
+    {
+        $this->pending('fresh.example');
+        $this->pending('stale.example');
+        $this->pending('proven.example');
+        $this->db()->update('site_domains', ['created_at' => date('Y-m-d H:i:s', time() - 15 * 86400)], ['host' => 'stale.example']);
+        $this->db()->update('site_domains', ['created_at' => date('Y-m-d H:i:s', time() - 40 * 86400), 'verified_at' => date('Y-m-d H:i:s')], ['host' => 'proven.example']);
+        $this->assertStringContainsString('1 unverified host name(s) expired', Sites::cleanup($this->db()));
+        $this->assertSame(['fresh.example', 'proven.example'], array_values(array_column($this->db()->all("SELECT host FROM {site_domains} WHERE host IN ('fresh.example', 'stale.example', 'proven.example') ORDER BY host"), 'host')));
+    }
+
     public function testTheHttpCheckVerifiesWhenTheHostAnswersWithTheToken(): void
     {
         putenv('TALEA_LINKS_LOCAL=1');
-        Sites::addDomain($this->db(), 1, '127.0.0.1', true); // the one name the tests may fetch
+        $this->pending('127.0.0.1'); // the one name the tests may fetch
         $d = $this->domain('127.0.0.1');
         $asked = [];
         Domains::$fetch = function (array $target) use (&$asked, $d): ?string {
@@ -124,7 +234,7 @@ final class DomainsTest extends DatabaseTestCase
     public function testAWrongAnswerAndNoRecordLeaveTheHostUnverified(): void
     {
         putenv('TALEA_LINKS_LOCAL=1');
-        Sites::addDomain($this->db(), 1, '127.0.0.1', true);
+        $this->pending('127.0.0.1');
         Domains::$fetch = fn (array $target): ?string => 'someone else';
         Domains::$txt = fn (string $name): array => ['talea-verify=0000'];
         $this->assertNotNull(Domains::check($this->db(), $this->domain('127.0.0.1')));
@@ -134,7 +244,7 @@ final class DomainsTest extends DatabaseTestCase
     public function testTheDnsRecordVerifiesWhenTheTokenFileDoesNot(): void
     {
         putenv('TALEA_LINKS_LOCAL=1');
-        Sites::addDomain($this->db(), 1, '127.0.0.1', true);
+        $this->pending('127.0.0.1');
         $d = $this->domain('127.0.0.1');
         Domains::$fetch = fn (array $target): ?string => null;
         $names = [];

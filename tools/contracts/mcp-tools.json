@@ -326,7 +326,8 @@
     "create_site": {
         "parameters": {
             "clone_of": "string",
-            "name": "string"
+            "name": "string",
+            "owner": "string"
         },
         "required": [
             "name"
