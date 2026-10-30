@@ -19,7 +19,8 @@
  */
 $icon = require __DIR__ . '/../icons.php';
 $back = ['id' => $k['public_id'], 'item' => $item['public_id']];
-echo $app->view->render('admin/list/head', ['count' => null, 'links' => [[$module->url('item', $back), t('Edit course')], [$module->url('registrations_print', $back), t('Print list')]]]);
+echo $app->view->render('admin/list/head', ['count' => null, 'links' => [[$module->url('item', $back), t('Edit course')], [$module->url('registrations_print', $back), t('Print list')]],
+    'secondary' => '<a class="navigation danger" href="' . e($module->url('cancel_course', $back)) . '">' . e(t('Cancel the course')) . '</a>']);
 $capacity = (int) $course['capacity'];
 $plural = fn (int $n): string => t($n === 1 ? '%d seat' : '%d seats', $n);
 

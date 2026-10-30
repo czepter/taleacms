@@ -439,6 +439,215 @@ final class Registrations
         }
     }
 
+    /** How many other courses a cancelled course may offer. */
+    public const int MAX_OFFERS = 3;
+
+    /** How long the take-over links of a cancelled course work. */
+    private const int OFFER_DAYS = 30;
+
+    /**
+     * The other courses of the collection that are visible and still open for registration (the language versions of the
+     * course itself are left out). With $ids: those of them that were picked, in that order, at most MAX_OFFERS.
+     *
+     * @param list<int>|null $ids
+     * @return list<array<string, mixed>> items, data decoded
+     */
+    public static function offerable(Db $db, array $collection, array $item, ?array $ids = null): array
+    {
+        $group = self::group($db, (int) $item['item_id']);
+        $now = date('Y-m-d H:i');
+        $open = [];
+        foreach ($db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND deleted_at IS NULL ORDER BY name, item_id', [(int) $collection['collection_id']]) as $row) {
+            $row['data'] = json_decode((string) $row['data'], true) ?: [];
+            $course = in_array((int) $row['item_id'], $group, true) ? null : self::course($collection, $row);
+            if ($course !== null && !self::closed($course, $now)) {
+                $open[(int) $row['item_id']] = $row;
+            }
+        }
+        if ($ids === null) {
+            return array_values($open);
+        }
+        $picked = [];
+        foreach (array_unique(array_map('intval', $ids)) as $id) {
+            if (isset($open[$id])) {
+                $picked[] = $open[$id];
+            }
+        }
+
+        return array_slice($picked, 0, self::MAX_OFFERS);
+    }
+
+    /**
+     * Cancels a whole course: every confirmed, waiting or waitlisted registration of it (all language versions) becomes
+     * cancelled and carries a single-use take-over token for each offered course, the course is hidden and its addresses
+     * redirect to the first offered course (else to the collection list), and each registration with an address gets the mail
+     * course_course_cancelled. The state changes are one transaction; mails go out after it and after the seat lock. Returns
+     * the number of mails. Cannot be undone.
+     *
+     * @param list<int> $offerItemIds other courses of the collection (offerable() keeps the open ones, at most 3)
+     * @throws \DomainException with a translated reason
+     */
+    public static function cancelCourse(App $app, array $collection, array $item, array $offerItemIds, string $message): int
+    {
+        $db = $app->db();
+        if (self::course($collection, $item) === null) {
+            throw new \DomainException(t('This is not a course with seats.'));
+        }
+        $group = self::group($db, (int) $item['item_id']);
+        $in = implode(',', array_fill(0, count($group), '?'));
+        $offers = self::offerable($db, $collection, $item, $offerItemIds);
+        $lock = self::lockFor($db, (int) $item['item_id']);
+        if (!$db->lock($lock, 5)) {
+            throw new \DomainException(t('The seats are being changed right now. Please try again in a moment.'));
+        }
+        $mails = [];
+        try {
+            $rows = $db->all("SELECT * FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state IN ('confirmed', 'waiting', 'waitlisted') AND item_id IN ($in) ORDER BY enquiry_id", $group);
+            $offerJson = $offers !== [] ? (string) json_encode(array_map(fn (array $o): int => (int) $o['item_id'], $offers)) : null;
+            $until = date('Y-m-d H:i:s', time() + self::OFFER_DAYS * 86400);
+            $tokens = [];
+            $write = function (Db $db) use ($rows, $offerJson, $until, $group, $in, $collection, $offers, &$tokens): void {
+                foreach ($rows as $row) {
+                    $tokens[(int) $row['enquiry_id']] = bin2hex(random_bytes(32)); // only its sha256 is stored
+                    $db->update('enquiries', ['seat_state' => 'cancelled', 'state_changed_at' => date('Y-m-d H:i:s'), 'offer_token_hash' => $offerJson !== null ? hash('sha256', $tokens[(int) $row['enquiry_id']]) : null,
+                        'offer_items' => $offerJson, 'offer_until' => $offerJson !== null ? $until : null], ['enquiry_id' => $row['enquiry_id']]);
+                }
+                $db->run("UPDATE {collection_items} SET visible = FALSE WHERE item_id IN ($in)", $group);
+                if (!empty($collection['detail'])) {
+                    foreach ($db->all("SELECT slug, language FROM {collection_items} WHERE item_id IN ($in)", $group) as $version) {
+                        $to = $offers !== [] ? [$collection['slug'] . '/' . $offers[0]['slug'], (string) $offers[0]['language']] : [(string) $collection['slug'], (string) $version['language']];
+                        \Talea\Admin\Modules\Redirects::add($db, Slug::redirectPath($db, $collection['slug'] . '/' . $version['slug'], (string) $version['language']), Slug::redirectPath($db, $to[0], $to[1]));
+                    }
+                }
+            };
+            // ponytail: the test suite runs every test inside one transaction, which Db::transaction cannot nest: join it there
+            $db->pdo()->inTransaction() ? $write($db) : $db->transaction($write);
+            foreach ($rows as $row) {
+                if ((string) $row['email'] === '') {
+                    continue;
+                }
+                $name = self::nameOf(Forms::findElement($db, (string) $row['source'], (string) $row['element'], 'form'), (string) $row['data']);
+                $language = (string) $row['language'];
+                $token = $tokens[(int) $row['enquiry_id']];
+                $mails[] = fn () => Language::runWith($language !== '' ? $language : Language::defaults($app->settings()), fn () => Messages::send($app, 'course_course_cancelled', $language, (string) $row['email'],
+                    self::mailValues($collection, $item, $name, (int) $row['seats']) + ['message' => $message, 'take-over links' => self::offerLines($app, $collection, $offers, $token)]));
+            }
+        } finally {
+            $db->unlock($lock);
+        }
+        self::send($mails);
+
+        return count($mails);
+    }
+
+    /** The {take-over links} of the cancellation mail: per offered course its name, schedule and start, then the personal link. '' without offers. @param list<array<string, mixed>> $offers */
+    private static function offerLines(App $app, array $collection, array $offers, string $token): string
+    {
+        $fields = Calendar::fields($collection);
+        $s = $app->settings();
+        $site = rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/');
+        $lines = [];
+        foreach ($offers as $n => $offer) {
+            $start = trim((string) ($offer['data'][$fields['start']] ?? ''));
+            $title = implode(' · ', array_filter([(string) $offer['name'], trim((string) ($offer['data']['schedule'] ?? '')), $start !== '' ? t('from %s', \Talea\Builder\Collections::formatDateTime($start)) : '']));
+            $lines[] = $title . "\n" . t('Take a seat: %s', $site . $app->url('_course/' . $token . '/' . ($n + 1)));
+        }
+
+        return implode("\n\n", $lines);
+    }
+
+    /**
+     * The page behind a take-over link of a cancelled course: GET shows the offered course and a button (a mail client that
+     * prefetches links must not register anyone), POST registers a new participant there with the details of the cancelled
+     * registration, under that course's rules and lock (no priority over its waiting list). The link works once for one of its
+     * offered courses. A link that no longer works says so with status 200: it comes from a mail.
+     *
+     * @return array{0: string, 1: string, 2: int} heading, content HTML, HTTP status
+     */
+    public static function takeOverPage(App $app, string $token, int $n, bool $post): array
+    {
+        $db = $app->db();
+        $hash = hash('sha256', $token);
+        $row = $db->one('SELECT * FROM {enquiries} WHERE offer_token_hash = ?', [$hash]);
+        $offered = $row !== null ? self::load($db, (int) $row['item_id']) : null; // also for a dead link: the page leads to the course list
+        $live = $row !== null && $row['offer_until'] !== null && (string) $row['offer_until'] > date('Y-m-d H:i:s');
+        $gone = function () use ($app, $offered): array {
+            $list = $offered !== null ? $app->url((string) $offered[0]['slug']) : $app->url('');
+
+            return [t('Take a seat'), '<p>' . e(t('This link no longer works: registration for this course has closed, or you have already used one of the links.')) . '</p><p><a href="' . e($list) . '">' . e(t('See all courses')) . '</a></p>', 200];
+        };
+        $ids = $row !== null ? (array) json_decode((string) $row['offer_items'], true) : [];
+        $target = isset($ids[$n - 1]) && $offered !== null ? self::load($db, (int) $ids[$n - 1]) : null;
+        if (!$live || $target === null || !self::open($target[0], $target[1], (int) $offered[1]['item_id'])) {
+            return $gone();
+        }
+        [$collection, $item] = $target;
+        $name = self::nameOf(Forms::findElement($db, (string) $row['source'], (string) $row['element'], 'form'), (string) $row['data']);
+        $seats = max(1, (int) $row['seats']);
+        $language = (string) $row['language'];
+        $page = fn (string $id): string => Messages::text($app->settings(), $id, 'body', Language::siteColumn());
+        if (!$post) {
+            $values = self::mailValues($collection, $item, $name, $seats);
+            $who = implode(' · ', array_filter([$name, $seats === 1 ? t('1 person') : t('%d people', $seats)]));
+
+            return [t('Take a seat'), '<p><strong>' . e($item['name']) . '</strong><br>' . e(implode(' · ', array_filter([$values['dates'], $values['schedule']]))) . '</p><p>' . e($who) . '</p><p>' . e($page('course_take_over')) . '</p>'
+                . '<form method="post" action="' . e($app->url('_course/' . $token . '/' . $n)) . '"><p><button class="tl-button tl-button--primary" type="submit">' . e($seats === 1 ? t('Take a seat') : t('Take %d seats', $seats)) . '</button></p></form>', 200];
+        }
+        $lock = self::lockFor($db, (int) $item['item_id']);
+        if (!$db->lock($lock, 5)) {
+            return [t('Take a seat'), '<p>' . e(t('Many people are registering right now. Please send the form again.')) . '</p>', 200];
+        }
+        $late = null;
+        $state = '';
+        try {
+            $course = self::course($collection, $item);
+            $verdict = self::verdict($db, $course, (int) $item['item_id'], (string) $row['email'], $seats, date('Y-m-d H:i'));
+            if (in_array($verdict, ['full', 'closed'], true)) {
+                return $verdict === 'closed' ? $gone() : [t('Take a seat'), '<p>' . e($page('course_full')) . '</p><p><a href="' . e($app->url((string) $collection['slug'])) . '">' . e(t('See all courses')) . '</a></p>', 200]; // nothing claimed: another course may still be taken
+            }
+            // the first press wins, and it kills the links for every other offered course (the hash stays: a dead link still finds its course list)
+            if ($db->run('UPDATE {enquiries} SET offer_until = NULL WHERE offer_token_hash = ? AND offer_until > NOW()', [$hash])->rowCount() !== 1) {
+                return $gone();
+            }
+            $values = self::mailValues($collection, $item, $name, $seats);
+            if ($verdict === 'already') {
+                // nothing is stored and the page answers as it would a new registration; the address is told by mail
+                $state = self::decide($course, self::taken($db, (int) $item['item_id']), $seats, date('Y-m-d H:i'));
+                $late = fn () => Language::runWith($language !== '' ? $language : Language::defaults($app->settings()), fn () => Messages::send($app, 'course_already', $language, (string) $row['email'], $values));
+            } else {
+                $id = $db->insert('enquiries', ['created_at' => date('Y-m-d H:i:s'), 'form' => (string) $row['form'], 'source' => (string) $row['source'], 'element' => (string) $row['element'], 'page' => self::pathOf($collection, $item),
+                    'email' => (string) $row['email'], 'data' => (string) $row['data'], 'status' => 0, 'item_id' => (int) $item['item_id'], 'seats' => $seats, 'language' => $language]);
+                $state = self::place($app, $collection, $item, $id, $seats, (string) $row['email']);
+                $late = fn () => self::welcome($app, $collection, $item, $state, (string) $row['email'], $language, $name, $seats);
+            }
+        } finally {
+            $db->unlock($lock);
+        }
+        self::send([$late]);
+        [$heading, $id] = match ($state) {
+            'confirmed' => [t('You are registered'), 'course_thanks_registered'],
+            'waiting' => [t('We have your request'), 'course_thanks_request'],
+            'waitlisted' => [t('You are on the waiting list'), 'course_thanks_waitlisted'],
+            default => [null, ''],
+        };
+
+        return $heading !== null ? [$heading, '<div role="status"><p>' . e($page($id)) . '</p></div>', 200] : $gone();
+    }
+
+    /** Is the offered course visible, with seats and still open, and not the cancelled one? @param array<string, mixed> $collection @param array<string, mixed> $item */
+    private static function open(array $collection, array $item, int $cancelledItemId): bool
+    {
+        $course = self::course($collection, $item);
+
+        return $course !== null && (bool) $item['visible'] && $item['deleted_at'] === null && (int) $item['item_id'] !== $cancelledItemId && !self::closed($course, date('Y-m-d H:i'));
+    }
+
+    /** The public path of a course item, as the registration form stores it in `page`. */
+    private static function pathOf(array $collection, array $item): string
+    {
+        return mb_substr('/' . $collection['slug'] . '/' . $item['slug'], 0, 255);
+    }
+
     /** The collection and item (data decoded) of an item id; null when either is gone. @return array{0: array, 1: array}|null */
     private static function load(Db $db, int $itemId): ?array
     {

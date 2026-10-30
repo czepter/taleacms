@@ -257,6 +257,15 @@ final class Endpoints
         return $this->frame->page($heading, '<header class="listing-header"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Back to the home page')) . '</a></p>', ['noindex' => true], $status);
     }
 
+    /** /_course/<token>/<n>: the take-over of a seat in the n-th course offered after a course was cancelled (GET shows a button, POST registers) */
+    public function courseSeat(string $token, string $n): Response
+    {
+        [$heading, $content, $status] = \Talea\Core\Registrations::takeOverPage($this->app, $token, (int) $n, $this->app->request->isPost());
+        $this->frame->context()->types['button'] = true;
+
+        return $this->frame->page($heading, '<header class="listing-header"><h1>' . e($heading) . '</h1></header>' . $content, ['noindex' => true], $status);
+    }
+
     /** /_booking/choose/<token> */
     public function bookingChoose(string $token): Response
     {

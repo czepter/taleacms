@@ -398,4 +398,83 @@ final class RegistrationsTest extends DatabaseTestCase
         $this->assertSame('0 reminders', Registrations::remind($this->app()));
         $this->assertSame([], $this->mails());
     }
+
+    /** @return array{0: array, 1: array, 2: list<array>} a collection with a form, the course to cancel (with registrations in four states) and four other courses */
+    private function cancellable(): array
+    {
+        [$c, $item] = $this->courseWithForm('instant');
+        $this->db()->update('collections', ['hidden_redirect' => ''], ['collection_id' => $c['collection_id']]);
+        $this->registrant($c, $item, 'confirmed', 'a@example.com', 'Anna');
+        $this->registrant($c, $item, 'waiting', 'b@example.com', 'Berta');
+        $this->registrant($c, $item, 'waitlisted', 'c@example.com', 'Cilla');
+        $this->registrant($c, $item, 'declined', 'd@example.com', 'Dora');
+        $others = [];
+        foreach (['open-1', 'open-2', 'open-3', 'open-4'] as $slug) {
+            $others[] = $this->item($c, $slug, ['start' => '2030-02-01 10:00', 'capacity' => '5', 'schedule' => 'Thursdays']);
+            $this->db()->run('UPDATE {collection_items} SET visible = TRUE WHERE item_id = ?', [end($others)['item_id']]);
+        }
+        $this->db()->run('UPDATE {collection_items} SET visible = TRUE WHERE item_id = ?', [$item['item_id']]);
+
+        return [$c, $item, $others];
+    }
+
+    public function testCancelCourseCancelsHidesRedirects(): void
+    {
+        [$c, $item, $others] = $this->cancellable();
+        $this->assertSame(3, Registrations::cancelCourse($this->app(), $c, $item, [$others[1]['item_id'], $others[0]['item_id']], 'The teacher is ill.'));
+        $rows = $this->db()->all('SELECT email, seat_state, offer_token_hash, offer_items, offer_until FROM {enquiries} WHERE item_id = ? ORDER BY enquiry_id', [$item['item_id']]);
+        $this->assertSame(['cancelled', 'cancelled', 'cancelled', 'declined'], array_column($rows, 'seat_state'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $rows[0]['offer_token_hash']);
+        $this->assertNotSame($rows[0]['offer_token_hash'], $rows[1]['offer_token_hash']);
+        $this->assertSame([$others[1]['item_id'], $others[0]['item_id']], json_decode($rows[0]['offer_items']), 'in the order they were picked');
+        $this->assertNull($rows[3]['offer_token_hash'], 'a declined registration is not told');
+        $this->assertSame(0, Registrations::taken($this->db(), $item['item_id']));
+        $this->assertSame('0', (string) (int) $this->db()->value('SELECT visible FROM {collection_items} WHERE item_id = ?', [$item['item_id']]));
+        $this->assertSame('courses-instant/open-2', $this->db()->value("SELECT to_path FROM {redirects} WHERE from_path = 'courses-instant/salsa'"));
+
+        $mails = $this->mails();
+        $this->assertCount(3, $mails);
+        $this->assertSame('Cancelled: salsa', $mails[0]['subject']);
+        $this->assertStringContainsString('The teacher is ill.', $mails[0]['text']);
+        $this->assertSame(2, preg_match_all('~Take a seat: \S+/_course/([a-f0-9]{64})/([12])~', $mails[0]['text'], $m));
+        $this->assertSame(hash('sha256', $m[1][0]), $rows[0]['offer_token_hash'], 'the raw token is only in the mail');
+        $this->assertStringNotContainsString('{', $mails[0]['text']);
+    }
+
+    public function testCancelCourseWithoutOffersRedirectsToTheListAndLeavesNoPlaceholder(): void
+    {
+        [$c, $item] = $this->cancellable();
+        $this->assertSame(3, Registrations::cancelCourse($this->app(), $c, $item, [], ''));
+        $this->assertSame('courses-instant', $this->db()->value("SELECT to_path FROM {redirects} WHERE from_path = 'courses-instant/salsa'"));
+        $this->assertNull($this->db()->value('SELECT offer_token_hash FROM {enquiries} WHERE item_id = ? ORDER BY enquiry_id LIMIT 1', [$item['item_id']]), 'nothing to take over: no token');
+        $text = $this->mails()[0]['text'];
+        $this->assertStringNotContainsString('{', $text);
+        $this->assertStringNotContainsString('_course', $text);
+        $this->assertDoesNotMatchRegularExpression("/\n\n\n/", $text);
+    }
+
+    public function testCancellationMailUsesRegistrationLanguage(): void
+    {
+        [$c, $item] = $this->cancellable();
+        $this->db()->update('enquiries', ['language' => 'de'], ['item_id' => $item['item_id'], 'email' => 'b@example.com']);
+        $this->app()->settings()->set(\Talea\Core\Messages::key('course_course_cancelled', 'subject', 'de'), 'Abgesagt: {course}'); // the German template of the owner
+        Registrations::cancelCourse($this->app(), $c, $item, [], '');
+        $subjects = array_column($this->mails(), 'subject', 'to');
+        $this->assertSame('Cancelled: salsa', $subjects['a@example.com']);
+        $this->assertSame('Abgesagt: salsa', $subjects['b@example.com']);
+    }
+
+    public function testOffersLimitedToThreeOpenCourses(): void
+    {
+        [$c, $item, $others] = $this->cancellable();
+        $this->db()->run('UPDATE {collection_items} SET visible = FALSE WHERE item_id = ?', [$others[0]['item_id']]);
+        $closed = $this->item($c, 'closed', ['start' => '2020-01-01 10:00']);
+        $this->db()->run('UPDATE {collection_items} SET visible = TRUE WHERE item_id = ?', [$closed['item_id']]);
+        $pick = [$item['item_id'], $others[0]['item_id'], $closed['item_id'], 999999, $others[1]['item_id'], $others[2]['item_id'], $others[3]['item_id'], $others[1]['item_id']];
+        $this->assertSame([$others[1]['item_id'], $others[2]['item_id'], $others[3]['item_id']], array_map(fn (array $o): int => (int) $o['item_id'], Registrations::offerable($this->db(), $c, $item, $pick)),
+            'not itself, not hidden, not closed, not unknown, no duplicate, at most three');
+        Registrations::cancelCourse($this->app(), $c, $item, $pick, '');
+        $this->assertSame([$others[1]['item_id'], $others[2]['item_id'], $others[3]['item_id']], json_decode((string) $this->db()->value('SELECT offer_items FROM {enquiries} WHERE item_id = ? ORDER BY enquiry_id LIMIT 1', [$item['item_id']])));
+        $this->assertSame(3, preg_match_all('~/_course/[a-f0-9]{64}/[123]~', $this->mails()[0]['text']));
+    }
 }

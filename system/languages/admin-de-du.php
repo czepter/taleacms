@@ -166,6 +166,7 @@ return [
     'Choose the day of the week.' => 'Wähle den Wochentag.',
     'Choose the news items yourself – for a monthly review or a theme.' => 'Du wählst die Beiträge selbst aus – für einen Monatsrückblick oder ein Thema.',
     'Choose the page that counts as the goal.' => 'Wähle die Seite, die als Ziel zählt.',
+    'Choose up to 3. The e-mail gets a personal link for each one: one click takes a seat there with the same number of people, or a place on its waiting list. Leave all unticked to offer nothing.' => 'Wähle bis zu 3. Die E-Mail enthält für jeden einen persönlichen Link: Ein Klick sichert dort einen Platz für gleich viele Personen oder einen Platz auf der Warteliste. Ohne Auswahl wird nichts angeboten.',
     'Choose what the run does.' => 'Wähle, was der Lauf tut.',
     'Choose what to test and the goal.' => 'Wähle, was getestet wird, und das Ziel.',
     'Choose whether to keep or delete the data of the add-on.' => 'Wähle, ob die Daten des Add-ons behalten oder gelöscht werden.',

@@ -303,6 +303,49 @@ final class Collections extends Module
                 'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; script-src 'self'; frame-ancestors 'self'; base-uri 'none'"]);
     }
 
+    /** Cancels the whole course: GET asks who is told and which other courses to offer, POST does it (cannot be undone). */
+    protected function actionCancelCourse(): Response
+    {
+        $post = $this->request->isPost();
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            return $post ? $this->back('You do not have access to the registrations.', '', [], 'error') : $this->error('You do not have access to the registrations.', 403);
+        }
+        [$k, $item, $course] = $this->courseOfRequest();
+        if ($course === null) {
+            return $post ? $this->back('This is not a course with seats.', '', [], 'error') : $this->error('This is not a course with seats.', 404);
+        }
+        $back = ['id' => $k['public_id'], 'item' => $item['public_id']];
+        $offers = Registrations::offerable($this->db, $k, $item);
+        if ($post) {
+            $picked = array_map(fn (mixed $pid): int => $this->db->internalId('collection_items', (string) $pid), $this->request->postList('offer'));
+            try {
+                $mails = Registrations::cancelCourse($this->app, $k, $item, $picked, mb_substr(trim($this->request->post('message')), 0, 2000));
+            } catch (\DomainException $e) {
+                return $this->back($e->getMessage(), 'cancel_course', $back, 'error');
+            }
+
+            return $this->back(t('The course was cancelled and %d e-mails were sent.', $mails), 'items', ['id' => $k['public_id']]);
+        }
+        $counts = Registrations::counts($this->db, (int) $item['item_id']);
+        $ids = Registrations::group($this->db, (int) $item['item_id']);
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $held = fn (string $state): int => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state = ? AND item_id IN ($in)", [$state, ...$ids]);
+        $affected = ['confirmed' => $held('confirmed'), 'waiting' => $held('waiting'), 'waitlisted' => $counts['waitlisted'],
+            'mails' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state IN ('confirmed', 'waiting', 'waitlisted') AND email <> '' AND item_id IN ($in)", $ids)];
+        $fields = \Talea\Core\Calendar::fields($k);
+        $list = array_map(function (array $o) use ($k, $fields): array {
+            $data = (array) $o['data'];
+            $start = trim((string) ($data[$fields['start']] ?? ''));
+            $c = Registrations::course($k, $o);
+            $free = $c['capacity'] > 0 ? max(0, $c['capacity'] - Registrations::taken($this->db, (int) $o['item_id'])) : null;
+
+            return ['id' => $o['public_id'], 'name' => (string) $o['name'], 'info' => implode(' · ', array_filter([trim((string) ($data['schedule'] ?? '')), $start !== '' ? t('from %s', \Talea\Builder\Collections::formatDateTime($start)) : '',
+                $free === null ? '' : ($free > 0 ? t('%d seats free', $free) : ($c['waiting_list'] ? t('full, waiting list') : t('full, waiting list off')))]))];
+        }, $offers);
+
+        return $this->view('cancel_course', t('Cancel the course: %s', $item['name']), ['k' => $k, 'item' => $item, 'affected' => $affected, 'offers' => $list]);
+    }
+
     /** The holder's decision on one registration (confirm | decline | cancel | promote); the visitor is told by e-mail. */
     protected function actionRegistration(): Response
     {

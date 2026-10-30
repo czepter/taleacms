@@ -149,10 +149,10 @@ final class Messages
         foreach ([...$m['placeholders'], ...$m['links']] as $name) {
             $known[$name] = ($values[$name] ?? '');
         }
-        // a link without a value keeps its placeholder visible instead of vanishing silently
-        $known = array_filter($known, fn (string $v, string $name): bool => $v !== '' || !in_array($name, $m['links'], true), ARRAY_FILTER_USE_BOTH);
+        // a link that was not given keeps its placeholder visible instead of vanishing silently; one given as '' (nothing to link) vanishes
+        $known = array_filter($known, fn (string $v, string $name): bool => $v !== '' || !in_array($name, $m['links'], true) || array_key_exists($name, $values), ARRAY_FILTER_USE_BOTH);
         $text = FormMail::fill($text, [], [], true, $known);
-        $text = (string) preg_replace("/\n{3,}/", "\n\n", $text); // an empty {message} leaves no gap
+        $text = rtrim((string) preg_replace("/\n{3,}/", "\n\n", $text)); // an empty {message} or link leaves no gap
         foreach ($links as $link) {
             $text = rtrim($text) . "\n\n" . $link;
         }
