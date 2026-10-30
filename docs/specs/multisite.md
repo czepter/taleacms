@@ -178,12 +178,53 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
   all read the current owner's `sites` table. Only routing, `Owners`, migrations, backup and cron read another owner's registry.
 - **Files of the install belong to owner 1 for now.** Backups and their off-site copy, exports/imports (the Import and export module, the staged
   WordPress file), the error log and the media archive are single folders of the install; for a further owner the screens, actions and
-  jobs are refused (`Owners::sharedFilesRefusal`, `Module::INSTALL_FILE_ACTIONS`, `Transfer::availableTo`). Uploads still share `media/`:
-  names end in six random hex digits and waiting files are looked up in the owner's own `media` table; per-owner folders are stage B.
+  jobs are refused (`Owners::sharedFilesRefusal`, `Module::INSTALL_FILE_ACTIONS`, `Transfer::availableTo`). Uploads have a folder per owner (below).
 - **Isolation test** (`tests/Site/Multisite/OwnersIsolationTest.php`, `tests/Integration/OwnersTest.php`): two owners with the same page
   slugs, component names and media paths; public routes (page cache), search, sitemap, llms.txt, feed, admin lists, the other owner's component,
   session cookie replayed by hand, MCP tokens and `site`, signed preview links, handoff tokens, waiting files, backups and exports, owner
   state, cron and the start guard.
+
+### Operators, owner administration, media per owner, cross-owner clone (stage B) – Proposed
+
+- **Operators** are the administrators of owner 1 (`Owners::isOperator`: an unblocked administrator of owner 1, or the row that stands for
+  one in another owner). Nothing is configured: a client owner has no operators of its own, and an editor of owner 1 is no operator.
+- **Owners area** (Settings → Owners, `Admin\Modules\Owners`, only with `TALEA_OWNERS`, only in owner 1's administration; the module is
+  not offered anywhere else and its actions answer like an unknown module). List: name, kind, state, sites, storage (tables of all its sites plus its
+  media folder). Create: name, kind and the e-mail of the first administrator (`owners.admin_email`); the row is all the request writes, cron
+  sets the owner up. Pause/archive/live through `Owners::setStatus` (owner 1 cannot be paused). Add the first host name to the owner's
+  first site (`Sites::addDomain`, install-wide unique), then **Send the invitation**: `Owners::invite` makes the administrator in the owner's
+  `users` (a password nobody knows) and mails a link valid for 3 days to the owner's first host, through the install's mail setup. Further host
+  names and sites are the owner's own business. No MCP tool: the area is an operator's tool (ParityTest says so per action).
+- **Cross-owner handoff** (`Owners::handoff`, action `handoff`): only an unblocked administrator of owner 1 asking from owner 1, for a live owner
+  that is set up and a site of it that is set up with a primary host. The token is written in the TARGET owner's `handoff_tokens` (so owner 1's
+  and every other owner's table never know it), bound to that site, 60 seconds in UTC, single use (`Sites::claimHandoff`, unchanged). It signs in
+  the operator's row in the target owner (`Owners::operatorRow`), made on first use.
+- **The operator row** is a normal administrator row of the client's `users` flagged with `operator_user_id` (owner 1's user number; migration
+  `20261104100047`), named "Operator: <name>", without e-mail, with a random password nobody has. It cannot escalate and cannot be used by
+  the client: password sign-in and passkey, "stay signed in", password reset and MCP/OAuth tokens skip it (`operator_user_id IS NULL` in
+  `Auth::account`, `verifyKey`, `restoreSignIn`, `PasswordReset`, `Mcp\Server::user`); the client's Users module refuses edit, save, delete,
+  password link, reactivate and revoking its connections (`Users::operatorRefusal`); My account refuses every change to it (no password,
+  e-mail, second factor or token); the security checks leave it out. It is only as good as the operator: every session and every claim of
+  a handoff re-checks owner 1 (`Owners::operatorValid`: still an administrator, not blocked), and `Owners::revokeOperator` removes the rows
+  (with their tokens) from all owners when the operator is deleted, blocked or demoted in Users. The change log shows the name, so every
+  action reads "Operator: …".
+- **Media per owner** (`Core\MediaFolder`): owner 1 keeps `media/Y/m/…`, a further owner writes `media/<owner public id>/Y/m/…` (the public id
+  is the UUID of its `owners` row; the process learns it in `App::boot`, from routing or from the cron child's owner prefix). The path stored
+  in `media` rows and content includes the folder, so rendering needs no knowledge of it; `MediaFolder::OWNER` is the optional folder in
+  every pattern that recognises a media path (`Images`, `Files`, `Mailing`, `MediaStaging`, `MediaHygiene::paths`, `ImageHtml`, news, Media). Site icons
+  sit in the owner's folder too. Waiting files stay in `storage/staging/` under the same relative path, which now carries the owner, so
+  nothing collides and `MediaStaging` needs no per-owner root. Owner 1's archive, off-site media copy and size leave the folders of the
+  other owners out (`SiteExport::mediaFiles`, `MediaFolder::bytes`). An owner's folder can be measured, copied or removed alone.
+- **Cross-owner clone** (`Core\OwnerClone`, an operator's tool): the "A copy of …" list of the Sites area and MCP `create_site` with `clone_of`
+  also take a site of another set-up owner, for an operator only (anybody else cannot even name such an id). The new site records
+  `sites.source_owner` and is set up by cron like any clone. Copy semantics, nothing is linked: the site tables are copied as in a clone
+  within one owner (never the install tables); the source's components and facts – its own and the ones it shared in its owner – become LOCAL
+  rows of the new site with new ids and the builds are repointed; the media files its content (and its news usage) names are copied, with
+  their variants, into the target owner's folder with new `media` rows (an earlier copy of the same file is reused), and the paths in the copied
+  content, settings, classes, menus and components are rewritten; authors, revision users, drafts of people and booking staff, which point at users
+  of the source owner, are cleared. Waiting (staged) files are not copied. Both sites get a row in their change log (`clone_out` on the source,
+  `clone_in` on the copy) and the request itself is logged in the operator's.
+- **Rate-limit counters** (`storage/cache/limits`) are still shared by the owners (a visitor's address counts across them); open.
 
 ## Phases (phase 1 is done)
 
