@@ -77,7 +77,7 @@ $message = match ($v['state']) {
 
 <?php if ($x['status'] === 'promoted'): ?>
 <p><?= e($x['winner'] === 'b' ? ($x['promoted_as'] === 'published' ? t('Version B replaced the original and was published.') : t('Version B replaced the original in the page draft.')) : t('The original was kept.')) ?></p>
-<?php if ($x['winner'] === 'b'): ?><p><?= $form('undo', t('Undo the promotion'), [], 'navigation', t('Put the page back as it was before the promotion?')) ?></p><?php endif ?>
+<?php if ($x['winner'] === 'b'): ?><div class="navigation-row"><?= $form('undo', t('Undo the promotion'), [], 'navigation', t('Put the page back as it was before the promotion?')) ?></div><?php endif ?>
 <?php endif ?>
 
 <?php if (in_array($x['status'], ['draft', 'running', 'stopped'], true)): ?>
@@ -89,4 +89,4 @@ $message = match ($v['state']) {
 </form>
 <?php endif ?>
 
-<p><?= $form('delete', t('Delete the experiment'), [], 'navigation danger', t('Delete the experiment with its counts?')) ?> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
+<div class="navigation-row"><?= $form('delete', t('Delete the experiment'), [], 'navigation danger', t('Delete the experiment with its counts?')) ?> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></div>

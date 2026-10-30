@@ -23,7 +23,7 @@ final class Users extends Module
 
     protected function actionList(): Response
     {
-        $authors = $this->db->all('SELECT u.*, r.name AS role_name, (SELECT COUNT(*) FROM {news} c WHERE c.author_id = u.user_id AND c.deleted_at IS NULL) AS news_count FROM {users} u LEFT JOIN {role} r ON r.role_id = u.role ORDER BY u.username');
+        $authors = $this->db->all('SELECT u.*, r.name AS role_name, (SELECT COUNT(*) FROM {news} c WHERE c.author_id = u.user_id AND c.deleted_at IS NULL) AS news_count, (SELECT COUNT(*) FROM {user_passkeys} k WHERE k.user_id = u.user_id) AS passkeys FROM {users} u LEFT JOIN {role} r ON r.role_id = u.role ORDER BY u.username');
         $modules = [];
         foreach ($this->db->all('SELECT user_id, module FROM {user_permissions}') as $r) {
             $modules[(int) $r['user_id']][] = (string) $r['module'];
@@ -90,10 +90,10 @@ final class Users extends Module
         // an administrator saving the account confirms it is wanted: the check of unused accounts (Core\SecurityHygiene) counts from now
         $data['confirmed_at'] = date('Y-m-d H:i:s');
         if ($r->postBool('totp_reset')) {
-            // the user lost both the phone and the backup codes: the administrator disables their two-factor sign-in
+            // the user lost both the phone (or passkey device) and the backup codes: the administrator disables their two-factor sign-in
             $data['totp_secret'] = '';
             $data['totp_backup_codes'] = null;
-            $this->app->db()->run('DELETE FROM {user_passkeys} WHERE user_id = ?', [$id]); // passkeys depend on two-factor sign-in
+            $this->app->db()->run('DELETE FROM {user_passkeys} WHERE user_id = ?', [$id]); // a passkey is a second factor too: the account is left with the password only
             $this->app->auth()->forgetOtherDevices($id); // and a remembered sign-in must not outlive the lost phone
         }
 
@@ -361,6 +361,7 @@ final class Users extends Module
             'sitesLimited' => $this->request->isPost() ? $this->request->post('sites_scope') === 'chosen' : ($id > 0 && (bool) ($author['sites_limited'] ?? false)),
             'hasSites' => $this->request->isPost() ? $this->request->postList('sites') : ($id > 0 && \Talea\Core\Sites::enabled() ? array_map(fn (array $r): string => (string) $this->db->publicId('sites', (int) $r['site_id']), $this->db->all('SELECT site_id FROM {user_sites} WHERE user_id = ?', [$id])) : []),
             'author' => $author,
+            'hasTwoStep' => $id > 0 && $this->app->auth()->hasTwoStep(['user_id' => $id, 'totp_secret' => $author['totp_secret'] ?? '']),
             'customRoles' => $this->db->all('SELECT role_id, name, description FROM {role} ORDER BY name'),
             'summary' => $summary,
             'errors' => $errors,

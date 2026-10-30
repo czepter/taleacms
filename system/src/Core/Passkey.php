@@ -69,7 +69,7 @@ final class Passkey
         return [
             'challenge' => $challenge,
             'rp' => ['id' => $rpId, 'name' => $siteName],
-            'username' => ['id' => $userId, 'name' => $login, 'displayName' => $displayName !== '' ? $displayName : $login],
+            'user' => ['id' => $userId, 'name' => $login, 'displayName' => $displayName !== '' ? $displayName : $login],
             'pubKeyCredParams' => array_map(static fn (int $alg): array => ['type' => 'public-key', 'alg' => $alg], self::ALGORITHMS),
             'timeout' => 120000,
             'attestation' => 'none',

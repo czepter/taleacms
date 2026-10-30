@@ -87,13 +87,15 @@ final class ClaudeConnection
 
     /**
      * The SQL condition on the account (alias u) whose connections can call the site: not blocked, and with two-factor
-     * sign-in when the site requires it of everyone or of administrators (Auth::isMissingRequired2fa).
+     * sign-in (app or passkey) when the site requires it of everyone or of administrators (Auth::isMissingRequired2fa).
      */
     public static function canCall(Settings $settings): string
     {
+        $twoStep = "(u.totp_secret <> '' OR EXISTS (SELECT 1 FROM {user_passkeys} k WHERE k.user_id = u.user_id))";
+
         return 'u.blocked = FALSE' . match ($settings->get('require_2fa')) {
-            'everyone' => " AND u.totp_secret <> ''",
-            'admins' => ' AND (u.admin <> ' . Auth::ADMIN . " OR u.totp_secret <> '')",
+            'everyone' => ' AND ' . $twoStep,
+            'admins' => ' AND (u.admin <> ' . Auth::ADMIN . ' OR ' . $twoStep . ')',
             default => '',
         };
     }
