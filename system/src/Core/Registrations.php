@@ -153,7 +153,10 @@ final class Registrations
     /** The rules for a seat decision: those of the seat group's lowest item (the one lockFor() locks), so language versions cannot disagree. */
     public static function rules(Db $db, array $collection, array $item): ?array
     {
-        $low = min(self::group($db, (int) $item['item_id']));
+        $ids = self::group($db, (int) $item['item_id']);
+        // the rules come from the lowest version that is not trashed (all trashed: the lowest of all)
+        $live = $db->all('SELECT item_id FROM {collection_items} WHERE deleted_at IS NULL AND item_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')', $ids);
+        $low = $live !== [] ? min(array_map('intval', array_column($live, 'item_id'))) : min($ids);
         if ($low !== (int) $item['item_id'] && ($found = self::load($db, $low)) !== null) {
             $item = $found[1];
         }

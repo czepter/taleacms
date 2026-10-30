@@ -564,6 +564,19 @@ final class RegistrationsTest extends DatabaseTestCase
         $this->assertSame('waitlisted', Registrations::place($this->app(), $c, $one, $mk($one['item_id']), 1, ''));
     }
 
+    public function testSeatRulesComeFromALiveVersionWhenTheLowestIsTrashed(): void
+    {
+        $c = $this->collection('courses', 'courses');
+        $one = $this->item($c, 'salsa', ['start' => '2030-01-01 10:00', 'capacity' => '1']);
+        $five = $this->item($c, 'salsa-de', ['start' => '2030-01-01 10:00', 'capacity' => '5']);
+        $this->db()->update('collection_items', ['slug' => 'salsa', 'language' => 'de'], ['item_id' => $five['item_id']]);
+        $this->db()->update('collection_items', ['deleted_at' => date('Y-m-d H:i:s')], ['item_id' => $one['item_id']]);
+        $mk = fn (): int => $this->db()->insert('enquiries', ['created_at' => date('Y-m-d H:i:s'), 'source' => 'x', 'page' => '/c/x', 'data' => '[]', 'item_id' => $five['item_id'], 'seats' => 1]);
+        $this->assertSame(5, Registrations::rules($this->db(), $c, $five)['capacity']);
+        $this->assertSame('confirmed', Registrations::place($this->app(), $c, $five, $mk(), 1, ''));
+        $this->assertSame('confirmed', Registrations::place($this->app(), $c, $five, $mk(), 1, ''));
+    }
+
     public function testPromotingIntoWaitingClearsTheReminder(): void
     {
         $c = $this->collection('courses', 'courses');
