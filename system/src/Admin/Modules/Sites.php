@@ -10,6 +10,7 @@ use Talea\Admin\ChangeLog;
 use Talea\Core\Antispam;
 use Talea\Core\Backup;
 use Talea\Core\Domains;
+use Talea\Core\LookFamily;
 use Talea\Core\Owners as OwnerRegistry;
 use Talea\Core\Response;
 use Talea\Core\SiteHealth;
@@ -150,6 +151,13 @@ final class Sites extends Module
         if ($name === '') {
             return $this->form($name, $from, 'Fill in the site name.');
         }
+        $parent = null;
+        if ($this->request->post('look_parent') !== '') {
+            [$parent, $error] = LookFamily::checkParent($this->db, $this->request->post('look_parent'), null);
+            if ($error !== null) {
+                return $this->form($name, $from, $error, $this->request->post('look_parent'));
+            }
+        }
         $source = $this->currentId();
         if ($from !== '') {
             $row = $this->db->byPublicId('sites', $from); // this owner's sites only: copying across owners is the operators' tool in the Owners area
@@ -158,7 +166,7 @@ final class Sites extends Module
             }
             $source = (int) $row['site_id'];
         }
-        SiteRegistry::add($this->db, $name, SiteRegistry::freeSlug($this->db, $name), $source, $from !== '');
+        SiteRegistry::add($this->db, $name, SiteRegistry::freeSlug($this->db, $name), $source, $from !== '', '', (int) ($parent['site_id'] ?? 0));
 
         return $this->back('The site is created. It is being set up in the background and appears as ready within a few minutes.');
     }
@@ -478,11 +486,51 @@ final class Sites extends Module
         return $this->db->one("SELECT * FROM {site_domains} WHERE site_id = ? AND host = ? AND kind = 'domain'", [$siteId, $this->request->post('host')]);
     }
 
-    private function form(string $name, string $from, string $error = ''): Response
+    private function form(string $name, string $from, string $error = '', string $parent = ''): Response
     {
         $ready = array_values(array_filter(SiteRegistry::overview($this->db), fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed'));
 
-        return $this->view('form', 'New site', ['name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready]);
+        return $this->view('form', 'New site', ['name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready, 'parent' => $parent, 'parents' => self::familyParents($ready, null)]);
+    }
+
+    /**
+     * The sites a site can take its look from: set up, not in the trash, not a child themselves, and not the site itself. A site that is a
+     * parent cannot become a child, so it is offered none.
+     *
+     * @param list<array<string, mixed>> $sites
+     * @return list<array<string, mixed>>
+     */
+    private static function familyParents(array $sites, ?array $site): array
+    {
+        if ($site !== null && array_filter($sites, fn (array $s): bool => (int) $s['look_parent_id'] === (int) $site['site_id']) !== []) {
+            return [];
+        }
+
+        return array_values(array_filter($sites, fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed' && $s['look_parent_id'] === null && (int) $s['site_id'] !== (int) ($site['site_id'] ?? 0)));
+    }
+
+    /** Join the look family of a parent site, or leave it (empty parent): docs/specs/multisite.md, "Look families". */
+    protected function actionLookParent(): Response
+    {
+        $site = $this->site();
+        if (!$this->request->isPost() || $site === null || $site['status'] === 'trashed') {
+            return $this->back();
+        }
+        $back = fn (string $message, string $type = 'ok'): Response => $this->back($message, 'edit', ['id' => $site['public_id']], $type);
+        $parent = null;
+        if ($this->request->post('parent') !== '') {
+            [$parent, $error] = LookFamily::checkParent($this->db, $this->request->post('parent'), (int) $site['site_id']);
+            if ($error !== null) {
+                return $back($error, 'error');
+            }
+        }
+        $error = LookFamily::set($this->db, $site, $parent, $this->request->postBool('discard_draft'), $this->app->auth()->id() ?: null);
+        if ($error !== null) {
+            return $back($error, 'error');
+        }
+        ChangeLog::write($this->app, 'sites', $parent === null ? 'leave look family' : 'join look family', (string) $site['name'] . ($parent === null ? '' : ' → ' . $parent['name']));
+
+        return $back($parent === null ? 'The site left the look family and keeps the look it has now.' : 'The site takes its look from the parent now.');
     }
 
     /** @param array<string, mixed> $site */
@@ -491,7 +539,15 @@ final class Sites extends Module
         $overview = SiteRegistry::overview($this->db);
         $row = current(array_filter($overview, fn (array $s): bool => (int) $s['site_id'] === (int) $site['site_id']));
 
-        return $this->view('edit', (string) ($site['name'] !== '' ? $site['name'] : $site['slug']), ['site' => $row, 'others' => array_values(array_filter($overview, fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed' && (int) $s['site_id'] !== (int) $site['site_id'])),
+        $family = ['parents' => self::familyParents($overview, $row), 'parent' => null, 'children' => array_values(array_filter($overview, fn (array $s): bool => (int) $s['look_parent_id'] === (int) $site['site_id'])),
+            'hasDraft' => $row['ready'] && $row['status'] !== 'trashed' && LookFamily::hasDraft($this->db->forSite((string) $row['prefix']))];
+        foreach ($overview as $s) {
+            if ((int) $s['site_id'] === (int) $row['look_parent_id']) {
+                $family['parent'] = $s;
+            }
+        }
+
+        return $this->view('edit', (string) ($site['name'] !== '' ? $site['name'] : $site['slug']), ['family' => $family, 'site' => $row, 'others' => array_values(array_filter($overview, fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed' && (int) $s['site_id'] !== (int) $site['site_id'])),
             'current' => $this->currentId(), 'host' => SiteRegistry::requestHost($this->request), 'dnsOnly' => Domains::dnsOnly($this->db)]);
     }
 }

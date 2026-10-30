@@ -46,6 +46,9 @@ trait SettingsTools
         $errors = [];
         foreach ($changes as $key => $value) {
             $key = (string) $key;
+            if ($key === 'dark_mode' && ($lock = \Talea\Core\LookFamily::refusal($db, false)) !== null && (string) $value !== $siteSettings->get('dark_mode')) {
+                throw new \DomainException($lock); // handed down by the parent of a look family
+            }
             if ($key === 'extensions' || $key === 'additional_languages') {
                 // lists (2.2): extensions switched on, further language versions of the site
                 $list = array_values(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : explode(',', (string) $value))));

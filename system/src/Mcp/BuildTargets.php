@@ -147,9 +147,18 @@ trait BuildTargets
         }
     }
 
+    /** A look family's child cannot change its header and footer: they come from the parent. */
+    private function familyPartLock(array $target): void
+    {
+        if ($target['kind'] === 'part' && ($lock = \Talea\Core\LookFamily::partRefusal($this->app->db(), (string) $target['row']['type'], false)) !== null) {
+            throw new \DomainException($lock);
+        }
+    }
+
     private function publishTarget(array $target): void
     {
         $db = $this->app->db();
+        $this->familyPartLock($target);
         if ($target['kind'] === 'page') {
             Publisher::page($this->app, (array) $db->one('SELECT * FROM {pages} WHERE page_id = ?', [$target['row']['page_id']]));
         } elseif ($target['kind'] === 'collection') {
@@ -185,6 +194,7 @@ trait BuildTargets
     {
         $this->mayPublish(['publish' => $publish]);
         $db = $this->app->db();
+        $this->familyPartLock($target);
         [$build, $errors] = Build::sanitize($input, $this->app->auth()->canWriteCode(), Build::fromJson($target['draft'] ?? $target['build']));
         if ($target['kind'] === 'form') {
             $build = \Talea\Builder\FormRecords::definitionBuild($build); // a form's build is its one form element

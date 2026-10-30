@@ -410,6 +410,9 @@ trait BuilderActions
             // renames and deletes it
             return Response::json(['ok' => false, 'error' => t('Only an administrator edits a shared class – a change applies to the whole website at once. Set the look of a single element in its style.')], 403);
         }
+        if (($lock = \Talea\Core\LookFamily::classRefusal($this->db, $name)) !== null) {
+            return Response::json(['ok' => false, 'error' => $lock], 403); // a class the parent of a look family hands down
+        }
         if (($new = $this->request->post('new_name')) !== '') {
             // renaming: the class row and all builds that use it (pages, site parts, collection item templates, components, my sections)
             if (!preg_match(Build::CLASS_PATTERN, $new) || $this->db->value('SELECT 1 FROM {classes} WHERE name = ?', [$new]) !== null) {

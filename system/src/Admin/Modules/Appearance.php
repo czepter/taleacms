@@ -7,6 +7,7 @@ namespace Talea\Admin\Modules;
 use Talea\Admin\Module;
 use Talea\Core\Images;
 use Talea\Core\Look;
+use Talea\Core\LookFamily;
 use Talea\Core\Response;
 use Talea\Builder\DesignSystem;
 use Talea\Builder\Looks;
@@ -47,6 +48,11 @@ final class Appearance extends Module
         }
         $r = $this->request;
         $siteSettings = $this->app->settings();
+        // a look family's child cannot change what its parent hands down (the design system and the dark mode); its logo and icon stay its own
+        if (($lock = LookFamily::refusal($this->db)) !== null && ((isset($_POST['ds']) && $this->parseForm() != DesignSystem::load($siteSettings))
+            || ($r->post('dark_mode') !== '' && $r->post('dark_mode') !== $siteSettings->get('dark_mode')))) {
+            return $this->back($lock, '', [], 'error');
+        }
         $siteSettings->set('logo', mb_substr($r->post('logo'), 0, 255));
         $icon = mb_substr($r->post('favicon'), 0, 255);
         if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(TALEA_ROOT . '/' . \Talea\Core\MediaFolder::icon(180)))) {
@@ -57,9 +63,11 @@ final class Appearance extends Module
             }
         }
         $siteSettings->set('favicon', $icon);
-        $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'dark'], true) ? $r->post('dark_mode') : 'off');
+        if (LookFamily::parent($this->db) === null) {
+            $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'dark'], true) ? $r->post('dark_mode') : 'off');
+        }
         $siteSettings->set('theme_switcher', $r->postBool('theme_switcher') ? '1' : '0');
-        $inDraft = $this->toDraft($this->parseForm());
+        $inDraft = LookFamily::parent($this->db) === null && $this->toDraft($this->parseForm());
         $siteSettings->set('appearance_saved', '1'); // first steps: the appearance was chosen by the administrator, not by the starter site
         \Talea\Front\Cache::clear();
 
@@ -100,6 +108,9 @@ final class Appearance extends Module
             return $this->back();
         }
         $key = $this->request->post('look');
+        if (($lock = LookFamily::refusal($this->db)) !== null) {
+            return $this->back($lock, '', [], 'error');
+        }
         if (!Looks::apply($this->app, $key)) {
             return $this->back('The look does not exist.', '', [], 'error');
         }
@@ -114,6 +125,9 @@ final class Appearance extends Module
     {
         if (!$this->request->isPost()) {
             return $this->back();
+        }
+        if (($lock = LookFamily::draftRefusal($this->db, $this->app->settings())) !== null) {
+            return $this->back($lock, '', [], 'error');
         }
         $summary = Look::publish($this->app);
 
@@ -168,6 +182,9 @@ final class Appearance extends Module
     /** Import of DTCG tokens: the whole appearance from a Talea export, the colors from another tool. */
     protected function actionTokensImport(): Response
     {
+        if (($lock = LookFamily::refusal($this->db)) !== null) {
+            return $this->back($lock, '', [], 'error');
+        }
         $file = $_FILES['tokens'] ?? null;
         $content = $this->request->isPost() && is_array($file) && ($file['error'] ?? 1) === UPLOAD_ERR_OK && (int) $file['size'] < 1_000_000 ? (string) file_get_contents((string) $file['tmp_name']) : '';
         $tokens = json_decode($content, true);

@@ -36,7 +36,14 @@ foreach ($presets as $key => $p) {
     }
 }
 $tabs = ['style' => 'Style', 'colors' => 'Colours', 'dark' => 'Dark mode', 'font' => 'Fonts and sizes', 'tvary' => 'Shapes', 'tag' => 'Logo and icon', 'export' => 'Import and export'];
+$familyParent = Talea\Core\LookFamily::parent($app->db());
+$familyChildren = Talea\Core\LookFamily::childCount($app->db());
 ?>
+<?php if ($familyParent !== null): ?>
+<p class="notice notice-warning"><?= e(t('This site takes its look from %s. Change it there or leave the family.', $familyParent['name'])) ?></p>
+<?php elseif ($familyChildren > 0): ?>
+<p class="notice"><?= e(t('Publishing updates %d sites.', $familyChildren)) ?></p>
+<?php endif ?>
 <div class="appearance" data-tabs>
 <div class="tabs" role="tablist" aria-label="<?= e(t('Parts of the appearance')) ?>">
 <?php foreach ($tabs as $key => $name): ?>

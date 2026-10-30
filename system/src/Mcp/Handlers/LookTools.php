@@ -57,6 +57,12 @@ trait LookTools
         $conversion = HtmlConverter::convert('<style>' . str_ireplace('</style', '', (string) ($a['css'] ?? '')) . '</style>', true);
         $stored = [];
         $inDraft = [];
+        $named = array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['class_styles']), array_filter(is_array($a['delete'] ?? null) ? $a['delete'] : [], 'is_string')));
+        foreach ($named as $className) {
+            if (($lock = \Talea\Core\LookFamily::classRefusal($db, (string) $className, false)) !== null) {
+                throw new \DomainException($lock); // before anything is written: the classes of a look family's parent are read-only here
+            }
+        }
         foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['class_styles']))) as $className) {
             // merged: a rule only for :hover or @media keeps the class base and the other states (replace: true = the whole class anew)
             $previous = empty($a['replace']) ? (\Talea\Core\Look::classes($db, $siteSettings, true)[$className] ?? null) : null; // the draft, when there is one
@@ -89,6 +95,9 @@ trait LookTools
         };
 
         $adminOnly();
+        if (($lock = \Talea\Core\LookFamily::refusal($this->app->db(), false)) !== null) {
+            throw new \DomainException($lock);
+        }
         $ds = isset($a['preset']) ? (DesignSystem::preset((string) $a['preset']) ?? throw new \InvalidArgumentException('The preset does not exist: ' . implode(', ', array_keys(DesignSystem::PRESETS)) . '.')) : \Talea\Core\Look::designSystem($siteSettings);
         $changes = is_array($a['design'] ?? null) ? $a['design'] : [];
         foreach (['colors', 'colors_dark'] as $group) {
@@ -132,6 +141,9 @@ trait LookTools
 
             return ['draft' => \Talea\Core\Language::runWith('en', fn (): array => \Talea\Core\Look::summary($db, $this->app->settings()), 'admin-'), 'preview' => \Talea\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
         }
+        if (($lock = \Talea\Core\LookFamily::draftRefusal($db, $this->app->settings(), false)) !== null) {
+            throw new \DomainException($lock);
+        }
         $summary = \Talea\Core\Language::runWith('en', fn (): array => \Talea\Core\Look::publish($this->app), 'admin-');
         if ($summary === []) {
             throw new \DomainException('There is no draft look to publish.');
@@ -161,6 +173,9 @@ trait LookTools
     {
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('Only the site administrator can use this tool.');
+        }
+        if (($lock = \Talea\Core\LookFamily::refusal($this->app->db(), false)) !== null) {
+            throw new \DomainException($lock);
         }
         if (\Talea\Builder\Looks::get((string) ($a['look'] ?? '')) === null) {
             throw new \InvalidArgumentException('The look does not exist: ' . implode(', ', array_keys(\Talea\Builder\Looks::all())) . '.');

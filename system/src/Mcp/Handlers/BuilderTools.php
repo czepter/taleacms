@@ -403,6 +403,9 @@ trait BuilderTools
             throw new \InvalidArgumentException('Only the header and the footer have variants: ' . implode(', ', SiteParts::WITH_VARIANTS) . '.');
         }
         $language = in_array($a['language'] ?? '', Language::additional($siteSettings), true) ? (string) $a['language'] : '';
+        if (($lock = \Talea\Core\LookFamily::partRefusal($db, $type, false)) !== null) {
+            throw new \DomainException($lock);
+        }
         $variant = (string) ($a['variant'] ?? '');
         if (!empty($a['delete'])) {
             $row = $variant !== '' ? SiteParts::row($db, $type, $language, $variant) : null;
@@ -443,6 +446,9 @@ trait BuilderTools
         $type = self::PART_NAMES[(string) ($a['part'] ?? '')] ?? (string) ($a['part'] ?? '');
         if (!isset(SiteParts::TYPES[$type])) {
             throw new \InvalidArgumentException('part must be header, footer, news_item, news_list or not_found.');
+        }
+        if (($lock = \Talea\Core\LookFamily::partRefusal($db, $type, false)) !== null) {
+            throw new \DomainException($lock);
         }
         $language = in_array($a['language'] ?? '', Language::additional($this->app->settings()), true) ? (string) $a['language'] : '';
         $variant = (string) ($a['variant'] ?? '');
