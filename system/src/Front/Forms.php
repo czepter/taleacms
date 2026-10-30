@@ -26,6 +26,9 @@ final class Forms
     /** How many messages one IP address can send in 10 minutes. */
     private const int LIMIT = 5;
 
+    /** The result code on the page for the state a course registration got. */
+    private const array RESULTS = ['confirmed' => 'registered', 'waiting' => 'request', 'waitlisted' => 'waitlisted'];
+
     /**
      * Where a lead came from (2.3): the first page of the visit, its campaign and the site that sent the visitor. The cookie
      * bar fills these fields only when the visitor allowed marketing (views/front/cookies.php); otherwise they stay empty.
@@ -239,12 +242,21 @@ final class Forms
             $seats = max(1, min($rules['max_seats'], $rules['capacity'] > 0 ? $rules['capacity'] : PHP_INT_MAX, (int) $r->post('seats')));
             $lock = Registrations::lockFor($db, (int) $item['item_id']);
             if (!$db->lock($lock, 5)) {
-                return $redirectUri('limit');
+                return $redirectUri('busy');
             }
             try {
                 $verdict = Registrations::verdict($db, $rules, (int) $item['item_id'], $email, $seats, date('Y-m-d H:i'));
+                if ($verdict === 'already') {
+                    // nothing is stored and the page answers as it would a new registration (it must not tell who is registered); the address is told by mail
+                    $verdict = Registrations::decide($rules, Registrations::taken($db, (int) $item['item_id']), $seats, date('Y-m-d H:i'));
+                    if (in_array($verdict, ['confirmed', 'waiting', 'waitlisted'], true)) {
+                        Language::runWith(Language::siteColumn() !== '' ? Language::siteColumn() : Language::defaults($this->app->settings()), fn () => \Talea\Core\Messages::send($this->app, 'course_already', Language::siteColumn(), $email,
+                            Registrations::mailValues($collection, $item, Registrations::nameOf($element, (string) json_encode($data, JSON_UNESCAPED_UNICODE)), $seats)));
+                        return $redirectUri(self::RESULTS[$verdict]);
+                    }
+                }
                 if (!in_array($verdict, ['confirmed', 'waiting', 'waitlisted'], true)) {
-                    return $redirectUri($verdict); // already | full | closed: nothing is stored
+                    return $redirectUri($verdict); // full | closed: nothing is stored
                 }
                 $idp = $db->insert('enquiries', $row + ['item_id' => (int) $item['item_id'], 'seats' => $seats, 'language' => Language::siteColumn()]);
                 $seatState = Registrations::place($this->app, $collection, $item, $idp, $seats, $email);
@@ -286,7 +298,7 @@ final class Forms
             }
         }
         if ($course !== null) {
-            return $redirectUri(['confirmed' => 'registered', 'waiting' => 'request', 'waitlisted' => 'waitlisted'][$seatState]); // the page says which
+            return $redirectUri(self::RESULTS[$seatState] ?? 'ok'); // the page says which
         }
         if ($calculation['after_contact']) {
             // the result shows at the form by a signed link; the thank-you page does not apply

@@ -30,12 +30,13 @@ final class Messages
         'course_moved_up' => ['group' => 'courses', 'kind' => 'mail', 'placeholders' => ['name', 'course', 'dates', 'schedule', 'place', 'seats', 'site name'], 'links' => []],
         'course_cancelled' => ['group' => 'courses', 'kind' => 'mail', 'placeholders' => ['name', 'course', 'message', 'site name'], 'links' => []],
         'course_course_cancelled' => ['group' => 'courses', 'kind' => 'mail', 'placeholders' => ['name', 'course', 'dates', 'message', 'site name'], 'links' => ['take-over links']],
+        'course_already' => ['group' => 'courses', 'kind' => 'mail', 'placeholders' => ['name', 'course', 'site name'], 'links' => []],
         'course_thanks_registered' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
         'course_thanks_request' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
         'course_thanks_waitlisted' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
         'course_full' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
         'course_closed' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
-        'course_already' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
+        
         'course_take_over' => ['group' => 'courses', 'kind' => 'page', 'placeholders' => [], 'links' => []],
         // {date} is the start of the appointment ("2 Nov 2026 10:00"), {appointment} the service, person, time and place lines
         'booking_confirmation' => ['group' => 'bookings', 'kind' => 'mail', 'placeholders' => ['name', 'appointment', 'service', 'date', 'cancel deadline', 'site name'], 'links' => ['cancel link', 'calendar link']],
@@ -58,6 +59,7 @@ final class Messages
             'course_request' => t('We have your request: {course}'),
             'course_waitlisted' => t('Waiting list: {course}'),
             'course_confirmed' => t('Confirmed: {course}'),
+            'course_already' => t('Already registered: {course}'),
             'course_declined' => t('Your request: {course}'),
             'course_moved_up' => t('A seat for you: {course}'),
             'course_cancelled' => t('Cancelled: your registration for {course}'),
@@ -88,7 +90,7 @@ final class Messages
             'course_thanks_waitlisted' => t('You are on the waiting list. We will e-mail you as soon as a seat is free.'),
             'course_full' => t('This course is full. Join the waiting list and we will e-mail you when a seat is free.'),
             'course_closed' => t('Registration for this course has closed.'),
-            'course_already' => t('You are already registered for this course.'),
+            'course_already' => $hello . t('we already have a registration with this e-mail address for {course}. If you want to change it, please contact us.'),
             'course_take_over' => t('We register you with the details of your cancelled registration.'),
             // the sentences of Core\Booking and Front\Booking, so their translations (and today's mails) carry over
             'booking_confirmation' => t('Thank you, your appointment is booked.') . "\n\n{appointment}"

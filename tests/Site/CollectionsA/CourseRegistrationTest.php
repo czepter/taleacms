@@ -59,10 +59,13 @@ final class CourseRegistrationTest extends SiteTestCase
 
     public function testSameEmailIsRefused(): void
     {
+        $before = (int) $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'Anna@Example.com'");
         $redirect = $this->register('salsa', 'Anna@Example.com');
-        $this->assertStringContainsString('result=already', $redirect);
+        $this->assertStringContainsString('result=waitlisted', $redirect, 'the page answers as it would a new registration (the course is full)');
+        $this->assertSame('Already registered: Salsa', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'Anna@Example.com' ORDER BY mail_id DESC LIMIT 1"));
+        $this->assertSame((string) ($before + 1), $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'Anna@Example.com'"));
         $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM tl_enquiries WHERE LOWER(email) = 'anna@example.com'"), 'nothing was stored');
-        $this->assertStringContainsString('You are already registered for this course.', $this->visitor()->get(preg_replace('/#.*/', '', $redirect))->body);
+        $this->assertStringContainsString('You are on the waiting list.', $this->visitor()->get(preg_replace('/#.*/', '', $redirect))->body);
     }
 
     public function testFullCourseOffersWaitingList(): void

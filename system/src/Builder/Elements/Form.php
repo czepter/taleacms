@@ -309,7 +309,7 @@ final class Form extends Element
             'captcha' => t('Please confirm that you are not a robot and send the form again.'),
             'full' => t('This event is fully booked.'),
             'closed' => t('Registration is closed.'),
-            'already' => t('You are already registered for this course.'),
+            'busy' => t('Many people are registering right now. Please send the form again.'),
             default => t('The message could not be sent. Please try again.'),
         };
     }
@@ -338,7 +338,7 @@ final class Form extends Element
         $registration = (string) ($reg[0] ?? '');
         [$isCourse, $waitlist] = [!empty($reg[3]), !empty($reg[4])];
         $page = fn (string $id): string => \Talea\Core\Messages::text($k->app->settings(), $id, 'body', \Talea\Core\Language::siteColumn());
-        $thanks = ['registered' => 'course_thanks_registered', 'request' => 'course_thanks_request', 'waitlisted' => 'course_thanks_waitlisted', 'already' => 'course_already'];
+        $thanks = ['registered' => 'course_thanks_registered', 'request' => 'course_thanks_request', 'waitlisted' => 'course_thanks_waitlisted'];
         if ($isCourse && isset($thanks[$result])) {
             return '<div' . Text::withClass($a, 'tl-form-done') . $id . ' role="status"><p>' . e($page($thanks[$result])) . '</p></div>';
         }
