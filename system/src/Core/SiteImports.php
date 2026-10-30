@@ -6,7 +6,7 @@ namespace Talea\Core;
 
 /**
  * Bringing an existing site in (docs/specs/multisite.md, "Bringing existing sites in"): an export archive of an older (single-site) Talea
- * becomes a NEW site of an owner while the other sites keep running. A request only stores the archive under storage/import/sites/<prefix>/
+ * becomes a NEW site of an owner while the other sites keep running. A request only stores the archive under storage/import/sites/<site public id>/
  * and inserts the site row (not ready, `sites.import_file`); cron migrates the new prefix and runs the import for that site in batches
  * (work(), called by Sites::provisionPending) with a state and a lock of its own – never the install-wide RUNNING file of SiteImport, so no
  * other site shows a maintenance notice. The site becomes ready when the import is done; a failure leaves it not ready with the error in
@@ -17,14 +17,17 @@ final class SiteImports
     /** The seconds one cron run spends on imports (the next run goes on from the saved state). */
     public const float SECONDS = 200.0;
 
-    /** The folder of a site's archive, state and working files. */
-    public static function folder(string $prefix): string
+    /**
+     * The folder of a site's archive, state, lock and working files, named by the site's public id. Never by the table prefix: a prefix is
+     * handed out again after a site is dropped (and every test database uses the same ones), and two sites must not share or remove files.
+     */
+    public static function folder(string $publicId): string
     {
-        if (preg_match('/^[a-z][a-z0-9]*_$/', $prefix) !== 1) {
-            throw new \InvalidArgumentException('Not a table prefix: ' . $prefix);
+        if (!Uuid::valid($publicId)) {
+            throw new \InvalidArgumentException('Not a site public id: ' . $publicId);
         }
 
-        return WpFile::FOLDER . '/sites/' . $prefix;
+        return WpFile::FOLDER . '/sites/' . $publicId;
     }
 
     /** Is this file (as uploaded) a Talea export, or a Kaleta one that SiteImport converts? A quick look at the header, not the import. */
@@ -65,7 +68,7 @@ final class SiteImports
             throw new \RuntimeException('The file is not a Talea export.');
         }
         $prefix = Sites::add($owner, $name, Sites::freeSlug($owner, $name), Sites::currentId($owner), false);
-        $folder = self::folder($prefix);
+        $folder = self::folder((string) $owner->value('SELECT public_id FROM {sites} WHERE prefix = ?', [$prefix]));
         $file = 'archive.' . $extension;
         if ((!is_dir($folder) && !@mkdir($folder, 0775, true) && !is_dir($folder)) || !$move($source, $folder . '/' . $file)) {
             $owner->delete('sites', ['prefix' => $prefix]);
@@ -79,9 +82,9 @@ final class SiteImports
     }
 
     /** Removes the files of a site's import (the site is dropped, or its import is given up). */
-    public static function forget(string $prefix): void
+    public static function forget(string $publicId): void
     {
-        $folder = self::folder($prefix);
+        $folder = self::folder($publicId);
         foreach (glob($folder . '/*') ?: [] as $path) {
             if (is_dir($path)) {
                 foreach (glob($path . '/*') ?: [] as $part) {
@@ -106,7 +109,7 @@ final class SiteImports
         if (($site['import_file'] ?? '') === '') {
             return null;
         }
-        $state = SiteImport::loadState((string) $site['import_file'], self::folder((string) $site['prefix']));
+        $state = SiteImport::loadState((string) $site['import_file'], self::folder((string) $site['public_id']));
         if ($state === null) {
             return null;
         }
@@ -134,7 +137,7 @@ final class SiteImports
     public static function work(Db $owner, array $site, float $seconds = self::SECONDS): string
     {
         $prefix = (string) $site['prefix'];
-        $folder = self::folder($prefix);
+        $folder = self::folder((string) $site['public_id']);
         $file = (string) $site['import_file'];
         $state = SiteImport::loadState($file, $folder);
         if ($state === null || SiteImport::path($file, $folder) === null) {
@@ -205,7 +208,7 @@ final class SiteImports
         } catch (\Throwable) {
             // the log must not stop the import
         }
-        self::forget($prefix);
+        self::forget((string) $site['public_id']);
     }
 
     /**
@@ -223,7 +226,7 @@ final class SiteImports
         }
         $message = mb_substr($message, 0, 500);
         $owner->update('sites', ['import_error' => $message], ['site_id' => (int) $site['site_id']]);
-        self::forget((string) $site['prefix']);
+        self::forget((string) $site['public_id']);
 
         return 'error: ' . $message;
     }

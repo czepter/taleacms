@@ -584,12 +584,12 @@ final class Sites
     {
         $gone = 0;
         self::forgetCurrent();
-        foreach ($db->all("SELECT site_id, prefix FROM {sites} WHERE status = 'trashed' AND site_id <> 1 AND trashed_at < NOW() - INTERVAL " . self::TRASH_DAYS . ' DAY') as $site) {
+        foreach ($db->all("SELECT site_id, prefix, public_id FROM {sites} WHERE status = 'trashed' AND site_id <> 1 AND trashed_at < NOW() - INTERVAL " . self::TRASH_DAYS . ' DAY') as $site) {
             self::dropTables($db, (string) $site['prefix']);
             $db->delete('components', ['site_id' => (int) $site['site_id']]); // its own rows of the shared tables; the number may be given out again
             $db->delete('facts', ['site_id' => (int) $site['site_id']]);
             $db->delete('sites', ['site_id' => (int) $site['site_id']]);
-            SiteImports::forget((string) $site['prefix']);
+            SiteImports::forget((string) $site['public_id']);
             $gone++;
         }
         // a host name that is still not verified after 14 days is let go, so a claim nobody follows up does not hold the name

@@ -14,7 +14,7 @@ final class AddSitesImport extends AbstractMigration
     public function change(): void
     {
         $this->table('sites')
-            ->addColumn('import_file', 'string', ['limit' => 150, 'null' => false, 'default' => '', 'comment' => 'archive being imported (storage/import/sites/<prefix>/); empty = not an import'])
+            ->addColumn('import_file', 'string', ['limit' => 150, 'null' => false, 'default' => '', 'comment' => 'archive being imported (storage/import/sites/<site public id>/); empty = not an import'])
             ->addColumn('import_error', 'string', ['limit' => 500, 'null' => false, 'default' => '', 'comment' => 'why the import stopped; empty = none'])
             ->addColumn('import_people', 'text', ['null' => true, 'comment' => 'JSON list of the names and e-mails the archive held, for the administrator to invite'])
             ->update();

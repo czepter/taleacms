@@ -35,7 +35,7 @@ final class SiteImportsTest extends DatabaseTestCase
     /** @var list<string> files the test made, removed afterwards (files only) */
     private static array $files = [];
 
-    /** @var list<string> folders the test made (storage/import/sites/<prefix>, media/<owner public id>), removed with what is in them */
+    /** @var list<string> folders the test made (storage/import/sites/<site public id>, media/<owner public id>), removed with what is in them */
     private static array $folders = [];
 
     protected function setUp(): void
@@ -77,7 +77,7 @@ final class SiteImportsTest extends DatabaseTestCase
             is_file($file) && @unlink($file);
         }
         foreach (self::$folders as $folder) {
-            if (preg_match('#/(storage/import/sites/[a-z0-9]+_|media/[0-9a-f-]{36})$#', $folder) === 1) {
+            if (preg_match('#/(storage/import/sites/[0-9a-f-]{36}|media/[0-9a-f-]{36})$#', $folder) === 1) {
                 self::removeTree($folder);
             }
         }
@@ -85,6 +85,11 @@ final class SiteImportsTest extends DatabaseTestCase
         self::$made = false;
         Sites::forgetCurrent();
         parent::tearDownAfterClass();
+    }
+
+    private function publicId(\Talea\Core\Db $db, string $prefix): string
+    {
+        return (string) $db->value('SELECT public_id FROM {sites} WHERE prefix = ?', [$prefix]);
     }
 
     private static function removeTree(string $dir): void
@@ -154,8 +159,8 @@ final class SiteImportsTest extends DatabaseTestCase
         $betaDb = $db->forOwner($beta);
         $one = SiteImports::create($db, 'Imported', $path, 'zip', $admin, $copy);
         $two = SiteImports::create($betaDb, 'Beta imported', $path, 'zip', 0, $copy);
-        self::$folders[] = SiteImports::folder($one);
-        self::$folders[] = SiteImports::folder($two);
+        self::$folders[] = SiteImports::folder($this->publicId($db, $one));
+        self::$folders[] = SiteImports::folder($this->publicId($betaDb, $two));
         Migrator::migrate($config);
         Sites::forgetCurrent();
 
@@ -196,7 +201,7 @@ final class SiteImportsTest extends DatabaseTestCase
         $this->assertSame('ready', self::$facts['two_line']);
         $this->assertNotNull($this->db()->value('SELECT ready_at FROM {sites} WHERE prefix = ?', [self::$facts['one']]));
         $this->assertSame('', $this->db()->value('SELECT import_file FROM {sites} WHERE prefix = ?', [self::$facts['one']]));
-        $this->assertDirectoryDoesNotExist(SiteImports::folder(self::$facts['one']), 'the archive and the working files are gone when it is done');
+        $this->assertDirectoryDoesNotExist(SiteImports::folder($this->publicId($this->db(), self::$facts['one'])), 'the archive and the working files are gone when it is done');
     }
 
     public function testContentComesOverAndRendersTheSame(): void
@@ -291,7 +296,7 @@ final class SiteImportsTest extends DatabaseTestCase
         $zip->addFromString('content.json', '{"format":"talea-export","format_version":2,"talea":"1.0.0","settings":{}' . "\n}");
         $zip->close();
         $prefix = SiteImports::create($db, 'Too old', $file, 'zip', 1, copy(...));
-        self::$folders[] = SiteImports::folder($prefix);
+        self::$folders[] = SiteImports::folder($this->publicId($db, $prefix));
         $mediaBefore = (int) $db->value('SELECT COUNT(*) FROM {media}');
         Migrator::migrate($this->dbConfig());
         Sites::forgetCurrent();
@@ -303,7 +308,7 @@ final class SiteImportsTest extends DatabaseTestCase
         $this->assertNull($db->value('SELECT ready_at FROM {sites} WHERE prefix = ?', [$prefix]));
         $this->assertSame($mediaBefore, (int) $db->value('SELECT COUNT(*) FROM {media}'));
         $this->assertNotContains($prefix, array_column(Sites::pending($db), 'prefix'), 'a failed import waits for a person: cron does not retry it');
-        $this->assertDirectoryDoesNotExist(SiteImports::folder($prefix));
+        $this->assertDirectoryDoesNotExist(SiteImports::folder($this->publicId($db, $prefix)));
     }
 
     public function testRowsAnImportAddedAreTakenOutAgain(): void
@@ -312,7 +317,7 @@ final class SiteImportsTest extends DatabaseTestCase
         $new = $db->forSite(self::$facts['one']);
         $site = (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', [self::$facts['one']]);
         // a second try on the finished site's folder: the components of an earlier try are removed, none is left over
-        $folder = SiteImports::folder(self::$facts['one']);
+        $folder = SiteImports::folder($this->publicId($db, self::$facts['one']));
         @mkdir($folder, 0775, true);
         $state = ['file' => 'archive.zip', 'folder' => $folder] + SiteImport::newState('archive.zip', $folder);
         $import = new SiteImport($new, new Settings($new), 0, 'media');
@@ -324,8 +329,14 @@ final class SiteImportsTest extends DatabaseTestCase
         $this->assertNull($db->value('SELECT 1 FROM {components} WHERE component_id = ?', [self::$facts['keeper']]), 'what an import recorded is deleted');
         $this->assertFileDoesNotExist($work . '/owner-rows.txt');
         unset($site);
-        SiteImports::forget(self::$facts['one']);
+        SiteImports::forget($this->publicId($db, self::$facts['one']));
     }
+    public function testTheFilesOfAnImportAreNamedByThePublicIdNotThePrefix(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        SiteImports::folder('tl2_');
+    }
+
     public function testAMediaRowNamingAnotherOwnersFileIsDroppedAndNoDeleteCanReachThatFile(): void
     {
         $db = $this->db();
@@ -346,7 +357,7 @@ final class SiteImportsTest extends DatabaseTestCase
         $zip->addFromString('content.json', str_replace("\"media\":[\n", "\"media\":[\n" . $row . "\n", $content));
         $zip->close();
         $prefix = SiteImports::create($db, 'Crafted', $crafted, 'zip', 1, copy(...));
-        self::$folders[] = SiteImports::folder($prefix);
+        self::$folders[] = SiteImports::folder($this->publicId($db, $prefix));
         Migrator::migrate($this->dbConfig());
         Sites::forgetCurrent();
         for ($i = 0; $i < 50 && ($line = SiteImports::work($db, (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$prefix]), 30.0)) !== 'ready'; $i++) {

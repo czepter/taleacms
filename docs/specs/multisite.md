@@ -325,9 +325,9 @@ Decisions for the owner's review. Needs `TALEA_MULTISITE`; Owners area needs `TA
 
 - **A new site from an archive** (`Core\SiteImports`): Sites → "Import a Talea archive" (an administrator, into its own owner) and Owners → the same
   with an owner choice (operators). The request inserts the site row (not ready, `sites.import_file`, migration `20261108100047`) and stores the
-  archive in `storage/import/sites/<site prefix>/archive.zip` (uploaded, or a file of `storage/import` moved there: owner 1 and operators only). Cron
+  archive in `storage/import/sites/<site public id>/archive.zip` (uploaded, or a file of `storage/import` moved there: owner 1 and operators only). Cron
   (`Sites::provisionPending`, in the target owner's own run) migrates the prefix and `SiteImports::work()` imports in batches with the site's own
-  state file and lock in that folder – never the install-wide `RUNNING` file, so no other site shows a maintenance notice and `SiteImport::running()`
+  state file and lock in that folder (named by the site's public id, never by the table prefix, which is handed out again) – never the install-wide `RUNNING` file, so no other site shows a maintenance notice and `SiteImport::running()`
   concerns only the classic import. The site becomes ready when it is done (`import_file` cleared, archive and working files deleted); a failure
   sets `sites.import_error` (shown in the Sites list and on the site), takes the owner rows the import added out again and leaves the site not ready;
   `Sites::pending()` skips it, a person trashes it and imports again. The cron run spends `SiteImports::SECONDS` (200) on imports and continues
