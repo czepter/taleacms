@@ -466,6 +466,14 @@ trait SiteImportRows
                 $this->dropped[] = $thumb;
                 $r['thumb_path'] = '';
             }
+        } elseif (!MediaFolder::owns(ltrim($file, '/'))) {
+            // the classic import: a path outside this owner's media folder (another owner's file) never gets a row
+            $this->dropped[] = $file;
+
+            return null;
+        } elseif (($thumb = ltrim(self::file($r['thumb_path'] ?? ''), '/')) !== '' && !MediaFolder::owns($thumb)) {
+            $this->dropped[] = $thumb;
+            $r['thumb_path'] = '';
         }
 
         return $this->ownerKey('media', 'media_id', (int) $r['_id']) + ['public_id' => $this->ownerPublicId('media', $r), 'owner_id' => $this->admin > 0 ? $this->admin : null,
