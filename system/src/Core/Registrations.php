@@ -470,15 +470,67 @@ final class Registrations
             $send(fn () => Language::runWith($language !== '' ? $language : Language::defaults($s), fn () => Messages::send($app, $course['mode'] === 'confirm' ? 'course_request' : 'course_moved_up', $language, (string) $row['email'],
                 self::mailValues($collection, $item, $name, (int) $row['seats']))));
         }
-        if ($holder && $course['mode'] === 'confirm' && $element !== null) {
-            [$to, $bcc] = Forms::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $s->get('site_email'));
-            if ($to !== []) {
-                $send(fn () => Language::runWith(Language::defaults($s), function () use ($s, $item, $row, $to, $bcc): void {
-                    $text = t('A seat is free and a registration moved up from the waiting list. Please confirm or decline it in the administration.')
-                        . "\n\n" . $item['name'] . "\n" . t('Seats') . ': ' . $row['seats'];
-                    Mail::send($s, implode(', ', $to), FormMail::subject(t('Request:') . ' ' . $item['name']), $text, '', $bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
-                }));
+        $recipients = $holder && $course['mode'] === 'confirm' ? self::recipients($app, $element) : null;
+        if ($recipients !== null) {
+            [$to, $bcc] = $recipients;
+            $send(fn () => Language::runWith(Language::defaults($s), function () use ($s, $item, $row, $to, $bcc): void {
+                $text = t('A seat is free and a registration moved up from the waiting list. Please confirm or decline it in the administration.')
+                    . "\n\n" . $item['name'] . "\n" . t('Seats') . ': ' . $row['seats'];
+                Mail::send($s, implode(', ', $to), FormMail::subject(t('Request:') . ' ' . $item['name']), $text, '', $bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
+            }));
+        }
+    }
+
+    /** The recipients of a registration form (To, Bcc); null when the form is gone or has none. @return array{0: list<string>, 1: list<string>}|null */
+    private static function recipients(App $app, ?array $element): ?array
+    {
+        if ($element === null) {
+            return null;
+        }
+        [$to, $bcc] = Forms::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $app->settings()->get('site_email'));
+
+        return $to !== [] ? [$to, $bcc] : null;
+    }
+
+    /**
+     * The hourly job (Core\Scheduler): a request nobody answered for 3 days reminds the course holder once. One mail per course
+     * lists how many wait; nothing is declined. Rows are marked first (reminded_at), so two runs never send twice.
+     */
+    public static function remind(App $app): string
+    {
+        $db = $app->db();
+        $rows = $db->all("SELECT enquiry_id, item_id, source, element FROM {enquiries} WHERE seat_state = 'waiting' AND item_id IS NOT NULL AND reminded_at IS NULL"
+            . " AND state_changed_at < NOW() - INTERVAL 3 DAY AND deleted_at IS NULL AND category <> 'spam' ORDER BY item_id, state_changed_at LIMIT 50");
+        $marked = [];
+        foreach ($rows as $r) {
+            if ($db->run('UPDATE {enquiries} SET reminded_at = NOW() WHERE enquiry_id = ? AND reminded_at IS NULL', [(int) $r['enquiry_id']])->rowCount() > 0) {
+                $marked[(int) $r['item_id']][] = $r;
             }
         }
+        $sent = 0;
+        $s = $app->settings();
+        foreach ($marked as $itemId => $waiting) {
+            $loaded = self::load($db, $itemId);
+            $course = $loaded !== null ? self::course(...$loaded) : null;
+            if ($course === null || $course['ends'] < date('Y-m-d H:i')) {
+                continue;
+            }
+            [$collection, $item] = $loaded;
+            $recipients = self::recipients($app, Forms::findElement($db, (string) $waiting[0]['source'], (string) $waiting[0]['element'], 'form'));
+            if ($recipients === null) {
+                continue;
+            }
+            [$to, $bcc] = $recipients;
+            $url = rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/') . $app->url('admin.php?module=collections&action=registrations&id='
+                . $db->publicId('collections', (int) $collection['collection_id']) . '&item=' . $db->publicId('collection_items', $itemId));
+            Language::runWith(Language::defaults($s), function () use ($s, $item, $waiting, $to, $bcc, $url): void {
+                $text = t('%d requests for this course have not been answered for 3 days. Please confirm or decline them in the administration.', count($waiting))
+                    . "\n\n" . $item['name'] . "\n\n—\n" . t('Registrations in the administration: %s', $url);
+                Mail::send($s, implode(', ', $to), FormMail::subject(t('Unanswered requests: %s', (string) $item['name'])), $text, '', $bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
+            });
+            $sent++;
+        }
+
+        return $sent . ' reminders';
     }
 }

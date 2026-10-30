@@ -360,4 +360,42 @@ final class RegistrationsTest extends DatabaseTestCase
         Registrations::refill($this->app(), $items);
         $this->assertSame('confirmed', $this->state($w));
     }
+
+    public function testReminderOnceAfterThreeDays(): void
+    {
+        [$c, $item] = $this->courseWithForm('confirm');
+        $make = function (string $changed, string $category = '') use ($c, $item): int {
+            $id = $this->enquiry($item['item_id'], 'waiting', 1, $category, null, $changed);
+            $this->db()->update('enquiries', ['source' => 'collection:' . $c['collection_id'], 'element' => 'f1'], ['enquiry_id' => $id]);
+
+            return $id;
+        };
+        $make(date('Y-m-d H:i:s', time() - 2 * 86400)); // too young
+        $this->assertSame('0 reminders', Registrations::remind($this->app()));
+        $this->assertSame([], $this->mails());
+        $make(date('Y-m-d H:i:s', time() - 4 * 86400));
+        $make(date('Y-m-d H:i:s', time() - 5 * 86400));
+        $make(date('Y-m-d H:i:s', time() - 5 * 86400), 'spam');
+        $this->assertSame('1 reminders', Registrations::remind($this->app()));
+        $mails = $this->mails();
+        $this->assertCount(1, $mails, 'one mail per course, not per request');
+        $this->assertSame('holder@example.com', $mails[0]['to']);
+        $this->assertStringContainsString('salsa', $mails[0]['subject']);
+        $this->assertStringContainsString('2', $mails[0]['text']);
+        $this->assertStringContainsString('registrations', $mails[0]['text']);
+        $this->assertStringContainsString($this->db()->publicId('collections', $c['collection_id']), $mails[0]['text']);
+        $this->assertStringContainsString($this->db()->publicId('collection_items', $item['item_id']), $mails[0]['text']);
+        $this->assertSame('0 reminders', Registrations::remind($this->app()));
+        $this->assertCount(1, $this->mails());
+    }
+
+    public function testNoReminderForAnEndedCourse(): void
+    {
+        [$c, $item] = $this->courseWithForm('confirm');
+        $this->db()->update('collection_items', ['data' => json_encode(['start' => '2020-01-01 10:00', 'registration' => 'confirm'])], ['item_id' => $item['item_id']]);
+        $id = $this->enquiry($item['item_id'], 'waiting', 1, '', null, date('Y-m-d H:i:s', time() - 4 * 86400));
+        $this->db()->update('enquiries', ['source' => 'collection:' . $c['collection_id'], 'element' => 'f1'], ['enquiry_id' => $id]);
+        $this->assertSame('0 reminders', Registrations::remind($this->app()));
+        $this->assertSame([], $this->mails());
+    }
 }

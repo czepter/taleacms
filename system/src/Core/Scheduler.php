@@ -52,6 +52,7 @@ final class Scheduler
         'cookie_scan' => [86400, 'cron', 'What cookies the site sets'],
         'agent_runs' => [3600, 'any', 'Scheduled Claude runs: noticing runs nobody picked up'],
         'booking_reminders' => [3600, 'any', 'Online booking: reminders before the appointment'],
+        'registration_reminders' => [3600, 'any', 'Course registration: reminder of unanswered requests'],
         'import_recheck' => [0, 'any', 'Imported content checked again with today\'s sanitizers'],
         'media_staging' => [3600, 'any', 'Files waiting for approval: public with the content that uses them, deleted after 30 days'],
         'page_cache' => [0, 'any', 'Page cache: emptied on a new day, warmed after changes'],
@@ -131,6 +132,7 @@ final class Scheduler
             },
             'agent_runs' => fn (App $app): string => 'missed ' . AgentSchedules::markMissed($app),
             'booking_reminders' => fn (App $app): string => Booking::remind($app),
+            'registration_reminders' => fn (App $app): string => Registrations::remind($app),
             'media_staging' => fn (App $app): string => MediaStaging::cleanup($app->db()),
             'page_cache' => fn (App $app, string $source): string => \Talea\Front\Cache::maintain($app, $source === 'cron' ? 20.0 : 0.0), // a visit only checks the day
             'import_recheck' => function (App $app, string $source): string {
