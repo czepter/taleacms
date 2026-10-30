@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talea – the self-hosted website builder your AI can use too</title>
+<meta name="description" content="Talea is an open-source, self-hosted website builder for small businesses and freelancers: a visual builder with clean HTML output, a token design system, forms, bookings, newsletters and 173 MCP tools so an AI assistant can build the site with you. One Docker container, GPL.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://czepter.github.io/taleacms/">
+<link rel="icon" href="img/talea-mark.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Talea – the self-hosted website builder your AI can use too">
+<meta property="og:description" content="Visual builder, design system, forms, bookings, newsletters and 173 MCP tools. One Docker container. Open source (GPL).">
+<meta property="og:url" content="https://czepter.github.io/taleacms/">
+<meta property="og:image" content="https://czepter.github.io/taleacms/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Talea",
+  "applicationCategory": "WebApplication",
+  "operatingSystem": "Linux (Docker)",
+  "softwareVersion": "4.1.0",
+  "license": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html",
+  "url": "https://czepter.github.io/taleacms/",
+  "codeRepository": "https://github.com/czepter/taleacms",
+  "description": "Self-hosted website builder for small businesses and freelancers with a visual page builder, design system, forms, bookings, newsletters and an MCP server for AI assistants.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+}
+</script>
+<style>
+@font-face { font-family: "Bricolage Grotesque"; src: url("fonts/bricolage-grotesque-latin.woff2") format("woff2"); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/jetbrains-mono.woff2") format("woff2"); font-weight: 100 800; font-display: swap; }
+
+:root {
+	--ink: #121212;
+	--paper: #f6f4ee;
+	--card: #fffdf8;
+	--muted: #5c5a55;
+	--line: #e3dfd4;
+	--accent: #ff4f2e;
+	--accent-ink: #c2321a;
+	--radius: 18px;
+	--wide: 1180px;
+	--font: "Bricolage Grotesque", system-ui, sans-serif;
+	--mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--ink: #f6f4ee;
+		--paper: #121212;
+		--card: #1b1b1a;
+		--muted: #a8a59d;
+		--line: #2c2b29;
+		--accent-ink: #ff7a5e;
+	}
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 1.0625rem/1.6 var(--font); -webkit-font-smoothing: antialiased; }
+img { max-width: 100%; height: auto; display: block; }
+a { color: inherit; }
+code, pre { font-family: var(--mono); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+.wrap { width: min(100% - 32px, var(--wide)); margin-inline: auto; }
+.label { font: 600 0.75rem/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 1rem; }
+h1, h2, h3 { line-height: 1.04; letter-spacing: -0.03em; margin: 0; font-weight: 750; }
+h1 { font-size: clamp(2.6rem, 1.4rem + 5.6vw, 6rem); }
+h2 { font-size: clamp(2rem, 1.2rem + 3.4vw, 3.8rem); }
+h3 { font-size: 1.25rem; letter-spacing: -0.015em; line-height: 1.2; }
+.dot { color: var(--accent); }
+.lead { font-size: clamp(1.15rem, 1rem + 0.6vw, 1.45rem); color: var(--muted); max-width: 44ch; margin: 1.5rem 0 0; line-height: 1.45; }
+
+/* Header */
+.top { position: sticky; top: 0; z-index: 10; background: color-mix(in oklch, var(--paper) 85%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; align-items: center; gap: 1.5rem; height: 64px; }
+.top .logo img { height: 28px; width: auto; }
+.top .logo .dark { display: none; }
+@media (prefers-color-scheme: dark) { .top .logo .light { display: none; } .top .logo .dark { display: block; } }
+.top nav { margin-inline-start: auto; display: flex; gap: 1.5rem; align-items: center; font-weight: 500; }
+.top nav a { text-decoration: none; }
+.top nav a:hover { color: var(--accent-ink); }
+@media (max-width: 760px) { .top nav .hide-s { display: none; } }
+
+.btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.8rem 1.3rem; border-radius: 999px; font-weight: 600; text-decoration: none; border: 1.5px solid var(--ink); transition: transform 0.15s; }
+.btn:hover { transform: translateY(-2px); }
+.btn.primary { background: var(--ink); color: var(--paper); }
+.btn.small { padding: 0.45rem 1rem; font-size: 0.95rem; }
+.btn svg { width: 1.1em; height: 1.1em; }
+
+/* Hero */
+.hero { padding: clamp(3rem, 8vw, 7rem) 0 0; }
+.hero .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+.hero .shot { margin-top: clamp(3rem, 6vw, 5rem); border-radius: var(--radius) var(--radius) 0 0; overflow: hidden; border: 1px solid var(--line); border-bottom: 0; box-shadow: 0 -20px 80px -40px color-mix(in oklch, var(--accent) 60%, transparent); }
+.badges { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.75rem; }
+.badges span { font: 500 0.8rem/1 var(--mono); padding: 0.45rem 0.7rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
+
+/* Numbers */
+.numbers { background: var(--ink); color: var(--paper); padding: clamp(2.5rem, 5vw, 4rem) 0; }
+.numbers ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 2rem; }
+.numbers b { display: block; font-size: clamp(2.4rem, 1.6rem + 2.6vw, 3.6rem); font-weight: 750; letter-spacing: -0.04em; line-height: 1; }
+.numbers b i { font-style: normal; color: var(--accent); }
+.numbers span { color: color-mix(in oklch, var(--paper) 70%, var(--ink)); font-size: 0.95rem; }
+
+/* Sections */
+section.block { padding: clamp(4rem, 9vw, 8rem) 0; }
+section.block + section.block { border-top: 1px solid var(--line); }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 5vw, 5rem); align-items: center; }
+.split > * { min-width: 0; }
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+.points { list-style: none; padding: 0; margin: 2rem 0 0; display: grid; gap: 1.1rem; }
+.points li { padding-inline-start: 1.75rem; position: relative; }
+.points li::before { content: ""; position: absolute; inset-inline-start: 0; top: 0.6em; width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--accent); }
+.points strong { display: block; }
+.points li span { color: var(--muted); }
+.frame { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--card); }
+
+/* AI terminal card */
+.term { background: #121212; color: #e9e6dd; border-radius: var(--radius); padding: 1.5rem; font: 0.88rem/1.7 var(--mono); overflow-x: auto; border: 1px solid #2c2b29; }
+.term .you { color: #ff7a5e; }
+.term .tool { color: #8fd18f; }
+.term .dim { color: #8a877f; }
+.term p { margin: 0 0 0.6rem; }
+
+/* Looks strip */
+.looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 3rem; }
+.looks figure { margin: 0; }
+.looks figcaption { font: 500 0.8rem/1 var(--mono); color: var(--muted); margin-top: 0.75rem; }
+@media (max-width: 760px) { .looks { grid-template-columns: 1fr; } }
+
+/* Feature grid */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-top: 3rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.5rem; transition: border-color 0.2s, transform 0.2s; }
+.card:hover { border-color: var(--accent); transform: translateY(-3px); }
+.card p { color: var(--muted); margin: 0.5rem 0 0; font-size: 0.98rem; }
+.card .ico { font-size: 1.5rem; line-height: 1; margin-bottom: 1rem; display: block; }
+
+/* Self-host */
+.dark-band { background: var(--ink); color: var(--paper); }
+.dark-band .label { color: var(--accent); }
+.dark-band .lead, .dark-band .points li span { color: color-mix(in oklch, var(--paper) 70%, var(--ink)); }
+.copy { position: relative; margin-top: 2.5rem; }
+.copy pre { margin: 0; background: #1d1d1c; color: #e9e6dd; border: 1px solid #333; border-radius: var(--radius); padding: 3.25rem 1.5rem 1.5rem; font-size: 0.9rem; line-height: 1.8; overflow-x: auto; }
+.copy pre .c { color: #8a877f; }
+.copy button { position: absolute; top: 1rem; inset-inline-end: 1rem; font: 600 0.8rem/1 var(--mono); background: var(--accent); color: #121212; border: 0; border-radius: 999px; padding: 0.55rem 0.9rem; cursor: pointer; }
+.dark-band .points { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); max-width: 820px; }
+.engines { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem; }
+.engines span { font: 500 0.8rem/1 var(--mono); padding: 0.5rem 0.8rem; border-radius: 999px; background: #262625; color: #e9e6dd; }
+
+/* Principles */
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2rem 3rem; margin-top: 3rem; counter-reset: p; }
+.principles div { border-top: 2px solid var(--ink); padding-top: 1rem; counter-increment: p; }
+.principles div::before { content: counter(p, decimal-leading-zero); font: 600 0.8rem/1 var(--mono); color: var(--accent-ink); display: block; margin-bottom: 0.75rem; }
+.principles p { color: var(--muted); margin: 0.5rem 0 0; }
+
+/* CTA + footer */
+.cta { text-align: center; }
+.cta .lead { margin-inline: auto; }
+.cta .actions { justify-content: center; display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+footer { border-top: 1px solid var(--line); padding: 2.5rem 0 3rem; color: var(--muted); font-size: 0.95rem; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 1rem 2rem; justify-content: space-between; }
+footer p { margin: 0; max-width: 60ch; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+	<div class="wrap">
+		<a class="logo" href="./" aria-label="Talea home">
+			<img class="light" src="img/talea-logo.svg" alt="Talea" width="92" height="28">
+			<img class="dark" src="img/talea-logo-dark.svg" alt="" width="92" height="28">
+		</a>
+		<nav>
+			<a class="hide-s" href="#ai">AI</a>
+			<a class="hide-s" href="#builder">Builder</a>
+			<a class="hide-s" href="#features">Features</a>
+			<a class="hide-s" href="#self-host">Self-host</a>
+			<a class="btn small primary" href="https://github.com/czepter/taleacms">GitHub</a>
+		</nav>
+	</div>
+</header>
+
+<main>
+	<section class="hero">
+		<div class="wrap">
+			<p class="label">Open source · Self-hosted · GPL</p>
+			<h1>Websites you own.<br>Built by you <span class="dot">or</span> your AI<span class="dot">.</span></h1>
+			<p class="lead">Talea is a website builder for small businesses and freelancers. A visual builder, a real design system, forms, bookings and newsletters – and every single thing the editor can do, an AI assistant can do too. One container, your server, your data.</p>
+			<div class="actions">
+				<a class="btn primary" href="#self-host">Run it in two minutes</a>
+				<a class="btn" href="https://github.com/czepter/taleacms">
+					<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+					Star on GitHub
+				</a>
+			</div>
+			<div class="badges">
+				<span>PHP 8.5</span><span>no framework</span><span>no build step</span><span>MySQL · MariaDB · PostgreSQL · SQLite</span><span>MCP server</span><span>GPL-2.0-or-later</span>
+			</div>
+			<div class="shot">
+				<picture>
+					<source media="(prefers-color-scheme: dark)" srcset="img/admin-builder-dark.jpg">
+					<img src="img/admin-builder.jpg" alt="The Talea builder: elements on the left, the real page as the canvas in the middle, properties on the right" width="1800" height="1125" fetchpriority="high">
+				</picture>
+			</div>
+		</div>
+	</section>
+
+	<div class="numbers">
+		<div class="wrap">
+			<ul>
+				<li><b>173</b><span>MCP tools for AI assistants</span></li>
+				<li><b>49</b><span>builder elements</span></li>
+				<li><b>40</b><span>ready-made sections</span></li>
+				<li><b>14</b><span>finished looks</span></li>
+				<li><b>45</b><span>site languages, incl. right-to-left</span></li>
+				<li><b>99<i>+</i></b><span>Lighthouse on every look</span></li>
+			</ul>
+		</div>
+	</div>
+
+	<section class="block" id="ai">
+		<div class="wrap split">
+			<div>
+				<p class="label">AI as a first-class user</p>
+				<h2>Tell your assistant what you want. It builds a draft. You publish<span class="dot">.</span></h2>
+				<ul class="points">
+					<li><strong>Full parity over MCP</strong><span>Pages, builder, design system, media, collections, forms, menus, redirects, news, settings: 173 tools, the same validation and permissions as the editor.</span></li>
+					<li><strong>Drafts only, always undoable</strong><span>Everything an assistant writes lands as a draft with a signed preview link. A whole session can be rolled back in one click.</span></li>
+					<li><strong>Built into the admin, too</strong><span>A first-run wizard plans your site from a few answers, and the builder’s Ask box edits the page in plain words – with your own API key.</span></li>
+					<li><strong>Guardrails, not vibes</strong><span>No invented reviews or prices: placeholders are flagged before you publish. Model output passes the same sanitizer as everything else.</span></li>
+				</ul>
+			</div>
+			<div class="term" role="img" aria-label="Example of an assistant building a page over MCP">
+				<p><span class="you">you ›</span> Build a services page for my joinery. Warm colours, serif headings, a booking form.</p>
+				<p class="dim">assistant</p>
+				<p><span class="tool">● update_design_system</span> <span class="dim">primary #9a3412, serif headings</span></p>
+				<p><span class="tool">● create_page</span> <span class="dim">“Services” (hidden)</span></p>
+				<p><span class="tool">● build_from_html</span> <span class="dim">hero, 3 service cards, FAQ</span></p>
+				<p><span class="tool">● create_form</span> <span class="dim">enquiry with date and budget</span></p>
+				<p><span class="tool">● check</span> <span class="dim">2 placeholders left: [price], [number]</span></p>
+				<p>Draft ready. Preview: <span class="you">/services?preview_key=…</span><br>Fill in your prices and I’ll publish.</p>
+			</div>
+		</div>
+	</section>
+
+	<section class="block" id="builder">
+		<div class="wrap">
+			<div class="split">
+				<div>
+					<p class="label">Visual builder</p>
+					<h2>The canvas is the real page<span class="dot">.</span></h2>
+					<p class="lead">Drag, resize and space things directly on the page. What comes out reads like hand-written HTML.</p>
+				</div>
+				<ul class="points">
+					<li><strong>One element, one tag</strong><span>No wrapper soup. Page CSS contains only what the page uses, in cascade layers.</span></li>
+					<li><strong>Compose on a 12-column grid</strong><span>Place and overlap elements in layers; tablet and phone stack them in order.</span></li>
+					<li><strong>Desktop, tablet, phone, hover</strong><span>Style each state separately. Gestures snap to your spacing tokens.</span></li>
+					<li><strong>Versions, comments, share links</strong><span>Drafts autosave, publishing keeps the last 20 versions.</span></li>
+				</ul>
+			</div>
+			<div class="looks">
+				<figure><div class="frame"><img src="img/site-crafts.jpg" alt="A joinery site with warm colours and serif headings" width="1800" height="1125" loading="lazy"></div><figcaption>crafts</figcaption></figure>
+				<figure><div class="frame"><img src="img/site-consulting.jpg" alt="A consulting site with large serif headings" width="1800" height="1125" loading="lazy"></div><figcaption>consulting</figcaption></figure>
+				<figure><div class="frame"><img src="img/site-business.jpg" alt="A business site with a blue accent" width="1800" height="1125" loading="lazy"></div><figcaption>business</figcaption></figure>
+			</div>
+		</div>
+	</section>
+
+	<section class="block">
+		<div class="wrap split">
+			<div class="looks" style="grid-template-columns: repeat(3, 1fr); margin: 0">
+				<div class="frame"><img src="img/site-crafts-phone.jpg" alt="Crafts site on a phone" width="416" height="900" loading="lazy"></div>
+				<div class="frame"><img src="img/site-consulting-phone.jpg" alt="Consulting site on a phone" width="416" height="900" loading="lazy"></div>
+				<div class="frame"><img src="img/site-business-phone.jpg" alt="Business site on a phone" width="416" height="900" loading="lazy"></div>
+			</div>
+			<div>
+				<p class="label">Design system</p>
+				<h2>Change one colour. The whole site follows<span class="dot">.</span></h2>
+				<ul class="points">
+					<li><strong>Tokens all the way down</strong><span>Fluid type and spacing with <code>clamp()</code>, tints in OKLCH, dark mode built in.</span></li>
+					<li><strong>Contrast checked for you</strong><span>WCAG contrast is computed for every colour pair, light and dark.</span></li>
+					<li><strong>14 looks, 28 self-hosted fonts</strong><span>Try a look on your real site before you apply it. No font CDN, ever.</span></li>
+				</ul>
+			</div>
+		</div>
+	</section>
+
+	<section class="block" id="features">
+		<div class="wrap">
+			<p class="label">Everything a small business needs</p>
+			<h2>No plugins to hunt for<span class="dot">.</span></h2>
+			<div class="grid">
+				<article class="card"><span class="ico" aria-hidden="true">✉︎</span><h3>Forms with logic</h3><p>Multi-step forms, conditional fields, live price estimates. Spam blocked without CAPTCHA or cookies.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">◷</span><h3>Bookings</h3><p>Services, staff, opening hours and exceptions. Visitors book a slot; confirmations and reminders by e-mail.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">✦</span><h3>Newsletter</h3><p>Double opt-in, issues styled by your design system, one-click unsubscribe, or hand off to any mailing service.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">▤</span><h3>Collections</h3><p>Your own content types – team, products, branches – with fields, filters, pagination and item pages.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">⇄</span><h3>A/B tests</h3><p>Test pages, sections or single elements against a goal, then promote the winner. Undo included.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">◫</span><h3>Pop-ups</h3><p>Modals, slide-ins and bars with triggers by time, scroll, exit intent, page, language and campaign.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">⚿</span><h3>Member area</h3><p>Visitor accounts with e-mailed sign-in links. Restrict pages, news and items to groups.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">✎</span><h3>News &amp; blog</h3><p>Scheduling, revisions, categories, tags, feeds and a Markdown version of every post.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">⌖</span><h3>SEO built in</h3><p>Structured data from your company details, a schema.org element, sitemaps, llms.txt, redirects, site audit.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">◔</span><h3>Cookie-free stats</h3><p>Visits, sources, conversions and Web Vitals without a consent banner.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">文</span><h3>45 languages</h3><p>Language and regional versions, shared slugs, Arabic and right-to-left pages.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">⤓</span><h3>Import</h3><p>Bring a WordPress site straight into the builder, or turn any existing site’s HTML into editable sections.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">⛨</span><h3>Secure sign-in</h3><p>Passkeys, TOTP, backup codes, roles and per-section permissions.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">⧉</span><h3>Multisite</h3><p>Many sites from one install, shared looks across a family of sites, agency tools for several owners.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">⇪</span><h3>Backups &amp; export</h3><p>Off-site backups to FTPS or S3, and an open archive format to move your site anywhere.</p></article>
+				<article class="card"><span class="ico" aria-hidden="true">⊕</span><h3>Add-on API</h3><p>A stable contract for extensions. Code is never uploaded from the admin or pulled from the internet.</p></article>
+			</div>
+		</div>
+	</section>
+
+	<section class="block dark-band" id="self-host">
+		<div class="wrap">
+			<div>
+				<p class="label">Self-host</p>
+				<h2>One container. Your server<span class="dot">.</span></h2>
+				<p class="lead">No phone-home, no in-app updater, no third-party scripts or fonts. An update is a new image; migrations run before the site starts.</p>
+				<ul class="points">
+					<li><strong>Signed multi-arch images</strong><span>amd64 and arm64 on GHCR, signed with cosign.</span></li>
+					<li><strong>Pick your database</strong><span>The same code on all four, through a small dialect layer. SQLite for a small site with no server at all.</span></li>
+				</ul>
+				<div class="engines"><span>MySQL 8</span><span>MariaDB 11.4+</span><span>PostgreSQL 18</span><span>SQLite</span></div>
+			</div>
+			<div class="copy">
+<pre id="quickstart"><code>curl -O https://raw.githubusercontent.com/czepter/taleacms/main/docker-compose.yaml
+echo "TALEA_DB_PASSWORD=$(openssl rand -hex 16)" &gt; .env
+docker compose up -d
+<span class="c"># open http://localhost:8080 – the installer takes it from there</span></code></pre>
+				<button type="button" data-copy="quickstart">Copy</button>
+			</div>
+		</div>
+	</section>
+
+	<section class="block">
+		<div class="wrap">
+			<p class="label">How it is built</p>
+			<h2>Boring tech, on purpose<span class="dot">.</span></h2>
+			<div class="principles">
+				<div><h3>Plain PHP</h3><p>No framework, no ORM, no DI container, no build step, no npm in the product.</p></div>
+				<div><h3>Clean output</h3><p>Tests enforce that no style or script ships for markup nobody renders.</p></div>
+				<div><h3>Web platform 2026</h3><p>Cascade layers, container queries, <code>:has()</code>, Popover API, <code>&lt;dialog&gt;</code>, view transitions. No polyfills.</p></div>
+				<div><h3>Privacy by default</h3><p>No CDN, no foreign fonts, no tracking cookies. UUIDs at every boundary.</p></div>
+				<div><h3>Tested for real</h3><p>Unit, integration and whole installed sites over HTTP on MySQL, PostgreSQL and SQLite, plus a browser walk.</p></div>
+				<div><h3>English everywhere</h3><p>Code, docs and tests in English. The admin speaks English, German and Czech.</p></div>
+			</div>
+		</div>
+	</section>
+
+	<section class="block cta">
+		<div class="wrap">
+			<h2>Own your website again<span class="dot">.</span></h2>
+			<p class="lead">Free and open source under the GPL. Star it, run it, break it, send a pull request.</p>
+			<div class="actions">
+				<a class="btn primary" href="https://github.com/czepter/taleacms">Get Talea on GitHub</a>
+				<a class="btn" href="https://github.com/czepter/taleacms/blob/main/docs/manual.md">Read the manual</a>
+				<a class="btn" href="https://github.com/czepter/taleacms/releases">Releases</a>
+			</div>
+		</div>
+	</section>
+</main>
+
+<footer>
+	<div class="wrap">
+		<p>Talea is a hard fork of <a href="https://github.com/phprs-cms/kaletacms">Kaleta</a> by Miroslav Kaleta and contributors, who built the page builder, the design system, MCP and much more. Talea keeps their history and goes its own way since October 2026.</p>
+		<p>GPL-2.0-or-later · <a href="https://github.com/czepter/taleacms/blob/main/NOTICE">Credits</a> · <a href="https://github.com/czepter/taleacms/blob/main/SECURITY.md">Security</a></p>
+	</div>
+</footer>
+
+<script>
+for (const button of document.querySelectorAll("[data-copy]")) {
+	button.addEventListener("click", async () => {
+		await navigator.clipboard.writeText(document.getElementById(button.dataset.copy).innerText.trim());
+		button.textContent = "Copied";
+		setTimeout(() => (button.textContent = "Copy"), 1500);
+	});
+}
+</script>
+</body>
+</html>
