@@ -201,7 +201,7 @@ final class Triage
     {
         $settings = $app->settings();
         $assistant = new Assistant($settings);
-        if (!$settings->bool('spam_assistant') || !$assistant->isReady()) {
+        if (!$settings->bool('spam_assistant') || !Extensions::isEnabled($settings, 'assistant') || !$assistant->isReady()) {
             return false;
         }
         $enquiry = $app->db()->one('SELECT * FROM {enquiries} WHERE enquiry_id = ?', [$idp]);

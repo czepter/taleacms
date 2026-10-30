@@ -38,13 +38,34 @@ final class EnquiryTriageTest extends SiteTestCase
         $this->assertStringContainsString('draft_reply', $list, 'triage: list_enquiries carries the triage');
         $this->assertStringNotContainsString('first page of Google', $list, 'triage: list_enquiries leaves spam out');
 
-        $admin = $this->assertPage('/admin.php?module=enquiries', 200, '<option value="spam"', message: 'triage: the admin list has the spam filter');
+        $admin = $this->assertPage('/admin.php?module=enquiries', 200, 'status=spam', message: 'triage: the admin list has the Spam tab');
         $this->assertStringNotContainsString('first page of Google', $admin->body, 'triage: spam is not in the default list');
+        $this->assertPage('/admin.php?module=enquiries&status=spam', 200, 'first page of Google', message: 'triage: the Spam tab lists spam');
 
         $this->assertPage("/admin.php?module=enquiries&action=detail&id=" . $this->site()->publicId('enquiries', (int) $id), 200, 'body=Hello%2C%20thank', message: 'triage: the detail has the kind, the priority and the draft in the e-mail reply');
     }
 
     #[Depends('testClaudeSortsEnquiriesOverMcp')]
+    public function testSelectedEnquiriesAreMarkedAsSpamAndBack(): void
+    {
+        $site = $this->site();
+        $a = $this->insertEnquiry('bulk-a@example.com', '[["Message","Statistics for 50,000,000 per month"]]', 0);
+        $b = $this->insertEnquiry('bulk-b@example.com', '[["Message","Statistics for 50,000,000 per month"]]', 0);
+        $selected = [$site->publicId('enquiries', $a), $site->publicId('enquiries', $b)];
+        $this->assertStringContainsString('value="spam"', $this->assertPage('/admin.php?module=enquiries')->body, 'spam: the selection bar offers Mark as spam');
+
+        $token = $this->assertPage('/admin.php?module=enquiries')->csrf();
+        $site->admin()->post('/admin.php?module=enquiries&action=bulk', ['_csrf' => $token, 'bulk' => 'spam', 'selected' => $selected]);
+        $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM tl_enquiries WHERE enquiry_id IN (?, ?) AND category = 'spam' AND triaged_by NOT IN ('claude', 'assistant', 'rule')", [$a, $b]), 'spam: the selected enquiries are spam, sorted by a person');
+        $this->assertStringContainsString('value="not_spam"', $this->assertPage('/admin.php?module=enquiries&status=spam')->body, 'spam: the Spam tab offers Not spam');
+
+        $token = $this->assertPage('/admin.php?module=enquiries&status=spam')->csrf();
+        $site->admin()->post('/admin.php?module=enquiries&action=bulk', ['_csrf' => $token, 'bulk' => 'not_spam', 'selected' => $selected]);
+        $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM tl_enquiries WHERE enquiry_id IN (?, ?) AND category = ''", [$a, $b]), 'spam: Not spam brings them back');
+        $site->exec('DELETE FROM tl_enquiries WHERE enquiry_id IN (?, ?)', [$a, $b]);
+    }
+
+    #[Depends('testSelectedEnquiriesAreMarkedAsSpamAndBack')]
     public function testAPersonsSortingWinsOverClaude(): void
     {
         $site = $this->site();

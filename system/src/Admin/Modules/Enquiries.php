@@ -39,12 +39,13 @@ final class Enquiries extends Module
             'open' => ['status < 2'],
             'resolved' => ['status = 2'],
             'mine' => ['assigned_to = ' . (int) $this->app->auth()->id()],
+            'spam' => ["category = 'spam'"],
             default => [],
         };
         $conditions[] = $trash ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL';
         $params = [];
-        // the kind from triage (2.12): spam stays out of the list unless asked for; '-' = not sorted yet
-        $kind = $this->request->get('category');
+        // the kind from triage (2.12): spam stays out of the list unless asked for (the Spam tab); '-' = not sorted yet
+        $kind = $filter === 'spam' ? '' : $this->request->get('category');
         if ($kind === '-') {
             $conditions[] = "category = ''";
         } elseif (isset(\Talea\Core\Triage::kinds($this->app->settings())[$kind])) {
@@ -52,7 +53,7 @@ final class Enquiries extends Module
             $params[] = $kind;
         } else {
             $kind = '';
-            if (!$trash) { // the trash shows spam too
+            if (!$trash && $filter !== 'spam') { // the trash shows spam too
                 $conditions[] = "category <> 'spam'";
             }
         }
@@ -135,8 +136,7 @@ final class Enquiries extends Module
     {
         $id = $this->idParam();
         if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== null) {
-            $user = $this->app->auth()->user();
-            $by = (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin');
+            $by = $this->person();
             \Talea\Core\Triage::save($this->db, $id, \Talea\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'),
                 $this->request->hasPost('suggested_reply') ? $this->request->post('suggested_reply') : null, array_keys(\Talea\Core\Triage::kinds($this->app->settings()))), $by);
             if ($this->request->hasPost('category') && $this->request->post('category') === '' && (string) $this->db->value('SELECT category FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== '') {
@@ -168,7 +168,15 @@ final class Enquiries extends Module
             'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($displayName)]);
     }
 
-    /** In bulk: mark as handled, or move to the trash. */
+    /** Who sorts an enquiry by hand, as triaged_by records it. */
+    private function person(): string
+    {
+        $user = $this->app->auth()->user();
+
+        return (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin');
+    }
+
+    /** In bulk: mark as handled, as spam or as not spam, or move to the trash. */
     protected function actionBulk(): Response
     {
         $ids = $this->selected();
@@ -176,7 +184,15 @@ final class Enquiries extends Module
             return $this->back();
         }
         $v = implode(',', $ids);
-        if ($this->request->post('bulk') === 'delete') {
+        $bulk = $this->request->post('bulk');
+        if ($bulk === 'spam' || $bulk === 'not_spam') {
+            // a person's decision, kept like a kind: Claude and the assistant never sort these again
+            $this->db->run('UPDATE {enquiries} SET category = ?, triaged_by = ?, triaged_at = ? WHERE enquiry_id IN (' . $v . ')',
+                [$bulk === 'spam' ? 'spam' : '', mb_substr($this->person(), 0, 40), date('Y-m-d H:i:s')]);
+
+            return $bulk === 'spam' ? $this->back(t('Enquiries marked as spam: %d.', count($ids))) : $this->back(t('Enquiries marked as not spam: %d.', count($ids)), '', ['status' => 'spam']);
+        }
+        if ($bulk === 'delete') {
             $moved = self::trash($this->db, $ids);
             \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'moved to trash', (string) $moved);
 
