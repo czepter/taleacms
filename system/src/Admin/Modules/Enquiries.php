@@ -32,7 +32,7 @@ final class Enquiries extends Module
     protected function actionList(): Response
     {
         \Talea\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
-        self::deleteExpired($this->db, $this->app->settings());
+        self::deleteExpired($this->app);
         $filter = $this->request->get('status');
         $trash = $filter === 'trash';
         $conditions = match ($filter) {
@@ -381,8 +381,10 @@ final class Enquiries extends Module
      * Enquiries older than the set number of months: deleted including attachments, or – with enquiries_expiry = anonymise
      * (2.14) – kept as rows without the person for statistics (Core\Privacy). Also called by the background cleanup (Core\Notifications).
      */
-    public static function deleteExpired(\Talea\Core\Db $db, \Talea\Core\Settings $siteSettings): void
+    public static function deleteExpired(\Talea\Core\App $app): void
     {
+        $db = $app->db();
+        $siteSettings = $app->settings();
         $months = $siteSettings->int('enquiries_months');
         if ($months <= 0) {
             return;
@@ -392,8 +394,10 @@ final class Enquiries extends Module
 
             return;
         }
+        $seats = \Talea\Core\Registrations::heldItems($db, array_column($db->all('SELECT enquiry_id FROM {enquiries} WHERE created_at < NOW() - INTERVAL ? MONTH', [$months]), 'enquiry_id'));
         self::deleteAttachments($db->all('SELECT data FROM {enquiries} WHERE created_at < NOW() - INTERVAL ? MONTH', [$months]));
         $db->run('DELETE FROM {enquiries} WHERE created_at < NOW() - INTERVAL ? MONTH', [$months]);
+        \Talea\Core\Registrations::refill($app, $seats);
     }
 
     /** Blanks everything about the person in one enquiry and keeps the row (2.14, Core\Privacy). */

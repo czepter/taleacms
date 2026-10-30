@@ -43,7 +43,7 @@ final class Notifications
         }
         $s->set('data_cleanup', (string) time());
         Jobs::purgeApplications($app); // applications to job openings first: they usually have a shorter retention (2.11)
-        \Talea\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
+        \Talea\Admin\Modules\Enquiries::deleteExpired($app);
         Booking::purge($app); // bookings follow the same retention (3.0)
         if ($s->int('cookies_log_months') > 0) {
             // records of cookie consents should not be kept forever

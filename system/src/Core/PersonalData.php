@@ -115,9 +115,11 @@ final class PersonalData
         $db = $app->db();
         $found = self::find($db, $email);
         \Talea\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT data FROM {enquiries} WHERE enquiry_id IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'enquiry_id'))) . ')'));
+        $seats = Registrations::heldItems($db, array_map('intval', array_column($found['enquiries'], 'enquiry_id')));
         foreach (array_column($found['enquiries'], 'enquiry_id') as $idp) {
             $db->delete('enquiries', ['enquiry_id' => (int) $idp]);
         }
+        Registrations::refill($app, $seats); // their seats free: the waiting list moves up
         if ($found['subscriber'] !== null) {
             if ((int) $found['subscriber']['status'] === 1) {
                 Newsletter::enqueue($app, (string) $found['subscriber']['email'], 'remove'); // gone from the mailing service too

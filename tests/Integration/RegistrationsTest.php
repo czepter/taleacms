@@ -313,4 +313,51 @@ final class RegistrationsTest extends DatabaseTestCase
         $this->assertSame(2, Registrations::taken($this->db(), $item['item_id']));
         $this->assertSame(['confirmed', 'confirmed', 'waitlisted'], [$this->state($a), $this->state($b), $this->state($w)]);
     }
+
+    public function testCallersDetectTheFlagChange(): void
+    {
+        [$c, $item] = $this->courseWithForm('instant');
+        $a = $this->registrant($c, $item, 'confirmed', 'a@example.com', 'Anna');
+        $w = $this->registrant($c, $item, 'waitlisted', 'w@example.com', 'Wilma');
+        $app = $this->app();
+        // trash: the seat frees, Wilma moves up; restore: Anna no longer fits and goes behind
+        $this->assertSame(1, \Talea\Admin\Modules\Enquiries::trashAndSync($app, [$a]));
+        $this->assertSame('confirmed', $this->state($w));
+        $this->assertSame(1, \Talea\Admin\Modules\Enquiries::restoreAndSync($app, [$a]));
+        $this->assertSame('waitlisted', $this->state($a));
+        // spam by category: Wilma holds the seat, the spam mark on her frees it for Anna; a change of another kind does nothing
+        $before = \Talea\Core\Triage::categories($this->db(), [$w]);
+        $this->db()->update('enquiries', ['category' => 'spam'], ['enquiry_id' => $w]);
+        \Talea\Core\Triage::afterCategories($app, $before);
+        $this->assertSame('confirmed', $this->state($a));
+        $before = \Talea\Core\Triage::categories($this->db(), [$a]);
+        $this->db()->update('enquiries', ['category' => 'job'], ['enquiry_id' => $a]);
+        \Talea\Core\Triage::afterCategories($app, $before);
+        $this->assertSame('confirmed', $this->state($a));
+    }
+
+    public function testRestoredRowsAreFittedOldestFirst(): void
+    {
+        $c = $this->collection('courses', 'courses');
+        $item = $this->item($c, 'salsa', ['start' => '2030-01-01 10:00', 'capacity' => '2']);
+        $young = $this->enquiry($item['item_id'], 'confirmed', 1, '', date('Y-m-d H:i:s'), '2026-10-03 10:00:00');
+        $old = $this->enquiry($item['item_id'], 'confirmed', 1, '', date('Y-m-d H:i:s'), '2026-10-01 10:00:00');
+        $this->enquiry($item['item_id'], 'confirmed', 1);
+        $this->db()->update('enquiries', ['deleted_at' => null], ['enquiry_id' => $young]);
+        $this->db()->update('enquiries', ['deleted_at' => null], ['enquiry_id' => $old]);
+        Registrations::sync($this->app(), [$young, $old]);
+        $this->assertSame(['confirmed', 'waitlisted'], [$this->state($old), $this->state($young)]);
+    }
+
+    public function testDeletingARegistrationMovesTheListUp(): void
+    {
+        [$c, $item] = $this->courseWithForm('instant');
+        $a = $this->registrant($c, $item, 'confirmed', 'a@example.com', 'Anna');
+        $w = $this->registrant($c, $item, 'waitlisted', 'w@example.com', 'Wilma');
+        $items = Registrations::heldItems($this->db(), [$a, $w]);
+        $this->assertSame([$item['item_id']], $items);
+        $this->db()->delete('enquiries', ['enquiry_id' => $a]);
+        Registrations::refill($this->app(), $items);
+        $this->assertSame('confirmed', $this->state($w));
+    }
 }

@@ -201,9 +201,12 @@ final class Registrations
     /**
      * Moves waitlisted registrations up while seats are free and registration is open; returns how many. Instant: confirmed
      * and the visitor is told (course_moved_up). Confirm-first: waiting, the visitor is told and the form's recipients are
-     * notified as for a new request. The caller holds the lock.
+     * notified as for a new request. The caller holds the lock. With $mails the mails are not sent but collected as closures:
+     * send them with send() after unlocking (SMTP is slow and the lock must not wait for it).
+     *
+     * @param list<\Closure>|null $mails
      */
-    public static function promote(App $app, array $collection, array $item, string $now): int
+    public static function promote(App $app, array $collection, array $item, string $now, ?array &$mails = null): int
     {
         $db = $app->db();
         $course = self::course($collection, $item);
@@ -226,7 +229,7 @@ final class Registrations
             $row = $rows[array_search($id, array_column($rows, 'enquiry_id'), false)];
             $db->update('enquiries', ['seat_state' => $course['mode'] === 'confirm' ? 'waiting' : 'confirmed', 'state_changed_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $id]);
             $moved++;
-            self::tell($app, $collection, $item, $course, $row);
+            self::tell($app, $collection, $item, $course, $row, true, $mails);
         }
 
         return $moved;
@@ -235,7 +238,8 @@ final class Registrations
     /**
      * The holder's decision on one registration: confirm | decline (waiting), cancel (confirmed, waiting or waitlisted; this is also
      * "remove from the waiting list"), promote (waitlisted, by hand, when its seats are free). The visitor gets the mail of the
-     * new state ($message is the holder's own text for decline and cancel); a freed seat moves the waiting list up.
+     * new state ($message is the holder's own text for decline and cancel); a freed seat moves the waiting list up. Mails are sent
+     * after the seat lock is released.
      *
      * @throws \DomainException with a translated reason when the action does not apply
      */
@@ -247,11 +251,14 @@ final class Registrations
             throw new \DomainException(t('This enquiry is not a course registration.'));
         }
         [$collection, $item] = $found;
-        $course = self::course($collection, $item);
+        if (($course = self::course($collection, $item)) === null) {
+            throw new \DomainException(t('This is not a course with seats.'));
+        }
         $lock = self::lockFor($db, (int) $item['item_id']);
-        if ($course === null || !$db->lock($lock, 5)) {
+        if (!$db->lock($lock, 5)) {
             throw new \DomainException(t('The seats are being changed right now. Please try again in a moment.'));
         }
+        $mails = [];
         try {
             $row = $db->one('SELECT * FROM {enquiries} WHERE enquiry_id = ?', [$enquiryId]);
             $from = (string) ($row['seat_state'] ?? '');
@@ -273,26 +280,26 @@ final class Registrations
             }
             $db->update('enquiries', ['seat_state' => $to, 'state_changed_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $enquiryId]);
             if ($action === 'promote') {
-                self::tell($app, $collection, $item, $course, $row);
-            } else {
+                self::tell($app, $collection, $item, $course, $row, false, $mails); // the holder did it by hand: no notification to the holder
+            } elseif ((string) $row['email'] !== '') {
                 $id = ['confirm' => 'course_confirmed', 'decline' => 'course_declined', 'cancel' => 'course_cancelled'][$action];
-                $element = Forms::findElement($db, (string) $row['source'], (string) $row['element'], 'form');
+                $name = self::nameOf(Forms::findElement($db, (string) $row['source'], (string) $row['element'], 'form'), (string) $row['data']);
                 $language = (string) $row['language'];
-                if ((string) $row['email'] !== '') {
-                    Language::runWith($language !== '' ? $language : Language::defaults($app->settings()), fn () => Messages::send($app, $id, $language, (string) $row['email'],
-                        self::mailValues($collection, $item, self::nameOf($element, (string) $row['data']), (int) $row['seats']) + ['message' => $message]));
-                }
+                $mails[] = fn () => Language::runWith($language !== '' ? $language : Language::defaults($app->settings()), fn () => Messages::send($app, $id, $language, (string) $row['email'],
+                    self::mailValues($collection, $item, $name, (int) $row['seats']) + ['message' => $message]));
             }
-            self::promote($app, $collection, $item, date('Y-m-d H:i'));
+            self::promote($app, $collection, $item, date('Y-m-d H:i'), $mails);
         } finally {
             $db->unlock($lock);
         }
+        self::send($mails);
     }
 
     /**
      * After registrations were marked spam, un-spammed, trashed or restored (the caller passes only rows whose flag changed):
-     * a seat that freed moves the waiting list up; a holding row that came back and no longer fits goes to the end of the
-     * waiting list (cancelled when the list is off). Never overbooks; no mail except a promotion's.
+     * a seat that freed moves the waiting list up; holding rows that came back and no longer fit (oldest first) go to the end
+     * of the waiting list (cancelled when the list is off). Never overbooks; no mail except a promotion's. Never throws: a
+     * group whose lock cannot be had is skipped and logged (the flag change is already stored).
      *
      * @param list<int> $ids
      */
@@ -313,21 +320,79 @@ final class Registrations
                 continue;
             }
             if (!$db->lock($lock, 5)) {
-                throw new \RuntimeException('The seats of a course are being changed; try again.');
+                error_log('Talea: seats of course item ' . $itemId . ' were not settled after a registration changed (lock busy)');
+                continue;
             }
+            $mails = [];
             try {
-                foreach (array_merge(...array_values($items)) as $id) {
-                    $row = $db->one('SELECT seat_state, deleted_at, category FROM {enquiries} WHERE enquiry_id = ?', [$id]);
-                    if ($row === null || $row['deleted_at'] !== null || $row['category'] === 'spam' || !in_array($row['seat_state'], self::HOLDING, true)) {
-                        continue; // gone (its seat is free) or waiting for a seat: nothing to fit
-                    }
-                    if ($course['capacity'] > 0 && self::taken($db, $itemId) > $course['capacity']) {
-                        $db->update('enquiries', ['seat_state' => $course['waiting_list'] ? 'waitlisted' : 'cancelled', 'state_changed_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $id]);
+                $back = $db->all("SELECT enquiry_id, seats FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state IN ('confirmed', 'waiting') AND enquiry_id IN ("
+                    . implode(',', array_merge(...array_values($items))) . ') ORDER BY state_changed_at IS NULL, state_changed_at, enquiry_id');
+                $held = self::taken($db, $itemId) - (int) array_sum(array_column($back, 'seats')); // what stays, without the rows being fitted
+                foreach ($back as $r) {
+                    if ($course['capacity'] > 0 && $held + (int) $r['seats'] > $course['capacity']) {
+                        $db->update('enquiries', ['seat_state' => $course['waiting_list'] ? 'waitlisted' : 'cancelled', 'state_changed_at' => date('Y-m-d H:i:s')], ['enquiry_id' => (int) $r['enquiry_id']]);
+                    } else {
+                        $held += (int) $r['seats'];
                     }
                 }
-                self::promote($app, $found[0], $found[1], date('Y-m-d H:i'));
+                self::promote($app, $found[0], $found[1], date('Y-m-d H:i'), $mails);
+            } catch (\Throwable $e) {
+                error_log('Talea: seats of course item ' . $itemId . ' were not settled: ' . $e->getMessage());
             } finally {
                 $db->unlock($lock);
+            }
+            self::send($mails);
+        }
+    }
+
+    /** The items whose seats these enquiries hold now (live, not spam, confirmed or waiting): collect before deleting them, hand to refill() after. @param list<int> $ids @return list<int> */
+    public static function heldItems(Db $db, array $ids): array
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if ($ids === []) {
+            return [];
+        }
+
+        return array_values(array_unique(array_map('intval', array_column($db->all("SELECT item_id FROM {enquiries} WHERE item_id IS NOT NULL AND deleted_at IS NULL AND category <> 'spam' AND seat_state IN ('confirmed', 'waiting') AND enquiry_id IN ("
+            . implode(',', $ids) . ')'), 'item_id'))));
+    }
+
+    /** Moves the waiting list up in the seat groups of these items after registrations were deleted for good. Never throws. @param list<int> $itemIds */
+    public static function refill(App $app, array $itemIds): void
+    {
+        $db = $app->db();
+        $groups = [];
+        foreach ($itemIds as $itemId) {
+            $groups[self::lockFor($db, (int) $itemId)] ??= (int) $itemId;
+        }
+        foreach ($groups as $lock => $itemId) {
+            if (($found = self::load($db, $itemId)) === null) {
+                continue;
+            }
+            if (!$db->lock($lock, 5)) {
+                error_log('Talea: the waiting list of course item ' . $itemId . ' was not moved up (lock busy)');
+                continue;
+            }
+            $mails = [];
+            try {
+                self::promote($app, $found[0], $found[1], date('Y-m-d H:i'), $mails);
+            } catch (\Throwable $e) {
+                error_log('Talea: the waiting list of course item ' . $itemId . ' was not moved up: ' . $e->getMessage());
+            } finally {
+                $db->unlock($lock);
+            }
+            self::send($mails);
+        }
+    }
+
+    /** Sends mails collected under a lock (after it was released); a failing mail is logged and does not stop the others. @param list<\Closure> $mails */
+    public static function send(array $mails): void
+    {
+        foreach ($mails as $mail) {
+            try {
+                $mail();
+            } catch (\Throwable $e) {
+                error_log('Talea: a course mail was not sent: ' . $e->getMessage());
             }
         }
     }
@@ -346,24 +411,31 @@ final class Registrations
     }
 
     /** The visitor's mail (request received for confirm-first, moved up for instant) and, for confirm-first, the holder's. */
-    private static function tell(App $app, array $collection, array $item, array $course, array $row): void
+    private static function tell(App $app, array $collection, array $item, array $course, array $row, bool $holder, ?array &$mails): void
     {
         $element = Forms::findElement($app->db(), (string) $row['source'], (string) $row['element'], 'form');
         $name = self::nameOf($element, (string) $row['data']);
         $s = $app->settings();
         $language = (string) $row['language'];
+        $send = function (\Closure $mail) use (&$mails): void {
+            if ($mails === null) {
+                $mail();
+            } else {
+                $mails[] = $mail;
+            }
+        };
         if ((string) $row['email'] !== '') {
-            Language::runWith($language !== '' ? $language : Language::defaults($s), fn () => Messages::send($app, $course['mode'] === 'confirm' ? 'course_request' : 'course_moved_up', $language, (string) $row['email'],
-                self::mailValues($collection, $item, $name, (int) $row['seats'])));
+            $send(fn () => Language::runWith($language !== '' ? $language : Language::defaults($s), fn () => Messages::send($app, $course['mode'] === 'confirm' ? 'course_request' : 'course_moved_up', $language, (string) $row['email'],
+                self::mailValues($collection, $item, $name, (int) $row['seats']))));
         }
-        if ($course['mode'] === 'confirm' && $element !== null) {
+        if ($holder && $course['mode'] === 'confirm' && $element !== null) {
             [$to, $bcc] = Forms::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $s->get('site_email'));
             if ($to !== []) {
-                Language::runWith(Language::defaults($s), function () use ($s, $item, $row, $to, $bcc): void {
+                $send(fn () => Language::runWith(Language::defaults($s), function () use ($s, $item, $row, $to, $bcc): void {
                     $text = t('A seat is free and a registration moved up from the waiting list. Please confirm or decline it in the administration.')
                         . "\n\n" . $item['name'] . "\n" . t('Seats') . ': ' . $row['seats'];
                     Mail::send($s, implode(', ', $to), FormMail::subject(t('Request:') . ' ' . $item['name']), $text, '', $bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
-                });
+                }));
             }
         }
     }

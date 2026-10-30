@@ -244,24 +244,34 @@ final class Forms
             if (!$db->lock($lock, 5)) {
                 return $redirectUri('busy');
             }
+            $answer = null;
+            $late = null;
             try {
                 $verdict = Registrations::verdict($db, $rules, (int) $item['item_id'], $email, $seats, date('Y-m-d H:i'));
                 if ($verdict === 'already') {
                     // nothing is stored and the page answers as it would a new registration (it must not tell who is registered); the address is told by mail
                     $verdict = Registrations::decide($rules, Registrations::taken($db, (int) $item['item_id']), $seats, date('Y-m-d H:i'));
                     if (in_array($verdict, ['confirmed', 'waiting', 'waitlisted'], true)) {
-                        Language::runWith(Language::siteColumn() !== '' ? Language::siteColumn() : Language::defaults($this->app->settings()), fn () => \Talea\Core\Messages::send($this->app, 'course_already', Language::siteColumn(), $email,
-                            Registrations::mailValues($collection, $item, Registrations::nameOf($element, (string) json_encode($data, JSON_UNESCAPED_UNICODE)), $seats)));
-                        return $redirectUri(self::RESULTS[$verdict]);
+                        $values = Registrations::mailValues($collection, $item, Registrations::nameOf($element, (string) json_encode($data, JSON_UNESCAPED_UNICODE)), $seats);
+                        $late = fn () => Language::runWith(Language::siteColumn() !== '' ? Language::siteColumn() : Language::defaults($this->app->settings()), fn () => \Talea\Core\Messages::send($this->app, 'course_already', Language::siteColumn(), $email, $values)); // after the lock
+                        $answer = self::RESULTS[$verdict];
                     }
                 }
-                if (!in_array($verdict, ['confirmed', 'waiting', 'waitlisted'], true)) {
-                    return $redirectUri($verdict); // full | closed: nothing is stored
+                if ($answer === null && !in_array($verdict, ['confirmed', 'waiting', 'waitlisted'], true)) {
+                    $answer = $verdict; // full | closed: nothing is stored
                 }
-                $idp = $db->insert('enquiries', $row + ['item_id' => (int) $item['item_id'], 'seats' => $seats, 'language' => Language::siteColumn()]);
-                $seatState = Registrations::place($this->app, $collection, $item, $idp, $seats, $email);
+                if ($answer === null) {
+                    $idp = $db->insert('enquiries', $row + ['item_id' => (int) $item['item_id'], 'seats' => $seats, 'language' => Language::siteColumn()]);
+                    $seatState = Registrations::place($this->app, $collection, $item, $idp, $seats, $email);
+                }
             } finally {
                 $db->unlock($lock);
+            }
+            if ($late !== null) {
+                Registrations::send([$late]);
+            }
+            if ($answer !== null) {
+                return $redirectUri($answer);
             }
         }
         \Talea\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['content']['name'], 0, 80), mb_substr($back, 0, 120)),
