@@ -17,6 +17,15 @@ final class Backup
     private const int KEEP = 10;
 
     /**
+     * Owner tables a further owner's backup does not contain and its restore never touches: host names, the site registry, sign-in and
+     * security state (accounts, passkeys, permissions, remembered sign-ins, devices, per-site limits, roles, tokens and connections). A restore
+     * brings back CONTENT; it must not revive a removed operator row, an unblocked account, an old password, a revoked token, or a host name
+     * another owner has verified since (docs/specs/multisite.md, "Bringing existing sites in").
+     */
+    public const array OWNER_KEPT = ['site_domains', 'sites', 'handoff_tokens', 'users', 'user_passkeys', 'user_permissions', 'user_remember_tokens', 'user_devices', 'user_sites',
+        'role', 'api_tokens', 'oauth_clients', 'oauth_codes'];
+
+    /**
      * The public demo (3.3.2, N24): a web request never makes, restores or hands out a backup – a dump holds the site's
      * secret key and password hashes. The demo's own snapshot and reset run from the command line and may.
      */
@@ -51,14 +60,15 @@ final class Backup
         $folder = OwnerFiles::folder($db);
         $owner = $db->forOwner($db->ownerPrefix);
 
-        return self::write(array_map(fn (string $prefix): Db => $owner->forSite($prefix), Sites::prefixes($owner)), $folder, $reason);
+        return self::write(array_map(fn (string $prefix): Db => $owner->forSite($prefix), Sites::prefixes($owner)), $folder, $reason, self::OWNER_KEPT);
     }
 
     /**
      * @param list<Db> $connections the sites to dump, each on its own tables
+     * @param list<string> $skip tables (without prefix) that stay out of the file
      * @return string name of the created file
      */
-    private static function write(array $connections, string $folder, string $reason): string
+    private static function write(array $connections, string $folder, string $reason, array $skip = []): string
     {
         if (!is_dir($folder) && !mkdir($folder, 0775, true)) {
             throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
@@ -76,7 +86,9 @@ final class Backup
         foreach ($connections as $site) {
             $prefixes[] = $site->prefix;
             foreach ($dialect->dumpTables($pdo, $site->prefix) as $table) {
-                $sites[$table] = $site;
+                if (!in_array(substr($table, strlen($site->prefix)), $skip, true)) {
+                    $sites[$table] = $site;
+                }
             }
         }
         $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n-- prefixes: " . implode(',', $prefixes) . "\n" . $dialect->dumpPrologue(array_keys($sites)));
@@ -175,7 +187,15 @@ final class Backup
         // $registered was read before the restore replaces the registries
         // the sites the file holds (its header line); an older file has none and is taken for the sites there are now
         $prefixes = self::headerPrefixes($path, $gz, $db->installPrefix, $owner) ?? ($owner === null ? $registered : throw new \RuntimeException('The file is not a backup of this owner.'));
-        $count = self::walk($path, $gz, $prefixes, $dialect->name(), null);
+        $refuse = [];
+        if ($owner !== null) {
+            // the registry stays as it is now, so the file must be of exactly the sites there are: a site made or removed since is not guessed at
+            if (array_diff($prefixes, $registered) !== [] || array_diff($registered, $prefixes) !== []) {
+                throw new \RuntimeException('The sites changed since this backup was made, so it cannot be restored. Make a new backup first.');
+            }
+            $refuse = array_map(fn (string $t): string => $owner . $t, self::OWNER_KEPT);
+        }
+        $count = self::walk($path, $gz, $prefixes, $dialect->name(), null, $refuse);
         @set_time_limit(300);
         $pdo = $db->pdo();
         foreach ($prefixes as $prefix) {
@@ -252,7 +272,7 @@ final class Backup
      * @param list<string> $prefixes table prefixes of this installation's sites
      * @param (callable(string): mixed)|null $apply null = check only
      */
-    private static function walk(string $path, bool $gz, array $prefixes, string $engine, ?callable $apply): int
+    private static function walk(string $path, bool $gz, array $prefixes, string $engine, ?callable $apply, array $refuse = []): int
     {
         $f = $gz ? gzopen($path, 'rb') : fopen($path, 'rb');
         $first = (string) ($gz ? gzgets($f) : fgets($f));
@@ -277,7 +297,7 @@ final class Backup
                 // a backup can contain only tables of this installation
                 if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO|TRUNCATE|DELETE FROM) ([^(;]+)/', $statement, $m) && preg_match_all('/[`"]([^`"]+)[`"]/', $m[2], $names) > 0) {
                     foreach ($names[1] as $name) {
-                        if (self::prefixOf($prefixes, $name) === null) {
+                        if (self::prefixOf($prefixes, $name) === null || in_array($name, $refuse, true)) {
                             throw new \RuntimeException('The backup contains a foreign table ' . $name . ' – the restore was stopped.');
                         }
                     }

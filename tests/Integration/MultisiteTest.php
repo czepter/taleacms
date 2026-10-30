@@ -263,7 +263,7 @@ final class MultisiteTest extends DatabaseTestCase
         $this->assertNull(Sites::importRefusal($this->db()), 'the flag is off');
         putenv('TALEA_MULTISITE=1');
         try {
-            $this->assertStringContainsString('only possible while the install has one site', (string) Sites::importRefusal($this->db()));
+            $this->assertStringContainsString('Import it as a new site instead', (string) Sites::importRefusal($this->db()));
             $this->db()->update('sites', ['status' => 'trashed'], ['prefix' => 'tl2_']);
             $this->assertNull(Sites::importRefusal($this->db()), 'a trashed site does not count');
         } finally {

@@ -190,4 +190,56 @@ final class OwnerBackupsTest extends DatabaseTestCase
         @rmdir(TALEA_ROOT . '/media/' . $id . '/2026');
         @rmdir(TALEA_ROOT . '/media/' . $id);
     }
+
+    public function testARestoreBringsBackContentOnlyNeverHostsAccountsOrTokens(): void
+    {
+        $db = $this->db();
+        $beta = $db->forOwner('tlb_');
+        $db->pdo()->rollBack();
+        $now = date('Y-m-d H:i:s');
+        $user = $beta->insert('users', ['username' => 'keeper-b', 'password' => 'old-hash', 'name' => 'Keeper', 'email' => 'k@beta.example', 'admin' => 2, 'language' => '', 'confirmed_at' => $now]);
+        $beta->insert('site_domains', ['site_id' => 1, 'host' => 'restore-probe.test', 'is_primary' => false, 'redirect_to_primary' => false, 'verified_at' => $now]);
+        $tokenHash = hash('sha256', bin2hex(random_bytes(8)));
+        $beta->insert('api_tokens', ['user_id' => $user, 'name' => 'Old', 'token_hash' => $tokenHash, 'created_at' => $now]);
+        $this->setting($beta, 'at-backup');
+        $file = Backup::createForOwner($beta);
+        self::$files[] = OwnerFiles::folder($beta) . '/' . $file;
+        $text = $this->read(OwnerFiles::folder($beta) . '/' . $file);
+        foreach (Backup::OWNER_KEPT as $table) {
+            $this->assertDoesNotMatchRegularExpression('/(CREATE TABLE|INSERT INTO|DROP TABLE IF EXISTS) [`"]tlb_' . $table . '[`"]/', $text, $table . ' is not in the file');
+        }
+
+        // later: the host is lost to (and verified by) another owner, the user is blocked and the token revoked, the content changes
+        $beta->run("DELETE FROM {site_domains} WHERE host = 'restore-probe.test'");
+        $beta->run('UPDATE {users} SET blocked = TRUE, password = ? WHERE user_id = ?', ['new-hash', $user]);
+        $beta->run('DELETE FROM {api_tokens} WHERE token_hash = ?', [$tokenHash]);
+        $this->setting($beta, 'after-backup');
+        try {
+            Backup::restoreForOwner($beta, $file);
+        } finally {
+            set_time_limit(0);
+        }
+
+        $this->assertSame('at-backup', $beta->value("SELECT value FROM {settings} WHERE name = 'owner_note'"), 'content is back to the backup');
+        $this->assertNull($beta->value("SELECT 1 FROM {site_domains} WHERE host = 'restore-probe.test'"), 'a host is not revived');
+        $this->assertSame(1, (int) $beta->value('SELECT blocked FROM {users} WHERE user_id = ?', [$user]), 'a blocked account stays blocked');
+        $this->assertSame('new-hash', $beta->value('SELECT password FROM {users} WHERE user_id = ?', [$user]), 'an old password is not revived');
+        $this->assertNull($beta->value('SELECT 1 FROM {api_tokens} WHERE token_hash = ?', [$tokenHash]), 'a revoked token stays revoked');
+        $beta->run('DELETE FROM {users} WHERE user_id = ?', [$user]);
+        $beta->run("DELETE FROM {settings} WHERE name = 'owner_note'");
+    }
+
+    public function testASiteMadeSinceTheBackupStopsTheRestore(): void
+    {
+        $db = $this->db();
+        $beta = $db->forOwner('tlb_');
+        $file = Backup::createForOwner($beta);
+        self::$files[] = OwnerFiles::folder($beta) . '/' . $file;
+        $folder = OwnerFiles::folder($beta);
+        $forged = 'talea-20261108-000001-forged.sql';
+        file_put_contents($folder . '/' . $forged, "-- Talea test\n-- engine: " . $db->dialect()->name() . "\n-- prefixes: tlb_\n");
+        self::$files[] = $folder . '/' . $forged;
+        $this->expectExceptionMessage('sites changed since');
+        Backup::restoreForOwner($beta, $forged);
+    }
 }

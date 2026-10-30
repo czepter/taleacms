@@ -319,6 +319,48 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
 - **Open:** a site made later is not added to the limited people automatically; the limit is not shown to a limited person anywhere but at the sign-in; storage
   history and AI usage would need recording first.
 
+## Bringing existing sites in – Proposed
+
+Decisions for the owner's review. Needs `TALEA_MULTISITE`; Owners area needs `TALEA_OWNERS`.
+
+- **A new site from an archive** (`Core\SiteImports`): Sites → "Import a Talea archive" (an administrator, into its own owner) and Owners → the same
+  with an owner choice (operators). The request inserts the site row (not ready, `sites.import_file`, migration `20261108100047`) and stores the
+  archive in `storage/import/sites/<site prefix>/archive.zip` (uploaded, or a file of `storage/import` moved there: owner 1 and operators only). Cron
+  (`Sites::provisionPending`, in the target owner's own run) migrates the prefix and `SiteImports::work()` imports in batches with the site's own
+  state file and lock in that folder – never the install-wide `RUNNING` file, so no other site shows a maintenance notice and `SiteImport::running()`
+  concerns only the classic import. The site becomes ready when it is done (`import_file` cleared, archive and working files deleted); a failure
+  sets `sites.import_error` (shown in the Sites list and on the site), takes the owner rows the import added out again and leaves the site not ready;
+  `Sites::pending()` skips it, a person trashes it and imports again. The cron run spends `SiteImports::SECONDS` (200) on imports and continues
+  next time from the saved state.
+- **Owner tables are only added to** (`SiteImport` in site mode, `$mediaDir` non-empty): the site tables go into the new, empty prefix with keys by
+  order as before; `media_folders`, `media`, `components` and `facts` get new keys, a public id already taken in the owner gets a new one, and the
+  references are remapped (`owner-map.json`; components are reserved first because a component may place a later one). Components and facts are the
+  new site's own (`site_id`). `EMPTIED` is never used on this path; every row added is listed in `owner-rows.txt` for the undo. Media files go into
+  the owner's folder (`MediaFolder::dirOf`); a name that is taken (on disk or in `media`) gets `-<6 hex>` after its stem together with its variants
+  (`ArchiveMedia::intoFolder`), and the paths in the content follow (`ArchiveMedia::rename`). A media row is kept only for a file the archive brought
+  and that was placed in the owner's folder; the classic import also refuses a row outside the current owner's folder (`MediaFolder::owns`). Every
+  file removal (`Images::delete`, the staging cleanup) refuses a path outside the owner's folder.
+- **Settings:** the archive's allow-listed settings (`SiteExport::SETTINGS`), never secrets; the account settings (mail, AI, time zone, languages)
+  come from the site the importing administrator was on, as for an empty site.
+- **Accounts are not imported.** The export has none. Authors go to the importing administrator (`news.author_id`, `media.owner_id`); an operator
+  importing into a client is no user there, so they stay empty. The people the archive does name (news authors, booking staff with e-mails) are kept
+  in `sites.import_people` and listed on the site's page so the administrator can invite them.
+- **The classic import** (Transfer, empty single-site install) is unchanged; `Sites::importRefusal` now points to the new path.
+- **MCP:** no import tool. `upload_file` takes media files, not archives that can be gigabytes; the admin action has a ParityTest entry saying so.
+- **A client's own backups and exports** (`Backup::createForOwner/restoreForOwner/listForOwner/pathForOwner`, `OwnerFiles`, `SiteExport::create`
+  for a further owner): Sites → Backups and exports for owners other than owner 1. Files live in `storage/backups/owners/<owner public id>/`
+  (the id comes from the registry; names are checked against a fixed pattern and looked up in that folder only), so a client can neither list
+  nor name another owner's file. A backup holds the owner prefix and its sites' tables (`-- prefixes:` as before) **without** `Backup::OWNER_KEPT`:
+  `site_domains`, `sites`, `handoff_tokens` and the account and security tables (users, passkeys, permissions, remembered sign-ins, devices,
+  `user_sites`, roles, API tokens, OAuth clients and codes). A restore therefore brings back content and never revives a removed operator row, an
+  unblocked account, an old password, a revoked token or a host name another owner has verified since; it accepts only prefixes of that owner, refuses
+  a file that names a kept table, and works only while the registered sites are exactly the file's (a site made or removed since stops it). A
+  site export of a client carries the media of its owner folder only (`export-<stamp>-s<site>.zip`). The install-wide backup and restore, the
+  off-site copy, the error log and the media zip stay owner 1's.
+- **Open:** the restore of an owner backup meets a foreign key from a restored table to a kept user that was deleted since (PostgreSQL stops the restore
+  and the safety backup brings the state back); a failed import's archive is deleted, not kept; an archive without files (JSON only) imports no media
+  rows.
+
 ## Phases (phase 1 is done)
 
 - **Phase 0** (no behaviour change): two prefixes in `Db`, the site registry with the row for site 1, the migration loop,
@@ -335,6 +377,6 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
   allow-list of settings (`SiteExport::SETTINGS` and the account settings); secrets are made again.
 - `TALEA_SITE_URL` is the address of site 1 only (`SiteUrl::locked()`); a further site edits its own `site_url`.
 - The `site` argument is added to the schema like `reason` and is not in the contract file.
-- Importing a Talea archive is refused while the install has several sites (above).
+- Importing a Talea archive INTO a site is refused while the install has several sites (above); an archive becomes a NEW site instead ("Bringing existing sites in").
 - Open for later phases: several owners (databases) in one install, per-site roles, moving a single site
   between installs.

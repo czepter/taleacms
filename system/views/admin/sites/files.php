@@ -9,7 +9,7 @@
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to sites')) ?></a></p>
 <h2><?= e(t('Backups')) ?></h2>
-<p class="help"><?= e(t('A backup holds everything of your account: all your sites with their pages, news, settings and users. It does not hold uploaded files – export a site for those. A restore puts back every site of your account, not only this one; the current state is saved to a new backup first. The last 10 backups are kept.')) ?></p>
+<p class="help"><?= e(t('A backup holds the content of all your sites: pages, news, settings, media records and the like. It does not hold uploaded files – export a site for those. Accounts, host names and connections are not part of a backup or a restore: they stay as they are now. A restore puts back every site of your account, not only this one, and works only while the same sites exist; the current state is saved to a new backup first. The last 10 backups are kept.')) ?></p>
 <form method="post" action="<?= e($module->url('backup_create')) ?>"><?= $csrf ?><p><button class="btn" type="submit"><?= e(t('Create backup now')) ?></button></p></form>
 <?php if ($backups !== []): ?>
 <form method="post" action="<?= e($module->url('backup_restore')) ?>"><?= $csrf ?>

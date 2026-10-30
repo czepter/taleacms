@@ -568,6 +568,15 @@ site is set up and how much space it takes.
 - **Claude:** one connection works on all sites. A tool acts on the site the connection calls, or on another site when you pass its id as
   `site` (`list_owner_sites` lists them); `create_site`, `update_site`, `trash_site`, `restore_site`, `add_site_domain`, `update_site_domain` and `remove_site_domain` manage them
   (administrators with a full-access connection only; a connection limited to drafts or to reading cannot change sites).
-- **Backups and imports:** a backup holds every site and a restore puts all of them back. A Talea archive can be imported only while
-  the install has one site.
+- **Backups:** a backup holds every site and a restore puts all of them back. A client (an owner other than the first) has backups
+  of its own under **Sites → Backups and exports**: content only – accounts, host names and connections are not part of a backup or a
+  restore – and a restore works while the same sites exist. The same screen exports a site (with the uploaded files of the account).
+- **Moving an old site in:** on the old install make **Import and export → Export of the whole site** and download the archive. Here
+  open **Sites → Import a Talea archive** (operators: **Owners → Import a Talea archive**, choosing the owner), name the site and upload
+  the file. The site is created, not ready, and the scheduled tasks import it in batches; the Sites list shows the progress, and an
+  error if it stops (move that site to the trash and try again). The other sites keep running. Pages, news, collections, look and
+  settings come over; the uploaded files join the shared media library (a name that is taken gets a short suffix, and the content
+  follows); components and facts become the new site's own. Accounts are not imported: the news belong to you, and the site's page
+  lists the authors and booking staff the archive names so you can invite them. The mail, AI and time-zone settings are taken from
+  the site you were on, never from the archive. Importing straight into an existing site with several sites is refused; use this.
 
