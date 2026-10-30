@@ -36,6 +36,7 @@ final class Calendar
     private const array ROLES = [
         'start' => ['datetime', 'date'], 'end' => ['datetime', 'date'], 'place' => ['text'], 'address' => ['text'], 'summary' => ['lines', 'text'],
         'online' => ['link'], 'repeat' => ['radio', 'text'], 'repeat_until' => ['date', 'datetime'], 'capacity' => ['number'], 'registration_until' => ['datetime', 'date'],
+        'registration' => ['radio', 'text'], 'waiting_list' => ['radio', 'text'], 'seats_per_registration' => ['number'],
     ];
 
     /**
@@ -144,7 +145,11 @@ final class Calendar
             $since = $previous->format(strlen($start) === 10 ? 'Y-m-d 23:59:59' : 'Y-m-d H:i:s');
         }
 
-        return (int) $db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND source = ? AND (page LIKE ? OR page LIKE ?) AND created_at > ?",
+        if (!isset(self::REPEATS[$repeat]) && isset($item['item_id']) && Registrations::course($collection, $item) !== null) {
+            return Registrations::taken($db, (int) $item['item_id']);
+        }
+
+        return (int) $db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND source = ? AND (page LIKE ? OR page LIKE ?) AND created_at > ?",
             ['collection:' . (int) $collection['collection_id'], '%/' . $collection['slug'] . '/' . $item['slug'], '%/' . $collection['slug'] . '/' . $item['slug'] . '?%', $since]);
     }
 

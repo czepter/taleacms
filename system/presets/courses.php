@@ -10,13 +10,20 @@ return [
     'detail' => true,
     'redirect_hidden' => true,
     'fields' => [
-        ['start', 'Start', 'datetime'],
-        ['end', 'End', 'datetime'],
+        ['start', 'First session', 'datetime'],
+        ['end', 'Last session', 'datetime'],
+        ['schedule', 'Schedule', 'text'],
+        ['sessions', 'Sessions', 'number'],
         ['place', 'Place', 'text'],
         ['price', 'Price', 'number'],
         ['capacity', 'Capacity', 'number'],
+        ['registration_until', 'Registration until', 'datetime'],
+        ['registration', 'How a registration counts', 'radio', ['options' => ['instant', 'confirm']]],
+        ['seats_per_registration', 'Seats per registration', 'number'],
+        ['waiting_list', 'Waiting list', 'radio', ['options' => ['on', 'off']]],
         ['description', 'Description', 'html'],
         ['image', 'Image', 'image'],
+        ['level', 'Level', 'text'],
     ],
     'schema' => ['type' => 'Event', 'fields' => ['startDate' => 'start', 'endDate' => 'end', 'location' => 'place', 'price' => 'price']],
     'claude' => 'One item per date of a course – a course held again is a new item with a new start. The start and end are a date and time ("2026-11-02 09:00") or a whole day ("2026-11-02"). '
@@ -24,7 +31,8 @@ return [
         . 'the card shows the start and the place. The item template shows the image, the start and end, the place, the price, the capacity and the description. '
         . 'The structured data is Event with the dates, the place and the price (set the currency with update_collection structured_data). '
         . 'Like events (Core\\Calendar): {{when}}, {{where}}, {{event_status}}, {{places_left}} and {{ical}} on the item page, /<collection>.ics for all courses, and the registration form closes when Capacity is taken or the course has ended.',
-    'calendar' => ['start' => 'start', 'end' => 'end', 'place' => 'place', 'capacity' => 'capacity'],
+    'calendar' => ['start' => 'start', 'end' => 'end', 'place' => 'place', 'capacity' => 'capacity',
+        'registration_until' => 'registration_until', 'registration' => 'registration', 'waiting_list' => 'waiting_list', 'seats_per_registration' => 'seats_per_registration'],
     'list' => ['period' => 'upcoming', 'period_start_field' => 'start', 'period_end_field' => 'end', 'sort' => 'field', 'sort_field' => 'start'],
     'card' => ['start', 'place'],
     'template' => function (array $fields): array {
