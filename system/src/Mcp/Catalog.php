@@ -108,6 +108,10 @@ final class Catalog
         'find_personal_data' => ['read', 'enquiries'],
         'erase_personal_data' => ['destructive', 'enquiries'],
         'import_enquiries' => ['write', 'enquiries'],
+        // course registrations (the Enquiries right and the Collections section, checked in the handlers)
+        'list_registrations' => ['read', 'enquiries'],
+        'update_registration' => ['write', 'enquiries'],
+        'cancel_course' => ['destructive', 'enquiries'],
         'list_popups' => ['read', ''],
         'save_popup' => ['write', ''],
         'delete_popup' => ['destructive', ''],
@@ -211,7 +215,7 @@ final class Catalog
      * Writes that send something to a person (an e-mail to a customer or a test newsletter): the runner treats them like a
      * destructive tool – nothing can take a sent e-mail back – although their access is "write" (update_request: draft, but status done e-mails the requester).
      */
-    public const array SENDS = ['send_test_newsletter', 'request_testimonial', 'confirm_booking', 'propose_booking_times', 'update_request'];
+    public const array SENDS = ['send_test_newsletter', 'request_testimonial', 'confirm_booking', 'propose_booking_times', 'update_request', 'update_registration', 'cancel_course'];
 
     /** How a connection lists its tools: "all" (as before) or "essentials" (ESSENTIALS, find_tools and the runners it needs). */
     public const array TOOL_SETS = ['all', 'essentials'];

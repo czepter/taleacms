@@ -65,6 +65,7 @@ return [
     '%d places' => 'Míst: %d',
     '%d problem(s) in System status need fixing' => '%d problém(ů) ve Stavu systému čeká na opravu',
     '%d registrations are cancelled: %d confirmed, %d requests, %d on the waiting list. %d of them get an e-mail. The course is hidden from the site. This cannot be undone.' => 'Bude zrušeno %d přihlášek: %d potvrzených, %d žádostí, %d na čekací listině. E-mail dostane %d z nich. Kurz se na webu skryje. Nelze vrátit zpět.',
+    '%d registrations read' => 'přečteno přihlášek: %d',
     '%d request(s) wait' => 'čeká požadavků: %d',
     '%d request(s) wait, but Claude is not connected to the site' => 'čeká požadavků: %d, ale Claude není k webu připojený',
     '%d request(s) wait, but the scheduled run that picks them up has stopped (last missed or failed %s)' => 'čeká požadavků: %d, ale plánovaný běh, který je vyřizuje, se zastavil (naposledy zmeškán nebo selhal %s)',

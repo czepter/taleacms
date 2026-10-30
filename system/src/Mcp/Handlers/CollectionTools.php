@@ -212,8 +212,13 @@ trait CollectionTools
             $r['data'] = json_decode((string) $r['data'], true) ?: [];
             $v = \Talea\Core\Calendar::values($db, $collection, $r, fn (string $p): string => $p, date('Y-m-d H:i'));
 
+            $course = \Talea\Core\Registrations::course($collection, $r);
+            $counts = $course !== null ? \Talea\Core\Registrations::counts($db, (int) $r['item_id']) : null;
+
             return ['registration' => ['state' => $v['_registration'][0], 'registered' => \Talea\Core\Calendar::registered($db, $collection, $r, (array) \Talea\Core\Calendar::fields($collection)),
-                'places_left' => $v['places_left'][0] !== '' ? (int) $v['places_left'][0] : null]];
+                'places_left' => $v['places_left'][0] !== '' ? (int) $v['places_left'][0] : null]
+                + ($course !== null ? ['mode' => $course['mode'], 'waiting_list' => $course['waiting_list'], 'max_seats' => $course['max_seats'],
+                    'taken' => $counts['taken'], 'waiting' => $counts['requested'], 'waitlisted' => $counts['waitlisted']] : [])];
         };
 
         // a document library (2.11): how often each document was downloaded, and the stable address of its file

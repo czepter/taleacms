@@ -208,6 +208,9 @@ final class Server
                 // enquiries hold personal data: every read by Claude is in the change log, with how many it saw
                 ChangeLog::write($this->app, 'claude', 'list_enquiries', t('%d enquiries read', is_array($result) ? count($result) : 0));
             }
+            if ($name === 'list_registrations') {
+                ChangeLog::write($this->app, 'claude', 'list_registrations', t('%d registrations read', is_array($result) ? count((array) ($result['registrations'] ?? [])) : 0));
+            }
             if ($unknownParams !== [] && is_array($result) && !array_is_list($result)) {
                 // a typo in a parameter name would otherwise get lost without a trace (the tool does not know it, so it skips it)
                 $result['unknown_parameters'] = $unknownParams;

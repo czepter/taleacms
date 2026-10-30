@@ -67,6 +67,7 @@ return [
     '%d places' => 'Orte: %d',
     '%d problem(s) in System status need fixing' => '%d Problem(e) im Systemstatus müssen behoben werden',
     '%d registrations are cancelled: %d confirmed, %d requests, %d on the waiting list. %d of them get an e-mail. The course is hidden from the site. This cannot be undone.' => '%d Anmeldungen werden storniert: %d bestätigt, %d Anfragen, %d auf der Warteliste. %d davon erhalten eine E-Mail. Der Kurs wird auf der Website ausgeblendet. Das lässt sich nicht rückgängig machen.',
+    '%d registrations read' => '%d Anmeldungen gelesen',
     '%d request(s) wait' => '%d Auftrag/Aufträge warten',
     '%d request(s) wait, but Claude is not connected to the site' => '%d Auftrag/Aufträge warten, aber Claude ist nicht mit der Website verbunden',
     '%d request(s) wait, but the scheduled run that picks them up has stopped (last missed or failed %s)' => '%d Auftrag/Aufträge warten, aber der geplante Lauf, der sie abarbeitet, ist stehen geblieben (zuletzt verpasst oder fehlgeschlagen %s)',
