@@ -77,6 +77,7 @@ final class LookFamily
     public static function draftRefusal(Db $db, Settings $s, bool $translate = true): ?string
     {
         $parent = self::parent($db);
+        /** @var array<string, mixed> $draft the stored draft also carries parts and the rollback mark */
         $draft = Look::draft($s);
         if ($parent === null || (is_string($draft['rollback'] ?? null) && hash_equals($draft['rollback'], Look::draftHash($draft)))) {
             return null;
