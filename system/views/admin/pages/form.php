@@ -61,7 +61,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <input type="hidden" name="text" value="">
 <?php elseif (($page['build'] ?? null) !== null): ?>
 <div class="row span-all">
-	<p class="notice"><?= e(t('This page\'s content is built in the builder.')) ?> <a class="btn" href="<?= e($module->url('builder', ['id' => $page['public_id']])) ?>"><?= e(t('Open the builder')) ?></a></p>
+	<p class="notice navigation-row"><?= e(t('This page\'s content is built in the builder.')) ?> <a class="btn" href="<?= e($module->url('builder', ['id' => $page['public_id']])) ?>"><?= e(t('Open the builder')) ?></a></p>
 	<input type="hidden" name="text" value="<?= e($page['text']) ?>">
 </div>
 <?php else: ?>
@@ -164,7 +164,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <input type="hidden" name="quick" value="1">
 <input type="hidden" name="about" value="page:<?= e($app->db()->publicId('pages', (int) $page['translation_of'])) ?>">
 <input type="hidden" name="text" value="<?= e(t('Translate the page “%s” into %s: start the translation as a copy of the original build, translate all its texts and leave it as a draft for me to check.', $translationOf, $languageName)) ?>">
-<p class="help"><?= e(t('Or let Claude do it: it creates the translation as a draft for you to check.')) ?> <button class="navigation" type="submit"><?= e(t('Ask Claude to translate it')) ?></button></p>
+<p class="navigation-row"><span class="help"><?= e(t('Or let Claude do it: it creates the translation as a draft for you to check.')) ?></span> <button class="navigation" type="submit"><?= e(t('Ask Claude to translate it')) ?></button></p>
 </form>
 <?php endif ?>
 <?php if ($versions !== []): ?>
