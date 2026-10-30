@@ -129,6 +129,23 @@ final class Build
                     }
                 }
             }
+            // a focal point has a meaning only on an image, and a background point only where there is a background picture to move
+            $hasBackground = ($clean['content']['background_video'] ?? '') !== '';
+            foreach ($style as $properties) {
+                $hasBackground = $hasBackground || isset($properties['background_image']);
+            }
+            foreach ($style as $state => $properties) {
+                foreach (['focal_point' => $className::TYPE === 'image', 'background_focal' => $hasBackground] as $key => $allowed) {
+                    if (isset($properties[$key]) && (!$allowed || !in_array($state, Style::FOCAL_STATES, true))) {
+                        unset($style[$state][$key]);
+                        $errors[$place . '.style.' . $state . '.' . $key] = $key === 'focal_point' ? 'A focal point belongs to an image, in the regular, tablet or phone state – left out.'
+                            : 'A background focal point needs a background image or video on the element, in the regular, tablet or phone state – left out.';
+                    }
+                }
+                if ($style[$state] === []) {
+                    unset($style[$state]);
+                }
+            }
             if ($style !== []) {
                 $clean['style'] = $style;
             }

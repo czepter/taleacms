@@ -275,6 +275,13 @@ trait MediaTools
         if ($name === 'update_media') {
             $changes = array_filter(['name' => isset($a['alt']) ? mb_substr(trim((string) $a['alt']), 0, 150) : null, 'description' => isset($a['caption']) ? mb_substr(trim((string) $a['caption']), 0, 500) : null,
                 'author' => isset($a['author']) ? mb_substr(trim((string) $a['author']), 0, 120) : null], fn (?string $v): bool => $v !== null);
+            if (isset($a['focal_point'])) {
+                $point = trim((string) $a['focal_point']);
+                if ($point !== '' && \Talea\Builder\Style::focal($point) === null) {
+                    throw new \InvalidArgumentException('focal_point is “x% y%” with whole numbers 0–100, for example “62% 38%”, or empty for the centre.');
+                }
+                $changes['focal_point'] = $point === '50% 50%' ? '' : $point; // the centre is stored as empty, as in Media → edit
+            }
             if ($changes !== []) {
                 $db->update('media', $changes, ['media_id' => $id]);
                 \Talea\Front\Cache::clear();

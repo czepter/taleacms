@@ -45,7 +45,7 @@ final class Image extends Element
         $img = '<img' . ($labelText || $o['link'] !== '' ? '' : $a) . ' src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="' . ($o['priority'] ? '' : 'auto, ') . '(max-width: 900px) 100vw, 900px"' : '') // a lazy image: the browser knows its laid-out width
             . ' alt="' . e($o['alt']) . '"' . ($o['priority'] ? ' fetchpriority="high"' : ' loading="lazy"') . '>';
         if ($o['link'] !== '') {
-            $img = '<a' . ($labelText ? '' : $a) . ' href="' . e($o['link']) . '">' . $img . '</a>';
+            $img = '<a' . ($labelText ? '' : Text::withClass($a, 'tl-linked')) . ' href="' . e($o['link']) . '">' . $img . '</a>';
         }
 
         return $labelText ? '<figure' . Text::withClass($a, 'tl-figure') . '>' . $img . '<figcaption>' . e($o['caption']) . '</figcaption></figure>' : $img;
@@ -53,7 +53,9 @@ final class Image extends Element
 
     public static function baseCss(): string
     {
+        // the element's id and style sit on the <figure>, or on the <a> of a linked image without a caption: the crop group reaches the photo from there
         return '.tl-figure { margin: 0; }
+:where(.tl-figure, .tl-linked, .tl-figure > a) > img { aspect-ratio: inherit; object-fit: inherit; object-position: inherit; }
 .tl-figure img { display: block; width: 100%; height: auto; border-radius: inherit; }
 .tl-figure figcaption { margin-block-start: var(--tl-space-xs); font-size: var(--tl-step--1); color: var(--tl-color-muted); }';
     }
