@@ -232,6 +232,119 @@ final class Registrations
         return $moved;
     }
 
+    /**
+     * The holder's decision on one registration: confirm | decline (waiting), cancel (confirmed, waiting or waitlisted; this is also
+     * "remove from the waiting list"), promote (waitlisted, by hand, when its seats are free). The visitor gets the mail of the
+     * new state ($message is the holder's own text for decline and cancel); a freed seat moves the waiting list up.
+     *
+     * @throws \DomainException with a translated reason when the action does not apply
+     */
+    public static function transition(App $app, int $enquiryId, string $action, string $message = ''): void
+    {
+        $db = $app->db();
+        $row = $db->one('SELECT * FROM {enquiries} WHERE enquiry_id = ?', [$enquiryId]);
+        if ($row === null || (int) $row['item_id'] <= 0 || ($found = self::load($db, (int) $row['item_id'])) === null) {
+            throw new \DomainException(t('This enquiry is not a course registration.'));
+        }
+        [$collection, $item] = $found;
+        $course = self::course($collection, $item);
+        $lock = self::lockFor($db, (int) $item['item_id']);
+        if ($course === null || !$db->lock($lock, 5)) {
+            throw new \DomainException(t('The seats are being changed right now. Please try again in a moment.'));
+        }
+        try {
+            $row = $db->one('SELECT * FROM {enquiries} WHERE enquiry_id = ?', [$enquiryId]);
+            $from = (string) ($row['seat_state'] ?? '');
+            if ($row === null || $row['deleted_at'] !== null || $row['category'] === 'spam') {
+                throw new \DomainException(t('This registration is in the trash or marked as spam.'));
+            }
+            $to = match ($action) {
+                'confirm' => $from === 'waiting' ? 'confirmed' : null,
+                'decline' => $from === 'waiting' ? 'declined' : null,
+                'cancel' => in_array($from, ['confirmed', 'waiting', 'waitlisted'], true) ? 'cancelled' : null,
+                'promote' => $from === 'waitlisted' ? ($course['mode'] === 'confirm' ? 'waiting' : 'confirmed') : null,
+                default => null,
+            };
+            if ($to === null) {
+                throw new \DomainException(t('This action does not apply to a registration in its current state.'));
+            }
+            if ($action === 'promote' && $course['capacity'] > 0 && self::taken($db, (int) $item['item_id']) + (int) $row['seats'] > $course['capacity']) {
+                throw new \DomainException(t('There is no free seat for this registration.'));
+            }
+            $db->update('enquiries', ['seat_state' => $to, 'state_changed_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $enquiryId]);
+            if ($action === 'promote') {
+                self::tell($app, $collection, $item, $course, $row);
+            } else {
+                $id = ['confirm' => 'course_confirmed', 'decline' => 'course_declined', 'cancel' => 'course_cancelled'][$action];
+                $element = Forms::findElement($db, (string) $row['source'], (string) $row['element'], 'form');
+                $language = (string) $row['language'];
+                if ((string) $row['email'] !== '') {
+                    Language::runWith($language !== '' ? $language : Language::defaults($app->settings()), fn () => Messages::send($app, $id, $language, (string) $row['email'],
+                        self::mailValues($collection, $item, self::nameOf($element, (string) $row['data']), (int) $row['seats']) + ['message' => $message]));
+                }
+            }
+            self::promote($app, $collection, $item, date('Y-m-d H:i'));
+        } finally {
+            $db->unlock($lock);
+        }
+    }
+
+    /**
+     * After registrations were marked spam, un-spammed, trashed or restored (the caller passes only rows whose flag changed):
+     * a seat that freed moves the waiting list up; a holding row that came back and no longer fits goes to the end of the
+     * waiting list (cancelled when the list is off). Never overbooks; no mail except a promotion's.
+     *
+     * @param list<int> $ids
+     */
+    public static function sync(App $app, array $ids): void
+    {
+        $db = $app->db();
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if ($ids === []) {
+            return;
+        }
+        $groups = [];
+        foreach ($db->all("SELECT enquiry_id, item_id FROM {enquiries} WHERE item_id IS NOT NULL AND seat_state IN ('confirmed', 'waiting', 'waitlisted') AND enquiry_id IN (" . implode(',', $ids) . ')') as $r) {
+            $groups[self::lockFor($db, (int) $r['item_id'])][(int) $r['item_id']][] = (int) $r['enquiry_id'];
+        }
+        foreach ($groups as $lock => $items) {
+            $itemId = (int) array_key_first($items);
+            if (($found = self::load($db, $itemId)) === null || ($course = self::course($found[0], $found[1])) === null) {
+                continue;
+            }
+            if (!$db->lock($lock, 5)) {
+                throw new \RuntimeException('The seats of a course are being changed; try again.');
+            }
+            try {
+                foreach (array_merge(...array_values($items)) as $id) {
+                    $row = $db->one('SELECT seat_state, deleted_at, category FROM {enquiries} WHERE enquiry_id = ?', [$id]);
+                    if ($row === null || $row['deleted_at'] !== null || $row['category'] === 'spam' || !in_array($row['seat_state'], self::HOLDING, true)) {
+                        continue; // gone (its seat is free) or waiting for a seat: nothing to fit
+                    }
+                    if ($course['capacity'] > 0 && self::taken($db, $itemId) > $course['capacity']) {
+                        $db->update('enquiries', ['seat_state' => $course['waiting_list'] ? 'waitlisted' : 'cancelled', 'state_changed_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $id]);
+                    }
+                }
+                self::promote($app, $found[0], $found[1], date('Y-m-d H:i'));
+            } finally {
+                $db->unlock($lock);
+            }
+        }
+    }
+
+    /** The collection and item (data decoded) of an item id; null when either is gone. @return array{0: array, 1: array}|null */
+    private static function load(Db $db, int $itemId): ?array
+    {
+        $item = $db->one('SELECT * FROM {collection_items} WHERE item_id = ?', [$itemId]);
+        $collection = $item !== null ? \Talea\Builder\Collections::byId($db, (int) $item['collection_id']) : null;
+        if ($collection === null) {
+            return null;
+        }
+        $item['data'] = json_decode((string) $item['data'], true) ?: [];
+
+        return [$collection, $item];
+    }
+
     /** The visitor's mail (request received for confirm-first, moved up for instant) and, for confirm-first, the holder's. */
     private static function tell(App $app, array $collection, array $item, array $course, array $row): void
     {

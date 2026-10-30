@@ -176,4 +176,141 @@ final class RegistrationsTest extends DatabaseTestCase
         $this->assertSame('already', Registrations::place($this->app(), $c, $item, $b, 1, 'eva@example.com'));
         $this->assertSame('', (string) $this->db()->value('SELECT seat_state FROM {enquiries} WHERE enquiry_id = ?', [$b]));
     }
+
+    private function state(int $id): string
+    {
+        return (string) $this->db()->value('SELECT seat_state FROM {enquiries} WHERE enquiry_id = ?', [$id]);
+    }
+
+    /** A registration with a mailing address and the stored answers of the form of courseWithForm(). */
+    private function registrant(array $c, array $item, string $state, string $email, string $name, int $seats = 1, string $changed = '2026-10-01 10:00:00'): int
+    {
+        $id = $this->enquiry($item['item_id'], $state, $seats, '', null, $changed);
+        $this->db()->update('enquiries', ['email' => $email, 'source' => 'collection:' . $c['collection_id'], 'element' => 'f1',
+            'data' => json_encode([['Name', $name], ['Email', $email]])], ['enquiry_id' => $id]);
+
+        return $id;
+    }
+
+    public function testConfirmDeclineCancelPromote(): void
+    {
+        [$c, $item] = $this->courseWithForm('confirm');
+        $this->db()->update('collection_items', ['data' => json_encode(['start' => '2030-01-01 10:00', 'capacity' => '2', 'registration' => 'confirm'])], ['item_id' => $item['item_id']]);
+        $a = $this->registrant($c, $item, 'waiting', 'a@example.com', 'Anna');
+        $b = $this->registrant($c, $item, 'waiting', 'b@example.com', 'Berta');
+        $w = $this->registrant($c, $item, 'waitlisted', 'w@example.com', 'Wilma');
+        $app = $this->app();
+
+        $before = count($this->mails());
+        Registrations::transition($app, $a, 'confirm');
+        $mails = array_slice($this->mails(), $before);
+        $this->assertSame('confirmed', $this->state($a));
+        $this->assertCount(1, $mails);
+        $this->assertSame('a@example.com', $mails[0]['to']);
+        $this->assertStringContainsString('Confirmed', $mails[0]['subject']);
+        $this->assertNotNull($this->db()->value('SELECT state_changed_at FROM {enquiries} WHERE enquiry_id = ?', [$a]));
+
+        $before = count($this->mails());
+        Registrations::transition($app, $b, 'decline', 'Sorry, the level is too high.');
+        $mails = array_slice($this->mails(), $before);
+        $this->assertSame('declined', $this->state($b));
+        $this->assertSame('b@example.com', $mails[0]['to']);
+        $this->assertStringContainsString('Sorry, the level is too high.', $mails[0]['text']);
+        // the freed seat moved Wilma up (confirm-first: waiting) and told her
+        $this->assertSame('waiting', $this->state($w));
+        $this->assertContains('w@example.com', array_column($mails, 'to'));
+
+        $before = count($this->mails());
+        Registrations::transition($app, $a, 'cancel', 'See you next term.');
+        $mails = array_slice($this->mails(), $before);
+        $this->assertSame('cancelled', $this->state($a));
+        $this->assertSame('a@example.com', $mails[0]['to']);
+        $this->assertStringContainsString('See you next term.', $mails[0]['text']);
+
+        // promote by hand: a waitlisted pair while one seat is taken and capacity is 2
+        $x = $this->registrant($c, $item, 'waitlisted', 'x@example.com', 'Xenia');
+        Registrations::transition($app, $x, 'promote');
+        $this->assertSame('waiting', $this->state($x));
+        Registrations::transition($app, $x, 'confirm');
+        $this->assertSame('confirmed', $this->state($x));
+        $this->expectException(\DomainException::class);
+        Registrations::transition($app, $x, 'confirm'); // already confirmed
+    }
+
+    public function testPromoteRefusedWithoutSeat(): void
+    {
+        [$c, $item] = $this->courseWithForm('instant'); // capacity 1
+        $this->registrant($c, $item, 'confirmed', 'a@example.com', 'Anna');
+        $w = $this->registrant($c, $item, 'waitlisted', 'w@example.com', 'Wilma');
+        try {
+            Registrations::transition($this->app(), $w, 'promote');
+            $this->fail('no free seat');
+        } catch (\DomainException $e) {
+            $this->assertNotSame('', $e->getMessage());
+        }
+        $this->assertSame('waitlisted', $this->state($w));
+        $this->expectException(\DomainException::class);
+        Registrations::transition($this->app(), $w, 'decline'); // only a waiting registration can be declined
+    }
+
+    public function testSpamFreesSeatAndPromotes(): void
+    {
+        [$c, $item] = $this->courseWithForm('instant');
+        $a = $this->registrant($c, $item, 'confirmed', 'a@example.com', 'Anna');
+        $w = $this->registrant($c, $item, 'waitlisted', 'w@example.com', 'Wilma');
+        $this->db()->update('enquiries', ['category' => 'spam'], ['enquiry_id' => $a]);
+        Registrations::sync($this->app(), [$a]);
+        $this->assertSame('confirmed', $this->state($w));
+        // un-spam: the seat is taken again, so Anna goes behind Wilma
+        $this->db()->update('enquiries', ['category' => ''], ['enquiry_id' => $a]);
+        Registrations::sync($this->app(), [$a]);
+        $this->assertSame(['confirmed', 'waitlisted'], [$this->state($w), $this->state($a)]);
+    }
+
+    public function testRestoreIntoFullCourseWaitlists(): void
+    {
+        [$c, $item] = $this->courseWithForm('instant');
+        $a = $this->enquiry($item['item_id'], 'confirmed', 1, '', date('Y-m-d H:i:s'));
+        $b = $this->registrant($c, $item, 'confirmed', 'b@example.com', 'Berta');
+        $before = count($this->mails());
+        $this->db()->update('enquiries', ['deleted_at' => null], ['enquiry_id' => $a]);
+        Registrations::sync($this->app(), [$a]);
+        $this->assertSame(['waitlisted', 'confirmed'], [$this->state($a), $this->state($b)]);
+        $this->assertNotSame('2026-10-01 10:00:00', (string) $this->db()->value('SELECT state_changed_at FROM {enquiries} WHERE enquiry_id = ?', [$a]));
+        $this->assertCount($before, $this->mails(), 'no mail on restore');
+    }
+
+    public function testRestoreWithListOffCancels(): void
+    {
+        [$c, $item] = $this->courseWithForm('instant');
+        $this->db()->update('collection_items', ['data' => json_encode(['start' => '2030-01-01 10:00', 'capacity' => '1', 'waiting_list' => 'off'])], ['item_id' => $item['item_id']]);
+        $a = $this->enquiry($item['item_id'], 'confirmed', 1, '', date('Y-m-d H:i:s'));
+        $this->registrant($c, $item, 'confirmed', 'b@example.com', 'Berta');
+        $this->db()->update('enquiries', ['deleted_at' => null], ['enquiry_id' => $a]);
+        Registrations::sync($this->app(), [$a]);
+        $this->assertSame('cancelled', $this->state($a));
+    }
+
+    public function testRestoredWaitlistedRowStaysWaitlisted(): void
+    {
+        [$c, $item] = $this->courseWithForm('instant');
+        $this->registrant($c, $item, 'confirmed', 'b@example.com', 'Berta');
+        $w = $this->enquiry($item['item_id'], 'waitlisted', 1, '', null, '2026-10-05 10:00:00');
+        Registrations::sync($this->app(), [$w]);
+        $this->assertSame(['waitlisted', '2026-10-05 10:00:00'], [$this->state($w), (string) $this->db()->value('SELECT state_changed_at FROM {enquiries} WHERE enquiry_id = ?', [$w])]);
+    }
+
+    public function testCapacityLoweredBumpsNobody(): void
+    {
+        $c = $this->collection('courses', 'courses');
+        $item = $this->item($c, 'salsa', ['start' => '2030-01-01 10:00', 'capacity' => '3']);
+        $a = $this->enquiry($item['item_id'], 'confirmed', 1);
+        $b = $this->enquiry($item['item_id'], 'confirmed', 1);
+        $w = $this->enquiry($item['item_id'], 'waitlisted', 1);
+        $this->db()->update('collection_items', ['data' => json_encode(['start' => '2030-01-01 10:00', 'capacity' => '1'])], ['item_id' => $item['item_id']]);
+        $item['data']['capacity'] = '1';
+        $this->assertSame(0, Registrations::promote($this->app(), $c, $item, '2029-12-02 00:00'));
+        $this->assertSame(2, Registrations::taken($this->db(), $item['item_id']));
+        $this->assertSame(['confirmed', 'confirmed', 'waitlisted'], [$this->state($a), $this->state($b), $this->state($w)]);
+    }
 }

@@ -137,12 +137,14 @@ final class Enquiries extends Module
         $id = $this->idParam();
         if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== null) {
             $by = $this->person();
+            $before = \Talea\Core\Triage::categories($this->db, [$id]);
             \Talea\Core\Triage::save($this->db, $id, \Talea\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'),
                 $this->request->hasPost('suggested_reply') ? $this->request->post('suggested_reply') : null, array_keys(\Talea\Core\Triage::kinds($this->app->settings()))), $by);
             if ($this->request->hasPost('category') && $this->request->post('category') === '' && (string) $this->db->value('SELECT category FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== '') {
                 // "Not sorted yet" chosen for a sorted enquiry, or "Not spam" on one a machine sorted as spam: a person's decision, kept like a kind
                 $this->db->update('enquiries', ['category' => '', 'triaged_by' => mb_substr($by, 0, 40), 'triaged_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $id]);
             }
+            \Talea\Core\Triage::afterCategories($this->app, $before);
             if ($this->request->hasPost('note')) {
                 $who = $this->idParam('assigned_to', 'users');
                 $this->db->update('enquiries', ['note' => mb_substr(trim($this->request->post('note')), 0, 5000),
@@ -187,13 +189,15 @@ final class Enquiries extends Module
         $bulk = $this->request->post('bulk');
         if ($bulk === 'spam' || $bulk === 'not_spam') {
             // a person's decision, kept like a kind: Claude and the assistant never sort these again
+            $before = \Talea\Core\Triage::categories($this->db, $ids);
             $this->db->run('UPDATE {enquiries} SET category = ?, triaged_by = ?, triaged_at = ? WHERE enquiry_id IN (' . $v . ')',
                 [$bulk === 'spam' ? 'spam' : '', mb_substr($this->person(), 0, 40), date('Y-m-d H:i:s')]);
+            \Talea\Core\Triage::afterCategories($this->app, $before);
 
             return $bulk === 'spam' ? $this->back(t('Enquiries marked as spam: %d.', count($ids))) : $this->back(t('Enquiries marked as not spam: %d.', count($ids)), '', ['status' => 'spam']);
         }
         if ($bulk === 'delete') {
-            $moved = self::trash($this->db, $ids);
+            $moved = self::trashAndSync($this->app, $ids);
             \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'moved to trash', (string) $moved);
 
             return $this->back(t('Enquiries moved to the trash: %d. They can be restored for 30 days (Enquiries → Trash).', $moved));
@@ -227,7 +231,7 @@ final class Enquiries extends Module
 
     protected function actionDelete(): Response
     {
-        if ($this->request->isPost() && self::trash($this->db, [$this->idParam('enquiry_id')]) > 0) {
+        if ($this->request->isPost() && self::trashAndSync($this->app, [$this->idParam('enquiry_id')]) > 0) {
             \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'moved to trash', '1');
         }
 
@@ -238,7 +242,7 @@ final class Enquiries extends Module
     protected function actionRestore(): Response
     {
         $ids = $this->selected();
-        $restored = $ids === [] || !$this->request->isPost() ? 0 : self::restore($this->db, $ids);
+        $restored = $ids === [] || !$this->request->isPost() ? 0 : self::restoreAndSync($this->app, $ids);
         if ($restored > 0) {
             \Talea\Admin\ChangeLog::write($this->app, 'enquiries', 'restored from trash', (string) $restored);
         }
@@ -275,6 +279,34 @@ final class Enquiries extends Module
     public static function trash(\Talea\Core\Db $db, array $ids): int
     {
         return $ids === [] ? 0 : $db->run('UPDATE {enquiries} SET deleted_at = NOW() WHERE deleted_at IS NULL AND enquiry_id IN (' . implode(',', array_map('intval', $ids)) . ')')->rowCount();
+    }
+
+    /** trash(), then the seats of course registrations that left are freed (Core\Registrations::sync). @param list<int> $ids */
+    public static function trashAndSync(\Talea\Core\App $app, array $ids): int
+    {
+        $live = self::flagged($app->db(), $ids, 'IS NULL');
+        $moved = self::trash($app->db(), $ids);
+        \Talea\Core\Registrations::sync($app, $live);
+
+        return $moved;
+    }
+
+    /** restore(), then course registrations that came back take their seat or wait for one. @param list<int> $ids */
+    public static function restoreAndSync(\Talea\Core\App $app, array $ids): int
+    {
+        $trashed = self::flagged($app->db(), $ids, 'IS NOT NULL');
+        $restored = self::restore($app->db(), $ids);
+        \Talea\Core\Registrations::sync($app, $trashed);
+
+        return $restored;
+    }
+
+    /** @param list<int> $ids @return list<int> those whose deleted_at is NULL / NOT NULL ($test) */
+    private static function flagged(\Talea\Core\Db $db, array $ids, string $test): array
+    {
+        $ids = array_map('intval', $ids);
+
+        return $ids === [] ? [] : array_map('intval', array_column($db->all("SELECT enquiry_id FROM {enquiries} WHERE deleted_at $test AND enquiry_id IN (" . implode(',', $ids) . ')'), 'enquiry_id'));
     }
 
     /** @param list<int> $ids */
