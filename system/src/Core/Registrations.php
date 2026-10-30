@@ -718,7 +718,11 @@ final class Registrations
         return [$collection, $item];
     }
 
-    /** The visitor's mail (request received for confirm-first, moved up for instant) and, for confirm-first, the holder's. */
+    /**
+     * The visitor's mail (request received for confirm-first, moved up for instant) and, for confirm-first, the holder's.
+     *
+     * @param list<\Closure>|null $mails
+     */
     private static function tell(App $app, array $collection, array $item, array $course, array $row, bool $holder, ?array &$mails): void
     {
         $element = Forms::findElement($app->db(), (string) $row['source'], (string) $row['element'], 'form');

@@ -490,7 +490,7 @@ final class Collections
      * Values for the placeholders: key => [value, type].
      *
      * @param callable(string): string $url url within the site
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{0: string, 1: string}|array{0: string, 1: string, 2: int, 3: bool, 4: bool}>
      */
     public static function values(array $collection, array $item, callable $url, ?Db $db = null): array
     {

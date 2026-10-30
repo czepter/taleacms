@@ -206,7 +206,7 @@ final class Calendar
      * element reads (a key outside the placeholder pattern, so no text can use it).
      *
      * @param callable(string): string $url
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{0: string, 1: string}|array{0: string, 1: string, 2: int, 3: bool, 4: bool}> [value, type]; _registration is [state, 'text', seats per registration, is a course, has a waiting list]
      */
     public static function values(Db $db, array $collection, array $item, callable $url, string $now): array
     {
