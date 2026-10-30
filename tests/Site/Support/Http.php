@@ -82,16 +82,16 @@ final class Http
     /**
      * A multipart upload: fields plus files (field => path on disk, or [path, mime type, name]).
      *
-     * @param array<string, string> $fields @param array<string, string|array{0: string, 1?: string, 2?: string}> $files
+     * @param array<string, string> $fields @param array<string, string|array{0: string, 1?: string, 2?: string}> $files @param list<string> $headers
      */
-    public function upload(string $path, array $fields, array $files): Response
+    public function upload(string $path, array $fields, array $files, array $headers = []): Response
     {
         $data = $fields;
         foreach ($files as $name => $file) {
             $data[$name] = is_array($file) ? new \CURLFile($file[0], $file[1] ?? '', $file[2] ?? '') : new \CURLFile($file);
         }
 
-        return $this->request('POST', $path, $data, [], 'Mozilla/5.0 test', multipart: true);
+        return $this->request('POST', $path, $data, $headers, 'Mozilla/5.0 test', multipart: true);
     }
 
     /** @param array<string, mixed>|string|null $data @param list<string> $headers */
