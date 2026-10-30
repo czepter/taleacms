@@ -145,6 +145,12 @@ owner adds, renames or removes fields per collection as with any collection (`Co
 the registration logic depends on them. Only the fields mapped in the `calendar` block (start, end, capacity,
 registration until, registration mode, waiting list, seats per registration) drive behaviour.
 
+**Protected fields (owner: yes).** In Collection settings → Item fields, every field the `calendar` block maps
+carries a tag "Used by registration" and a lock in place of removal: its label may be renamed and its help, width
+and order changed, but it cannot be removed, nor its type or key changed, while the mapping exists. The form says so
+in one line under the list. Fields without a mapping (level, style, teacher …) behave as today. The save refuses a
+request that removes a mapped field (MCP `update_collection` too), with a message naming the field.
+
 **Price** is shown, never charged: the existing `price` field (number, feeds the structured data) stays. Contract and
 payment remain on site.
 
