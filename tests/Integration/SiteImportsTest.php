@@ -367,4 +367,17 @@ final class SiteImportsTest extends DatabaseTestCase
         $this->assertFalse(\Talea\Core\MediaFolder::owns($foreign));
         $this->assertTrue(\Talea\Core\MediaFolder::owns('media/2026/10/a.jpg'));
     }
+
+    public function testTheClassicImportAlsoRefusesMediaPathsOutsideTheOwnersFolder(): void
+    {
+        $db = $this->db();
+        $import = new SiteImport($db, new Settings($db), 0);
+        $row = new \ReflectionMethod($import, 'mediaRow');
+        $at = fn (array $r): ?array => $row->invoke($import, ['_id' => 1, 'name' => 'x'] + $r);
+
+        $this->assertNotNull($at(['image_path' => 'media/2026/10/mine.jpg']));
+        $this->assertNull($at(['image_path' => 'media/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/2026/10/foreign.jpg']), 'another owner\'s file gets no row');
+        $kept = $at(['image_path' => 'media/2026/10/mine.jpg', 'thumb_path' => 'media/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/2026/10/foreign.jpg']);
+        $this->assertSame('', $kept['thumb_path'], 'a thumbnail outside the folder is cleared');
+    }
 }

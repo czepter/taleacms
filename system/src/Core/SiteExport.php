@@ -45,22 +45,25 @@ final class SiteExport
      */
     public static function create(Db $db, Settings $settings): array
     {
-        if (!is_dir(Backup::FOLDER) && !mkdir(Backup::FOLDER, 0775, true)) {
+        // a further owner's export goes to its own folder, carries its site's number and takes the media of its own folder only
+        $folder = self::folder($db);
+        $mediaDir = Owners::isFirst($db) ? 'media' : MediaFolder::dirOf(Owners::publicIdOf($db, $db->ownerPrefix));
+        if (!is_dir($folder) && !mkdir($folder, 0775, true)) {
             throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }
         @set_time_limit(300);
-        $base = Backup::FOLDER . '/export-' . date('Ymd-His');
+        $base = $folder . '/export-' . date('Ymd-His') . (Owners::isFirst($db) ? '' : '-s' . Sites::currentId($db));
         $json = $base . '.json';
         self::writeContent($db, $settings, $json);
         if (!class_exists(\ZipArchive::class)) {
-            self::cleanUp();
+            self::cleanUp($folder);
 
             return ['file' => basename($json), 'media' => false, 'reason' => 'The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.'];
         }
 
-        $files = self::mediaFiles();
+        $files = self::mediaFiles($mediaDir);
         $size = array_sum($files);
-        $freeSpace = @disk_free_space(Backup::FOLDER);
+        $freeSpace = @disk_free_space($folder);
         $reason = match (true) {
             $size > self::MAX_MEDIA => 'The media exceed 1 GB, so the export contains data only (JSON). Download the media/ folder over FTP.',
             $freeSpace !== false && $size * 1.1 + (int) filesize($json) > $freeSpace => 'There is not enough disk space for an archive with media, so the export contains data only (JSON). Download the media/ folder over FTP.',
@@ -84,17 +87,23 @@ final class SiteExport
             throw new \RuntimeException('The archive could not be finished – the disk is probably full.');
         }
         unlink($json);
-        self::cleanUp();
+        self::cleanUp($folder);
 
         return ['file' => basename($base) . '.zip', 'media' => $reason === '', 'reason' => $reason];
     }
 
-    /** @return list<array{file:string, size:int, time:int}> newest on top */
-    public static function listAll(): array
+    /** The folder of the exports this connection may see: the install's, or the further owner's own. */
+    private static function folder(?Db $for): string
+    {
+        return $for === null || Owners::isFirst($for) ? Backup::FOLDER : OwnerFiles::folder($for);
+    }
+
+    /** @return list<array{file:string, size:int, time:int}> newest on top; with $for a further owner's own exports only */
+    public static function listAll(?Db $for = null): array
     {
         $exports = [];
-        foreach (glob(Backup::FOLDER . '/export-*') ?: [] as $path) {
-            if (self::path(basename($path)) !== null) {
+        foreach (glob(self::folder($for) . '/export-*') ?: [] as $path) {
+            if (self::path(basename($path), $for) !== null) {
                 $exports[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
             }
         }
@@ -103,10 +112,12 @@ final class SiteExport
         return $exports;
     }
 
-    /** Path to an existing export by the name from the URL; null = invalid name. */
-    public static function path(string $file): ?string
+    /** Path to an existing export by the name from the URL; null = invalid name. With $for the name is looked up in that connection's folder only. */
+    public static function path(string $file, ?Db $for = null): ?string
     {
-        return preg_match('/^export-\d{8}-\d{6}\.(zip|json)$/', $file) && is_file(Backup::FOLDER . '/' . $file) ? Backup::FOLDER . '/' . $file : null;
+        $folder = self::folder($for);
+
+        return preg_match('/^export-\d{8}-\d{6}(-s\d+)?\.(zip|json)$/', $file) && is_file($folder . '/' . $file) ? $folder . '/' . $file : null;
     }
 
     /* ---------- content.json ---------- */
@@ -345,17 +356,20 @@ final class SiteExport
 
     /* ---------- media and cleanup ---------- */
 
-    /** @return array<string, int> path from the site root => size; without hidden files and without PHP (also for RemoteBackup::syncMedia) */
-    public static function mediaFiles(): array
+    /**
+     * @param string $dir "media" (the install's own files, a further owner's folders left out) or "media/<owner public id>" (that owner's files only)
+     * @return array<string, int> path from the site root => size; without hidden files and without PHP (also for RemoteBackup::syncMedia)
+     */
+    public static function mediaFiles(string $dir = 'media'): array
     {
         $files = [];
-        if (!is_dir(TALEA_ROOT . '/media')) {
+        if (!is_dir(TALEA_ROOT . '/' . $dir)) {
             return $files;
         }
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS));
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/' . $dir, \FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
-            $path = 'media/' . ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen(TALEA_ROOT . '/media'))), '/');
-            if (MediaFolder::isOwnerDir(explode('/', $path)[1] ?? '')) {
+            $path = $dir . '/' . ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen(TALEA_ROOT . '/' . $dir))), '/');
+            if ($dir === 'media' && MediaFolder::isOwnerDir(explode('/', $path)[1] ?? '')) {
                 continue; // a further owner's files are not owner 1's (this is the install's own archive and copy)
             }
             if ($file->isFile() && !$file->isLink() && !preg_match('#(^|/)\.|\.php\d?$#i', $path)) {
@@ -368,10 +382,17 @@ final class SiteExport
     }
 
     /** Exports tend to be large: only the last three are kept. */
-    private static function cleanUp(): void
+    private static function cleanUp(string $folder): void
     {
-        foreach (array_slice(self::listAll(), self::KEEP) as $old) {
-            @unlink(Backup::FOLDER . '/' . $old['file']);
+        $exports = [];
+        foreach (glob($folder . '/export-*') ?: [] as $path) {
+            if (preg_match('/^export-\d{8}-\d{6}(-s\d+)?\.(zip|json)$/', basename($path)) === 1) {
+                $exports[] = ['file' => basename($path), 'time' => (int) filemtime($path)];
+            }
+        }
+        usort($exports, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
+        foreach (array_slice($exports, self::KEEP) as $old) {
+            @unlink($folder . '/' . $old['file']);
         }
     }
 

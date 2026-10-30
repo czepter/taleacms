@@ -8,10 +8,12 @@ use Talea\Admin\Kernel;
 use Talea\Admin\Module;
 use Talea\Admin\ChangeLog;
 use Talea\Core\Antispam;
+use Talea\Core\Backup;
 use Talea\Core\Domains;
 use Talea\Core\Owners as OwnerRegistry;
 use Talea\Core\Response;
 use Talea\Core\SiteHealth;
+use Talea\Core\SiteExport;
 use Talea\Core\SiteImport;
 use Talea\Core\SiteImports;
 use Talea\Core\SiteFigures;
@@ -218,6 +220,126 @@ final class Sites extends Module
         return $number <= 0 ? PHP_INT_MAX : $number * match (strtolower(substr(trim($value), -1))) {
             'g' => 1024 ** 3, 'm' => 1024 ** 2, 'k' => 1024, default => 1,
         };
+    }
+
+    /* ---------- a client's own backups and exports (docs/specs/multisite.md, "Bringing existing sites in") ---------- */
+
+    /** The owner's own files exist for a further owner only: the first owner's are the installation's (Settings → Backups, Import and export). */
+    private function ownFiles(): ?Response
+    {
+        return OwnerRegistry::isFirst($this->db) || \Talea\Core\Backup::refusedInDemo() ? $this->error('The page does not exist.', 404) : null;
+    }
+
+    /** The owner's backups (all its sites in one file) and the exports of its sites. */
+    protected function actionFiles(): Response
+    {
+        return $this->ownFiles() ?? $this->view('files', 'Backups and exports', ['backups' => Backup::listForOwner($this->db), 'exports' => SiteExport::listAll($this->db), 'hasZip' => class_exists(\ZipArchive::class)]);
+    }
+
+    protected function actionBackupCreate(): Response
+    {
+        if (($refused = $this->ownFiles()) !== null || !$this->request->isPost()) {
+            return $refused ?? $this->back();
+        }
+        try {
+            $file = Backup::createForOwner($this->db);
+        } catch (\Throwable $e) {
+            return $this->back(t('The backup could not be created: %s', t($e->getMessage())), 'files', [], 'error');
+        }
+        ChangeLog::write($this->app, 'sites', 'backup', $file);
+
+        return $this->back(t('Backup %s is ready.', $file), 'files');
+    }
+
+    protected function actionBackupDownload(): Response
+    {
+        $path = $this->ownFiles() ?? Backup::pathForOwner($this->db, $this->request->get('file'));
+        if (!is_string($path)) {
+            return $path ?? $this->error('Backup does not exist.', 404);
+        }
+        $this->sendFile($path, basename($path));
+    }
+
+    protected function actionBackupDelete(): Response
+    {
+        if (($refused = $this->ownFiles()) !== null) {
+            return $refused;
+        }
+        $path = Backup::pathForOwner($this->db, $this->request->post('file'));
+        if ($this->request->isPost() && $path !== null) {
+            unlink($path);
+        }
+
+        return $this->back('Backup deleted.', 'files');
+    }
+
+    /** Puts this owner's tables (all its sites) back from one of its backups; the state before is saved as a new backup first, and comes back if the restore fails. */
+    protected function actionBackupRestore(): Response
+    {
+        if (($refused = $this->ownFiles()) !== null || !$this->request->isPost()) {
+            return $refused ?? $this->back('', 'files');
+        }
+        try {
+            $safety = Backup::createForOwner($this->db, 'before_restore');
+            $count = Backup::restoreForOwner($this->db, $this->request->post('file'));
+        } catch (\Throwable $e) {
+            $reverted = false;
+            if (isset($safety)) {
+                try {
+                    Backup::restoreForOwner($this->db, $safety);
+                    $reverted = true;
+                } catch (\Throwable) {
+                    // the revert failed – the state before is in the backup $safety
+                }
+            }
+            \Talea\Front\Cache::clearAll();
+
+            return $this->back(t('Restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safety) ? t('The state before the restore is in backup %s – please restore it.', $safety) : '')), 'files', [], 'error');
+        }
+        \Talea\Front\Cache::clearAll();
+
+        return $this->back(t('The sites have been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $count, $safety), 'files');
+    }
+
+    /** An open-format export of THIS site (pages, news, media of the owner\'s folder …) that another Talea imports. */
+    protected function actionExportCreate(): Response
+    {
+        if (($refused = $this->ownFiles()) !== null || !$this->request->isPost()) {
+            return $refused ?? $this->back();
+        }
+        try {
+            $result = SiteExport::create($this->db, $this->app->settings());
+        } catch (\RuntimeException $e) {
+            return $this->back($e->getMessage(), 'files', [], 'error');
+        }
+        if ($result['reason'] !== '') {
+            $this->app->session->flash('info', $result['reason']);
+        }
+        ChangeLog::write($this->app, 'sites', 'export', $result['file']);
+
+        return $this->back('The export is ready – download it from the list below.', 'files');
+    }
+
+    protected function actionExportDownload(): Response
+    {
+        $path = $this->ownFiles() ?? SiteExport::path($this->request->get('file'), $this->db);
+        if (!is_string($path)) {
+            return $path ?? $this->error('The export does not exist.', 404);
+        }
+        $this->sendFile($path, basename($path));
+    }
+
+    protected function actionExportDelete(): Response
+    {
+        if (($refused = $this->ownFiles()) !== null) {
+            return $refused;
+        }
+        $path = SiteExport::path($this->request->post('file'), $this->db);
+        if ($this->request->isPost() && $path !== null) {
+            unlink($path);
+        }
+
+        return $this->back('The export has been deleted.', 'files');
     }
 
     protected function actionEdit(): Response

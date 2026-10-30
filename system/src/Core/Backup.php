@@ -7,7 +7,9 @@ namespace Talea\Core;
 /**
  * Database backups to storage/backups/ (not accessible from the web). Without mysqldump or pg_dump - works on shared hosting too; an SQLite site gets the same kind of file.
  * One file holds every site of the database (multisite: the owner prefix and each further site's, and with several owners every owner's
- * prefixes, docs/specs/multisite.md). It is the install's file: only owner 1 makes, restores and sees backups (Owners::sharedFilesRefusal()).
+ * prefixes, docs/specs/multisite.md). It is the install's file: only owner 1 makes, restores and sees those backups (Owners::sharedFilesRefusal()).
+ * A further owner (a client) has backups of its OWN: the owner prefix and its sites' only, in a folder of its own (OwnerFiles::folder), made and
+ * restored by createForOwner() / restoreForOwner() and never able to name another owner's file or table.
  */
 final class Backup
 {
@@ -32,20 +34,46 @@ final class Backup
         if (($refusal = Owners::sharedFilesRefusal($db)) !== null) {
             throw new \RuntimeException($refusal); // the file holds every owner's data
         }
-        if (!is_dir(self::FOLDER) && !mkdir(self::FOLDER, 0775, true)) {
+
+        return self::write(Owners::connections($db), self::FOLDER, $reason);
+    }
+
+    /**
+     * A backup of ONE further owner: its owner prefix and its sites' tables, nothing of the install or of another owner. The folder is the owner's own.
+     *
+     * @return string name of the created file
+     */
+    public static function createForOwner(Db $db, string $reason = 'manual'): string
+    {
+        if (self::refusedInDemo()) {
+            throw new \RuntimeException(Demo::refusal());
+        }
+        $folder = OwnerFiles::folder($db);
+        $owner = $db->forOwner($db->ownerPrefix);
+
+        return self::write(array_map(fn (string $prefix): Db => $owner->forSite($prefix), Sites::prefixes($owner)), $folder, $reason);
+    }
+
+    /**
+     * @param list<Db> $connections the sites to dump, each on its own tables
+     * @return string name of the created file
+     */
+    private static function write(array $connections, string $folder, string $reason): string
+    {
+        if (!is_dir($folder) && !mkdir($folder, 0775, true)) {
             throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }
         $gz = function_exists('gzopen');
         $file = 'talea-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $reason) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');
-        $path = self::FOLDER . '/' . $file;
+        $path = $folder . '/' . $file;
         $f = $gz ? gzopen($path, 'wb6') : fopen($path, 'wb');
         $write = fn (string $s) => $gz ? gzwrite($f, $s) : fwrite($f, $s);
 
-        $pdo = $db->pdo();
-        $dialect = $db->dialect();
+        $pdo = $connections[0]->pdo();
+        $dialect = $connections[0]->dialect();
         $sites = []; // real table name => the Db of its site
         $prefixes = [];
-        foreach (Owners::connections($db) as $site) {
+        foreach ($connections as $site) {
             $prefixes[] = $site->prefix;
             foreach ($dialect->dumpTables($pdo, $site->prefix) as $table) {
                 $sites[$table] = $site;
@@ -83,8 +111,8 @@ final class Backup
         $write($dialect->dumpEpilogue());
         $gz ? gzclose($f) : fclose($f);
 
-        foreach (array_slice(self::listAll(), self::KEEP) as $old) {
-            @unlink(self::FOLDER . '/' . $old['file']);
+        foreach (array_slice(self::listIn($folder), self::KEEP) as $old) {
+            @unlink($folder . '/' . $old['file']);
         }
 
         return $file;
@@ -110,6 +138,33 @@ final class Backup
         if ($path === null) {
             throw new \RuntimeException('Backup does not exist.');
         }
+
+        return self::apply($db, $path, Owners::allPrefixes($db), null);
+    }
+
+    /**
+     * Restores a further owner's backup: only that owner's tables and sites (the file's header must name prefixes of this owner and nothing
+     * else, and a table of any other prefix stops the restore). Sites of the owner made after the backup are dropped, as in the install's restore.
+     *
+     * @return int number of executed statements
+     * @throws \RuntimeException
+     */
+    public static function restoreForOwner(Db $db, string $file): int
+    {
+        if (self::refusedInDemo()) {
+            throw new \RuntimeException(Demo::refusal());
+        }
+        $path = self::pathForOwner($db, $file) ?? throw new \RuntimeException('Backup does not exist.');
+
+        return self::apply($db, $path, Sites::prefixes($db->forOwner($db->ownerPrefix)), $db->ownerPrefix);
+    }
+
+    /**
+     * @param list<string> $registered the sites there are now (those of the install, or of the one owner)
+     * @param string|null $owner the owner prefix a restore is limited to; null = the whole install
+     */
+    private static function apply(Db $db, string $path, array $registered, ?string $owner): int
+    {
         $gz = str_ends_with($path, '.gz');
         if ($gz && !function_exists('gzopen')) {
             throw new \RuntimeException('The server cannot read compressed backups (zlib is missing).');
@@ -117,9 +172,9 @@ final class Backup
         // the first pass only checks (header, only tables of this installation, a complete last statement) – the database is
         // touched only when the whole file is OK; a damaged or foreign backup thus does not leave the database half restored
         $dialect = $db->dialect();
-        $registered = Owners::allPrefixes($db); // read before the restore replaces the registries
+        // $registered was read before the restore replaces the registries
         // the sites the file holds (its header line); an older file has none and is taken for the sites there are now
-        $prefixes = self::headerPrefixes($path, $gz, $db->installPrefix) ?? $registered;
+        $prefixes = self::headerPrefixes($path, $gz, $db->installPrefix, $owner) ?? ($owner === null ? $registered : throw new \RuntimeException('The file is not a backup of this owner.'));
         $count = self::walk($path, $gz, $prefixes, $dialect->name(), null);
         @set_time_limit(300);
         $pdo = $db->pdo();
@@ -167,7 +222,7 @@ final class Backup
      * @return list<string>|null
      * @throws \RuntimeException a prefix that cannot be one of this installation's sites
      */
-    private static function headerPrefixes(string $path, bool $gz, string $install): ?array
+    private static function headerPrefixes(string $path, bool $gz, string $install, ?string $owner = null): ?array
     {
         $f = $gz ? gzopen($path, 'rb') : fopen($path, 'rb');
         $found = null;
@@ -182,11 +237,11 @@ final class Backup
             return null;
         }
         foreach ($found as $prefix) {
-            if ($prefix !== $install && Owners::ownerOf($install, $prefix) === null) { // the shape of an owner's or a site's prefix of this install
+            if (($prefix !== $install && Owners::ownerOf($install, $prefix) === null) || ($owner !== null && Owners::ownerOf($install, $prefix) !== $owner)) { // the shape of an owner's or a site's prefix of this install, and of the one owner
                 throw new \RuntimeException('The backup was made with other table prefixes (' . $prefix . ') – the restore was stopped.');
             }
         }
-        if (!in_array($install, $found, true)) {
+        if (!in_array($owner ?? $install, $found, true)) {
             throw new \RuntimeException('The backup was made with other table prefixes (' . implode(', ', $found) . ') – the restore was stopped.');
         }
 
@@ -263,8 +318,31 @@ final class Backup
     /** @return list<array{file:string, size:int, time:int}> newest first */
     public static function listAll(): array
     {
+        return self::listIn(self::FOLDER);
+    }
+
+    /** The backups of a further owner, newest first (its own folder only). @return list<array{file:string, size:int, time:int}> */
+    public static function listForOwner(Db $db): array
+    {
+        return Owners::isFirst($db) ? [] : self::listIn(OwnerFiles::folder($db));
+    }
+
+    /** Path to an existing backup of this further owner by the name from the URL; null = invalid name (a name never leaves the owner's folder). */
+    public static function pathForOwner(Db $db, string $file): ?string
+    {
+        if (Owners::isFirst($db) || preg_match('/^talea-[0-9a-z-]+\.sql(\.gz)?$/', $file) !== 1) {
+            return null;
+        }
+        $path = OwnerFiles::folder($db) . '/' . $file;
+
+        return is_file($path) ? $path : null;
+    }
+
+    /** @return list<array{file:string, size:int, time:int}> newest first */
+    private static function listIn(string $folder): array
+    {
         $backups = [];
-        foreach (glob(self::FOLDER . '/talea-*.sql*') ?: [] as $path) {
+        foreach (glob($folder . '/talea-*.sql*') ?: [] as $path) {
             $backups[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
         }
         usort($backups, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
