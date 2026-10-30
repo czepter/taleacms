@@ -117,7 +117,9 @@ final class CourseRegistrationTest extends SiteTestCase
     public function testItemsListShowsSeats(): void
     {
         $page = $this->assertPage('/admin.php?module=collections&action=items&id=' . $this->collectionId(), 200, ['Seats', '2 of 2']);
-        $this->assertStringContainsString('/admin/collections/registrations', $page->body);
+        $this->assertMatchesRegularExpression('~action=registrations|collections/registrations~', $page->body, 'the administrator gets the link');
+        $item = $this->assertPage('/admin.php?module=collections&action=item&id=' . $this->collectionId() . '&item=' . $this->itemPid('salsa'), 200, 'Registrations');
+        $this->assertMatchesRegularExpression('~action=registrations|collections/registrations~', $item->body);
         $this->assertStringContainsString('1 waiting', $page->body, 'Bob waits on the list');
     }
 
@@ -179,7 +181,8 @@ final class CourseRegistrationTest extends SiteTestCase
 
         $this->assertPage($this->screen('salsa'), 403, [], $client);
         $page = $this->assertPage('/admin.php?module=collections&action=items&id=' . $this->collectionId(), 200, '3 of 3', $client);
-        $this->assertStringNotContainsString('/admin/collections/registrations', $page->body, 'the counts show, the link to personal data does not');
+        $this->assertDoesNotMatchRegularExpression('~action=registrations|collections/registrations~', $page->body, 'the counts show, the link to personal data does not');
+        $this->assertDoesNotMatchRegularExpression('~action=registrations|collections/registrations~', $this->assertPage('/admin.php?module=collections&action=item&id=' . $this->collectionId() . '&item=' . $this->itemPid('salsa'), 200, [], $client)->body);
         $before = $this->state('bob@example.com');
         $pid = $site->publicId('enquiries', (int) $this->sq("SELECT enquiry_id FROM tl_enquiries WHERE email = 'bob@example.com' ORDER BY enquiry_id DESC LIMIT 1"));
         $client->post('/admin.php?module=collections&action=registration', ['_csrf' => $site->csrf($client), 'id' => $this->collectionId(), 'item' => $this->itemPid('salsa'), 'registration' => $pid, 'do' => 'cancel']);
