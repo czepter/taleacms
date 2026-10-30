@@ -123,13 +123,23 @@ final class SeoHeadTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertStringContainsString('<meta name="robots" content="index, nosnippet">', $body);
         $this->assertStringContainsString('<link rel="canonical" href="https://example.org/jane">', $body);
 
-        // a collection without a parent page: the trail is the collection, then the item (or its breadcrumb title)
+        // a collection without a parent page has no address for its level: the markup skips it (Google requires "item" on
+        // every ListItem but the last), the trail is Home, then the item (or its breadcrumb title)
         $crumbs = $this->breadcrumbs($body);
-        $this->assertSame(['Home', 'Crew', 'Jane Doe'], array_column($crumbs, 'name'));
+        $this->assertSame(['Home', 'Jane Doe'], array_column($crumbs, 'name'));
+        $this->assertSame([1, 2], array_column($crumbs, 'position'), 'positions stay consecutive');
         $site->exec("UPDATE tl_collection_items SET breadcrumb_title = 'Jane' WHERE slug = 'jane-doe'");
         $site->clearPageCache();
         $crumbs = $this->breadcrumbs($site->client('visitor')->get('/crew/jane-doe')->body);
-        $this->assertSame(['Home', 'Crew', 'Jane'], array_column($crumbs, 'name'));
+        $this->assertSame(['Home', 'Jane'], array_column($crumbs, 'name'));
+
+        // with a page of the collection's slug the level links to it and is part of the markup
+        $site->mcp('create_page', ['title' => 'Our crew', 'slug' => 'crew', 'visible' => true, 'in_menu' => false, 'content' => '<p>Crew.</p>']);
+        $site->clearPageCache();
+        $crumbs = $this->breadcrumbs($site->client('visitor')->get('/crew/jane-doe')->body);
+        $this->assertSame(['Home', 'Our crew', 'Jane'], array_column($crumbs, 'name'));
+        $this->assertStringEndsWith('/crew', (string) $crumbs[1]['item']);
+        $this->assertArrayNotHasKey('item', $crumbs[2], 'the last level is the page itself');
     }
 
     public function testHomePageUsesTheHomeTemplate(): void

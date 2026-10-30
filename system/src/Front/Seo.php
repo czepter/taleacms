@@ -636,10 +636,14 @@ final class Seo
                     $chart[] = $node;
                 }
             }
-            if (count($meta['breadcrumbs'] ?? []) > 1) {
+            // only the last level may go without an address: Google rejects a trail whose earlier ListItem has no "item"
+            // (a collection without a page of the same slug), so such a level stays in the visible trail but not in the markup
+            $crumbs = array_values($meta['breadcrumbs'] ?? []);
+            $crumbs = array_values(array_filter($crumbs, fn (array $d, int $i): bool => $d[1] !== '' || $i === count($crumbs) - 1, ARRAY_FILTER_USE_BOTH));
+            if (count($crumbs) > 1) {
                 $chart[] = ['@type' => 'BreadcrumbList', 'itemListElement' => array_map(fn (array $d, int $i): array => array_filter([
                     '@type' => 'ListItem', 'position' => $i + 1, 'name' => $d[0], 'item' => $d[1] !== '' ? $this->app->request->origin() . $d[1] : null,
-                ]), $meta['breadcrumbs'], array_keys($meta['breadcrumbs']))];
+                ]), $crumbs, array_keys($crumbs))];
             }
 
             return ['@context' => 'https://schema.org', '@graph' => $chart];
