@@ -113,8 +113,8 @@ final class Auth
         // must not wipe the wrong codes counted so far, or the per-account lock would never be reached (3.3.2, N7)
 
         $this->session->regenerate();
-        if ($user['totp_secret'] !== '') {
-            // the password matches, but the account has two-factor sign-in: only the code from the app completes the sign-in
+        if ($this->hasTwoStep($user)) {
+            // the password matches, but the account has two-factor sign-in: only the code from the app, a backup code or a passkey completes it
             $this->session->set('pending_user', ['user_id' => (int) $user['user_id'], 'time' => time(), 'remember' => $remember]);
 
             return null;
@@ -353,7 +353,7 @@ final class Auth
         return is_array($pending) && time() - (int) $pending['time'] < 300;
     }
 
-    /** Second step of the sign-in: a code from the app, or a one-time backup code. @return string|null error text */
+    /** Second step of the sign-in: a code from the app, or a one-time backup code (the only code of an account with passkeys alone). @return string|null error text */
     public function verifyCode(string $code, string $ip): ?string
     {
         if (!$this->isAwaitingCode()) {
@@ -409,6 +409,12 @@ final class Auth
     public function isAwaitingKey(): bool
     {
         return $this->isAwaitingCode() && $this->accountKeys((int) $this->session->get('pending_user')['user_id']) !== [];
+    }
+
+    /** Does the account waiting for the second step have an authenticator app (else it has passkeys alone)? */
+    public function awaitingApp(): bool
+    {
+        return $this->isAwaitingCode() && (string) $this->db->value('SELECT totp_secret FROM {users} WHERE user_id = ?', [(int) $this->session->get('pending_user')['user_id']]) !== '';
     }
 
     /** @return list<array<string, mixed>> passkeys of the account */
@@ -605,13 +611,19 @@ final class Auth
         return (int) ($this->user()['admin'] ?? -1) === self::EDITOR;
     }
 
+    /** Two-factor sign-in is on: an authenticator app (TOTP) or at least one passkey – a passkey is a second factor of its own. @param array<string, mixed> $user */
+    public function hasTwoStep(array $user): bool
+    {
+        return (string) ($user['totp_secret'] ?? '') !== '' || (int) $this->db->value('SELECT COUNT(*) FROM {user_passkeys} WHERE user_id = ?', [$user['user_id']]) > 0;
+    }
+
     /** The site requires two-factor sign-in and this user does not have it yet (can only go to "My account" to turn it on). */
     public function isMissingRequired2fa(Settings $siteSettings): bool
     {
         $required = $siteSettings->get('require_2fa');
         $user = $this->user();
 
-        return $user !== null && ($required === 'everyone' || ($required === 'admins' && $this->isAdmin())) && (string) ($user['totp_secret'] ?? '') === '';
+        return $user !== null && ($required === 'everyone' || ($required === 'admins' && $this->isAdmin())) && !$this->hasTwoStep($user);
     }
 
     public function canPublish(): bool
