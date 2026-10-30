@@ -327,7 +327,8 @@
         "parameters": {
             "clone_of": "string",
             "name": "string",
-            "owner": "string"
+            "owner": "string",
+            "parent": "string"
         },
         "required": [
             "name"
@@ -1985,6 +1986,21 @@
             "type",
             "id",
             "groups"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "set_look_parent": {
+        "parameters": {
+            "discard_draft": "boolean",
+            "parent": "string",
+            "site": "string"
+        },
+        "required": [
+            "site"
         ],
         "annotations": {
             "readOnlyHint": false,

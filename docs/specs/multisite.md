@@ -365,6 +365,38 @@ Decisions for the owner's review. Needs `TALEA_MULTISITE`; Owners area needs `TA
   and the safety backup brings the state back); a failed import's archive is deleted, not kept; an archive without files (JSON only) imports no media
   rows.
 
+## Look families
+
+A business with several locations keeps one parent site; its look is copied into child sites. Active with `TALEA_MULTISITE`, no flag of its own; `Core\LookFamily`.
+
+- **Shape.** `sites.look_parent_id` (owner table, migration `20261109100047`, nullable, no foreign key). One level: a child cannot be a parent and a parent cannot
+  become a child; the same owner by construction (a parent is found in the owner's own `sites`). Only owner administrators change it (the Sites area, MCP
+  `set_look_parent`, `create_site` with `parent`); a site-limited user never.
+- **What is shared.** The published design system (`design_system`) and the setting `dark_mode`; the classes, merged by name (the parent's rows overwrite same-named rows of the
+  child, the child keeps and may edit its own extra classes; a name the parent has is read-only in the child, and a class the parent deletes stays in the child as its own);
+  the header and footer parts (`site_parts`) of every language and variant the parent has and has published. A child language the parent lacks keeps the child's own part. The
+  pages a variant applies to are page numbers of the parent: the child's page of the same address and language stands in, others drop out. Local, never pushed: menus,
+  wrappers (news item, list, 404), pages, legal pages. A fact token in a shared footer renders each location's own value (facts are per site already). A parent's own components
+  inside a pushed footer do not exist in the child: use shared components there.
+- **Push.** Whenever the parent publishes its look: `Look::publish` (admin, MCP `publish_look`; a restored version reaches the parent's draft first, so it is pushed when published),
+  `Publisher::part` for a header or footer (the builder, MCP `save_build`/`publish_build`) and a new class that goes live at once (`Look::setClass`). The same request copies the
+  published look into every child that is set up and not in the trash, under `Db::lock('look-family-<prefix>')`, through `Db::forSite`. Before writing, the child's previous look goes
+  to its own `look_versions` (`Look::keepVersion`, same as publishing; a class push on its own skips it), so one child can be rolled back alone; the child's page-cache folder
+  is cleared (`Cache::useSite`). A pushed part drops the child's draft of it.
+- **Lock.** While a child has a parent, the admin and MCP refuse: applying a look (`Looks::apply`, `apply_look`), changing the design system or dark mode (Appearance, tokens import,
+  `update_design_system`, `update_settings` `dark_mode`), `save_classes`/the builder's class editor on a class name the parent has (before anything is written), editing or
+  publishing a header or footer (the parts screens, `save_build`, `publish_build`, `apply_part_template`, `save_part_variant`), and publishing a look draft that holds a design system,
+  parts or a class of the parent (`LookFamily::draftRefusal`). Text: `This site takes its look from %s. Change it there or leave the family.` A rollback is the exception: a child's
+  `restore_look_version` marks its draft (`rollback`) and that draft may be published, which does not detach the child (until the parent's next publish overwrites it). The
+  look screens say "comes from <parent>" in a child and "Publishing updates %d sites." in a parent.
+- **Join.** Pushes the parent's published look at once. A child with a pending `look_draft` (or a header or footer draft) needs confirmation: the admin form carries `data-confirm`
+  naming the loss, MCP refuses unless `discard_draft: true`; then the draft is thrown away. A site that is not set up yet only records the parent; `Sites::provision` pushes after it
+  makes the tables. **Leave** detaches and keeps the current copy.
+- **Lifecycle.** A parent that is archived, trashed or deleted detaches its children (`LookFamily::detachChildren` from `Sites::save`, `trash`, `cleanup`): each child keeps its copy and gets a
+  `change_log` row `leave look family` in its own log. Pausing changes nothing.
+- **Entry points.** Sites area: "Join the look family of …" on New site and on the site's page (join and leave); MCP: `parent` on `create_site`, `set_look_parent` (site, parent or empty,
+  `discard_draft`), `look_parent` in `list_owner_sites`. Tests: `tests/Integration/LookFamiliesTest.php`, `tests/Site/Multisite/LookFamiliesTest.php`.
+
 ## Phases (phase 1 is done)
 
 - **Phase 0** (no behaviour change): two prefixes in `Db`, the site registry with the row for site 1, the migration loop,

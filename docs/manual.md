@@ -557,6 +557,13 @@ site is set up and how much space it takes.
 
 - **New site:** empty or a copy of an existing site (content, look and settings – never the visitors' data such as enquiries,
   bookings, subscribers or members). A new site starts paused and is set up in the background within a few minutes.
+- **Look family:** for a business with several locations, one site can hand its look down to others. Open a site's page in **Settings → Sites** and
+  choose **Join the look family of** another site (or choose it when you create the site). The child gets the parent's design system, dark mode, classes
+  and header and footer at once, and again whenever the parent publishes its look; it keeps its own menus, pages, legal pages and extra classes, and
+  the business facts in a shared footer show each location's own values. The child cannot change what the parent hands down (it says so, and in the
+  parent the look screens say how many sites a publish updates), but it can roll back to an earlier look on its own. Joining throws away a look draft
+  the child has not published (you are asked first); **Leave the look family** keeps the current copy. If the parent is archived or deleted the children
+  leave by themselves. A parent cannot join another family. Claude: `set_look_parent`, and `parent` on `create_site`.
 - **Host names:** each site answers to its own host names; the first one is primary, others can redirect to it. An unknown host gets
   a plain 404.
 - **States:** paused sites answer visitors with a short "not public yet" page, archived sites either redirect to another site or become
@@ -566,7 +573,7 @@ site is set up and how much space it takes.
 - **Shared and own:** media, users, components and facts are shared by default across sites; a component or fact can be shared with
   every site or kept for one.
 - **Claude:** one connection works on all sites. A tool acts on the site the connection calls, or on another site when you pass its id as
-  `site` (`list_owner_sites` lists them); `create_site`, `update_site`, `trash_site`, `restore_site`, `add_site_domain`, `update_site_domain` and `remove_site_domain` manage them
+  `site` (`list_owner_sites` lists them); `create_site`, `update_site`, `set_look_parent`, `trash_site`, `restore_site`, `add_site_domain`, `update_site_domain` and `remove_site_domain` manage them
   (administrators with a full-access connection only; a connection limited to drafts or to reading cannot change sites).
 - **Backups:** a backup holds every site and a restore puts all of them back. A client (an owner other than the first) has backups
   of its own under **Sites → Backups and exports**: content only – accounts, host names and connections are not part of a backup or a

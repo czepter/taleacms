@@ -7,6 +7,7 @@
  * @var int $current
  * @var string $host  the host name of this request
  * @var bool $dnsOnly  a host name of this owner is verified by the DNS record alone
+ * @var array{parents: list<array<string, mixed>>, parent: ?array<string, mixed>, children: list<array<string, mixed>>, hasDraft: bool} $family  look family (Core\LookFamily)
  */
 $id = (string) $site['public_id'];
 $hidden = '<input type="hidden" name="id" value="' . e($id) . '">';
@@ -70,6 +71,28 @@ $hidden = '<input type="hidden" name="id" value="' . e($id) . '">';
 <?php endforeach ?>
 </ul>
 <?php endif ?>
+<h2><?= e(t('Look family')) ?></h2>
+<?php if ($family['children'] !== []): ?>
+<p class="small-text"><?= e(t('This site hands its look down to:')) ?> <?= implode(', ', array_map(fn (array $c): string => bdi($c['name'] !== '' ? $c['name'] : $c['slug']), $family['children'])) ?>. <?= e(t('Publishing updates %d sites.', count($family['children']))) ?></p>
+<?php elseif ($family['parent'] !== null): ?>
+<p class="small-text"><?= e(t('This site takes its design system, classes, header and footer from %s. Change them there.', $family['parent']['name'] !== '' ? $family['parent']['name'] : $family['parent']['slug'])) ?></p>
+<form class="inline" method="post" action="<?= e($module->url('look_parent')) ?>"><?= $csrf . $hidden ?><input type="hidden" name="parent" value=""><button class="navigation" type="submit"><?= e(t('Leave the look family')) ?></button></form>
+<?php endif ?>
+<?php if ($family['children'] === [] && $site['ready'] && $family['parents'] !== []): ?>
+<form class="form" method="post" action="<?= e($module->url('look_parent')) ?>"<?= $family['hasDraft'] ? ' data-confirm="' . e(t('This site has an unpublished look. Joining a look family throws it away. Continue?')) . '"' : '' ?>>
+<?= $csrf . $hidden ?><?= $family['hasDraft'] ? '<input type="hidden" name="discard_draft" value="1">' : '' ?>
+<div class="row">
+	<label for="parent"><?= e(t('Join the look family of')) ?></label>
+	<div><select id="parent" name="parent">
+<?php foreach ($family['parents'] as $p): ?>
+		<option value="<?= e($p['public_id']) ?>"<?= $family['parent'] !== null && (int) $family['parent']['site_id'] === (int) $p['site_id'] ? ' selected' : '' ?>><?= bdi($p['name'] !== '' ? $p['name'] : $p['slug']) ?></option>
+<?php endforeach ?>
+	</select><span class="help"><?= e(t('The design system, classes, header and footer of that site are copied into this one now and whenever it publishes them. Menus, pages and the rest stay this site\'s own.')) ?></span></div>
+</div>
+<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Join')) ?>"></p>
+</form>
+<?php endif ?>
+
 <h2><?= e(t('Host names')) ?></h2>
 <p class="small-text"><?= e(t('The site answers to these host names. Point each one to this installation in the DNS. The primary one is where people are sent when they open the site from here.')) ?></p>
 <?php if ($site['domains'] === []): ?>

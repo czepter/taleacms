@@ -181,6 +181,7 @@ final class Catalog
         'list_owner_sites' => ['read', ''],
         'create_site' => ['write', ''],
         'update_site' => ['write', ''],
+        'set_look_parent' => ['write', ''],
         'trash_site' => ['destructive', ''],
         'restore_site' => ['write', ''],
         'add_site_domain' => ['write', ''],
@@ -227,7 +228,7 @@ final class Catalog
      * The tools of the owner's sites: listed and callable only with TALEA_MULTISITE (Core\Sites::enabled()), like the tools of an
      * extension that is off. They work on the registry of sites, so they take no `site` argument.
      */
-    public const array SITE_TOOLS = ['list_owner_sites', 'create_site', 'update_site', 'trash_site', 'restore_site', 'add_site_domain', 'check_site_domain', 'update_site_domain', 'remove_site_domain'];
+    public const array SITE_TOOLS = ['list_owner_sites', 'create_site', 'update_site', 'set_look_parent', 'trash_site', 'restore_site', 'add_site_domain', 'check_site_domain', 'update_site_domain', 'remove_site_domain'];
 
     /** How a connection lists its tools: "all" (as before) or "essentials" (ESSENTIALS, find_tools and the runners it needs). */
     public const array TOOL_SETS = ['all', 'essentials'];

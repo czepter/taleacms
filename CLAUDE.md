@@ -198,6 +198,7 @@ request; admin area `Modules\Sites` with the sign-in handoff between hosts. Sign
 the site tools are `Mcp\Handlers\SiteTools` (administrators, flag on). `agent_journal.site_prefix` makes undo write back on the right site. A Talea archive
 import is refused with several sites (`SiteImport::refusal()`). Flag off = nothing here is consulted. Never fall back to site 1 when a prefix or a
 site id is unknown (`Sites::currentId()` throws).
+Look families (`Core\LookFamily`, `sites.look_parent_id`, docs/specs/multisite.md): a child site takes the parent's published design system, `dark_mode`, classes (merged by name) and header/footer parts, pushed on every publish of the parent (`Look::publish`, `Publisher::part`, a new class) under `Db::lock`, with the child's earlier look kept in its `look_versions`; the child is locked in admin and MCP (`LookFamily::refusal()` and siblings) and detaches when the parent is archived or trashed. One level, same owner.
 Agency tools (`TALEA_OWNERS`, docs/specs/multisite.md): several owners are table-prefix groups (`Core\Owners`, install table `owners`, operators = administrators of owner 1,
 media folder per owner, `Core\OwnerClone`). **Roles per site:** owner table `user_sites` (no rows = every site; administrators always have every site);
 `Sites::allows/limitedTo/allowsHere` is asked by `Auth::user()` (a person who may not work here is signed out), `Auth::login`, `Mcp\Server::user()` and `onSite()`, the handoff
