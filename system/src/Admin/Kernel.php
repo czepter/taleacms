@@ -607,6 +607,7 @@ final class Kernel
             'login' => $app->request->post('username'),
             'remember' => $app->request->postBool('remember'),
             'code' => $app->auth()->isAwaitingCode(),
+            'appCode' => !$app->auth()->isAwaitingCode() || $app->auth()->awaitingApp(),
             // the passkey button: after the password when the account has keys, on the first step when any account has one
             'keys' => $app->auth()->isAwaitingCode() ? $app->auth()->isAwaitingKey() : (int) $app->db()->value('SELECT COUNT(*) FROM {user_passkeys}') > 0,
         ]), $error === null ? 200 : 401);
