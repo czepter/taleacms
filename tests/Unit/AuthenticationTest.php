@@ -69,6 +69,7 @@ final class AuthenticationTest extends TestCase
         $this->assertTrue($pkRejects(fn () => \Talea\Core\Passkey::verifySignIn($pkSignIn($pkV2, 6, 'redakce.example', 'https://redakce.example', 0x01), $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5, true)), 'Passkey: a key alone without user verification fails');
         $pkChanged = $pkSignIn($pkV2, 6); $pkChanged['authenticatorData'] = \Talea\Core\Passkey::b64(\Talea\Core\Passkey::fromB64($pkChanged['authenticatorData']) . 'x');
         $this->assertTrue($pkRejects(fn () => \Talea\Core\Passkey::verifySignIn($pkChanged, $pkV2, $pkOrigin, $pkRp, $pkSaved['key'], 5)), 'Passkey: altered authenticator data fail');
+        $this->assertSame(['challenge', 'rp', 'user', 'pubKeyCredParams', 'timeout', 'attestation', 'authenticatorSelection', 'excludeCredentials'], array_keys(\Talea\Core\Passkey::registrationOptions('c', 'web.cz', 'Web', 'u', 'login', '', [])), 'Passkey: registration options carry the WebAuthn keys navigator.credentials.create() reads');
         $this->assertSame(['https://www.web.cz', 'http://localhost:8080', 'www.web.cz'], [\Talea\Core\Passkey::origin('https://WWW.Web.cz/'), \Talea\Core\Passkey::origin('http://localhost:8080'), \Talea\Core\Passkey::rpId('https://www.web.cz:8443/x')], 'Passkey: origin and domain from the site address');
     }
 
