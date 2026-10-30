@@ -78,7 +78,7 @@ final class LookFamily
     {
         $parent = self::parent($db);
         $draft = Look::draft($s);
-        if ($parent === null || !empty($draft['rollback'])) {
+        if ($parent === null || (is_string($draft['rollback'] ?? null) && hash_equals($draft['rollback'], Look::draftHash($draft)))) {
             return null;
         }
         foreach (array_keys((array) ($draft['classes'] ?? [])) as $name) {

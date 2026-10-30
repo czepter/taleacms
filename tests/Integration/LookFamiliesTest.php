@@ -226,6 +226,37 @@ final class LookFamiliesTest extends DatabaseTestCase
         $this->assertNull(LookFamily::draftRefusal($three, $app->settings()), 'a rollback goes through');
     }
 
+    public function testARestoredDraftEditedAfterwardsIsRefusedOnPublish(): void
+    {
+        $this->join('tl3_');
+        $three = $this->site('tl3_');
+        $this->publishDesign('#112233');
+        $app = $this->app('tl3_');
+        Look::restoreVersion($app, (int) $three->value('SELECT MAX(id) FROM {look_versions}'));
+        $this->assertNull(LookFamily::draftRefusal($three, $app->settings()));
+
+        $ds = DesignSystem::DEFAULTS;
+        $ds['colors']['primary'] = '#abcdef';
+        Look::setDesignSystem($app->settings(), $ds); // any later write to the draft
+        $this->assertNotNull(LookFamily::draftRefusal($three, $app->settings()), 'the mark covers the restored version only');
+    }
+
+    public function testAnHtmlConversionInAChildLeavesAParentClassAlone(): void
+    {
+        $this->site('tl2_')->run("INSERT INTO {classes} (name, style, css, updated_at) VALUES ('card', '{}', '.card{color:red}', NOW())");
+        $this->join('tl3_');
+        $three = $this->site('tl3_');
+        $before = $three->one("SELECT style, css FROM {classes} WHERE name = 'card'");
+
+        foreach ([false, true] as $overwrite) {
+            $r = \Talea\Builder\HtmlConverter::saveToSite($three, '<style>.card{color:blue} .own{color:green}</style><p class="card own">x</p>', true, $overwrite, new Settings($three));
+            $this->assertContains('The class .card comes from the parent of this site\'s look family – left unchanged.', $r['notes']);
+        }
+        $this->assertSame($before, $three->one("SELECT style, css FROM {classes} WHERE name = 'card'"));
+        $this->assertArrayNotHasKey('card', Look::draft(new Settings($three))['classes'] ?? [], 'nothing went to the draft either');
+        $this->assertNotNull($three->value("SELECT 1 FROM {classes} WHERE name = 'own'"), 'the child\'s own class is written');
+    }
+
     public function testATrashedOrArchivedParentLetsItsChildrenGo(): void
     {
         $this->join('tl3_', 'tl4_');

@@ -86,6 +86,10 @@ final class HtmlConverter
         $messages = $conversion['notes'];
         $existing = array_column($db->all('SELECT name FROM {classes}'), 'name');
         foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['class_styles']))) as $className) {
+            if (\Talea\Core\LookFamily::classRefusal($db, $className, false) !== null) {
+                $messages[] = 'The class .' . $className . ' comes from the parent of this site\'s look family – left unchanged.';
+                continue;
+            }
             if (in_array($className, $existing, true) && !$overwrite) {
                 $messages[] = 'The class .' . $className . ' already exists on the site – left unchanged.';
                 continue;

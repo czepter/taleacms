@@ -49,6 +49,14 @@ final class Look
         return is_array($draft) ? $draft : [];
     }
 
+    /** A hash of a draft without its rollback mark: the mark of a restored version is valid only while the draft is still exactly that version. */
+    public static function draftHash(array $draft): string
+    {
+        unset($draft['rollback']);
+
+        return hash('sha256', (string) json_encode(json_decode((string) json_encode($draft), true)));
+    }
+
     public static function hasDraft(Settings $s): bool
     {
         return self::draft($s) !== [];
@@ -104,6 +112,9 @@ final class Look
     public static function setClass(Settings $s, string $name, ?array $class, bool $draftOnly = false): bool
     {
         $db = $s->db();
+        if (LookFamily::classRefusal($db, $name, false) !== null) {
+            return false; // a class the parent of a look family hands down is never written here (callers that report say so first)
+        }
         if (!$draftOnly && $class !== null && $db->value('SELECT 1 FROM {classes} WHERE name = ?', [$name]) === null) {
             $db->run('INSERT INTO {classes} (name, style, css, updated_at) VALUES (?, ?, ?, NOW())', [$name, (string) json_encode($class['style'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
             $d = self::draft($s);
@@ -391,7 +402,7 @@ final class Look
         }
         $menus = array_merge($menus, (array) ($version['menus'] ?? []));
         // in a look family the child may roll itself back alone: the mark lets the draft through the lock on publishing (LookFamily::draftRefusal)
-        $s->set('look_draft', (string) json_encode(['design_system' => $version['design_system'] ?? DesignSystem::DEFAULTS, 'classes' => $classes ?: new \stdClass(),
-            'menus' => $menus ?: new \stdClass()] + (LookFamily::parent($db) !== null ? ['rollback' => true] : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $draft = ['design_system' => $version['design_system'] ?? DesignSystem::DEFAULTS, 'classes' => $classes ?: new \stdClass(), 'menus' => $menus ?: new \stdClass()];
+        $s->set('look_draft', (string) json_encode($draft + (LookFamily::parent($db) !== null ? ['rollback' => self::draftHash($draft)] : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 }
