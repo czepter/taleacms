@@ -31,10 +31,79 @@ trait MediaTools
         $db = $this->app->db();
 
         $search = is_string($a['search'] ?? null) && trim($a['search']) !== '' ? '%' . addcslashes(trim($a['search']), '%_\\') . '%' : null;
+        $where = ['1 = 1'];
+        $params = [];
+        if ($search !== null) {
+            $where[] = '(' . $db->dialect()->likeInsensitive('name') . ' OR ' . $db->dialect()->likeInsensitive('image_path') . ')';
+            array_push($params, $search, $search);
+        }
+        if ((int) ($a['folder'] ?? 0) > 0) {
+            $where[] = 'folder_id = ?';
+            $params[] = (int) $a['folder'];
+        } elseif (($a['unsorted'] ?? false) === true) {
+            $where[] = 'folder_id IS NULL';
+        }
+        $params[] = max(1, min(50, (int) ($a['limit'] ?? 20)));
 
-        return array_map(fn (array $o): array => $this->medium($o),
-            $db->all('SELECT * FROM {media}' . ($search !== null ? ' WHERE ' . $db->dialect()->likeInsensitive('name') . ' OR ' . $db->dialect()->likeInsensitive('image_path') : '') . ' ORDER BY media_id DESC LIMIT ?',
-                [...($search !== null ? [$search, $search] : []), max(1, min(50, (int) ($a['limit'] ?? 20)))]));
+        return array_map(fn (array $o): array => $this->medium($o), $db->all('SELECT * FROM {media} WHERE ' . implode(' AND ', $where) . ' ORDER BY media_id DESC LIMIT ?', $params));
+    }
+
+    /** list_media_folders: the same list as the folders in the admin Media */
+    private function toolListMediaFolders(string $name, array $a): mixed
+    {
+        return array_map(fn (array $f): array => ['id' => (int) $f['folder_id'], 'name' => $f['name'], 'files' => (int) $f['count']],
+            $this->app->db()->all('SELECT f.folder_id, f.name, (SELECT COUNT(*) FROM {media} m WHERE m.folder_id = f.folder_id) AS count FROM {media_folders} f ORDER BY f.name'));
+    }
+
+    /** save_media_folder: create, or rename with id (as Admin\Modules\Media::actionFolder) */
+    private function toolSaveMediaFolder(string $name, array $a): mixed
+    {
+        $db = $this->app->db();
+        $folderName = mb_substr(trim((string) ($a['name'] ?? '')), 0, 100);
+        if ($folderName === '') {
+            throw new \InvalidArgumentException('The folder needs a name.');
+        }
+        $id = (int) ($a['id'] ?? 0);
+        if ($id > 0) {
+            $db->update('media_folders', ['name' => $folderName], ['folder_id' => $id]);
+        } else {
+            $id = $db->insert('media_folders', ['name' => $folderName]);
+        }
+
+        return ['id' => $id, 'name' => $folderName];
+    }
+
+    /** delete_media_folder: the files stay, in no folder (the foreign key sets NULL) */
+    private function toolDeleteMediaFolder(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('A folder is deleted by an administrator.');
+        }
+        $id = (int) ($a['id'] ?? 0);
+        $this->app->db()->delete('media_folders', ['folder_id' => $id]);
+
+        return ['deleted' => $id];
+    }
+
+    /** move_media: into a folder or out of all; files the user may not change are reported, not moved */
+    private function toolMoveMedia(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        $db = $this->app->db();
+        $folder = (int) ($a['folder'] ?? 0) ?: null;
+        $moved = [];
+        $skipped = 0;
+        foreach (array_unique(array_map('intval', (array) ($a['ids'] ?? []))) as $id) {
+            $owner = $db->value('SELECT owner_id FROM {media} WHERE media_id = ?', [$id]);
+            if ($owner === null || (!$auth->isAdmin() && (int) $owner !== $auth->id())) {
+                $skipped++;
+                continue;
+            }
+            $db->update('media', ['folder_id' => $folder], ['media_id' => $id]);
+            $moved[] = $id;
+        }
+
+        return ['moved' => $moved, 'folder' => $folder] + ($skipped > 0 ? ['skipped' => $skipped, 'note' => 'Only the owner of a file or an administrator can move it.'] : []);
     }
 
     /** import_website (2.6): one batch of Core\WebImport per call */
@@ -86,6 +155,35 @@ trait MediaTools
     private function toolUploadFile(string $name, array $a): mixed
     {
         return $this->uploadFile($a);
+    }
+
+    /**
+     * upload_files: several files in one call (a whole folder from the user's computer), each as upload_file; folder_name
+     * finds or creates the folder. One file that fails is reported and the rest are still uploaded.
+     */
+    private function toolUploadFiles(string $name, array $a): mixed
+    {
+        $files = array_values(array_filter((array) ($a['files'] ?? []), 'is_array'));
+        if ($files === [] || count($files) > 20) {
+            throw new \InvalidArgumentException('Give 1 to 20 files; send more in further calls.');
+        }
+        $folder = (int) ($a['folder'] ?? 0);
+        $folderName = mb_substr(trim((string) ($a['folder_name'] ?? '')), 0, 100);
+        if ($folder === 0 && $folderName !== '') {
+            $db = $this->app->db();
+            $folder = (int) ($db->value('SELECT folder_id FROM {media_folders} WHERE name = ?', [$folderName]) ?? $db->insert('media_folders', ['name' => $folderName]));
+        }
+        $uploaded = [];
+        $failed = [];
+        foreach ($files as $file) {
+            try {
+                $uploaded[] = $this->uploadFile(['folder' => $folder] + $file);
+            } catch (\InvalidArgumentException $e) {
+                $failed[] = ['filename' => (string) ($file['filename'] ?? ''), 'error' => $e->getMessage()];
+            }
+        }
+
+        return ['folder' => $folder ?: null, 'files' => $uploaded] + ($failed !== [] ? ['failed' => $failed] : []);
     }
 
     /** update_media and delete_media */

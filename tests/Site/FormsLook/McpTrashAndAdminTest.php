@@ -170,6 +170,41 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->assertStringContainsString('still used on the site', $this->raw('delete_media', ['id' => $this->site()->publicId('media', (int) $used)]), 'MCP: a file in use is not deleted');
     }
 
+    public function testMediaFoldersCanBeCreatedFilledMovedAndDeleted(): void
+    {
+        $folder = $this->call('save_media_folder', ['name' => 'Team'])['id'];
+        $other = $this->call('save_media_folder', ['name' => 'Alpha'])['id'];
+        $this->call('save_media_folder', ['id' => $other, 'name' => 'Archive']);
+
+        $file = $this->call('upload_file', ['filename' => 'mcp-folder.png', 'data' => $this->png(), 'folder' => $folder]);
+        $this->assertSame($folder, $file['folder'], 'MCP: upload_file puts the file into the folder');
+        $this->assertSame([$file['id']], array_column($this->call('list_media', ['folder' => $folder]), 'id'), 'MCP: list_media filters by folder');
+
+        $folders = array_column($this->call('list_media_folders'), null, 'name');
+        $this->assertSame(['Archive', 'Team'], array_keys($folders), 'MCP: folders by name, renamed');
+        $this->assertSame(1, $folders['Team']['files']);
+
+        $this->call('move_media', ['ids' => [$file['id']], 'folder' => $other]);
+        $this->assertSame([$file['id']], array_column($this->call('list_media', ['folder' => $other]), 'id'), 'MCP: move_media into another folder');
+        $this->call('move_media', ['ids' => [$file['id']]]);
+        $this->assertContains($file['id'], array_column($this->call('list_media', ['unsorted' => true]), 'id'), 'MCP: move_media out of every folder');
+
+        $this->call('move_media', ['ids' => [$file['id']], 'folder' => $other]);
+        $this->call('delete_media_folder', ['id' => $other]);
+        $this->assertSame(['Team'], array_column($this->call('list_media_folders'), 'name'), 'MCP: delete_media_folder');
+        $this->assertSame('1', $this->sql('SELECT COUNT(*) FROM tl_media WHERE media_id = ? AND folder_id IS NULL', [$this->site()->internalId('media', $file['id'])]), 'the files of a deleted folder stay, in no folder');
+        $this->assertStringContainsString('not valid', $this->raw('move_media', ['ids' => ['12']]), 'a row number is refused');
+
+        $batch = $this->call('upload_files', ['folder_name' => 'Team', 'files' => [
+            ['filename' => 'batch-1.png', 'data' => $this->png()], ['filename' => 'batch-2.png', 'data' => $this->png()], ['filename' => 'broken', 'data' => $this->png()]]]);
+        $this->assertSame($folder, $batch['folder'], 'MCP: upload_files reuses the folder of that name');
+        $this->assertSame([$folder, $folder], array_column($batch['files'], 'folder'), 'MCP: upload_files puts every file into it');
+        $this->assertSame(['broken'], array_column($batch['failed'], 'filename'), 'MCP: a failed file is reported, the rest uploaded');
+        $created = $this->call('upload_files', ['folder_name' => 'Holiday 2026', 'files' => [['filename' => 'beach.png', 'data' => $this->png()]]]);
+        $this->assertSame(['Holiday 2026', 'Team'], array_column($this->call('list_media_folders'), 'name'), 'MCP: upload_files creates a missing folder');
+        $this->assertSame([$created['files'][0]['id']], array_column($this->call('list_media', ['folder' => $created['folder']]), 'id'));
+    }
+
     public function testEnquiryReadsAreLoggedAndEnquiriesCanBeUpdatedAndDeleted(): void
     {
         $reads = (int) $this->sql("SELECT COUNT(*) FROM tl_change_log WHERE module = 'claude' AND action = 'list_enquiries'");
