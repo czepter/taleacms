@@ -25,14 +25,14 @@ final class SubscriberSites
         $params = array_merge(...array_fill(0, count($sites), $one));
 
         $emails = array_map('strval', array_column($db->all('SELECT email FROM (' . $union . ') u GROUP BY email ORDER BY MAX(created_at) DESC, email LIMIT ' . self::PER_PAGE . ' OFFSET ' . (max(1, $page) - 1) * self::PER_PAGE, $params), 'email'));
+        /** @var array<string, array{email: string, last: string, sites: array<int, int>}> $rows */
         $rows = [];
         if ($emails !== []) {
             foreach ($db->all('SELECT site_id, email, status, created_at FROM (' . $union . ') u WHERE email IN (' . implode(', ', array_fill(0, count($emails), '?')) . ')', [...$params, ...$emails]) as $r) {
-                $row = &$rows[(string) $r['email']];
-                $row ??= ['email' => (string) $r['email'], 'last' => '', 'sites' => []];
-                $row['sites'][(int) $r['site_id']] = (int) $r['status'];
-                $row['last'] = max($row['last'], (string) $r['created_at']);
-                unset($row);
+                $email = (string) $r['email'];
+                $rows[$email] ??= ['email' => $email, 'last' => '', 'sites' => []];
+                $rows[$email]['sites'][(int) $r['site_id']] = (int) $r['status'];
+                $rows[$email]['last'] = max($rows[$email]['last'], (string) $r['created_at']);
             }
         }
 

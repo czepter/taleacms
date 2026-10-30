@@ -109,7 +109,7 @@ final class Migrator
      * sites, then each further owner (its owner tables and site 1) and its sites. Two processes (two containers) must not
      * migrate at once, so the whole run holds a lock. A failure stops the run (the sites after it are not touched).
      *
-     * @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,site_prefix?:string} $config
+     * @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,owner_prefix?:string,site_prefix?:string} $config
      * @return list<string> file names of the migrations applied (of every site; a file applied to two sites is named twice)
      */
     public static function migrate(array $config): array
@@ -163,7 +163,7 @@ final class Migrator
         }
     }
 
-    /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,site_prefix?:string} $config @return list<string> */
+    /** @param array{driver?:string,host?:string,port?:int,socket?:string,name:string,username?:string,password?:string,prefix?:string,owner_prefix?:string,site_prefix?:string} $config @return list<string> */
     private static function migrateSite(Db $db, array $config): array
     {
         $pending = self::pending($db);

@@ -273,7 +273,7 @@ final class Domains
             $answer(429, "Too many requests\n");
         }
         $site = $host === '' ? null : Sites::resolve($db, $host);
-        $allowed = $site !== null && $site['verified'] && $site['status'] !== 'trashed' && ($site['owner_status'] ?? 'live') !== 'archived';
+        $allowed = $site !== null && $site['verified'] && $site['status'] !== 'trashed' && $site['owner_status'] !== 'archived';
         $answer($allowed ? 200 : 404, $allowed ? "ok\n" : "Not found\n");
     }
 }
