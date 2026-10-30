@@ -261,6 +261,48 @@ final class Collections extends Module
             'noEmail' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND email = '' AND item_id IN (" . implode(',', Registrations::group($this->db, $itemId)) . ') AND seat_state IS NOT NULL AND seat_state <> \'\'')]);
     }
 
+    /**
+     * The confirmed participants as a standalone printable page (like Settings::actionReportView); same right as the screen.
+     * Phone: ponytail: the form's fields tell which label is a phone (type tel), the stored answers carry labels only; a form edited since then may miss.
+     */
+    protected function actionRegistrationsPrint(): Response
+    {
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            return $this->error('You do not have access to the registrations.', 403);
+        }
+        [$k, $item, $course] = $this->courseOfRequest();
+        if ($course === null) {
+            return $this->error('This is not a course with seats.', 404);
+        }
+        $forms = [];
+        $people = [];
+        foreach (array_reverse(Registrations::list($this->db, (int) $item['item_id'])['confirmed']) as $row) { // first to register first
+            $key = $row['source'] . "\0" . $row['element'];
+            $forms[$key] ??= \Talea\Front\Forms::findElement($this->db, (string) $row['source'], (string) $row['element'], 'form');
+            $labels = ['text' => [], 'tel' => []];
+            foreach ((array) ($forms[$key]['content']['fields'] ?? []) as $field) {
+                if (isset($labels[$field['type'] ?? ''])) {
+                    $labels[$field['type']][] = (string) $field['label'];
+                }
+            }
+            $name = '';
+            $phone = '';
+            foreach ((json_decode((string) $row['data'], true) ?: []) as $answer) {
+                $label = (string) ($answer[0] ?? '');
+                $name = $name === '' && in_array($label, $labels['text'], true) ? (string) ($answer[1] ?? '') : $name;
+                $phone = $phone === '' && in_array($label, $labels['tel'], true) ? (string) ($answer[1] ?? '') : $phone;
+            }
+            $people[] = ['name' => $name !== '' ? $name : (string) $row['email'], 'email' => (string) $row['email'], 'phone' => $phone, 'seats' => (int) $row['seats']];
+        }
+        $meta = Registrations::mailValues($k, $item, '', 0);
+
+        // its own inline styles and the Print button script, nothing else may run – like the report
+        return new Response($this->app->view->render('admin/collections/registrations_print', ['title' => (string) $item['name'], 'meta' => $meta, 'people' => $people,
+            'phones' => array_filter(array_column($people, 'phone')) !== [], 'printed' => \Talea\Core\Calendar::when(date('Y-m-d'), ''), 'script' => $this->app->url('image/print.js') . '?v=' . TALEA_VERSION]),
+            200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store, private',
+                'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; script-src 'self'; frame-ancestors 'self'; base-uri 'none'"]);
+    }
+
     /** The holder's decision on one registration (confirm | decline | cancel | promote); the visitor is told by e-mail. */
     protected function actionRegistration(): Response
     {

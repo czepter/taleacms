@@ -188,4 +188,36 @@ final class CourseRegistrationTest extends SiteTestCase
         $client->post('/admin.php?module=collections&action=registration', ['_csrf' => $site->csrf($client), 'id' => $this->collectionId(), 'item' => $this->itemPid('salsa'), 'registration' => $pid, 'do' => 'cancel']);
         $this->assertSame($before, $this->state('bob@example.com'));
     }
+
+    public function testPrintListShowsConfirmedOnly(): void
+    {
+        $url = '/admin.php?module=collections&action=registrations_print&id=' . $this->collectionId() . '&item=' . $this->itemPid('rumba');
+        $this->site()->exec("DELETE FROM tl_enquiries WHERE email IN ('dora@example.com', 'ella@example.com')");
+        $this->register('rumba', 'ella@example.com', ['p2' => '+44 20 7946 0958']); // waits for the holder: confirm mode
+        $this->act('rumba', 'ella@example.com', 'confirm');
+        $this->register('rumba', 'finn@example.com');
+        $this->site()->exec("UPDATE tl_enquiries SET data = REPLACE(data, 'Anna', 'Finn <b>Waiting</b>') WHERE email = 'finn@example.com'");
+        $page = $this->assertPage($url, 200, ['Rumba', 'ella@example.com', '+44 20 7946 0958', 'Present', 'data-print']);
+        $this->assertStringNotContainsString('finn@example.com', $page->body, 'only confirmed registrations are printed');
+        $this->assertStringNotContainsString('Finn', $page->body);
+        $this->assertStringNotContainsString('<nav', $page->body, 'no admin layout');
+        $this->assertStringContainsString("script-src 'self'", $page->headers['content-security-policy'] ?? '');
+        $this->assertMatchesRegularExpression('~collections/registrations_print|action=registrations_print~', $this->assertPage($this->screen('rumba'), 200, 'Print list')->body);
+    }
+
+    public function testPrintListHasNoPhoneColumnWithoutPhones(): void
+    {
+        $this->act('rumba', 'finn@example.com', 'confirm');
+        $this->site()->exec("UPDATE tl_enquiries SET data = REPLACE(data, 'Finn <b>Waiting</b>', 'Finn') WHERE email = 'finn@example.com'");
+        $this->site()->exec("DELETE FROM tl_enquiries WHERE email = 'ella@example.com'");
+        $body = $this->assertPage('/admin.php?module=collections&action=registrations_print&id=' . $this->collectionId() . '&item=' . $this->itemPid('rumba'), 200, 'finn@example.com')->body;
+        $this->assertStringNotContainsString('<th>Phone</th>', $body);
+    }
+
+    public function testPrintListNeedsTheEnquiriesRight(): void
+    {
+        $client = $this->site()->client('seats-editor');
+        $this->site()->signIn($client, 'seats-editor');
+        $this->assertPage('/admin.php?module=collections&action=registrations_print&id=' . $this->collectionId() . '&item=' . $this->itemPid('salsa'), 403, [], $client);
+    }
 }

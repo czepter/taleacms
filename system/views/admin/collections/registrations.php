@@ -19,7 +19,7 @@
  */
 $icon = require __DIR__ . '/../icons.php';
 $back = ['id' => $k['public_id'], 'item' => $item['public_id']];
-echo $app->view->render('admin/list/head', ['count' => null, 'links' => [[$module->url('item', $back), t('Edit course')]]]);
+echo $app->view->render('admin/list/head', ['count' => null, 'links' => [[$module->url('item', $back), t('Edit course')], [$module->url('registrations_print', $back), t('Print list')]]]);
 $capacity = (int) $course['capacity'];
 $plural = fn (int $n): string => t($n === 1 ? '%d seat' : '%d seats', $n);
 
