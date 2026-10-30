@@ -15,6 +15,7 @@
  * @var bool $trash the trash is shown
  * @var bool $noticeBoard an official notice board (2.11): its notices are never deleted
  * @var int $inTrash items in the trash
+ * @var array<int, array{course: array<string, mixed>, taken: int, requested: int, waitlisted: int}>|null $seats  a calendar collection: the seats of each course by item id (a repeating event has none); null = no column
  * @var array<int, array{0: int, 1: int}>|null $downloads  document library (2.11): idp => [downloads in 30 days, total]; null = not a library
  */
 $icon = require __DIR__ . '/../icons.php';
@@ -112,7 +113,7 @@ $summary = function (array $p) use ($fields): string {
 <?php else: ?>
 <div class="tab-wrap">
 <table class="listing">
-<thead><tr><th scope="col" class="cell-select"><input type="checkbox" data-select-all="bulk" form="bulk" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Item')) ?></th><th scope="col"><?= e(t('Order')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
+<thead><tr><th scope="col" class="cell-select"><input type="checkbox" data-select-all="bulk" form="bulk" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Item')) ?></th><th scope="col"><?= e(t('Order')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><?php if ($seats !== null): ?><th scope="col"><?= e(t('Seats')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
 <?php foreach ($items as $p):
     $edit = $module->url('item', ['id' => $k['public_id'], 'item' => $p['public_id']]);
@@ -147,6 +148,13 @@ $summary = function (array $p) use ($fields): string {
 	<td class="number"><?= (int) $p['sort_order'] ?></td>
 <?php if ($downloads !== null): ?>
 	<td class="number download"><?= (int) ($downloads[(int) $p['item_id']][0] ?? 0) ?> / <?= (int) ($downloads[(int) $p['item_id']][1] ?? 0) ?></td>
+<?php endif ?>
+<?php if ($seats !== null): $s = $seats[(int) $p['item_id']] ?? null; $capacity = (int) ($s['course']['capacity'] ?? 0); ?>
+	<td><?php if ($s === null): ?><span class="cell-weak">–</span><?php else: ?>
+		<a href="<?= e($module->url('registrations', ['id' => $k['public_id'], 'item' => $p['public_id']])) ?>"><?= e($capacity > 0 ? t('%d of %d', $s['taken'], $capacity) : (string) $s['taken']) ?></a>
+		<?php if ($s['requested'] > 0): ?><span class="tag tag-warning"><?= e(t('Requests wait')) ?></span><?php endif ?>
+		<?php if ($s['waitlisted'] > 0): ?><span class="cell-weak">· <?= e(t('%d waiting', $s['waitlisted'])) ?></span><?php elseif ($capacity > 0 && $s['taken'] >= $capacity && !$s['course']['waiting_list']): ?><span class="cell-weak">· <?= e(t('waiting list off')) ?></span><?php endif ?>
+	<?php endif ?></td>
 <?php endif ?>
 	<td><?= $app->view->render('admin/list/status', ['kind' => $p['visible'] ? 'live' : 'hidden', 'label' => $p['visible'] ? t('Published') : t('Hidden'), 'notes' => $notes]) ?></td>
 	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $p['public_id'], 'name' => $p['name'], 'edit' => $edit, 'menu' => $menu, 'csrf' => $csrf]) ?></td>

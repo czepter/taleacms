@@ -323,6 +323,9 @@ trait CollectionTools
         }
         \Talea\Core\SeoScore::refresh($this->app, 'item', $itemId);
         Notices::recordSave($this->app, $collection, $previous, $row, $itemId); // the audit trail of a notice board (2.11)
+        if (\Talea\Core\Calendar::fields($collection) !== null) {
+            \Talea\Core\Registrations::refill($this->app, [$itemId]); // a raised capacity frees seats for the waiting list
+        }
         \Talea\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
         // a key the collection does not have (a typo, "name" in values instead of the parameter) would otherwise be silently dropped

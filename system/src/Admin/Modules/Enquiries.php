@@ -69,7 +69,7 @@ final class Enquiries extends Module
         $pageNumber = max(1, $this->request->getInt('page', 1));
 
         return $this->view('list', 'Enquiries', [
-            'enquiries' => $this->db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to, deleted_at FROM {enquiries} ' . $whereParts . ' ORDER BY ' . ($trash ? 'deleted_at DESC, ' : '') . 'enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'enquiries' => $this->db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to, deleted_at, seat_state FROM {enquiries} ' . $whereParts . ' ORDER BY ' . ($trash ? 'deleted_at DESC, ' : '') . 'enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} ' . $whereParts, $params),
             'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE category = 'spam' AND deleted_at IS NULL"),
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NOT NULL'), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,

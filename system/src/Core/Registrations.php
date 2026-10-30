@@ -171,6 +171,48 @@ final class Registrations
             . implode(',', array_fill(0, count($ids), '?')) . ')', $ids);
     }
 
+    /** Registrations of the item's group that count (not trashed, not spam), by state; the waiting list in the order it moves up. @return array<string, list<array<string, mixed>>> */
+    public static function list(Db $db, int $itemId): array
+    {
+        $ids = self::group($db, $itemId);
+        $rows = $db->all("SELECT * FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state IS NOT NULL AND seat_state <> '' AND item_id IN ("
+            . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY state_changed_at IS NULL, state_changed_at, enquiry_id', $ids);
+        $out = ['waiting' => [], 'confirmed' => [], 'waitlisted' => [], 'declined' => [], 'cancelled' => []];
+        foreach ($rows as $row) {
+            $out[(string) $row['seat_state']][] = $row;
+        }
+        // the others are newest first (waiting and confirmed by when they registered)
+        foreach (['waiting', 'confirmed', 'declined', 'cancelled'] as $state) {
+            usort($out[$state], fn (array $a, array $b): int => [$b['created_at'], $b['enquiry_id']] <=> [$a['created_at'], $a['enquiry_id']]);
+        }
+
+        return $out;
+    }
+
+    /** Seats taken, seats held by requests that wait for the holder, and registrations on the waiting list. @return array{taken: int, requested: int, waitlisted: int} */
+    public static function counts(Db $db, int $itemId): array
+    {
+        $ids = self::group($db, $itemId);
+        $row = $db->one("SELECT COALESCE(SUM(CASE WHEN seat_state IN ('confirmed', 'waiting') THEN seats ELSE 0 END), 0) AS taken, COALESCE(SUM(CASE WHEN seat_state = 'waiting' THEN seats ELSE 0 END), 0) AS requested,
+            COALESCE(SUM(CASE WHEN seat_state = 'waitlisted' THEN 1 ELSE 0 END), 0) AS waitlisted FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND item_id IN ("
+            . implode(',', array_fill(0, count($ids), '?')) . ')', $ids);
+
+        return ['taken' => (int) $row['taken'], 'requested' => (int) $row['requested'], 'waitlisted' => (int) $row['waitlisted']];
+    }
+
+    /** The status kind (admin/list/status) and label of a registration state. @return array{0: string, 1: string} */
+    public static function stateBadge(string $state): array
+    {
+        return match ($state) {
+            'confirmed' => ['live', t('Confirmed')],
+            'waiting' => ['review', t('Waiting')],
+            'waitlisted' => ['planned', t('Waiting list')],
+            'declined' => ['off', t('Declined')],
+            'cancelled' => ['off', t('Cancelled')],
+            default => ['off', ''],
+        };
+    }
+
     /**
      * The waitlisted registration that moves up: the first in order whose seats fit into $free, null when none does.
      *

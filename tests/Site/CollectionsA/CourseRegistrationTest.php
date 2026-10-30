@@ -91,4 +91,73 @@ final class CourseRegistrationTest extends SiteTestCase
         $this->assertStringContainsString('This event is fully booked.', $page->body);
         $this->assertStringNotContainsString('class="tl-form"', $page->body);
     }
+
+    private function collectionId(): string
+    {
+        return $this->site()->publicId('collections', (int) $this->sq("SELECT collection_id FROM tl_collections WHERE slug = 'courses-test'"));
+    }
+
+    private function itemPid(string $slug): string
+    {
+        return $this->site()->publicId('collection_items', (int) $this->sq('SELECT item_id FROM tl_collection_items WHERE slug = ?', [$slug]));
+    }
+
+    private function screen(string $slug, string $extra = ''): string
+    {
+        return '/admin.php?module=collections&action=registrations&id=' . $this->collectionId() . '&item=' . $this->itemPid($slug) . $extra;
+    }
+
+    /** The registration buttons of the screen: POST do=… for the enquiry of this address. */
+    private function act(string $slug, string $email, string $do, string $message = ''): void
+    {
+        $pid = $this->site()->publicId('enquiries', (int) $this->sq('SELECT enquiry_id FROM tl_enquiries WHERE email = ? ORDER BY enquiry_id DESC LIMIT 1', [$email]));
+        $this->adminPost('/admin.php?module=collections&action=registration', ['id' => $this->collectionId(), 'item' => $this->itemPid($slug), 'registration' => $pid, 'do' => $do, 'message' => $message], $this->screen($slug));
+    }
+
+    public function testItemsListShowsSeats(): void
+    {
+        $page = $this->assertPage('/admin.php?module=collections&action=items&id=' . $this->collectionId(), 200, ['Seats', '2 of 2']);
+        $this->assertStringContainsString('/admin/collections/registrations', $page->body);
+        $this->assertStringContainsString('1 waiting', $page->body, 'Bob waits on the list');
+    }
+
+    public function testMoveUpNeedsSeat(): void
+    {
+        $screen = $this->assertPage($this->screen('salsa'), 200, ['Registrations', 'Waiting list', 'bob@example.com', 'anna@example.com', 'No free seat.']);
+        $this->assertStringContainsString('disabled', $screen->body);
+        $this->act('salsa', 'bob@example.com', 'promote');
+        $this->assertSame('waitlisted', $this->state('bob@example.com'), 'the course is full: nobody moves up by hand');
+    }
+
+    public function testRaisingCapacityMovesWaitlistUp(): void
+    {
+        $this->mcpText('save_collection_item', ['collection' => 'courses-test', 'id' => $this->itemPid('salsa'), 'values' => ['capacity' => '3']]);
+        $this->assertSame('confirmed', $this->state('bob@example.com'), 'the seat that capacity added goes to the first on the list');
+        $this->assertSame('A seat for you: Salsa', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'bob@example.com' ORDER BY mail_id DESC LIMIT 1"));
+        $this->assertPage('/admin.php?module=collections&action=items&id=' . $this->collectionId(), 200, '3 of 3');
+    }
+
+    public function testAdminConfirmsAndCancels(): void
+    {
+        $start = $this->siteDate('+30 days');
+        $this->mcpText('save_collection_item', ['collection' => 'courses-test', 'name' => 'Rumba', 'slug' => 'rumba', 'values' => ['start' => "$start 18:00", 'end' => "$start 19:30", 'capacity' => '5',
+            'registration' => 'confirm'], 'visible' => true]);
+        $this->site()->clearPageCache();
+        $this->register('rumba', 'dora@example.com');
+        $this->assertSame('waiting', $this->state('dora@example.com'));
+        $this->assertPage($this->screen('rumba'), 200, ['Waiting for confirmation', 'dora@example.com', 'Confirm']);
+        $this->assertPage('/admin.php?module=enquiries', 200, 'Waiting');
+
+        $this->act('rumba', 'dora@example.com', 'confirm');
+        $this->assertSame('confirmed', $this->state('dora@example.com'));
+        $this->assertSame('Confirmed: Rumba', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'dora@example.com' ORDER BY mail_id DESC LIMIT 1"));
+        $this->assertPage($this->screen('rumba'), 200, ['Confirmed', '1 of 5']);
+        $this->assertPage('/admin.php?module=enquiries', 200, 'Confirmed');
+
+        $this->act('rumba', 'dora@example.com', 'cancel', 'See you next term');
+        $this->assertSame('cancelled', $this->state('dora@example.com'));
+        $this->assertStringContainsString('See you next term', $this->sq("SELECT body FROM tl_mail WHERE recipient = 'dora@example.com' ORDER BY mail_id DESC LIMIT 1"));
+        $this->act('rumba', 'dora@example.com', 'confirm'); // does not apply any more: an error, nothing changes
+        $this->assertSame('cancelled', $this->state('dora@example.com'));
+    }
 }
