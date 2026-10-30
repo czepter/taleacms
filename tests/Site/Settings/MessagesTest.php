@@ -81,6 +81,14 @@ final class MessagesTest extends SiteTestCase
         $this->assertStringContainsString('Unknown placeholder {price}', $this->site()->admin()->get(self::TAB)->body);
     }
 
+    public function testMcpRefusesUnknownLanguageAndNormalisesTemplate(): void
+    {
+        $result = json_decode($this->mcpText('update_settings', ['settings' => ['message_course_full_body_fr' => 'Complet', 'message_course_full_body' => 'This course is full. Join the waiting list and we will e-mail you when a seat is free.']]), true);
+        $this->assertStringContainsString('no language version "fr"', $result['errors']['message_course_full_body_fr']);
+        $this->assertArrayNotHasKey('message_course_full_body', (array) $result['settings']['messages'], 'the template itself is no override');
+        $this->assertSame('', $this->site()->settingValue('message_course_full_body'));
+    }
+
     public function testFormKeepsTemplatesEmptyAndSavesOwnText(): void
     {
         $this->save(['message_course_confirmed_subject' => 'Confirmed: {course}', 'message_course_confirmed_body' => 'We cannot wait, {name|there}!']);

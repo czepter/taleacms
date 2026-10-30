@@ -310,7 +310,7 @@ class Settings extends Module
             if ($key === 'home_page') {
                 $value = (string) $this->db->internalId('pages', $value); // the form carries the public id of the page (0 = news listing)
             }
-            $value = str_starts_with($type, 'message:') && MessageSettings::isTemplate($settings, $key, $value) ? '' : $value; // still the template: no own text
+            $value = str_starts_with($type, 'message:') && Messages::isTemplate($settings, $key, $value) ? '' : $value; // still the template: no own text
             $clean = SettingValues::sanitize($type, $value, $this->request->postBool($key));
             if ($key === 'slugs_per_language') {
                 // the database keys change with it; switching off is refused while two language versions share an address

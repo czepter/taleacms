@@ -36,8 +36,9 @@ if ($username !== null) {
             $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => t($modules[$ident]::NAME)];
         }
     }
+    $messagesTab = isset($modules['settings']) && Talea\Admin\Modules\Settings::tabAvailable('messages', $app->settings(), $app->db()); // once per render
     foreach (isset($modules['settings']) ? Talea\Admin\Modules\Settings::TABS : [] as $key => $name) {
-        if (!Talea\Admin\Modules\Settings::tabAvailable($key, $app->settings(), $app->db())) {
+        if (!($key === 'messages' ? $messagesTab : Talea\Admin\Modules\Settings::tabAvailable($key, $app->settings(), $app->db()))) {
             continue;
         }
         $statements[] = ['n' => t('Settings') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Settings')];
@@ -94,7 +95,7 @@ if ($current === 'Settings') {
     $tab = (string) $app->request->get('tab');
     foreach (Talea\Admin\Kernel::SETTINGS_MENU as $menuGroup => $entries) {
         foreach ($entries as [$ident, $entryTab, $label]) {
-            if (isset($modules[$ident]) && ($ident !== 'settings' || Talea\Admin\Modules\Settings::tabAvailable($entryTab, $app->settings(), $app->db()))) {
+            if (isset($modules[$ident]) && ($ident !== 'settings' || ($entryTab === 'messages' ? ($messagesTab ??= Talea\Admin\Modules\Settings::tabAvailable('messages', $app->settings(), $app->db())) : Talea\Admin\Modules\Settings::tabAvailable($entryTab, $app->settings(), $app->db())))) {
                 $here = $ident === $inMenu && ($ident !== 'settings' || $entryTab === ($tab !== '' ? $tab : 'general'));
                 // Analytics lists a page per service while it is open (Admin\AnalyticsServices); the overview is the entry itself
                 $servicePage = $here && $entryTab === 'analytics' ? Talea\Admin\AnalyticsServices::page((string) $app->request->get('service')) : '';

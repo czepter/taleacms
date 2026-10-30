@@ -188,6 +188,14 @@ final class Messages
         return $values;
     }
 
+    /** Is the value the template of its language (a form filled with it, or a client that sends it back unchanged)? Then it is no own text. */
+    public static function isTemplate(Settings $s, string $key, string $value): bool
+    {
+        $m = self::parseKey($key);
+
+        return $m !== null && str_replace("\r\n", "\n", trim($value)) === Language::runWith($m['language'] !== '' ? $m['language'] : Language::defaults($s), fn (): string => trim(self::template($m['id'], $m['part'])));
+    }
+
     /** The setting that holds an own text: `message_<id>_<part>`, with `_<language>` for a language version. */
     public static function key(string $id, string $part, string $language = ''): string
     {

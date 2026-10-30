@@ -138,7 +138,15 @@ trait SettingsTools
                 $stored[$key] = $on ? '1' : '0';
                 continue;
             }
+            if (($message = \Talea\Core\Messages::parseKey($key)) !== null && $message['language'] !== '' && !in_array($message['language'], \Talea\Core\Language::additional($siteSettings), true)) {
+                $languages = \Talea\Core\Language::additional($siteSettings);
+                $errors[$key] = 'The site has no language version "' . $message['language'] . '". The key without a language suffix is the default language' . ($languages !== [] ? '; further languages: ' . implode(', ', $languages) . '.' : ' (the site has no further languages).');
+                continue;
+            }
             $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Talea\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
+            if ($clean !== null && $message !== null && \Talea\Core\Messages::isTemplate($siteSettings, $key, $clean)) {
+                $clean = ''; // the template itself is no own text
+            }
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
                 && $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND visible = TRUE AND deleted_at IS NULL', [(int) $clean]) === null) {
                 $errors[$key] = 'Only a visible page can be the home page.';

@@ -30,18 +30,30 @@ final class MessagesSettingsTest extends DatabaseTestCase
     {
         require_once TALEA_SYSTEM . '/database/migrations/20261030110100_move_booking_texts_to_messages.php';
         $s = new Settings($this->db());
+        $s->set('additional_languages', 'de');
         $s->set('booking_pending_thanks', 'Got it!');
         $s->set('booking_pending_mail', 'Hi {name}, we got your message.');
-        $s->set('booking_declined_mail', '  ');
+        $s->set('booking_declined_mail', 'Sorry {name}.');
         $s->set('message_booking_pending_thanks_body', 'Already new');
 
         \MoveBookingTextsToMessages::move($this->db()->pdo(), self::PREFIX);
         $s = new Settings($this->db());
 
         $this->assertSame('Already new', $s->get('message_booking_pending_thanks_body'), 'a new text that is set wins');
-        $this->assertSame('Hi {name}, we got your message.', $s->get('message_booking_pending_body'));
-        $this->assertSame('', $s->get('message_booking_declined_body'), 'a blank text moves nothing');
+        $this->assertSame('Got it!', $s->get('message_booking_pending_thanks_body_de'), 'every further language gets the text');
+        $this->assertSame("Hi {name|there}, we got your message.\n\n{appointment}", $s->get('message_booking_pending_body'), 'the details the old code added are kept');
+        $this->assertSame($s->get('message_booking_pending_body'), $s->get('message_booking_pending_body_de'));
+        $this->assertSame("Sorry {name|there}.\n\n{message}\n\n{appointment}", $s->get('message_booking_declined_body'));
         $this->assertSame(0, (int) $this->db()->value("SELECT COUNT(*) FROM {settings} WHERE name IN ('booking_pending_thanks', 'booking_pending_mail', 'booking_declined_mail')"));
+    }
+
+    public function testBlankOldTextMovesNothing(): void
+    {
+        require_once TALEA_SYSTEM . '/database/migrations/20261030110100_move_booking_texts_to_messages.php';
+        $s = new Settings($this->db());
+        $s->set('booking_declined_mail', '  ');
+        \MoveBookingTextsToMessages::move($this->db()->pdo(), self::PREFIX);
+        $this->assertSame('', (new Settings($this->db()))->get('message_booking_declined_body'));
     }
 
     public function testKeysAreParsedAndChecked(): void

@@ -33,15 +33,6 @@ final class MessageSettings
         return $fields;
     }
 
-    /** Is the value the template of its language (the form was filled with it and nothing was changed)? Then it is no own text. */
-    public static function isTemplate(Settings $settings, string $key, string $value): bool
-    {
-        $message = Messages::parseKey($key);
-
-        return $message !== null && str_replace("\r\n", "\n", trim($value)) === Language::runWith($message['language'] !== '' ? $message['language'] : Language::defaults($settings),
-            fn (): string => trim(Messages::template($message['id'], $message['part'])));
-    }
-
     /** "Back to the template": the keys of the message named by `reset_message`, in the shown language, with an empty text. @return array<string, string> */
     public static function reset(Request $request): array
     {
