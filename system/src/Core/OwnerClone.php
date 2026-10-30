@@ -59,6 +59,7 @@ final class OwnerClone
      * @param array<string, mixed> $site the row of the new site in {sites}
      * @param array<string, array<string, array{map: array<int, int>, else: string}>>|null $userMap
      * @param array{ids: list<int>, files: list<string>} $made the media rows and files this run made in the target owner (the caller removes them when it fails)
+     * @param-out array{ids: list<int>, files: list<string>} $made
      */
     public static function copy(Db $db, Db $new, Db $source, Db $sourceOwnerDb, array $site, int $sourceSiteId, ?array $userMap = null, array &$made = ['ids' => [], 'files' => []]): void
     {
@@ -111,6 +112,8 @@ final class OwnerClone
      * The media rows and files the copied content uses (its paths, and the media_usage rows of its news) copied to the target owner's folder.
      * A file already there (an earlier copy of the same source) and its row are reused. Returns the paths that changed: old => new.
      *
+     * @param array{ids: list<int>, files: list<string>} $made
+     * @param-out array{ids: list<int>, files: list<string>} $made
      * @return array<string, string> media path without variant => its path in the target owner's folder
      */
     private static function copyMedia(Db $db, Db $new, Db $source, Db $sourceOwnerDb, string $targetOwnerId, array &$made): array
