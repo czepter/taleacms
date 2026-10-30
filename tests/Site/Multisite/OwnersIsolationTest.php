@@ -243,6 +243,24 @@ final class OwnersIsolationTest extends SiteTestCase
         $this->assertStringContainsString('ALPHA only', $a->get('/admin.php?module=pages')->body, 'on its own owner the token signs in');
     }
 
+    public function testAnAccountsResetAllowanceIsNotSharedWithTheOtherOwnersAccountWithTheSameNumber(): void
+    {
+        $site = $this->site();
+        $site->exec("UPDATE tl_users SET email = 'alpha-admin@example.com', reset_token_hash = '' WHERE user_id = 1");
+        $site->exec("UPDATE tlb_users SET reset_token_hash = '' WHERE user_id = 1");
+        $ask = function (bool $beta) use ($site): void {
+            $client = $site->client('reset-' . random_int(1, 1_000_000));
+            $client->post('/admin.php?action=password', ['_csrf' => $client->get('/admin.php?action=password', $this->host($beta))->csrf(), 'user_id' => 'admin'], $this->host($beta));
+        };
+        for ($i = 0; $i < 4; $i++) { // three mails an hour per account, whoever asks: the fourth is not sent
+            $site->exec("UPDATE tl_users SET reset_token_hash = '' WHERE user_id = 1");
+            $ask(false);
+        }
+        $this->assertSame('', $site->value('SELECT reset_token_hash FROM tl_users WHERE user_id = 1'), 'owner A\'s account is over its allowance');
+        $ask(true);
+        $this->assertNotSame('', $site->value('SELECT reset_token_hash FROM tlb_users WHERE user_id = 1'), 'owner B\'s account with the same number is not');
+    }
+
     public function testAWaitingFileOfOneOwnerIsUnknownToTheOther(): void
     {
         $site = $this->site();

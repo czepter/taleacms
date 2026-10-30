@@ -56,7 +56,7 @@ final class PageLock
      */
     public static function unlock(App $app, array $page, string $password): string
     {
-        $pageKey = 'page-' . (int) $page['page_id'];
+        $pageKey = $app->db()->prefix . '|page-' . (int) $page['page_id']; // a row number: the site's prefix keeps two sites' pages apart
         if (Antispam::tally(Antispam::visitorKey($app->request, $app->settings()) ?: 'unknown', 'page-lock', self::WINDOW) > self::ATTEMPTS) {
             return t('Too many attempts. Try again in a few minutes.');
         }

@@ -44,7 +44,7 @@ final class AllSitesReport
         $previous = $monthStart->modify('first day of last month');
         [$from, $to] = [$monthStart->format('Y-m-d H:i:s'), $monthEnd->format('Y-m-d H:i:s')];
         $out = [];
-        foreach (Sites::otherReady($app->db()) as $name => $db) {
+        foreach (Sites::otherReady($app->db()) as ['name' => $name, 'db' => $db]) {
             $days = fn (string $a, string $b): array => $db->one('SELECT COALESCE(SUM(visits), 0) AS visits, COALESCE(SUM(views), 0) AS views FROM {stats_days} WHERE day >= ? AND day < ?', [$a, $b]) ?? ['visits' => 0, 'views' => 0];
             $now = $days($monthStart->format('Y-m-d'), $monthEnd->format('Y-m-d'));
             $before = $days($previous->format('Y-m-d'), $monthStart->format('Y-m-d'));

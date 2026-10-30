@@ -353,10 +353,11 @@ final class Sites
     }
 
     /**
-     * The other sites that are set up and not in the trash, as name => connection (empty with one site or while multisite is off). For
-     * what lives once per owner but is used per site: a media file is in use when any site uses it.
+     * The other sites that are set up and not in the trash, keyed by prefix (empty with one site or while multisite is off). The key is the
+     * prefix because it is unique and a site name is not: two sites named alike must both be counted. For what lives once per owner but
+     * is used per site: a media file is in use when any site uses it.
      *
-     * @return array<string, Db>
+     * @return array<string, array{name: string, db: Db}>
      */
     public static function otherReady(Db $db): array
     {
@@ -365,7 +366,7 @@ final class Sites
         }
         $others = [];
         foreach ($db->all("SELECT name, prefix FROM {sites} WHERE ready_at IS NOT NULL AND status <> 'trashed' AND prefix <> ? ORDER BY site_id", [$db->prefix]) as $r) {
-            $others[(string) $r['name']] = $db->forSite((string) $r['prefix']);
+            $others[(string) $r['prefix']] = ['name' => (string) $r['name'], 'db' => $db->forSite((string) $r['prefix'])];
         }
 
         return $others;
@@ -665,11 +666,19 @@ final class Sites
         return null;
     }
 
-    /** Takes a site out of the trash; it comes back paused. */
-    public static function restore(Db $db, int $siteId): void
+    /** Takes a site out of the trash; it comes back paused and counts against TALEA_MAX_SITES again. Returns an error text, null = restored. */
+    public static function restore(Db $db, int $siteId): ?string
     {
+        if ($db->value("SELECT 1 FROM {sites} WHERE site_id = ? AND status = 'trashed'", [$siteId]) === null) {
+            return null;
+        }
+        if (($limit = self::limitRefusal($db)) !== null) {
+            return $limit;
+        }
         self::forgetCurrent();
         $db->run("UPDATE {sites} SET status = 'paused', trashed_at = NULL WHERE site_id = ? AND status = 'trashed'", [$siteId]);
+
+        return null;
     }
 
     /**

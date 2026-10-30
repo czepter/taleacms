@@ -178,6 +178,14 @@ final class AgencyToolsTest extends DatabaseTestCase
         $this->assertStringContainsString('limit of 4 sites', (string) Sites::limitRefusal($this->db()->forOwner('tlb_')), 'the limit is the install\'s, Beta\'s sites count too');
         $this->db()->update('sites', ['status' => 'trashed'], ['site_id' => 2]);
         $this->assertNull(Sites::limitRefusal($this->db()), 'a site in the trash does not count');
+        $this->db()->update('sites', ['status' => 'paused'], ['site_id' => 2]);
+        $this->db()->update('sites', ['status' => 'trashed', 'trashed_at' => date('Y-m-d H:i:s')], ['site_id' => 2]);
+        $this->assertNull(Sites::restore($this->db(), 2), 'room for it: restored');
+        $this->assertSame('paused', $this->db()->value('SELECT status FROM {sites} WHERE site_id = 2'));
+        $this->db()->update('sites', ['status' => 'trashed'], ['site_id' => 2]);
+        Sites::add($this->db()->forOwner('tlb_'), 'One more', 'one-more'); // the room was taken meanwhile
+        $this->assertStringContainsString('limit of 4 sites', (string) Sites::restore($this->db(), 2), 'a restore counts like a new site');
+        $this->assertSame('trashed', $this->db()->value('SELECT status FROM {sites} WHERE site_id = 2'));
 
         $this->assertNull(Owners::limitRefusal($this->db()));
         putenv('TALEA_MAX_OWNERS=2');

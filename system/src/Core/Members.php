@@ -216,7 +216,7 @@ final class Members
     public static function requestLink(App $app, string $email, string $return): void
     {
         $email = PersonalData::normalise($email);
-        if ($email === null || mb_strlen($email) > 190 || Antispam::tally($email, 'member-link-email', 3600) > self::EMAIL_ATTEMPTS) {
+        if ($email === null || mb_strlen($email) > 190 || Antispam::tally($app->db()->ownerPrefix . '|' . $email, 'member-link-email', 3600) > self::EMAIL_ATTEMPTS) {
             return;
         }
         $db = $app->db();

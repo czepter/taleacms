@@ -196,11 +196,9 @@ final class Sites extends Module
     protected function actionRestore(): Response
     {
         $site = $this->site();
-        if ($this->request->isPost() && $site !== null) {
-            SiteRegistry::restore($this->db, (int) $site['site_id']);
-        }
+        $error = $this->request->isPost() && $site !== null ? SiteRegistry::restore($this->db, (int) $site['site_id']) : null;
 
-        return $this->back('The site is restored. It is paused until you set it live.');
+        return $error !== null ? $this->back($error, '', [], 'error') : $this->back('The site is restored. It is paused until you set it live.');
     }
 
     protected function actionDomainAdd(): Response

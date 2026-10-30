@@ -174,7 +174,10 @@ trait SiteTools
     {
         $this->siteAdmin();
         $site = $this->siteByPublicId($a['id'] ?? null, true);
-        Sites::restore($this->app->db(), (int) $site['site_id']);
+        $error = Sites::restore($this->app->db(), (int) $site['site_id']);
+        if ($error !== null) {
+            throw new \InvalidArgumentException($error);
+        }
 
         return ['site' => $this->siteOutput($this->siteRow((int) $site['site_id'])), 'next' => 'The site is back, paused.'];
     }

@@ -56,7 +56,7 @@ final class PasswordReset
                 $who = trim($app->request->post('user_id'));
                 $user = $who === '' ? null : $app->db()->one("SELECT * FROM {users} WHERE (username = ? OR email = ?) AND blocked = FALSE AND email <> '' AND operator_user_id IS NULL LIMIT 1", [$who, $who]);
                 // counted by the account, not by the typed name: a user name and an e-mail address share one allowance
-                if ($user !== null && Antispam::tally('user:' . $user['user_id'], 'reset-account', self::LINK_LIFETIME) <= self::ACCOUNT_REQUESTS) {
+                if ($user !== null && Antispam::tally($app->db()->ownerPrefix . '|user:' . $user['user_id'], 'reset-account', self::LINK_LIFETIME) <= self::ACCOUNT_REQUESTS) {
                     $this->sendLink($user);
                 }
                 $sent = true;

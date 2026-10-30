@@ -163,7 +163,7 @@ final class Media extends Module
     {
         // the media are shared by every site of the owner: a file used on any ready site is in use (the news usage of the others too)
         $dbs = [['', $db]];
-        foreach (\Talea\Core\Sites::otherReady($db) as $name => $other) {
+        foreach (\Talea\Core\Sites::otherReady($db) as ['name' => $name, 'db' => $other]) {
             $dbs[] = [' (' . $name . ')', $other];
         }
         $usages = [];

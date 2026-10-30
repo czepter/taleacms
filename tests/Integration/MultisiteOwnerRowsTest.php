@@ -111,7 +111,17 @@ final class MultisiteOwnerRowsTest extends DatabaseTestCase
     {
         putenv('TALEA_MULTISITE=1');
         $this->db()->run('UPDATE {sites} SET ready_at = NULL WHERE prefix = ?', ['tl2_']);
-        $this->assertSame(['Three'], array_keys(Sites::otherReady($this->db())));
+        $this->assertSame(['Three'], array_column(Sites::otherReady($this->db()), 'name'));
+    }
+
+    public function testTwoSitesWithTheSameNameAreBothKept(): void
+    {
+        putenv('TALEA_MULTISITE=1');
+        $others = array_column($this->db()->all("SELECT prefix FROM {sites} WHERE ready_at IS NOT NULL AND status <> 'trashed' AND prefix <> ? ORDER BY site_id", [$this->db()->prefix]), 'prefix');
+        $this->assertGreaterThan(1, count($others));
+        $this->db()->run('UPDATE {sites} SET name = ? WHERE prefix <> ?', ['Twin', $this->db()->prefix]);
+        $this->assertSame($others, array_keys(Sites::otherReady($this->db())), 'keyed by prefix: a duplicate name loses no site');
+        $this->assertSame(array_fill(0, count($others), 'Twin'), array_column(Sites::otherReady($this->db()), 'name'));
     }
 
     public function testLinkHealingRewritesOnlyTheCurrentSitesOwnComponents(): void
