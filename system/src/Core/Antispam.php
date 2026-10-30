@@ -204,6 +204,14 @@ final class Antispam
         return false;
     }
 
+    /** A single-site install keeps its keys; further owners (or sites, $perSite) get their prefix in front, as the keys are row numbers or addresses. */
+    public static function scopedKey(Db $db, string $key, bool $perSite = false): string
+    {
+        $scope = $perSite ? $db->prefix : $db->ownerPrefix;
+
+        return $scope === $db->installPrefix ? $key : $scope . '|' . $key;
+    }
+
     /**
      * Counts a request of a key in the current window and returns the count: one small file per key and window, a byte appended per
      * request (no database write). $add false only reads the count. Used by the page lock and the firewall add-on.

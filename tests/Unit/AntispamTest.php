@@ -6,6 +6,7 @@ namespace Talea\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Talea\Core\Antispam;
+use Talea\Core\Db;
 
 final class AntispamTest extends TestCase
 {
@@ -88,5 +89,15 @@ final class AntispamTest extends TestCase
         } finally {
             putenv('TALEA_TRUSTED_PROXIES');
         }
+    }
+
+    public function testScopedKey(): void
+    {
+        $site1 = new Db('sqlite::memory:', '', '', 'tl_', 'tl_', 'tl_');
+        $site2 = new Db('sqlite::memory:', '', '', 'tl_s2_', 'tl_', 'tl_');
+        $owner2 = new Db('sqlite::memory:', '', '', 'tl2_', 'tl2_', 'tl_');
+        $this->assertSame(['k', 'k', 'k', 'tl_s2_|k', 'tl2_|k', 'tl2_|k'], [
+            Antispam::scopedKey($site1, 'k'), Antispam::scopedKey($site1, 'k', true), Antispam::scopedKey($site2, 'k'),
+            Antispam::scopedKey($site2, 'k', true), Antispam::scopedKey($owner2, 'k'), Antispam::scopedKey($owner2, 'k', true)]);
     }
 }

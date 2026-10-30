@@ -237,7 +237,7 @@ final class OAuth
             if ($refresh === null || $refresh['client_id'] !== $clientId || (string) $refresh['expires_at'] < $now) {
                 return $this->error('invalid_grant', 'The refresh token is invalid or expired – connect the application again.');
             }
-            if (Antispam::tally($db->ownerPrefix . '|' . $clientId . '|' . $refresh['user_id'], 'oauth-refresh', self::REFRESH_WINDOW) > self::REFRESH_LIMIT) {
+            if (Antispam::tally(Antispam::scopedKey($db, $clientId . '|' . $refresh['user_id']), 'oauth-refresh', self::REFRESH_WINDOW) > self::REFRESH_LIMIT) {
                 return $this->json(['error' => 'slow_down', 'error_description' => 'Too many token refreshes for this connection – try again later.'], 429,
                     ['Retry-After' => (string) (self::REFRESH_WINDOW - time() % self::REFRESH_WINDOW)]); // the counter starts again with the next window
             }
