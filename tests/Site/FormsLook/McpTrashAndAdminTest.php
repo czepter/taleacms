@@ -205,6 +205,15 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->assertSame([$created['files'][0]['id']], array_column($this->call('list_media', ['folder' => $created['folder']]), 'id'));
     }
 
+    public function testReplaceMediaKeepsTheAddress(): void
+    {
+        $file = $this->call('upload_file', ['filename' => 'replace-me.png', 'data' => $this->png()]);
+        $new = $this->call('replace_media', ['id' => $file['id'], 'data' => $this->png(20, 10)]);
+        $this->assertSame([$file['id'], $file['path'], '20×10'], [$new['id'], $new['path'], $new['size']], 'MCP: replace_media writes the new image behind the same address');
+        $this->assertSame('20', $this->sql('SELECT image_width FROM tl_media WHERE media_id = ?', [$this->site()->internalId('media', $file['id'])]));
+        $this->assertStringContainsString('Only a JPG, PNG or WebP image', $this->raw('replace_media', ['id' => $this->call('upload_file', ['filename' => 'logo.svg', 'data' => base64_encode('<svg xmlns="http://www.w3.org/2000/svg"/>')])['id'], 'data' => $this->png()]), 'an SVG is not replaced');
+    }
+
     public function testEnquiryReadsAreLoggedAndEnquiriesCanBeUpdatedAndDeleted(): void
     {
         $reads = (int) $this->sql("SELECT COUNT(*) FROM tl_change_log WHERE module = 'claude' AND action = 'list_enquiries'");
@@ -224,10 +233,10 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->assertSame('1', $this->sql("SELECT COUNT(*) FROM tl_enquiries WHERE enquiry_id = $enquiry AND deleted_at IS NULL"), 'MCP: restore_from_trash brings the enquiry back');
     }
 
-    private function png(): string
+    private function png(int $width = 8, int $height = 8): string
     {
         ob_start();
-        imagepng(imagecreatetruecolor(8, 8));
+        imagepng(imagecreatetruecolor($width, $height));
 
         return base64_encode((string) ob_get_clean());
     }

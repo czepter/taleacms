@@ -100,6 +100,7 @@ final class Catalog
         'import_website' => ['write', ''],
         'update_media' => ['write', ''],
         'delete_media' => ['destructive', ''],
+        'replace_media' => ['destructive', ''],
         'list_media_folders' => ['read', ''],
         'save_media_folder' => ['write', ''],
         'delete_media_folder' => ['destructive', ''],
@@ -210,7 +211,7 @@ final class Catalog
      * Tools that reach outside the site (an upload from an address, an import, the migration report that fetches the old
      * site) – the MCP openWorldHint, and a reason for run_destructive_tool.
      */
-    public const array OPEN_WORLD = ['upload_file', 'upload_files', 'import_website', 'migration_report'];
+    public const array OPEN_WORLD = ['upload_file', 'upload_files', 'replace_media', 'import_website', 'migration_report'];
 
     /**
      * Writes that send something to a person (an e-mail to a customer or a test newsletter): the runner treats them like a

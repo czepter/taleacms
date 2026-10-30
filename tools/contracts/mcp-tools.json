@@ -1471,6 +1471,21 @@
             "openWorldHint": false
         }
     },
+    "replace_media": {
+        "parameters": {
+            "data": "string",
+            "id": "string",
+            "url": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": true
+        }
+    },
     "report_agent_run": {
         "parameters": {
             "id": "integer",

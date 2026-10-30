@@ -206,6 +206,7 @@ final class Tools
             ['update_media', 'Changes the description of a file in Media: alt (the text for screen readers, also the name), caption and author. Only the owner or an administrator.',
                 $s(['id' => $pid('file ID from list_media'), 'alt' => $text('alternative text'), 'caption' => $text('caption below the image'), 'author' => $text('photo author')], ['id'])],
             ['delete_media', 'Deletes a file from Media for good (only when the username explicitly asks; the owner or an administrator). A file still used on the site is not deleted – the error says where it is used.', $s(['id' => $pid('file ID from list_media')], ['id'])],
+            ['replace_media', 'Replaces an image in Media with a new one under the same address (only when the user explicitly asks; the owner or an administrator): every page, news item and setting that shows it shows the new image at once, in the format of the old file. Only JPG, PNG and WebP images; the new file as url (https) or data (base64), as in upload_file. Not for a file waiting for approval.', $s(['id' => $pid('file ID from list_media'), 'data' => $text('the new file in base64'), 'url' => $text('https address of the new file (instead of data)')], ['id'])],
             ['list_media_folders', 'The folders of Media (by name) with the number of files in each. Folders only sort Media for people; a file\'s address does not change.', $s([])],
             ['save_media_folder', 'Creates a folder in Media, or renames one (with id).', $s(['id' => $pid('folder from list_media_folders – only to rename it'), 'name' => $text('folder name, up to 100 characters')], ['name'])],
             ['delete_media_folder', 'Deletes a folder from Media (administrators, only when the user explicitly asks). Its files stay and are in no folder afterwards.', $s(['id' => $pid('folder from list_media_folders')], ['id'])],
@@ -879,15 +880,9 @@ final class Tools
             + (($o['staged_at'] ?? null) !== null ? ['waiting_for_approval' => true] : []); // Core\MediaStaging
     }
 
-    /** @return array<string, mixed> */
-    private function uploadFile(array $a): array
+    /** The bytes of a file a tool was given: downloaded from an https url, or decoded from base64 data. */
+    private function fileContent(array $a): string
     {
-        $folder = (int) ($a['folder'] ?? 0) ?: null;
-        $displayName = basename(str_replace('\\', '/', trim((string) ($a['filename'] ?? ''))));
-        $extension = strtolower(pathinfo($displayName, PATHINFO_EXTENSION));
-        if ($extension === '') {
-            throw new \InvalidArgumentException('The file name needs an extension (e.g. photo.jpg, logo.svg, font.woff2).');
-        }
         if (is_string($a['url'] ?? null) && $a['url'] !== '') {
             $url = trim($a['url']);
             if (!str_starts_with(strtolower($url), 'https://')) {
@@ -907,6 +902,20 @@ final class Tools
         if (strlen($content) > self::MAX_UPLOAD) {
             throw new \InvalidArgumentException('The file is larger than ' . (self::MAX_UPLOAD >> 20) . ' MB.');
         }
+
+        return $content;
+    }
+
+    /** @return array<string, mixed> */
+    private function uploadFile(array $a): array
+    {
+        $folder = (int) ($a['folder'] ?? 0) ?: null;
+        $displayName = basename(str_replace('\\', '/', trim((string) ($a['filename'] ?? ''))));
+        $extension = strtolower(pathinfo($displayName, PATHINFO_EXTENSION));
+        if ($extension === '') {
+            throw new \InvalidArgumentException('The file name needs an extension (e.g. photo.jpg, logo.svg, font.woff2).');
+        }
+        $content = $this->fileContent($a);
         // a connection limited to drafts publishes nothing, files neither: they wait for approval outside the web root (#150)
         $staged = \Talea\Core\MediaStaging::appliesTo($this->app->auth());
         $temporary = tempnam(sys_get_temp_dir(), 'talea-mcp-');

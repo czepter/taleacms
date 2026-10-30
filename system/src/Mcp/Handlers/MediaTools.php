@@ -190,6 +190,37 @@ trait MediaTools
         return ['folder' => $folder ?: null, 'files' => $uploaded] + ($failed !== [] ? ['failed' => $failed] : []);
     }
 
+    /**
+     * replace_media: a new image behind the same address (as Admin\Modules\Media::actionReplace) – every page that shows the
+     * file shows the new one at once. Not for a file waiting for approval: the new one would be public before anyone approved it.
+     */
+    private function toolReplaceMedia(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        $db = $this->app->db();
+        $id = (int) ($a['id'] ?? 0);
+        $file = $db->one('SELECT * FROM {media} WHERE media_id = ?', [$id]) ?? throw new \InvalidArgumentException('The file does not exist. Use list_media.');
+        if (!$auth->isAdmin() && (int) $file['owner_id'] !== $auth->id()) {
+            throw new \DomainException('Only the owner of the file or an administrator can replace it.');
+        }
+        if ($file['staged_at'] !== null) {
+            throw new \DomainException('The file waits for approval; upload the new one with upload_file instead.');
+        }
+        $temporary = tempnam(sys_get_temp_dir(), 'talea-mcp-');
+        file_put_contents($temporary, $this->fileContent($a));
+        try {
+            $new = \Talea\Core\Images::replace($file['image_path'], $temporary, (string) $file['name']);
+        } catch (\RuntimeException $e) {
+            throw new \InvalidArgumentException($e->getMessage());
+        } finally {
+            @unlink($temporary);
+        }
+        $db->update('media', $new + ['color' => ''], ['media_id' => $id]);
+        \Talea\Front\Cache::clear();
+
+        return $this->medium($new + $file);
+    }
+
     /** update_media and delete_media */
     private function toolUpdateMedia(string $name, array $a): mixed
     {
