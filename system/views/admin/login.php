@@ -7,6 +7,7 @@
  * @var string $login
  * @var bool $remember  "stay signed in" was ticked (kept when the password was wrong)
  * @var bool $code  second step: the password is already correct, waiting for the code from the authenticator app
+ * @var bool $appCode  second step: the account has an authenticator app (else it has passkeys only and the field takes a backup code)
  * @var bool $keys  show the passkey button: the account waiting for the second step has keys, or on the first step any account has one
  */
 ?>
@@ -39,8 +40,12 @@
 <?= $app->session->csrfField() ?>
 <?php if ($code): ?>
 <input type="hidden" name="step" value="code">
+<?php if ($appCode): ?>
 <p><?= e(t('Enter the six-digit code from your authenticator app. No phone? Use one of your backup codes.')) ?></p>
-<div class="login-field"><label for="code"><?= e(t('Verification code:')) ?></label> <input class="textfield" type="text" id="code" name="code" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
+<?php else: ?>
+<p><?= e(t('Confirm with your passkey. No passkey at hand? Enter one of your backup codes.')) ?></p>
+<?php endif ?>
+<div class="login-field"><label for="code"><?= e(t($appCode ? 'Verification code:' : 'Backup code:')) ?></label> <input class="textfield" type="text" id="code" name="code" size="20" maxlength="12"<?= $appCode ? ' inputmode="numeric"' : ' autocapitalize="off" spellcheck="false"' ?> autocomplete="one-time-code" required<?= $appCode ? ' autofocus' : '' ?>></div>
 <?php else: ?>
 <div class="login-field"><label for="user"><?= e(t('User name or e-mail')) ?></label> <input class="textfield" type="text" id="user" name="username" value="<?= e($demo !== null && $login === '' ? $demo['username'] : $login) ?>" size="20" maxlength="190" autocomplete="username" required autofocus></div>
 <div class="login-field"><label for="password"><?= e(t('Password')) ?></label> <span class="password-field"><input class="textfield" type="password" id="password" name="password" size="20" autocomplete="current-password" required<?= $demo !== null ? ' value="' . e($demo['password']) . '"' : '' ?>><?= $app->view->render('admin/password_toggle', ['for' => 'password']) ?></span></div>

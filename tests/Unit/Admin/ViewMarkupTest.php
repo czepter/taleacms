@@ -17,8 +17,12 @@ final class ViewMarkupTest extends TestCase
             if ($file->getExtension() !== 'php') {
                 continue;
             }
+            $source = (string) file_get_contents($file->getPathname());
+            // a view's closure that returns a form ($form = fn (…) => '<form …') prints a <form> where it is called (the experiment's Delete)
+            preg_match_all('/\$(\w+) = (?:static )?fn\b[^\n]*?=> \'<form\b/', $source, $helpers);
+            $printsForm = $helpers[1] === [] ? null : '/^<\?=\s*\$(?:' . implode('|', $helpers[1]) . ')\(/';
             // PHP blocks out, line breaks kept so the line numbers stay right
-            $html = (string) preg_replace_callback('/<\?(?:php|=).*?(?:\?>|$)/s', fn (array $m): string => str_repeat("\n", substr_count($m[0], "\n")), (string) file_get_contents($file->getPathname()));
+            $html = (string) preg_replace_callback('/<\?(?:php|=).*?(?:\?>|$)/s', fn (array $m): string => ($printsForm !== null && preg_match($printsForm, $m[0]) ? '<form>' : '') . str_repeat("\n", substr_count($m[0], "\n")), $source);
             preg_match_all('#<p(?:\s[^>]*)?>((?:(?!</p>).)*?)<(form|div|section|ul|ol|table|fieldset|details|dialog|h[1-6])\b#s', $html, $matches, PREG_OFFSET_CAPTURE);
             foreach ($matches[0] as $match) {
                 $found[] = substr($file->getPathname(), strlen(TALEA_SYSTEM) + 1) . ':' . (substr_count($html, "\n", 0, $match[1]) + 1);

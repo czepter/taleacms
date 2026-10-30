@@ -19,7 +19,7 @@ $choice = ['location' => $location, 'language' => $language];
 <?php endforeach ?>
 </nav>
 <?php if (count($languages) > 1): ?>
-<p class="small-text"><?= e(t('Language version:')) ?>
+<p class="small-text navigation-row"><?= e(t('Language version:')) ?>
 <?php foreach ($languages as $code => $name): ?>
 	<a class="navigation<?= $code === $language ? ' active' : '' ?>" href="<?= e($module->url('', ['location' => $location, 'language' => $code])) ?>"<?= $code === $language ? ' aria-current="true"' : '' ?>><?= e($name) ?></a>
 <?php endforeach ?></p>
