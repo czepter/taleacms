@@ -22,6 +22,8 @@ registration (confirm, decline, cancel), a waiting list, and a preset that reads
 - The holder cancels, confirms, declines and promotes registrations in the admin and over MCP.
 - The holder can cancel a whole course and offer up to three other courses instead.
 - The visitor gets an e-mail for every change of their registration.
+- Every text a visitor or customer reads, in an e-mail or on the site, can be changed by the owner, starting from a
+  template. This covers the existing appointment bookings too.
 - Generic: nothing dance-specific (no lead/follow, no levels logic). Yoga, coaching, workshops use it the same way.
 
 ## Non-goals (out of scope, decided)
@@ -33,6 +35,8 @@ registration (confirm, decline, cancel), a waiting list, and a preset that reads
 - Automatic decline of requests nobody answered.
 - Confirmation and waiting list for repeating (drop-in) events.
 - A CSV export of participants.
+- Per-collection or per-service overrides of the texts (one site-wide set; add overrides only when a site needs them).
+- Changing the notifications to the business (new booking, new request, reminder to the holder).
 - Member login is not involved.
 
 ## Anti-goals
@@ -124,10 +128,10 @@ the request). Nothing is declined automatically; the seat stays held.
 
 ### E-mails to the visitor
 
-Through `Core\Mail::send()`, in the language of the page they registered on, using the site's existing mail look:
+Through `Core\Mail::send()`, plain text as all Talea mails, in the language of the page they registered on:
 registered (instant), request received (confirm first), on the waiting list, confirmed, declined (optional message
-from the holder), moved up, cancelled (optional message). Wording follows the "no invented content" rule: course
-name, dates and place come from the item.
+from the holder), moved up, cancelled (optional message), course cancelled (with the take-over links). Each one is a
+customisable message (below). Course name, dates and place come from the item.
 
 The holder is notified of new registrations as forms already do (form recipients); a waiting request says so in the
 subject. The form's recipients also get the reminder for unanswered requests.
@@ -207,6 +211,32 @@ them.
 Placeholders for templates: `{{course_status}}`, `{{places_left}}` (existing), `{{waiting_list}}` (empty, or that
 the course is full and the waiting list is open).
 
+## Customisable messages
+
+Every text a visitor or customer reads is a **message** with a template the owner may change: course registration
+and appointment booking alike.
+
+- **Which:** the visitor e-mails (subject and body) of courses (above) and of bookings (booked, request received,
+  declined, other times proposed, cancelled, reminder), and the texts on the site: the thank-you texts (registered,
+  request, waiting list), "full – join the waiting list", "registration closed", "already registered", the take-over
+  page, and the booking pages (booked, request sent, cancel page).
+- **Where:** one site-wide set in Settings → **Messages**, grouped Bookings / Courses. Every field shows the current
+  text, pre-filled with the template; "Back to the template" empties it, "Send me a test" mails it to the signed-in
+  user with sample values. The Courses group shows only when a calendar collection exists, Bookings only when the
+  bookings extension is on.
+- **Format:** plain text; e-mails have a subject and a body. Placeholders use the form e-mail syntax of
+  `Front\FormMail` (`{name}`, `{name|there}`), each message with its own list shown under the field: `{name}`,
+  `{course}`, `{dates}`, `{schedule}`, `{place}`, `{seats}`, `{message}`, `{site name}`, `{appointment}`,
+  `{service}`, `{times}` and the links `{cancel link}`, `{calendar link}`, `{take-over links}`. An unknown
+  placeholder is refused on save. A message whose link placeholder was removed gets the link added at the end
+  when sent; the field's help says so. Nothing a visitor typed goes into a mail to a visitor except a name
+  (`FormMail::isName`); `{message}` is the holder's own text.
+- **Languages:** one text per language version; empty = the translated template of that language (as
+  `maintenance_text` today). A mail goes out in the language the person booked or registered in.
+- **Existing sites:** the templates reproduce today's booking texts, so nothing changes until someone edits one.
+- **Storage and MCP:** stored as settings (a key per message and part, `_<language>` for language versions), so
+  `site_info` and `update_settings` cover them (parity). The save checks the placeholders, also over MCP.
+
 ## Constraints (project rules that bite here)
 
 - Schema change = a Phinx migration; portable SQL (MySQL, PostgreSQL, SQLite); booleans `= TRUE/FALSE`.
@@ -224,7 +254,8 @@ whenever the maximum is above 1 (Q5); one registration per address and course (Q
 automatic promotion on instant courses, the e-mail asks to say if the seat is no longer wanted (Q8); permissions
 follow the collection (Q9); the form's recipients get the holder's mails (Q10); a print view, no CSV (Q11);
 cancelling a course with up to three offered courses and a one-click take-over, no priority, the cancelled course
-hidden and redirected (Q12–Q16).
+hidden and redirected (Q12–Q16); every visitor-facing text of courses and bookings customisable from a template,
+site-wide, per language, links re-added when removed, stored as settings (Q17–Q22).
 
 ## Calls made while writing this (review these)
 
@@ -243,8 +274,8 @@ Settled by the author of this document, not by the owner:
 - **Settings changed while registrations exist:** confirm → instant leaves `waiting` rows for the holder to confirm;
   waiting list off keeps existing `waitlisted` rows (holder can promote or cancel) but takes no new ones; capacity
   lowered below seats taken bumps nobody, promotion waits until a seat is free.
-- **Thank-you texts:** new result codes in `Front\Forms` and the Form element (registered, request, waitlisted)
-  next to `full` and `closed`; the texts are translated defaults.
+- **Thank-you texts:** new result codes in `Front\Forms` and the Form element (registered, request, waitlisted,
+  already registered) next to `full` and `closed`; the texts are customisable messages.
 - **Ended courses:** the list uses the existing "upcoming" period (not ended yet), which already includes running
   courses. Cache expiry around a course's start or end follows whatever Events does today.
 
@@ -253,7 +284,7 @@ Settled by the author of this document, not by the owner:
 - Where the registration state is stored (a column on `enquiries` is the obvious choice) and its name.
 - The locking used for the last seat (`Db::lock()` exists).
 - Exact admin layout of the Registrations screen, within the existing admin list styles.
-- Exact e-mail texts.
+- Exact template texts for the new course messages (the booking templates are today's texts).
 - Tests: unit tests for the state transitions and seat count, a site test for register → full → waitlist → cancel →
   auto-promotion, both modes, and cancel course → take-over link.
 - Where the take-over token lives (a hash on the cancelled registration, as member links store sha256) and how the
