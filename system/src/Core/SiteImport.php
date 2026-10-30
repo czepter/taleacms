@@ -69,6 +69,9 @@ final class SiteImport
     /** @var string the archive's file name: names the working folder */
     private string $stateFileName = '';
 
+    /** @var list<string> media paths of the archive that were refused (not a file of the archive), reported in the state */
+    private array $dropped = [];
+
     /** @var array<string, string>|null archive path => path in the owner's media folder (a site import) */
     private ?array $mediaMap = null;
 
@@ -444,6 +447,8 @@ final class SiteImport
             $this->saveMap();
         }
         $state['people'] = $this->people;
+        $state['refused_media'] = array_slice(array_merge((array) ($state['refused_media'] ?? []), $this->dropped), 0, 50);
+        $this->dropped = [];
         if ($state['table'] >= count($tables)) {
             $this->db->syncSequences(...array_values(array_diff(self::TABLES, $this->siteMode() ? self::OWNER_ROWS : [])));
             $this->loadIds((string) $state['file']);
@@ -462,6 +467,7 @@ final class SiteImport
         $this->stateFileName = (string) $state['file'];
         $map = $this->siteMode() ? json_decode((string) @file_get_contents(self::workFolder($this->stateFileName, $this->folder) . '/owner-map.json'), true) : null;
         $this->map = is_array($map) ? $map : [];
+        $this->mediaMap ??= $this->siteMode() ? (array) json_decode((string) @file_get_contents(self::workFolder($this->stateFileName, $this->folder) . '/media-map.json'), true) : [];
     }
 
     /**

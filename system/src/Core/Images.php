@@ -197,7 +197,7 @@ final class Images
     public static function delete(string ...$paths): void
     {
         foreach ($paths as $path) {
-            if (!preg_match('#^(media/' . MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#', $path, $m)) {
+            if (!preg_match('#^(media/' . MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#', $path, $m) || !MediaFolder::owns($path)) {
                 continue;
             }
             // together with the image its variants for srcset and WebP are removed too, also a copy waiting for approval (MediaStaging)

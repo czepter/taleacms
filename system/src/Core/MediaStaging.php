@@ -276,8 +276,8 @@ final class MediaStaging
         }
         $deleted = 0;
         foreach ($db->all('SELECT media_id, image_path FROM {media} WHERE staged_at IS NOT NULL AND staged_at < NOW() - INTERVAL ' . self::DAYS . ' DAY') as $row) {
-            foreach (self::files((string) $row['image_path'], true) as $file) {
-                @unlink($file);
+            foreach (MediaFolder::owns((string) $row['image_path']) ? self::files((string) $row['image_path'], true) : [] as $file) {
+                @unlink($file); // only files in this owner's folder, whatever the row says
             }
             $deleted += $db->delete('media', ['media_id' => (int) $row['media_id']]);
         }

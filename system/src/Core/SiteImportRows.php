@@ -453,6 +453,20 @@ trait SiteImportRows
             return null;
         }
         $folder = $this->ref('media_folders', $r['folder_id'] ?? null);
+        if ($this->siteMode()) {
+            // only a file the archive brought (and that was placed in this owner's folder) may have a row: a path of another owner's file is dropped
+            $mapped = array_flip(array_values($this->mediaMap ?? []));
+            if (!isset($mapped[ltrim($file, '/')])) {
+                $this->dropped[] = $file;
+
+                return null;
+            }
+            $thumb = ltrim(self::file($r['thumb_path'] ?? ''), '/');
+            if ($thumb !== '' && !isset($mapped[$thumb])) {
+                $this->dropped[] = $thumb;
+                $r['thumb_path'] = '';
+            }
+        }
 
         return $this->ownerKey('media', 'media_id', (int) $r['_id']) + ['public_id' => $this->ownerPublicId('media', $r), 'owner_id' => $this->admin > 0 ? $this->admin : null,
             'folder_id' => $folder > 0 && $this->db->value('SELECT 1 FROM {media_folders} WHERE folder_id = ?', [$folder]) !== null ? $folder : null,

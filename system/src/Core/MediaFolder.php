@@ -30,6 +30,22 @@ final class MediaFolder
         return self::dirOf(self::$owner);
     }
 
+    /**
+     * Is this media path in the folder of the owner being served? Owner 1 owns `media/Y/m/…` (no owner folder), a further owner only its own
+     * `media/<public id>/…`. Every removal of a file asks this, so a row that names another owner's file (a crafted archive, a hand-made row)
+     * can never make a delete unlink it.
+     */
+    public static function owns(string $path): bool
+    {
+        if (str_contains($path, '..')) {
+            return false;
+        }
+
+        return self::$owner === ''
+            ? preg_match('#^media/\d{4}/#', $path) === 1
+            : str_starts_with($path, 'media/' . self::$owner . '/');
+    }
+
     /** The folder of the owner with this public id ('' = owner 1). */
     public static function dirOf(string $ownerPublicId): string
     {

@@ -167,7 +167,7 @@ final class SiteImportsTest extends DatabaseTestCase
             'ready' => $db->value('SELECT ready_at FROM {sites} WHERE prefix = ?', [$one]), 'site1' => (int) $db->value('SELECT COUNT(*) FROM {pages}'),
             'running' => SiteImport::running(), 'media' => (int) $db->value('SELECT COUNT(*) FROM {media}'),
         ], 'survivor' => $survivorId, 'keeper' => $keeper, 'main' => $main, 'tag' => $tag, 'admin' => $admin, 'component' => $component, 'survivorPath' => $survivor,
-            'beta' => $beta, 'one' => $one, 'two' => $two, 'mediaBefore' => (int) $db->value('SELECT COUNT(*) FROM {media}'), 'componentsBefore' => (int) $db->value('SELECT COUNT(*) FROM {components}')];
+            'archive' => $path, 'beta' => $beta, 'one' => $one, 'two' => $two, 'mediaBefore' => (int) $db->value('SELECT COUNT(*) FROM {media}'), 'componentsBefore' => (int) $db->value('SELECT COUNT(*) FROM {components}')];
         for ($i = 0; $i < 50 && ($line = SiteImports::work($db, (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$one]), 30.0)) !== 'ready'; $i++) {
             self::$facts['lines'][] = $line;
         }
@@ -325,5 +325,46 @@ final class SiteImportsTest extends DatabaseTestCase
         $this->assertFileDoesNotExist($work . '/owner-rows.txt');
         unset($site);
         SiteImports::forget(self::$facts['one']);
+    }
+    public function testAMediaRowNamingAnotherOwnersFileIsDroppedAndNoDeleteCanReachThatFile(): void
+    {
+        $db = $this->db();
+        $db->pdo()->rollBack(); // the new site's tables are DDL
+        $foreignDir = TALEA_ROOT . '/media/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/2026/10';
+        @mkdir($foreignDir, 0775, true);
+        $foreign = 'media/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/2026/10/foreign-' . self::$facts['tag'] . '.jpg';
+        imagejpeg(imagecreatetruecolor(8, 8), TALEA_ROOT . '/' . $foreign);
+        self::$folders[] = TALEA_ROOT . '/media/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+        $crafted = sys_get_temp_dir() . '/crafted-' . bin2hex(random_bytes(3)) . '.zip';
+        copy(self::$facts['archive'], $crafted);
+        self::$files[] = $crafted;
+        $zip = new \ZipArchive();
+        $zip->open($crafted);
+        $content = (string) $zip->getFromName('content.json');
+        $row = '{"public_id":"11111111-2222-4333-8444-555555555555","image_path":"' . $foreign . '","thumb_path":"' . $foreign . '","name":"Foreign"},';
+        $this->assertStringContainsString("\"media\":[\n", $content);
+        $zip->addFromString('content.json', str_replace("\"media\":[\n", "\"media\":[\n" . $row . "\n", $content));
+        $zip->close();
+        $prefix = SiteImports::create($db, 'Crafted', $crafted, 'zip', 1, copy(...));
+        self::$folders[] = SiteImports::folder($prefix);
+        Migrator::migrate($this->dbConfig());
+        Sites::forgetCurrent();
+        for ($i = 0; $i < 50 && ($line = SiteImports::work($db, (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$prefix]), 30.0)) !== 'ready'; $i++) {
+        }
+        $this->assertSame('ready', $line);
+        $this->assertNull($db->value("SELECT 1 FROM {media} WHERE name = 'Foreign'"), 'no row for a file the archive did not bring');
+        $this->assertNotContains('Foreign', array_column($db->all('SELECT name FROM {media}'), 'name'));
+        foreach ($db->all('SELECT image_path, thumb_path FROM {media}') as $m) {
+            \Talea\Core\Images::delete((string) $m['image_path'], (string) $m['thumb_path']); // delete everything of this owner
+        }
+        $this->assertFileExists(TALEA_ROOT . '/' . $foreign, 'the other owner\'s file survives');
+
+        // a row written by hand with that path: deleting it does not unlink the file either
+        $db->insert('media', ['image_path' => $foreign, 'name' => 'By hand', 'created_at' => date('Y-m-d H:i:s')]);
+        \Talea\Core\Images::delete($foreign);
+        $this->assertFileExists(TALEA_ROOT . '/' . $foreign);
+        $db->run("DELETE FROM {media} WHERE name = 'By hand'");
+        $this->assertFalse(\Talea\Core\MediaFolder::owns($foreign));
+        $this->assertTrue(\Talea\Core\MediaFolder::owns('media/2026/10/a.jpg'));
     }
 }
