@@ -10,6 +10,9 @@ $appearance = fn (string $action): string => $app->url('admin.php?module=appeara
 ?>
 <div class="notice notice-warning appearance-draft" id="appearance-draft">
 	<p><strong><?= e(t('Unpublished look changes')) ?></strong> – <?= e(t('visitors still see the published look.')) ?></p>
+<?php if (($familyChildren = Talea\Core\LookFamily::childCount($app->db())) > 0): ?>
+	<p><?= e(t('Publishing updates %d sites.', $familyChildren)) ?></p>
+<?php endif ?>
 <?php if ($summary !== []): ?>
 	<ul>
 <?php foreach ($summary as $line): ?>

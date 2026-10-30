@@ -26,6 +26,8 @@ abstract class Element
     public const bool ADMIN_ONLY = false;
     /** Extension key (Core\Extensions) without which the element cannot be inserted and is not rendered on the site; empty = always. */
     public const string EXTENSION = '';
+    /** Only with several sites on (TALEA_MULTISITE): off, the type is not offered and prints nothing, as for a switched-off extension. */
+    public const bool MULTISITE = false;
     /** Offered only in site parts (header, footer, wrappers) – logo, navigation, page content. */
     public const bool PARTS_ONLY = false;
     /** Offered in the builder's Add panel; false = only edited where it already is (the fields of a form: pages place a form instead). */

@@ -126,6 +126,67 @@ addresses, tokens and the values in database errors. The same fault is sent once
 wait in `storage/log/outbox/` and are retried by the background jobs for a day. `storage/log/errors.log` keeps every uncaught error
 with its trace and the event id, with or without a tracker. When the DSN is set, the record of processing names the tracker's host.
 
+## Several sites
+
+`TALEA_MULTISITE=1` turns the install into one owner with several sites (docs/specs/multisite.md). Each site answers to its own
+domains (`site_domains`) and has its own tables; the first start with the flag gives site 1 the host of `TALEA_SITE_URL`.
+
+- A host that belongs to no site, or to a trashed one, gets a bare 404; it never shows site 1. `/health` answers on any host.
+- A secondary domain marked "redirect to primary" answers with a 301 to the site's primary host.
+- A paused site answers visitors with 503 (signed-in people and signed preview links still see it); an archived site redirects to the
+  site it points at, or stays readable and refuses forms, bookings and the member login with 403.
+- Point every domain at the same container and have the proxy pass the `Host` header on unchanged.
+- Without the flag the start (`bin/migrate`) stops while the database holds more than one site that is not trashed.
+- With `TALEA_SECRET_KEY` set, each further site derives its own signing key from it, so a preview link of one site is void on the others.
+
+### Several owners
+
+`TALEA_OWNERS=1` (with `TALEA_MULTISITE=1`) adds owners: groups of tables with their own users, sites and domains (`tlb_`, `tlc_` …).
+Hosts are unique in the whole install. New owners are set up by the next `docker.php cron`; a paused owner answers 503 on all its hosts, an
+archived one 404. Backups, exports and the error log are the first owner's for now, and the start stops while further owners exist and the
+flag is off. Cookies are host-only; the session store is shared, but a session only works on the owner that made it.
+
+### Domains and certificates
+
+A host routes only after it was shown to point at this install. In a single-owner install (no `TALEA_OWNERS`) nothing changes: a host added
+in the Sites area, over MCP or by an operator is verified at once. With `TALEA_OWNERS=1` a host added by a client administrator starts
+**unverified** and answers a bare 404 until it passes a check, started by **Check now** (Sites → the site → Host names, or the MCP tool
+`check_site_domain`); an operator (an administrator of owner 1, in the Owners area) can also mark it verified, and `TALEA_VERIFIED_HOSTS`
+(comma separated) vouches for **owner 1's** hosts by name (never for a client's). A client's host that is not verified after 14 days is
+removed, and an unverified name never blocks the owner who can prove it.
+
+1. Point the host (A/AAAA or CNAME) at the container, as for any domain.
+2. Show that it is yours. For a **client owner** only a TXT record `_talea.<host>` holding `talea-verify=<token>` counts (any name that
+   already points at the install would pass the token file). **Owner 1** may also use `http://<host>/.well-known/talea-domain/<token>`, which
+   answers with the token (the install does this on its own for any host that has a pending token). The token is shown next to the host.
+   Single-word names and IP addresses are refused as client host names.
+3. The check is made by the server and refuses internal addresses (loopback, private and link-local ranges, redirects are not followed).
+
+**On-demand TLS.** Let the proxy ask the install before it fetches a certificate for a name. `GET /_talea/tls-allowed?domain=<host>` answers
+on any host, before routing: 200 for a verified host or a preview address, 404 for everything else; it never says which owner a host
+belongs to and is rate limited (429 above 300 questions a minute from one address). With Caddy:
+
+```
+{
+	on_demand_tls {
+		ask http://talea:8080/_talea/tls-allowed
+	}
+}
+https:// {
+	tls { on_demand }
+	reverse_proxy talea:8080
+}
+```
+
+Traefik and nginx-based setups use their own "ask"/auth-request hooks the same way (Coolify: the proxy's on-demand TLS option with this URL).
+
+**Preview addresses.** Set `TALEA_PREVIEW_DOMAIN=preview.example.com` and add a wildcard DNS record `*.preview.example.com` (owner 1's sites:
+`{slug}.preview.example.com`) and, with several owners, `*.*.preview.example.com` (`{slug}.{owner letters}.preview.example.com`) to the proxy. A wildcard
+certificate (DNS challenge) is the simplest; on-demand TLS works too, because the ask URL answers 200 for them. A preview address is created
+when a site is set up and, once, for the sites that exist when the variable is first set (the next cron run). It routes like a host of the site, is
+verified from the start, never in the page cache, and always says `noindex` (header, meta tag and `robots.txt`). Until a site's own host is verified the preview address is the
+one the handoff and the site switcher use.
+
 ## Rollback
 
 Migrations only move forward, and a release never drops what the previous release still reads (expand, then contract in a later

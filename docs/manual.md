@@ -548,3 +548,52 @@ above) or keeping your content outside Talea. Enquiries, subscribers and account
 
 Kaleta's public read-only API of 1.x (`/api/news`) ended in 2.0. Use the JSON Feed (`/feed.json`) or RSS for news, the
 Claude connection (MCP) for working with the site, webhooks for events and the site export to take your content out.
+
+## 14. Several sites
+
+With `TALEA_MULTISITE=1` (see [DEPLOYMENT.md](DEPLOYMENT.md)) one installation serves several sites of the same owner, for example a studio
+site, a side business and a course site. **Settings → Sites** lists them: name, state (live, paused, archived), host names, whether the
+site is set up and how much space it takes.
+
+- **New site:** empty or a copy of an existing site (content, look and settings – never the visitors' data such as enquiries,
+  bookings, subscribers or members). A new site starts paused and is set up in the background within a few minutes.
+- **Look family:** for a business with several locations, one site can hand its look down to others. Open a site's page in **Settings → Sites** and
+  choose **Join the look family of** another site (or choose it when you create the site). The child gets the parent's design system, dark mode, classes
+  and header and footer at once, and again whenever the parent publishes its look; it keeps its own menus, pages, legal pages and extra classes, and
+  the business facts in a shared footer show each location's own values. The child cannot change what the parent hands down (it says so, and in the
+  parent the look screens say how many sites a publish updates), but it can roll back to an earlier look on its own. Joining throws away a look draft
+  the child has not published (you are asked first); **Leave the look family** keeps the current copy. If the parent is archived or deleted the children
+  leave by themselves. A parent cannot join another family. Claude: `set_look_parent`, and `parent` on `create_site`.
+- **Host names:** each site answers to its own host names; the first one is primary, others can redirect to it. An unknown host gets
+  a plain 404.
+- **States:** paused sites answer visitors with a short "not public yet" page, archived sites either redirect to another site or become
+  read-only. A deleted site stays in the trash for 30 days.
+- **Switcher:** the site name in the sidebar opens another site and signs you in there. Enquiries and Bookings can list every
+  site; a row opens on its own site.
+- **Shared and own:** media, users, components and facts are shared by default across sites; a component or fact can be shared with
+  every site or kept for one.
+- **Claude:** one connection works on all sites. A tool acts on the site the connection calls, or on another site when you pass its id as
+  `site` (`list_owner_sites` lists them); `create_site`, `update_site`, `set_look_parent`, `trash_site`, `restore_site`, `add_site_domain`, `update_site_domain` and `remove_site_domain` manage them
+  (administrators with a full-access connection only; a connection limited to drafts or to reading cannot change sites).
+- **Backups:** a backup holds every site and a restore puts all of them back. A client (an owner other than the first) has backups
+  of its own under **Sites → Backups and exports**: content only – accounts, host names and connections are not part of a backup or a
+  restore – and a restore works while the same sites exist. The same screen exports a site (with the uploaded files of the account).
+- **Moving a site to another owner (operators):** **Owners → Move a site** (Claude: `transfer_site`, on the first owner's connection only). Choose the
+  site and the owner that gets it, and read the report first: what moves (pages, news, collection items, enquiries, members, bookings, subscribers,
+  media files and their size, host names, the secrets such as the mail password and the AI key), which shared components and facts become the site's own
+  copies, which people are found in the new owner by the same e-mail (the rest are cleared from authors and revisions; the change log keeps their names),
+  who loses access, and the blockers and warnings. Confirming sends the report's hash back; if the site changed meanwhile you are asked to read the
+  report again (Claude: `dry_run` first, then `report_hash`). The old site answers 503 from the confirmation on. The scheduled tasks copy everything
+  except the mail queue, newsletter and webhook queues and visitors' sessions into a new site of the new owner, move the host names, give the new site the
+  old site's public id and state, and put the old site into the trash for 30 days (it comes back without its host names). The signing keys are made new,
+  so open preview links end; no account is created in the new owner. A first site of an owner and the parent of a look family cannot move; a child of a
+  look family leaves it. If the copy fails nothing changes except an error under **Owners → Move a site**, and the old site answers again.
+- **Moving an old site in:** on the old install make **Import and export → Export of the whole site** and download the archive. Here
+  open **Sites → Import a Talea archive** (operators: **Owners → Import a Talea archive**, choosing the owner), name the site and upload
+  the file. The site is created, not ready, and the scheduled tasks import it in batches; the Sites list shows the progress, and an
+  error if it stops (move that site to the trash and try again). The other sites keep running. Pages, news, collections, look and
+  settings come over; the uploaded files join the shared media library (a name that is taken gets a short suffix, and the content
+  follows); components and facts become the new site's own. Accounts are not imported: the news belong to you, and the site's page
+  lists the authors and booking staff the archive names so you can invite them. The mail, AI and time-zone settings are taken from
+  the site you were on, never from the archive. Importing straight into an existing site with several sites is refused; use this.
+

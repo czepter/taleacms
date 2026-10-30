@@ -2,6 +2,7 @@
 /**
  * The looks gallery: finished looks (Builder\Looks) – a click puts one into the draft look, the whole site is previewed, then published or discarded.
  *
+ * @var Talea\Core\App $app
  * @var Talea\Admin\Modules\Appearance $module
  * @var string $csrf
  * @var array<string, array<string, mixed>> $looks
@@ -10,7 +11,11 @@
  * @var array<string, string> $sections ready-section key => name
  */
 $fontName = fn (string $value): string => $library[substr($value, 4)]['name'] ?? $value;
+$familyParent = Talea\Core\LookFamily::parent($app->db());
 ?>
+<?php if ($familyParent !== null): ?>
+<p class="notice notice-warning"><?= e(t('This site takes its look from %s. Change it there or leave the family.', $familyParent['name'])) ?></p>
+<?php endif ?>
 <p class="help"><?= e(t('A look is a ready set of colours (with a dark mode), fonts, scale and shapes plus a header and a footer. Applying it goes to the draft look: preview the whole site, then publish or discard. Pages, news, menus and settings stay as they are.')) ?>
 	<a href="<?= e($module->url()) ?>"><?= e(t('Back to the appearance')) ?></a></p>
 <div class="looks-gallery">

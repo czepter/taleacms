@@ -15,10 +15,18 @@
  * @var int $inTrash enquiries in the trash
  * @var string $search
  * @var array<int, string> $users
+ * @var array<int, array<string, mixed>> $sites the sites of an "all sites" list by number (empty = this site only)
+ * @var ?string $sitesFilter the "this site / all sites" select, null with one site
  */
 use Talea\Admin\Modules\Enquiries;
 
 $pageCount = (int) ceil($total / $perPage);
+$all = $sites !== [];
+$here = array_filter(['sites' => $all ? 'all' : '']); // kept by the tabs and the pages
+// a row of another site cannot be handled here: it is marked with its site and opens there (the handoff signs the administrator in)
+$siteOf = fn (array $p): ?array => $all && !($sites[(int) $p['site_id']]['current'] ?? true) ? $sites[(int) $p['site_id']] : null;
+$siteTag = fn (array $p): string => $all ? '<span class="tag">' . bdi($sites[(int) $p['site_id']]['name'] ?? '') . '</span> ' : '';
+$open = fn (array $s, string $to): string => $s['can_open'] ? '<form class="inline" method="post" action="' . e($app->url('admin.php?module=sites&action=handoff')) . '">' . $csrf . '<input type="hidden" name="id" value="' . e($s['public_id']) . '"><input type="hidden" name="to" value="' . e($to) . '"><button class="btn" type="submit">' . e(t('Open on %s', $s['name'])) . '</button></form>' : '';
 $trash = $filter === 'trash';
 $spamTab = $filter === 'spam';
 $preview = function (string $data): string {
@@ -38,11 +46,11 @@ foreach (array_diff_key(['' => t('All kinds'), '-' => t('Not sorted')] + $kindNa
 }
 $kinds .= '</select>';
 echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'),
-    'tabs' => [...array_map(fn (string $key, string $name): array => ['label' => t($name), 'url' => $module->url('', array_filter(['status' => $key, 'category' => $kind])), 'active' => $filter === $key],
+    'tabs' => [...array_map(fn (string $key, string $name): array => ['label' => t($name), 'url' => $module->url('', array_filter(['status' => $key, 'category' => $kind]) + $here), 'active' => $filter === $key],
         ['', 'open', 'mine', 'resolved'], ['All', 'To do', 'Mine', 'Resolved']),
-        ['label' => $kindNames['spam'] ?? t('Spam'), 'count' => $spam, 'url' => $module->url('', ['status' => 'spam']), 'active' => $spamTab],
-        ['label' => t('Trash'), 'count' => $inTrash, 'url' => $module->url('', ['status' => 'trash']), 'active' => $trash]],
-    'action' => $app->url('admin.php'), 'hidden' => ['module' => 'enquiries'] + array_filter(['status' => $filter]), 'filters' => $trash || $spamTab ? '' : $kinds,
+        ['label' => $kindNames['spam'] ?? t('Spam'), 'count' => $spam, 'url' => $module->url('', ['status' => 'spam'] + $here), 'active' => $spamTab],
+        ['label' => t('Trash'), 'count' => $inTrash, 'url' => $module->url('', ['status' => 'trash'] + $here), 'active' => $trash]],
+    'action' => $app->url('admin.php'), 'hidden' => ['module' => 'enquiries'] + array_filter(['status' => $filter]), 'filters' => ($trash || $spamTab ? '' : $kinds) . ($sitesFilter ?? ''),
     'search' => ['name' => 'search', 'value' => $search, 'placeholder' => t('Name, e-mail or text'), 'label' => t('Search enquiries')]]);
 ?>
 <?php if ($enquiries === [] && $trash && $search === ''): ?>
@@ -62,13 +70,13 @@ echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'
     $one = ['selected[]' => $p['public_id']];
 ?>
 <tr>
-	<td class="cell-select"><input type="checkbox" name="selected[]" value="<?= e($p['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $who)) ?>"></td>
-	<td><div class="cell-text"><span class="cell-title"><?= bdi($who) ?></span><span class="cell-sub"><?= bdi($p['form']) ?> · <?= e(format_date($p['created_at'], true)) ?></span></div></td>
+	<td class="cell-select"><?php if ($siteOf($p) === null): ?><input type="checkbox" name="selected[]" value="<?= e($p['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $who)) ?>"><?php endif ?></td>
+	<td><div class="cell-text"><span class="cell-title"><?= $siteTag($p) ?><?= bdi($who) ?></span><span class="cell-sub"><?= bdi($p['form']) ?> · <?= e(format_date($p['created_at'], true)) ?></span></div></td>
 	<td class="cell-main"><span class="cell-sub cell-preview"><?= bdi($preview((string) $p['data'])) ?></span></td>
 	<td class="cell-weak"><?= e(format_date((string) $p['deleted_at'], true)) ?></td>
-	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $p['public_id'], 'name' => $who, 'edit' => null, 'csrf' => $csrf,
+	<td class="cell-actions"><?php if (($s = $siteOf($p)) !== null): ?><?= $open($s, 'module=enquiries&status=trash') ?><?php else: ?><?= $app->view->render('admin/list/actions', ['id' => $p['public_id'], 'name' => $who, 'edit' => null, 'csrf' => $csrf,
         'quick' => ['action' => $module->url('restore'), 'fields' => $one, 'label' => t('Restore'), 'icon' => 'restore'],
-        'menu' => [['post' => $module->url('delete_permanently'), 'fields' => $one, 'label' => t('Delete permanently'), 'confirm' => t('Delete the enquiry and its attachments permanently? This cannot be undone.'), 'danger' => true]]]) ?></td>
+        'menu' => [['post' => $module->url('delete_permanently'), 'fields' => $one, 'label' => t('Delete permanently'), 'confirm' => t('Delete the enquiry and its attachments permanently? This cannot be undone.'), 'danger' => true]]]) ?><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -96,15 +104,15 @@ echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'
     $one = ['selected[]' => $p['public_id']];
 ?>
 <tr<?= $status === 0 ? ' class="unread"' : '' ?>>
-	<td class="cell-select"><input type="checkbox" name="selected[]" value="<?= e($p['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $who)) ?>"></td>
-	<td><div class="cell-row"><?php if ($status === 0): ?><span class="unread-dot"><span class="visually-hidden"><?= e(t('New')) ?></span></span><?php endif ?><div class="cell-text"><a class="cell-title" href="<?= e($detail) ?>"><?= bdi($who) ?></a><span class="cell-sub"><?= implode(' · ', $sub) ?></span></div></div></td>
+	<td class="cell-select"><?php if ($siteOf($p) === null): ?><input type="checkbox" name="selected[]" value="<?= e($p['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $who)) ?>"><?php endif ?></td>
+	<td><div class="cell-row"><?php if ($status === 0): ?><span class="unread-dot"><span class="visually-hidden"><?= e(t('New')) ?></span></span><?php endif ?><div class="cell-text"><?= $siteTag($p) ?><?= $siteOf($p) !== null ? '<span class="cell-title">' . bdi($who) . '</span>' : '<a class="cell-title" href="' . e($detail) . '">' . bdi($who) . '</a>' ?><span class="cell-sub"><?= implode(' · ', $sub) ?></span></div></div></td>
 	<td class="cell-main"><div class="cell-row"><?= $p['category'] !== '' ? '<span class="tag">' . e($kindNames[$p['category']] ?? $p['category']) . '</span>' : '' ?><?= (int) $p['priority'] === 3 ? '<span class="tag tag-warning">' . e(t('urgent')) . '</span>' : '' ?><a class="cell-sub cell-preview" href="<?= e($detail) ?>"><?= bdi($preview((string) $p['data'])) ?></a></div></td>
 	<td><?= $app->view->render('admin/list/status', ['kind' => [0 => 'hidden', 1 => 'draft', 2 => 'live'][$status] ?? 'draft', 'label' => t(Enquiries::STATUSES[$status] ?? '')]) ?></td>
 	<td class="cell-weak"><?= e(format_ago($p['created_at'])) ?></td>
-	<td class="cell-actions"><?= $app->view->render('admin/list/actions', ['id' => $p['public_id'], 'name' => $who, 'edit' => null, 'csrf' => $csrf,
+	<td class="cell-actions"><?php if (($s = $siteOf($p)) !== null): ?><?= $open($s, 'module=enquiries&action=detail&id=' . $p['public_id']) ?><?php else: ?><?= $app->view->render('admin/list/actions', ['id' => $p['public_id'], 'name' => $who, 'edit' => null, 'csrf' => $csrf,
         'quick' => $status !== 2 ? ['action' => $module->url('bulk'), 'fields' => $one + ['bulk' => 'vyridit'], 'label' => t('Mark as resolved'), 'icon' => 'check'] : null,
         'menu' => [['url' => $detail, 'label' => t('Open'), 'icon' => 'eye'], '-',
-            ['post' => $module->url('bulk'), 'fields' => $one + ['bulk' => 'delete'], 'label' => t('Move to trash'), 'confirm' => t('Move the enquiry to the trash? You can restore it for 30 days.'), 'danger' => true]]]) ?></td>
+            ['post' => $module->url('bulk'), 'fields' => $one + ['bulk' => 'delete'], 'label' => t('Move to trash'), 'confirm' => t('Move the enquiry to the trash? You can restore it for 30 days.'), 'danger' => true]]]) ?><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -119,7 +127,7 @@ echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'
 <?php if ($pageCount > 1): ?>
 <p class="pagination">
 <?php for ($s = 1; $s <= $pageCount; $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['status' => $filter]) + ['page' => $s])) . '">' . $s . '</a>' ?>
+	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['status' => $filter]) + $here + ['page' => $s])) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>

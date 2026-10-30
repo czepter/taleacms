@@ -66,7 +66,7 @@ while MySQL's `JSON_UNQUOTE` gives text. Upsert is `ON CONFLICT (keys) DO UPDATE
 ### Schema
 
 The Phinx migrations run unchanged on Phinx's SQLite adapter (`Migrator::phinxConfig()`: `adapter sqlite`, `name` the file, no suffix).
-`Core\SqlitePrefixAdapter` (registered for SQLite only) fixes two things of Phinx's prefix wrapper: an auto-numbered `biginteger` key becomes
+`Core\PrefixAdapter` (Phinx's prefix wrapper, registered for every engine; its SQLite part) fixes two things of Phinx's prefix wrapper: an auto-numbered `biginteger` key becomes
 `INTEGER` (SQLite refuses `BIGINT … AUTOINCREMENT`; its INTEGER has 64 bits), and the table names of a finished step reach SQLite's foreign key check
 with their prefix. `MigrationSupport`:
 

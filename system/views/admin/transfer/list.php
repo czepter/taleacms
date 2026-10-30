@@ -10,6 +10,7 @@
  * @var bool $missingXml  the server lacks the extension for reading XML
  * @var list<array{file:string, size:int, time:int}> $exports
  * @var bool $hasZip
+ * @var string|null $taleaRefusal  why an archive cannot be imported (several sites), or null
  * @var list<array{file:string, size:int, time:int, state:array<string,mixed>|null}> $taleaFiles  Talea exports in storage/import/
  * @var array{empty: bool, pages: int, news: int, items: int, media: int} $siteContent
  * @var list<array<string, mixed>> $webImports  imports from a website (2.6)
@@ -190,7 +191,9 @@ $phase = [
 <details class="panel-collapsed"<?= $taleaFiles !== [] ? ' open' : '' ?>>
 <summary><h2><?= e(t('Import from Talea')) ?></h2></summary>
 <p><?= e(t('Moving a site from another Talea installation: upload its export (the .zip archive from Export of the whole site). Everything is imported – pages, news, collections, components, menus, the look and the media – into a new, empty site; user accounts and secrets are never part of an export.')) ?></p>
-<?php if (!$siteContent['empty']): ?>
+<?php if ($taleaRefusal !== null): ?>
+<p class="notice"><?= e(t($taleaRefusal)) ?></p>
+<?php elseif (!$siteContent['empty']): ?>
 <p class="notice"><?= e(t('This site already has its own content, so an export cannot be imported here. Install Talea again and choose “Start from an export”.')) ?></p>
 <?php else: ?>
 <form class="form" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>">

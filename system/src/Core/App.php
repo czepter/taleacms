@@ -17,19 +17,38 @@ final class App
     private ?Auth $auth = null;
     private ?Settings $settings = null;
 
-    /** @param array<string, mixed> $config contents of config.php */
-    public function __construct(public readonly array $config, ?Request $request = null)
+    /**
+     * @param array<string, mixed> $config contents of config.php
+     * @param array<string, mixed>|null $site the site row (Sites::resolve) this request is routed to; null with multisite off
+     */
+    public function __construct(public readonly array $config, ?Request $request = null, public readonly ?array $site = null)
     {
         $this->request = $request ?? Request::fromGlobals();
-        $this->session = new Session($this->request->isHttps(), $this->request->basePath() . '/');
+        $this->session = new Session($this->request->isHttps(), $this->request->basePath() . '/', (string) ($config['db']['owner_prefix'] ?? $config['db']['prefix'] ?? 'tl_'), (string) ($config['db']['prefix'] ?? 'tl_'));
         $this->view = new View([TALEA_SYSTEM . '/views']);
         Demo::configure($config['demo'] ?? null);
+        \Talea\Front\Cache::useInstall((string) ($config['db']['prefix'] ?? 'tl_'));
     }
 
-    /** Loads the configuration (environment or config.php, see Config); when there is none, the site is not installed yet. */
-    public static function boot(): self
+    /**
+     * Loads the configuration (environment or config.php, see Config); when there is none, the site is not installed yet.
+     * $sitePrefix: a further site's tables (multisite); $ownerPrefix: the tables of a further owner (its site 1 is its owner prefix).
+     */
+    public static function boot(?string $sitePrefix = null, ?string $ownerPrefix = null): self
     {
         $config = Config::load();
+        if ($config !== null && $sitePrefix !== null) {
+            $config['db']['site_prefix'] = $sitePrefix;
+            if ($ownerPrefix !== null && $ownerPrefix !== ($config['db']['prefix'] ?? 'tl_')) {
+                $config['db']['owner_prefix'] = $ownerPrefix;
+            }
+            \Talea\Front\Cache::useSite($sitePrefix);
+            if (isset($config['db']['owner_prefix'])) {
+                // a cron child of a further owner: its uploads live in its own folder (MediaFolder)
+                $owner = array_column(Owners::all(Db::fromConfig($config['db'])), 'public_id', 'prefix');
+                MediaFolder::useOwner((string) ($owner[$config['db']['owner_prefix']] ?? ''));
+            }
+        }
         if ($config === null) {
             $base = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
             header('Location: ' . $base . '/install.php');
@@ -44,10 +63,79 @@ final class App
             header('Content-Type: text/html; charset=utf-8');
             exit('<!doctype html><meta charset="utf-8"><title>Update in progress</title><body style="font:16px system-ui,sans-serif;margin:3em"><h1 style="font-size:22px">The site is being updated</h1><p>Please try again in a minute.</p>');
         }
-        $app = new self($config);
+        $site = null;
+        if ($sitePrefix === null && PHP_SAPI !== 'cli' && Sites::enabled()) {
+            $site = self::routeHost($config);
+            if ($site['owner_prefix'] !== ($config['db']['prefix'] ?? 'tl_')) {
+                $config['db']['owner_prefix'] = $site['owner_prefix'];
+                MediaFolder::useOwner($site['owner_public_id']);
+            }
+            if ($site['prefix'] !== ($config['db']['prefix'] ?? 'tl_')) {
+                $config['db']['site_prefix'] = $site['prefix'];
+                \Talea\Front\Cache::useSite($site['prefix']);
+            }
+        }
+        $app = new self($config, null, $site);
         $app->installErrorHandler();
 
         return $app;
+    }
+
+    /**
+     * Multisite: the site that answers to the request's host (docs/specs/multisite.md). An unknown or trashed host gets a bare 404 (never
+     * site 1's content), a site cron has not set up yet a 503, a secondary domain with "redirect to primary" a 301; /health answers for the install (site 1) on any host.
+     *
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    private static function routeHost(array $config): array
+    {
+        $request = Request::fromGlobals();
+        $db = Db::fromConfig($config['db']);
+        Domains::answerEarly($request, $db); // the proxy's certificate question and the token file of a pending host: any host, before routing
+        $site = Sites::resolve($db, Sites::requestHost($request));
+        if ($site === null || $site['status'] === 'trashed' || !$site['ready'] || !$site['verified']) {
+            if ($request->path() !== '/health') {
+                // unknown host: never site 1's content; a site cron has not set up yet has no tables to boot (Sites::provision)
+                $setUp = $site !== null && $site['status'] !== 'trashed' && $site['verified']; // a host not verified yet is unknown
+                http_response_code($setUp ? 503 : 404);
+                header('Content-Type: text/plain; charset=utf-8');
+                if ($setUp) {
+                    header('Retry-After: 300');
+                    header('X-Robots-Tag: noindex');
+                }
+                exit($setUp ? "This site is being set up\n" : "Not found\n");
+            }
+            $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'owner_prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true, 'verified' => true, 'kind' => 'domain'];
+        }
+        if (($site['owner_status'] ?? 'live') !== 'live' && $request->path() !== '/health') {
+            // a paused owner: every one of its sites answers 503 (admin too), an archived owner's hosts are unknown
+            $paused = $site['owner_status'] === 'paused';
+            http_response_code($paused ? 503 : 404);
+            header('Content-Type: text/plain; charset=utf-8');
+            if ($paused) {
+                header('Retry-After: 3600');
+                header('X-Robots-Tag: noindex');
+            }
+            exit($paused ? "This site is not public yet\n" : "Not found\n");
+        }
+        if (!empty($site['transferring']) && $request->path() !== '/health') {
+            // being moved to another owner (Core\SiteTransfer): nothing may change while the copy runs, the admin included
+            http_response_code(503);
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Retry-After: 300');
+            header('X-Robots-Tag: noindex');
+            exit("This site is being moved. Please come back in a few minutes.\n");
+        }
+        if ($site['kind'] === 'preview') {
+            header('X-Robots-Tag: noindex, nofollow'); // a preview address is for the owner and the client, never for search engines (the page also says so: Front\Seo)
+        }
+        if ($site['redirect_to_primary'] && !$site['is_primary'] && $site['primary_host'] !== null) {
+            header('Location: ' . Sites::originOn($request, $site['primary_host']) . (string) ($_SERVER['REQUEST_URI'] ?? '/'), true, 301);
+            exit;
+        }
+
+        return $site;
     }
 
     public function db(): Db

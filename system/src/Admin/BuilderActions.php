@@ -35,6 +35,12 @@ trait BuilderActions
 
     abstract protected function publishTarget(array $target): void;
 
+    /** Why this build may not be stored in this target (an error text for t()), or null. Components override it (no forms in a shared one). */
+    protected function buildRefusal(array $target, ?string $json): ?string
+    {
+        return null;
+    }
+
     /**
      * Details for the editor: url (public), preview (canvas), visible, parts (offer site part elements), headings (run the heading check),
      * back [url, text], settings (URL of the target's settings, or null), settings_text (its link label), signature (target of the signed
@@ -167,6 +173,9 @@ trait BuilderActions
         [$build, $errors] = Build::sanitize($input, $this->app->auth()->canWriteCode(), Build::fromJson($target['draft'] ?? $target['build']));
         $build = $this->shapeBuild($build);
         $json = Build::toJson($build);
+        if (($refusal = $this->buildRefusal($target, $json)) !== null) {
+            return Response::json(['ok' => false, 'error' => t($refusal)], 422);
+        }
         $this->saveDraft($target, $json);
 
         return Response::json(['ok' => true, 'build' => $build, 'errors' => $errors, 'changed' => $json !== $target['build'], 'version' => self::computeBuildVersion($json)]);
@@ -185,6 +194,9 @@ trait BuilderActions
         // only what the editor saved last is published – not an older draft, nor someone else's work-in-progress changes
         if (($conflict = $this->checkVersionConflict($target)) !== null) {
             return $conflict;
+        }
+        if (($refusal = $this->buildRefusal($target, $target['draft'] ?? $target['build'])) !== null) {
+            return Response::json(['ok' => false, 'error' => t($refusal)], 422);
         }
         $this->publishTarget($target);
         ChangeLog::write($this->app, static::IDENT, 'build published', mb_substr($target['title'], 0, 80));
@@ -398,6 +410,9 @@ trait BuilderActions
             // renames and deletes it
             return Response::json(['ok' => false, 'error' => t('Only an administrator edits a shared class – a change applies to the whole website at once. Set the look of a single element in its style.')], 403);
         }
+        if (($lock = \Talea\Core\LookFamily::classRefusal($this->db, $name)) !== null) {
+            return Response::json(['ok' => false, 'error' => $lock], 403); // a class the parent of a look family hands down
+        }
         if (($new = $this->request->post('new_name')) !== '') {
             // renaming: the class row and all builds that use it (pages, site parts, collection item templates, components, my sections)
             if (!preg_match(Build::CLASS_PATTERN, $new) || $this->db->value('SELECT 1 FROM {classes} WHERE name = ?', [$new]) !== null) {
@@ -405,8 +420,10 @@ trait BuilderActions
             }
             $this->db->update('classes', ['name' => $new, 'updated_at' => date('Y-m-d H:i:s')], ['name' => $name]);
             \Talea\Core\Look::renameClass($this->app->settings(), $name, $new);
+            // components are shared by the sites of an owner: only this site's own are rewritten
             foreach (self::BUILD_SOURCES as $table => [$key, $columns]) {
-                foreach ($this->db->all('SELECT ' . $key . ', ' . implode(', ', $columns) . ' FROM {' . $table . '} WHERE ' . implode(' OR ', array_map(fn (string $s): string => $s . ' LIKE ?', $columns)), array_fill(0, count($columns), '%"' . $name . '"%')) as $r) {
+                foreach ($this->db->all('SELECT ' . $key . ', ' . implode(', ', $columns) . ' FROM {' . $table . '} WHERE (' . implode(' OR ', array_map(fn (string $s): string => $s . ' LIKE ?', $columns)) . ')'
+                    . ($table === 'components' ? ' AND site_id = ' . \Talea\Core\Sites::currentId($this->db) : ''), array_fill(0, count($columns), '%"' . $name . '"%')) as $r) {
                     $change = [];
                     foreach ($columns as $s) {
                         if ($r[$s] !== null && str_contains($r[$s], '"' . $name . '"')) {
@@ -478,7 +495,8 @@ trait BuilderActions
             $whereParts[] = t('site part') . ' ' . ($r['name'] !== '' ? $r['name'] : $r['type']);
         }
         foreach ([['collections', 'name', 'collection'], ['components', 'name', 'component']] as [$table, $column, $kind]) {
-            foreach ($this->db->all('SELECT ' . $column . ' AS n FROM {' . $table . '} WHERE build LIKE ? OR build_draft LIKE ?', [$pattern, $pattern]) as $r) {
+            $visible = $table === 'components' ? ' AND ' . \Talea\Core\Sites::visible($this->db) : '';
+            foreach ($this->db->all('SELECT ' . $column . ' AS n FROM {' . $table . '} WHERE (build LIKE ? OR build_draft LIKE ?)' . $visible, [$pattern, $pattern]) as $r) {
                 $whereParts[] = t($kind) . ' ' . $r['n'];
             }
         }

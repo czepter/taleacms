@@ -21,6 +21,7 @@ class Settings extends Module
     public const string GROUP = 'Settings';
     public const string ICON = 'settings';
     public const bool ADMIN_ONLY = true;
+    public const array INSTALL_FILE_ACTIONS = ['backup', 'download_backup', 'delete_backup', 'restore_backup', 'media_backup', 'delete_log'];
 
     /** Tabs that became screens of their own in 3.2: the old address leads there, a form posted to the old tab still saves. */
     public const array MOVED_TABS = ['company' => 'business', 'health' => 'status'];
@@ -126,7 +127,7 @@ class Settings extends Module
             }
         }
 
-        return $field;
+        return $tab === 'reports' && \Talea\Core\AllSitesReport::available($this->app) ? $field + ['report_all_sites' => 'flag'] : $field; // multisite: site 1 only
     }
 
     /** @return array<string, string> address => name of every collection, for the screen mode checkboxes */
@@ -203,7 +204,7 @@ class Settings extends Module
             'remoteStatus' => $settings->get('remote_backup_status'),
             'mediaStatus' => $settings->get('remote_media_status'),
             'tasksToken' => $settings->get('tasks_token'),
-            'errorLog' => $tab === 'health' ? self::readFileTail(TALEA_ROOT . '/storage/log/errors.log', 40) : [],
+            'errorLog' => $tab === 'health' && \Talea\Core\Owners::isFirst($this->db) ? self::readFileTail(TALEA_ROOT . '/storage/log/errors.log', 40) : [],
             'mail' => $tab === 'mail' ? $this->db->all('SELECT recipient, subject, created_at, sent_at, attempts, next_attempt_at, error FROM {mail} ORDER BY mail_id DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Talea\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
@@ -211,7 +212,7 @@ class Settings extends Module
             'pages' => $tab === 'general' ? $this->db->pairs("SELECT public_id, title FROM {pages} WHERE visible = TRUE AND language = '' ORDER BY sort_order, title") : [],
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Talea\Front\Screen::url($this->app) : '',
-            'backups' => $tab === 'backups' ? Backup::listAll() : [],
+            'backups' => $tab === 'backups' && \Talea\Core\Owners::isFirst($this->db) ? Backup::listAll() : [], // the files of the whole install: the first owner's
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
             'shareImages' => \Talea\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
             'hoursExceptions' => $tab === 'company' ? \Talea\Core\Hours::exceptions($this->db) : [],
@@ -270,7 +271,7 @@ class Settings extends Module
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
             }
-            if ($key === 'site_url' && \Talea\Core\SiteUrl::fromEnvironment() !== '') {
+            if ($key === 'site_url' && \Talea\Core\SiteUrl::locked($this->db)) {
                 continue; // the server sets the address (TALEA_SITE_URL): the field is read-only
             }
             // a field the form did not show (e.g. the instructions for Claude while the extension is off) keeps its value;
@@ -416,7 +417,7 @@ class Settings extends Module
         if (Backup::refusedInDemo()) {
             return $this->error(\Talea\Core\Demo::refusal(), 403);
         }
-        $path = Backup::path($this->request->get('file'));
+        $path = Backup::path($this->request->get('file'), $this->db); // also refused here for a further owner
         if ($path === null) {
             return $this->error('Backup does not exist.', 404);
         }
@@ -425,7 +426,7 @@ class Settings extends Module
 
     protected function actionDeleteBackup(): Response
     {
-        $path = Backup::path($this->request->post('file'));
+        $path = Backup::path($this->request->post('file'), $this->db);
         if ($this->request->isPost() && $path !== null && !Backup::refusedInDemo()) {
             unlink($path);
         }
@@ -433,7 +434,6 @@ class Settings extends Module
         return $this->back('Backup deleted.', '', ['tab' => 'backups']);
     }
 
-    /** Empties the application error log. */
     /** An exception to the opening hours (2.10, Core\Hours). */
     protected function actionHoursAdd(): Response
     {
@@ -546,7 +546,7 @@ class Settings extends Module
 
     protected function actionDeleteLog(): Response
     {
-        if ($this->request->isPost() && is_file(TALEA_ROOT . '/storage/log/errors.log')) {
+        if ($this->request->isPost() && \Talea\Core\Owners::isFirst($this->db) && is_file(TALEA_ROOT . '/storage/log/errors.log')) {
             file_put_contents(TALEA_ROOT . '/storage/log/errors.log', '');
         }
 
@@ -607,7 +607,7 @@ class Settings extends Module
      */
     protected function actionMediaBackup(): Response
     {
-        if (!$this->request->isPost()) {
+        if (!$this->request->isPost() || !\Talea\Core\Owners::isFirst($this->db)) {
             return $this->back('', '', ['tab' => 'backups']);
         }
         if (!class_exists(\ZipArchive::class) || !is_dir(TALEA_ROOT . '/media')) {

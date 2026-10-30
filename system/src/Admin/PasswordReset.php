@@ -54,9 +54,9 @@ final class PasswordReset
             } else {
                 $app->db()->insert('ip_checks', ['ip' => $ip, 'type' => 'reset', 'checked_at' => date('Y-m-d H:i:s')]);
                 $who = trim($app->request->post('user_id'));
-                $user = $who === '' ? null : $app->db()->one("SELECT * FROM {users} WHERE (username = ? OR email = ?) AND blocked = FALSE AND email <> '' LIMIT 1", [$who, $who]);
+                $user = $who === '' ? null : $app->db()->one("SELECT * FROM {users} WHERE (username = ? OR email = ?) AND blocked = FALSE AND email <> '' AND operator_user_id IS NULL LIMIT 1", [$who, $who]);
                 // counted by the account, not by the typed name: a user name and an e-mail address share one allowance
-                if ($user !== null && Antispam::tally('user:' . $user['user_id'], 'reset-account', self::LINK_LIFETIME) <= self::ACCOUNT_REQUESTS) {
+                if ($user !== null && Antispam::tally(Antispam::scopedKey($app->db(), 'user:' . $user['user_id']), 'reset-account', self::LINK_LIFETIME) <= self::ACCOUNT_REQUESTS) {
                     $this->sendLink($user);
                 }
                 $sent = true;
@@ -107,7 +107,7 @@ final class PasswordReset
     {
         $app = $this->app;
         $user = preg_match('/^[a-f0-9]{64}$/', $token) === 1
-            ? $app->db()->one('SELECT * FROM {users} WHERE reset_token_hash = ? AND blocked = FALSE AND reset_sent_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::LINK_LIFETIME)])
+            ? $app->db()->one('SELECT * FROM {users} WHERE reset_token_hash = ? AND blocked = FALSE AND operator_user_id IS NULL AND reset_sent_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::LINK_LIFETIME)])
             : null;
         if ($user === null) {
             return $this->page(['step' => 'invalid', 'sent' => false, 'error' => t('The link has expired or has already been used. Request a new one.')], 400);

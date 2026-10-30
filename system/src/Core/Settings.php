@@ -174,6 +174,7 @@ final class Settings
         'alerts_cursor' => '',         // the last event reported (internal)
         'alerts_last_sent' => '0',     // when the last alert went out (internal)
         'report_monthly' => '0',       // monthly report by e-mail (2.9, Core\MonthlyReport) – off, so an update never starts e-mailing by itself
+        'report_all_sites' => '0',     // multisite, site 1 only: its monthly report carries a section for each further site (Core\AllSitesReport)
         'report_recipients' => '',     // where to, comma or line separated (at most 10); empty = the site e-mail
         'report_last_month' => '',     // the month (Y-m) whose report went out last (internal)
         'trusted_proxy' => '',         // '' | cloudflare – where the visitor's address comes from (Core\Antispam::visitorIp)
@@ -223,6 +224,10 @@ final class Settings
         'first_steps_skipped' => '[]',    // first steps the administrator skipped (JSON list of step names)
         'appearance_saved' => '',        // the administrator has already saved the site appearance (first steps do not count the appearance from the starter site)
     ];
+
+    /** The owner's account-level settings (mail, AI, time zone, languages): a new site of the owner starts with a copy of them (Core\Sites::provision). */
+    public const array ACCOUNT = ['mail_mode', 'mail_from', 'mail_from_name', 'mail_reply_to', 'mail_reply_to_name', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'smtp_password', 'smtp_provider',
+        'ai_provider', 'ai_key', 'ai_model', 'ai_models', 'time_zone', 'site_language', 'german_register'];
 
     /**
      * Settings that can be filled in separately for each additional language version of the site (key_en, key_de…); the

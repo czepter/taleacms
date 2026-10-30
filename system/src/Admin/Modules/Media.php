@@ -7,6 +7,7 @@ namespace Talea\Admin\Modules;
 use Talea\Admin\Module;
 use Talea\Core\Images;
 use Talea\Core\Response;
+use Talea\Core\Sites;
 
 /**
  * Media: uploading, also by drag and drop and directly from the editor, folders,
@@ -111,7 +112,7 @@ final class Media extends Module
         preg_match_all('/data-id="(\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/', $all, $m);
         // the editor puts the public id of the image there; the number is what older texts carry
         $ids = array_map(fn (string $id): int => ctype_digit($id) ? (int) $id : $db->internalId('media', $id), $m[1]);
-        preg_match_all('#media/\d{4}/\d{2}/[A-Za-z0-9._-]+\.[a-z0-9]{2,5}#', $all, $paths); // images and attachments (PDF, documents…)
+        preg_match_all('#media/' . \Talea\Core\MediaFolder::OWNER . '\d{4}/\d{2}/[A-Za-z0-9._-]+\.[a-z0-9]{2,5}#', $all, $paths); // images and attachments (PDF, documents…)
         foreach (array_unique($paths[0]) as $path) {
             $ido = $db->value('SELECT media_id FROM {media} WHERE image_path = ? OR thumb_path = ?', [$path, $path]);
             if ($ido !== null) {
@@ -124,14 +125,8 @@ final class Media extends Module
         }
     }
 
-    /**
-     * Media used outside the news usage table: builds of pages, site parts, collection item templates and components (drafts
-     * too), text pages, collection items, classes (background image) and settings (logo, icon, sharing image).
-     * Computed when shown – so the overview is always up to date without tracking on every save.
-     *
-     * @return array<int, list<string>> media_id => descriptions of the places
-     */
-    public static function findUsagesElsewhere(\Talea\Core\Db $db): array
+    /** @return list<array{string, string}> kind and SQL (used_in, content) of every place outside the news usage table that can hold a media path; $news adds the news items (another site's usage table) */
+    private static function usageSources(\Talea\Core\Db $db, bool $news): array
     {
         $sources = [
             [t('page'), 'SELECT title AS used_in, CONCAT_WS(\' \', text, build, build_draft, image) AS content FROM {pages}'],
@@ -142,7 +137,7 @@ final class Media extends Module
             [t('site part'), 'SELECT CONCAT(type, CASE WHEN name = \'\' THEN \'\' ELSE CONCAT(\' – \', name) END) AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {site_parts}'],
             [t('collection'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {collections}'],
             [t('collection item'), "SELECT name AS used_in, CONCAT(data, ' ', image) AS content FROM {collection_items}"],
-            [t('component'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {components}'],
+            [t('component'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {components} WHERE ' . Sites::visible($db)],
             [t('class'), 'SELECT name AS used_in, CONCAT_WS(\' \', style, css) AS content FROM {classes}'],
             [t('settings'), 'SELECT name AS used_in, value AS content FROM {settings} WHERE value LIKE \'%media%\''],
             // 2.14: pop-up builds and newsletters (the rendered e-mail is kept from the start of sending) point at media too
@@ -150,12 +145,35 @@ final class Media extends Module
             [t('newsletter'), 'SELECT subject AS used_in, CONCAT_WS(\' \', intro, button_url, html) AS content FROM {newsletters}'],
             [t('menu'), 'SELECT location AS used_in, items AS content FROM {menus}'], // an SVG from Media as a menu icon
         ];
+        if ($news) {
+            $sources[] = [t('news item'), 'SELECT n.title AS used_in, o.image_path AS content FROM {media_usage} u JOIN {news} n ON n.news_id = u.news_id JOIN {media} o ON o.media_id = u.media_id'];
+        }
+
+        return $sources;
+    }
+
+    /**
+     * Media used outside the news usage table: builds of pages, site parts, collection item templates and components (drafts
+     * too), text pages, collection items, classes (background image) and settings (logo, icon, sharing image).
+     * Computed when shown – so the overview is always up to date without tracking on every save.
+     *
+     * @return array<int, list<string>> media_id => descriptions of the places
+     */
+    public static function findUsagesElsewhere(\Talea\Core\Db $db): array
+    {
+        // the media are shared by every site of the owner: a file used on any ready site is in use (the news usage of the others too)
+        $dbs = [['', $db]];
+        foreach (\Talea\Core\Sites::otherReady($db) as ['name' => $name, 'db' => $other]) {
+            $dbs[] = [' (' . $name . ')', $other];
+        }
         $usages = [];
-        foreach ($sources as [$kind, $sql]) {
-            foreach ($db->all($sql) as $r) {
-                // paths also in JSON (media\/2026\/…), with and without the site URL; a variant (-1200, .webp) counts as the original
-                foreach (\Talea\Core\MediaHygiene::paths((string) $r['content']) as $path) {
-                    $usages[$path][$kind . ' ' . $r['used_in']] = true;
+        foreach ($dbs as [$suffix, $d]) {
+            foreach (self::usageSources($d, $suffix !== '') as [$kind, $sql]) {
+                foreach ($d->all($sql) as $r) {
+                    // paths also in JSON (media\/2026\/…), with and without the site URL; a variant (-1200, .webp) counts as the original
+                    foreach (\Talea\Core\MediaHygiene::paths((string) $r['content']) as $path) {
+                        $usages[$path][$kind . ' ' . $r['used_in'] . $suffix] = true;
+                    }
                 }
             }
         }
@@ -262,7 +280,7 @@ final class Media extends Module
             throw new \RuntimeException('The SVG file could not be read (max. 2 MB, valid SVG).');
         }
         $root = \Talea\Core\MediaStaging::root($staged);
-        $folder = 'media/' . date('Y/m');
+        $folder = \Talea\Core\MediaFolder::dir() . '/' . date('Y/m');
         if (!is_dir($root . '/' . $folder)) {
             mkdir($root . '/' . $folder, 0775, true);
         }

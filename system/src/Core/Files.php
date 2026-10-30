@@ -124,7 +124,7 @@ final class Files
         if (self::forbiddenContent($tmp) || filesize($tmp) > self::MAX_BYTES) {
             throw new \RuntimeException(filesize($tmp) > self::MAX_BYTES ? 'The file is too large (200 MB at most).' : 'The file content does not match its extension.');
         }
-        $folder = 'media/' . date('Y/m');
+        $folder = MediaFolder::dir() . '/' . date('Y/m');
         if (!is_dir($root . '/' . $folder) && !mkdir($root . '/' . $folder, 0775, true)) {
             throw new \RuntimeException('Cannot create the folder ' . $folder . ' - check the write permissions.');
         }
@@ -143,7 +143,7 @@ final class Files
     public static function delete(string $path): void
     {
         foreach ([TALEA_ROOT, MediaStaging::root(true)] as $root) {
-            if (preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::FILE_EXTENSIONS) . ')$#', $path) && is_file($root . '/' . $path)) {
+            if (preg_match('#^media/' . MediaFolder::OWNER . '\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::FILE_EXTENSIONS) . ')$#', $path) && is_file($root . '/' . $path)) {
                 unlink($root . '/' . $path);
             }
         }

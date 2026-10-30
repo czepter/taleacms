@@ -45,22 +45,25 @@ final class SiteExport
      */
     public static function create(Db $db, Settings $settings): array
     {
-        if (!is_dir(Backup::FOLDER) && !mkdir(Backup::FOLDER, 0775, true)) {
+        // a further owner's export goes to its own folder, carries its site's number and takes the media of its own folder only
+        $folder = self::folder($db);
+        $mediaDir = Owners::isFirst($db) ? 'media' : MediaFolder::dirOf(Owners::publicIdOf($db, $db->ownerPrefix));
+        if (!is_dir($folder) && !mkdir($folder, 0775, true)) {
             throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }
         @set_time_limit(300);
-        $base = Backup::FOLDER . '/export-' . date('Ymd-His');
+        $base = $folder . '/export-' . date('Ymd-His') . (Owners::isFirst($db) ? '' : '-s' . Sites::currentId($db));
         $json = $base . '.json';
         self::writeContent($db, $settings, $json);
         if (!class_exists(\ZipArchive::class)) {
-            self::cleanUp();
+            self::cleanUp($folder);
 
             return ['file' => basename($json), 'media' => false, 'reason' => 'The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.'];
         }
 
-        $files = self::mediaFiles();
+        $files = self::mediaFiles($mediaDir);
         $size = array_sum($files);
-        $freeSpace = @disk_free_space(Backup::FOLDER);
+        $freeSpace = @disk_free_space($folder);
         $reason = match (true) {
             $size > self::MAX_MEDIA => 'The media exceed 1 GB, so the export contains data only (JSON). Download the media/ folder over FTP.',
             $freeSpace !== false && $size * 1.1 + (int) filesize($json) > $freeSpace => 'There is not enough disk space for an archive with media, so the export contains data only (JSON). Download the media/ folder over FTP.',
@@ -84,17 +87,23 @@ final class SiteExport
             throw new \RuntimeException('The archive could not be finished – the disk is probably full.');
         }
         unlink($json);
-        self::cleanUp();
+        self::cleanUp($folder);
 
         return ['file' => basename($base) . '.zip', 'media' => $reason === '', 'reason' => $reason];
     }
 
-    /** @return list<array{file:string, size:int, time:int}> newest on top */
-    public static function listAll(): array
+    /** The folder of the exports this connection may see: the install's, or the further owner's own. */
+    private static function folder(?Db $for): string
+    {
+        return $for === null || Owners::isFirst($for) ? Backup::FOLDER : OwnerFiles::folder($for);
+    }
+
+    /** @return list<array{file:string, size:int, time:int}> newest on top; with $for a further owner's own exports only */
+    public static function listAll(?Db $for = null): array
     {
         $exports = [];
-        foreach (glob(Backup::FOLDER . '/export-*') ?: [] as $path) {
-            if (self::path(basename($path)) !== null) {
+        foreach (glob(self::folder($for) . '/export-*') ?: [] as $path) {
+            if (self::path(basename($path), $for) !== null) {
                 $exports[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
             }
         }
@@ -103,10 +112,12 @@ final class SiteExport
         return $exports;
     }
 
-    /** Path to an existing export by the name from the URL; null = invalid name. */
-    public static function path(string $file): ?string
+    /** Path to an existing export by the name from the URL; null = invalid name. With $for the name is looked up in that connection's folder only. */
+    public static function path(string $file, ?Db $for = null): ?string
     {
-        return preg_match('/^export-\d{8}-\d{6}\.(zip|json)$/', $file) && is_file(Backup::FOLDER . '/' . $file) ? Backup::FOLDER . '/' . $file : null;
+        $folder = self::folder($for);
+
+        return preg_match('/^export-\d{8}-\d{6}(-s\d+)?\.(zip|json)$/', $file) && is_file($folder . '/' . $file) ? $folder . '/' . $file : null;
     }
 
     /* ---------- content.json ---------- */
@@ -134,7 +145,7 @@ final class SiteExport
         // the drafts go along (build_draft): a site moved in the middle of a redesign keeps its unfinished work
         self::fields($f, 'site_parts', $all('site_parts', 'SELECT type, language, variant, name, pages, build, build_draft FROM {site_parts} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY type, language, variant', [], ['pages' => 'pages'] + $builds));
         // components ("component" elements refer to them by public id) and the library's own sections
-        self::fields($f, 'components', $all('components', 'SELECT component_id, public_id, name, properties, build, build_draft, kit_key FROM {components} ORDER BY component_id', [], $builds));
+        self::fields($f, 'components', $all('components', 'SELECT component_id, public_id, name, properties, build, build_draft, kit_key FROM {components} WHERE ' . Sites::visible($db) . ' ORDER BY component_id', [], $builds));
         // forms (docs/specs/form-builder.md): "form_embed" elements place them by public id; where one was adopted from stays this site's
         self::fields($f, 'forms', $all('forms', 'SELECT form_id, public_id, name, build, build_draft FROM {forms} ORDER BY form_id', [], $builds));
         self::fields($f, 'sections', $all('sections', 'SELECT section_id, public_id, name, element, kit_key FROM {sections} ORDER BY section_id', [], ['element' => 'element']));
@@ -150,7 +161,11 @@ final class SiteExport
         // a file waiting for approval (Core\MediaStaging) is not part of the site yet
         self::fields($f, 'media', $one('media', 'SELECT media_id, public_id, folder_id, name, description, author, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, created_at FROM {media} WHERE media_id > ? AND staged_at IS NULL ORDER BY media_id LIMIT 500', 'media_id', ['folder_id' => 'media_folders']));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
-        self::fields($f, 'facts', $db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} ORDER BY fact_key, language'));
+        $facts = []; // what this site shows: its own row of a key and language, else the shared one
+        foreach ($db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} WHERE ' . Sites::visible($db) . ' ORDER BY fact_key, language, site_id IS NULL') as $fact) {
+            $facts[$fact['fact_key'] . '|' . $fact['language']] ??= $fact;
+        }
+        self::fields($f, 'facts', array_values($facts));
         self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURRENT_DATE AND proposed = FALSE ORDER BY date_from'));
         // online booking (3.0, Core\Booking): the set-up goes along – the bookings themselves are personal data and stay
         self::fields($f, 'booking_services', $all('booking_services', 'SELECT id, public_id, name, duration_min, buffer_min, price_text, description, active, requires_confirmation, sort_order FROM {booking_services} ORDER BY id'));
@@ -341,16 +356,22 @@ final class SiteExport
 
     /* ---------- media and cleanup ---------- */
 
-    /** @return array<string, int> path from the site root => size; without hidden files and without PHP (also for RemoteBackup::syncMedia) */
-    public static function mediaFiles(): array
+    /**
+     * @param string $dir "media" (the install's own files, a further owner's folders left out) or "media/<owner public id>" (that owner's files only)
+     * @return array<string, int> path from the site root => size; without hidden files and without PHP (also for RemoteBackup::syncMedia)
+     */
+    public static function mediaFiles(string $dir = 'media'): array
     {
         $files = [];
-        if (!is_dir(TALEA_ROOT . '/media')) {
+        if (!is_dir(TALEA_ROOT . '/' . $dir)) {
             return $files;
         }
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS));
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TALEA_ROOT . '/' . $dir, \FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
-            $path = 'media/' . ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen(TALEA_ROOT . '/media'))), '/');
+            $path = $dir . '/' . ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen(TALEA_ROOT . '/' . $dir))), '/');
+            if ($dir === 'media' && MediaFolder::isOwnerDir(explode('/', $path)[1] ?? '')) {
+                continue; // a further owner's files are not owner 1's (this is the install's own archive and copy)
+            }
             if ($file->isFile() && !$file->isLink() && !preg_match('#(^|/)\.|\.php\d?$#i', $path)) {
                 $files[$path] = (int) $file->getSize();
             }
@@ -361,10 +382,17 @@ final class SiteExport
     }
 
     /** Exports tend to be large: only the last three are kept. */
-    private static function cleanUp(): void
+    private static function cleanUp(string $folder): void
     {
-        foreach (array_slice(self::listAll(), self::KEEP) as $old) {
-            @unlink(Backup::FOLDER . '/' . $old['file']);
+        $exports = [];
+        foreach (glob($folder . '/export-*') ?: [] as $path) {
+            if (preg_match('/^export-\d{8}-\d{6}(-s\d+)?\.(zip|json)$/', basename($path)) === 1) {
+                $exports[] = ['file' => basename($path), 'time' => (int) filemtime($path)];
+            }
+        }
+        usort($exports, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
+        foreach (array_slice($exports, self::KEEP) as $old) {
+            @unlink($folder . '/' . $old['file']);
         }
     }
 

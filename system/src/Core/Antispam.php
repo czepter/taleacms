@@ -36,7 +36,11 @@ final class Antispam
     {
         $secret = self::environmentSecret($this->settings);
         if ($secret !== null) {
-            return bin2hex(sodium_crypto_generichash('talea-signing|' . $secret, '', 32));
+            // a further site (multisite) and a further owner's site 1 sign with a key of their own from the shared secret (site prefixes are
+            // unique in the whole install), so a link of one site is void on the others; the install's own site 1 keeps the plain key
+            $site = $this->db->prefix === $this->db->installPrefix ? '' : '|' . $this->db->prefix;
+
+            return bin2hex(sodium_crypto_generichash('talea-signing|' . $secret . $site, '', 32));
         }
         $key = $this->settings->get('secret_key');
         if ($key === '') {
@@ -200,15 +204,40 @@ final class Antispam
         return false;
     }
 
+    /** A single-site install keeps its keys; further owners (or sites, $perSite) get their prefix in front, as the keys are row numbers or addresses. */
+    public static function scopedKey(Db $db, string $key, bool $perSite = false): string
+    {
+        $scope = $perSite ? $db->prefix : $db->ownerPrefix;
+
+        return $scope === $db->installPrefix ? $key : $scope . '|' . $key;
+    }
+
+    /**
+     * Where the counters of the owner being served live: owner 1 (and every single-site install) keeps `storage/cache/limits`, a further owner
+     * has `storage/cache/limits/<its public id>`, so a visitor's address counts per owner (an address is a key of its own on each).
+     * The owner is the one App::boot gives MediaFolder; the counters that run before routing (Domains::answerEarly: the certificate question,
+     * the token file) see no owner yet and stay install-wide on purpose – they answer for any host, whose owner is not known.
+     * A $owner that is not a UUID is refused (it becomes a path).
+     */
+    public static function limitsFolder(?string $owner = null): string
+    {
+        $owner ??= MediaFolder::owner();
+        if ($owner !== '' && !MediaFolder::isOwnerDir($owner)) {
+            throw new \InvalidArgumentException('Not an owner public id.');
+        }
+
+        return TALEA_ROOT . '/storage/cache/limits' . ($owner === '' ? '' : '/' . $owner);
+    }
+
     /**
      * Counts a request of a key in the current window and returns the count: one small file per key and window, a byte appended per
      * request (no database write). $add false only reads the count. Used by the page lock and the firewall add-on.
      */
     public static function tally(string $key, string $kind, int $window, bool $add = true): int
     {
-        $folder = TALEA_ROOT . '/storage/cache/limits';
+        $folder = self::limitsFolder();
         if (!is_dir($folder) && !@mkdir($folder, 0775, true) && !is_dir($folder)) {
-            error_log('Talea: storage/cache/limits is not writable, rate limits are NOT enforced');
+            error_log('Talea: ' . $folder . ' is not writable, rate limits are NOT enforced');
 
             return 0;
         }
@@ -226,7 +255,7 @@ final class Antispam
     /** Takes back one request tally() counted in the current window (a try that turned out not to count). */
     public static function untally(string $key, string $kind, int $window): void
     {
-        $handle = @fopen(TALEA_ROOT . '/storage/cache/limits/' . $kind . '-' . intdiv(time(), $window) . '-' . substr(hash('sha256', $key), 0, 24), 'r+');
+        $handle = @fopen(self::limitsFolder() . '/' . $kind . '-' . intdiv(time(), $window) . '-' . substr(hash('sha256', $key), 0, 24), 'r+');
         if ($handle === false) {
             return;
         }
@@ -243,8 +272,17 @@ final class Antispam
     /** The clean-up job: counter files older than two hours. */
     public static function cleanUpCounters(): void
     {
-        foreach (glob(TALEA_ROOT . '/storage/cache/limits/*') ?: [] as $file) {
-            if (filemtime($file) < time() - 7200) {
+        $root = TALEA_ROOT . '/storage/cache/limits';
+        foreach (glob($root . '/*') ?: [] as $file) {
+            if (is_dir($file)) {
+                if (MediaFolder::isOwnerDir(basename($file))) { // a further owner's counters
+                    foreach (glob($file . '/*') ?: [] as $inner) {
+                        if (is_file($inner) && filemtime($inner) < time() - 7200) {
+                            @unlink($inner);
+                        }
+                    }
+                }
+            } elseif (filemtime($file) < time() - 7200) {
                 @unlink($file);
             }
         }

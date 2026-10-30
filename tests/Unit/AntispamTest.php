@@ -6,6 +6,7 @@ namespace Talea\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Talea\Core\Antispam;
+use Talea\Core\Db;
 
 final class AntispamTest extends TestCase
 {
@@ -27,6 +28,34 @@ final class AntispamTest extends TestCase
     {
         $this->assertFalse(str_contains(\Talea\Core\Antispam::hash('203.0.113.7'), '203'), 'Antispam::hash: it is not the IP address');
         $this->assertSame(\Talea\Core\Antispam::hash('203.0.113.7'), \Talea\Core\Antispam::hash('203.0.113.7'), 'Antispam::hash: the same address = the same hash');
+    }
+
+    /** Multisite: with TALEA_SECRET_KEY every further site signs with its own key, site 1 keeps the plain one, so a link of one site is void on the others. */
+    public function testEnvironmentSecretGivesEachSiteItsOwnKey(): void
+    {
+        $secret = str_repeat('s3cret', 8);
+        putenv('TALEA_SECRET_KEY=' . $secret);
+        try {
+            $settings = \Talea\Tests\Support\FakeSettings::withSecretKey('');
+            $key = fn (string $prefix): string => (new Antispam(new \Talea\Core\Db('x', '', '', $prefix, 'tl_'), $settings))->key();
+            $this->assertSame(bin2hex(sodium_crypto_generichash('talea-signing|' . $secret, '', 32)), $key('tl_'), 'site 1 is unchanged');
+            $this->assertNotSame($key('tl_'), $key('tl2_'));
+            $this->assertNotSame($key('tl2_'), $key('tl3_'));
+            $this->assertSame($key('tl2_'), $key('tl2_'));
+        } finally {
+            putenv('TALEA_SECRET_KEY');
+        }
+    }
+
+    public function testMultisiteIsOffUnlessTheFlagIsSet(): void
+    {
+        $this->assertFalse(\Talea\Core\Sites::enabled());
+        putenv('TALEA_MULTISITE=1');
+        try {
+            $this->assertTrue(\Talea\Core\Sites::enabled());
+        } finally {
+            putenv('TALEA_MULTISITE');
+        }
     }
 
     public function testForwardedForOnlyFromTrustedProxy(): void
@@ -59,6 +88,40 @@ final class AntispamTest extends TestCase
             $this->assertSame('172.18.0.2', $ip('[2001:db8::1]:443'), 'brackets and port: the peer');
         } finally {
             putenv('TALEA_TRUSTED_PROXIES');
+        }
+    }
+
+    public function testScopedKey(): void
+    {
+        $site1 = new Db('sqlite::memory:', '', '', 'tl_', 'tl_', 'tl_');
+        $site2 = new Db('sqlite::memory:', '', '', 'tl_s2_', 'tl_', 'tl_');
+        $owner2 = new Db('sqlite::memory:', '', '', 'tl2_', 'tl2_', 'tl_');
+        $this->assertSame(['k', 'k', 'k', 'tl_s2_|k', 'tl2_|k', 'tl2_|k'], [
+            Antispam::scopedKey($site1, 'k'), Antispam::scopedKey($site1, 'k', true), Antispam::scopedKey($site2, 'k'),
+            Antispam::scopedKey($site2, 'k', true), Antispam::scopedKey($owner2, 'k'), Antispam::scopedKey($owner2, 'k', true)]);
+    }
+
+    /** Multisite: owner 1 keeps storage/cache/limits, a further owner has a folder of its public id, anything else is refused. */
+    public function testLimitCountersLiveInTheFolderOfTheOwnerServed(): void
+    {
+        $id = '7a2d0c9e-0b0e-4a53-9a58-3c1f6f0f2b0b';
+        try {
+            \Talea\Core\MediaFolder::useOwner('');
+            $this->assertSame(TALEA_ROOT . '/storage/cache/limits', Antispam::limitsFolder(), 'owner 1: the path as ever');
+            \Talea\Core\MediaFolder::useOwner($id);
+            $this->assertSame(TALEA_ROOT . '/storage/cache/limits/' . $id, Antispam::limitsFolder(), 'owner n: under its public id');
+            \Talea\Core\MediaFolder::useOwner('../x'); // not a UUID: ignored, owner 1
+            $this->assertSame(TALEA_ROOT . '/storage/cache/limits', Antispam::limitsFolder());
+        } finally {
+            \Talea\Core\MediaFolder::useOwner('');
+        }
+        foreach (['../x', 'tlb_', '7A2D0C9E-0B0E-4A53-9A58-3C1F6F0F2B0B', $id . '/..'] as $bad) {
+            try {
+                Antispam::limitsFolder($bad);
+                $this->fail('refused: ' . $bad);
+            } catch (\InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
         }
     }
 }

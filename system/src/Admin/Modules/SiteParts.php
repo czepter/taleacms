@@ -49,10 +49,21 @@ final class SiteParts extends Module
         ]);
     }
 
+    /** A look family's child cannot change its header and footer: they come from the parent. */
+    private function familyLock(?string $type): ?Response
+    {
+        $lock = $type === null ? null : \Talea\Core\LookFamily::partRefusal($this->db, $type);
+
+        return $lock === null ? null : $this->back($lock, '', [], 'error');
+    }
+
     /** Editor; a part that does not exist yet is created with a draft based on what the layout has drawn so far. */
     protected function actionBuilder(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
+        if (($locked = $this->familyLock($type)) !== null) {
+            return $locked;
+        }
         if ($type !== null && $variant === '' && BuilderSiteParts::row($this->db, $type, $language) === null) {
             $this->db->insert('site_parts', ['type' => $type, 'language' => $language, 'build_draft' => BuilderSiteParts::initialDraft($this->db, $type, $language, $this->contentLanguage($language)), 'updated_at' => date('Y-m-d H:i:s')]);
         }
@@ -64,6 +75,9 @@ final class SiteParts extends Module
     protected function actionTemplate(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
+        if (($locked = $this->familyLock($type)) !== null) {
+            return $locked;
+        }
         $row = $this->request->isPost() && $type !== null ? BuilderSiteParts::row($this->db, $type, $language, $variant) : null;
         if ($row !== null) {
             Publisher::version($this->app, ['part' => BuilderSiteParts::versionKey($type, $language, $variant)], $row['build'], null, $row['updated_at']);
@@ -93,6 +107,9 @@ final class SiteParts extends Module
     protected function actionApplyTemplate(): Response
     {
         [$type, $language, $variant] = $this->readPartParams();
+        if (($locked = $this->familyLock($type)) !== null) {
+            return $locked;
+        }
         if (!$this->request->isPost() || $type === null
             || !BuilderSiteParts::applyTemplate($this->db, $type, $language, $variant, $this->request->post('template'), $this->contentLanguage($language), \Talea\Core\Extensions::enabled($this->app->settings()))) {
             return $this->back('The template could not be used.', '', [], 'error');
@@ -121,6 +138,9 @@ final class SiteParts extends Module
     protected function actionSaveVariant(): Response
     {
         [$type, $language] = $this->readPartParams();
+        if (($locked = $this->familyLock($type)) !== null) {
+            return $locked;
+        }
         if (!$this->request->isPost() || $type === null || !in_array($type, BuilderSiteParts::WITH_VARIANTS, true)) {
             return $this->back();
         }
@@ -144,6 +164,11 @@ final class SiteParts extends Module
             'title' => t(BuilderSiteParts::TYPES[$type][0]) . ($variant !== '' ? ' – ' . $row['name'] : ''),
             'revisions' => ['part' => BuilderSiteParts::versionKey($type, $language, $variant)], 'params' => ['type' => $type, 'language' => $language] + ($variant !== '' ? ['variant' => $variant] : []),
         ];
+    }
+
+    protected function buildRefusal(array $target, ?string $json): ?string
+    {
+        return \Talea\Core\LookFamily::partRefusal($this->db, (string) $target['row']['type']); // saving and publishing a look family child's header or footer
     }
 
     protected function saveDraft(array $target, ?string $draft): void

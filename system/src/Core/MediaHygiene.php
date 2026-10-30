@@ -31,7 +31,7 @@ final class MediaHygiene
      */
     public static function paths(string $content): array
     {
-        preg_match_all('#media(?:\\\\?/)\d{4}(?:\\\\?/)\d{2}(?:\\\\?/)[A-Za-z0-9._-]+#', $content, $m);
+        preg_match_all('#media(?:\\\\?/)(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\\\\?/))?\d{4}(?:\\\\?/)\d{2}(?:\\\\?/)[A-Za-z0-9._-]+#', $content, $m);
         $paths = [];
         foreach ($m[0] as $path) {
             $path = str_replace('\\/', '/', $path);
