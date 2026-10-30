@@ -220,4 +220,33 @@ final class CourseRegistrationTest extends SiteTestCase
         $this->site()->signIn($client, 'seats-editor');
         $this->assertPage('/admin.php?module=collections&action=registrations_print&id=' . $this->collectionId() . '&item=' . $this->itemPid('salsa'), 403, [], $client);
     }
+
+    public function testUpdateCollectionCannotDropCapacity(): void
+    {
+        $listed = fn (): array => (array) (array_values(array_filter((array) $this->site()->mcpResult('list_collections'), fn (array $k): bool => $k['collection'] === 'courses-test'))[0]['fields'] ?? []);
+        $fields = $listed();
+        $keys = fn (): array => array_column($listed(), 'key');
+        $this->assertContains('capacity', $keys());
+        $send = fn (array $f): string => $this->site()->mcpText('update_collection', ['collection' => 'courses-test', 'fields' => array_values($f)]);
+
+        $dropped = $send(array_filter($fields, fn (array $f): bool => $f['key'] !== 'capacity'));
+        $this->assertStringContainsString('is used by registration and cannot be removed', $dropped);
+        $this->assertStringContainsString('“' . $fields[array_search('capacity', array_column($fields, 'key'), true)]['label'] . '”', $dropped);
+        $this->assertStringContainsString('cannot be changed', $send(array_map(fn (array $f): array => $f['key'] === 'capacity' ? ['type' => 'text'] + $f : $f, $fields)));
+        $this->assertContains('capacity', $keys(), 'nothing was saved');
+
+        $send(array_map(fn (array $f): array => $f['key'] === 'capacity' ? ['label' => 'Places'] + $f : $f, $fields));
+        $this->assertContains('Places', array_column($listed(), 'label'), 'a label can change');
+
+        // the admin form refuses it as well, whatever the form says
+        $saved = $this->site()->value('SELECT fields FROM tl_collections WHERE slug = ?', ['courses-test']);
+        $posted = [];
+        foreach ($listed() as $i => $f) {
+            $posted[$i] = ['key' => $f['key'], 'label' => $f['label'], 'type' => $f['type'] === 'choice' ? 'radio' : $f['type'], 'options' => implode("\n", (array) ($f['options'] ?? [])), 'position' => $i] + ($f['key'] === 'capacity' ? ['remove' => '1'] : []);
+        }
+        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => $this->collectionId(), 'name' => 'Courses test', 'slug' => 'courses-test', 'fields' => $posted], '/admin.php?module=collections&action=edit&id=' . $this->collectionId());
+        $this->assertSame($saved, $this->site()->value('SELECT fields FROM tl_collections WHERE slug = ?', ['courses-test']), 'admin: removing capacity is refused');
+        $form = $this->assertPage('/admin.php?module=collections&action=edit&id=' . $this->collectionId(), 200, 'Used by registration')->body;
+        $this->assertStringContainsString('their type stays fixed', $form);
+    }
 }

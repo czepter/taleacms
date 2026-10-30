@@ -61,6 +61,53 @@ final class Calendar
         return $out['start'] !== '' ? $out : null;
     }
 
+    /**
+     * The fields registration relies on: key => type of every field of the collection that the preset's calendar maps to a role
+     * (and that is still there). Empty for a collection without a calendar preset.
+     *
+     * @return array<string, string>
+     */
+    public static function protectedKeys(array $collection): array
+    {
+        $map = Presets::of($collection)['calendar'] ?? null;
+        if (!is_array($map)) {
+            return [];
+        }
+        $mapped = array_filter(array_map('strval', array_intersect_key($map, self::ROLES)), fn (string $key): bool => $key !== '');
+        $out = [];
+        foreach ((array) ($collection['fields'] ?? []) as $f) {
+            if (in_array($f['key'] ?? '', $mapped, true)) {
+                $out[(string) $f['key']] = (string) ($f['type'] ?? '');
+            }
+        }
+
+        return $out;
+    }
+
+    /** An error naming the first protected field that $newFields drop (or whose key changed) or give another type; null when fine. */
+    public static function refuseProtected(array $collection, array $newFields): ?string
+    {
+        $new = [];
+        foreach ($newFields as $f) {
+            $new[(string) ($f['key'] ?? '')] = (string) ($f['type'] ?? '');
+        }
+        $protected = self::protectedKeys($collection);
+        foreach ((array) ($collection['fields'] ?? []) as $f) {
+            $key = (string) ($f['key'] ?? '');
+            if (!isset($protected[$key])) {
+                continue;
+            }
+            if (!isset($new[$key])) {
+                return t('The field “%s” is used by registration and cannot be removed.', (string) $f['label']);
+            }
+            if ($new[$key] !== $protected[$key]) {
+                return t('The type of the field “%s” is used by registration and cannot be changed.', (string) $f['label']);
+            }
+        }
+
+        return null;
+    }
+
     /** When an occurrence ends: its end, or its start without one; a whole day lasts until 23:59 ("Y-m-d H:i"). */
     public static function endsAt(string $start, string $end): string
     {

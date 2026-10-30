@@ -140,6 +140,9 @@ final class Collections extends Module
         }
         // the key of an existing field does not change (item values are stored under it); new fields get it from the label
         $field = KolekceObsahu::sanitizeFields(array_values($rows));
+        if ($previous !== null && ($refused = \Talea\Core\Calendar::refuseProtected($previous, $field)) !== null) {
+            return $this->back($refused, 'edit', ['id' => $this->publicId($id)], 'error');
+        }
         $redirect = KolekceObsahu::cleanRedirect($r->post('hidden_redirect'));
         if ($redirect === null) {
             return $this->back('The redirect of hidden items must be an address on the site (/team) or https://…', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');

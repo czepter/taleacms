@@ -138,7 +138,11 @@ trait CollectionTools
                 ?? throw new \InvalidArgumentException('redirect_hidden_to must be an address on the site (/team) or https://…');
         }
         if (is_array($a['fields'] ?? null)) {
-            $changes['fields'] = (string) json_encode(Collections::sanitizeFields(self::fieldTypes($a['fields'], true)), JSON_UNESCAPED_UNICODE);
+            $fields = Collections::sanitizeFields(self::fieldTypes($a['fields'], true));
+            if (($refused = \Talea\Core\Calendar::refuseProtected($collection, $fields)) !== null) {
+                throw new \DomainException($refused);
+            }
+            $changes['fields'] = (string) json_encode($fields, JSON_UNESCAPED_UNICODE);
         }
         if (array_key_exists('structured_data', $a)) {
             $changes['schema_org'] = self::collectionSchema($a['structured_data'], json_decode($changes['fields'] ?? '', true) ?: $collection['fields']);
