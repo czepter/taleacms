@@ -25,6 +25,14 @@ final class Domains
         return Sites::normalizeHost(ltrim(Config::env('PREVIEW_DOMAIN'), '*.')) ?? '';
     }
 
+    /** Is the host the preview domain or below it? Those names resolve to this install by design, so only the system makes them (kind = preview). */
+    public static function inPreviewZone(string $host): bool
+    {
+        $preview = self::previewDomain();
+
+        return $preview !== '' && ($host === $preview || str_ends_with($host, '.' . $preview));
+    }
+
     /** Is the host listed in TALEA_VERIFIED_HOSTS (comma separated)? An operator's way to vouch for hosts without any check. */
     public static function envVerified(string $host): bool
     {
@@ -113,7 +121,8 @@ final class Domains
         if ($token === '' || Outbound::host($host) === null) {
             return 'This host name cannot be checked.';
         }
-        $http = self::viaHttp($host, $token);
+        // the install answers the token file on every name that points here, the preview zone's wildcard included: that proves nothing there, DNS only
+        $http = self::inPreviewZone($host) ? 'Names under the preview domain are verified with the DNS record only.' : self::viaHttp($host, $token);
         if ($http !== null && self::viaDns($host, $token) !== null) {
             return $http;
         }

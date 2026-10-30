@@ -210,4 +210,31 @@ final class DomainsTest extends DatabaseTestCase
         $preview = $this->domain('main.preview.example');
         $this->assertNotNull(Sites::removeDomain($this->db(), 1, (int) $preview['domain_id'], ''), 'the preview host cannot be removed');
     }
+
+    public function testNamesInThePreviewZoneCannotBeAddedAndNotVerifiedOverHttp(): void
+    {
+        putenv('TALEA_PREVIEW_DOMAIN=preview.example');
+        foreach ([true, false] as $verify) { // a client (must verify) and an operator (does not)
+            foreach (['x.preview.example', 'a.b.preview.example', 'preview.example'] as $host) {
+                $this->assertNotNull(Sites::addDomain($this->db(), 1, $host, $verify), $host);
+                $this->assertSame([], $this->domain($host));
+            }
+        }
+        $this->assertNull(Sites::addDomain($this->db(), 1, 'notpreview.example', true), 'a name that only ends alike is fine');
+        // a row that exists anyway (older data): the HTTP method must not run, the token file would be answered by this install
+        $this->db()->insert('site_domains', ['site_id' => 1, 'host' => 'old.preview.example', 'is_primary' => false, 'redirect_to_primary' => false, 'token' => Domains::newToken(), 'verified_at' => null]);
+        $d = $this->domain('old.preview.example');
+        $asked = 0;
+        Domains::$fetch = function () use (&$asked, $d): ?string {
+            $asked++;
+
+            return $d['token'];
+        };
+        Domains::$txt = fn (): array => [];
+        $this->assertNotNull(Domains::check($this->db(), $d));
+        $this->assertSame(0, $asked);
+        $this->assertNull($this->domain('old.preview.example')['verified_at']);
+        Domains::$txt = fn (): array => [Domains::txtValue((string) $d['token'])];
+        $this->assertNull(Domains::check($this->db(), $d), 'DNS stays allowed');
+    }
 }

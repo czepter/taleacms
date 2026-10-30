@@ -583,6 +583,9 @@ final class Sites
         if ($host === null) {
             return 'Enter a host name such as www.example.com – no http://, no port, no path.';
         }
+        if (Domains::inPreviewZone($host)) {
+            return 'This host name belongs to the installation\'s preview addresses. Use your own domain.';
+        }
         if (Owners::hostTaken($db, $host)) {
             return 'This host name is already used by a site.';
         }
