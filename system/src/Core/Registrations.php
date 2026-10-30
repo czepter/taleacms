@@ -12,7 +12,7 @@ use Talea\Front\Forms;
  * the waiting list, and who moves up when a seat frees. The decisions are pure functions; taken() and promote() wrap them.
  *
  * The seats are shared by all items of the same collection with the same slug (language versions). Callers that change
- * seats take Db::lock(lockName(...), 5) first.
+ * seats lock with Db::lock(Registrations::lockFor($db, $itemId), 5) first; promote() runs under the caller's lock.
  */
 final class Registrations
 {
@@ -35,7 +35,7 @@ final class Registrations
         }
         $data = (array) ($item['data'] ?? []);
         $get = fn (string $role): string => $fields[$role] !== '' ? trim((string) ($data[$fields[$role]] ?? '')) : '';
-        if ($get('repeat') !== '') {
+        if (isset(Calendar::REPEATS[$get('repeat')])) {
             return null;
         }
         $start = $get('start');
@@ -112,6 +112,12 @@ final class Registrations
         return 'talea-seat-' . $itemId;
     }
 
+    /** The lock name for the whole seat group of an item (all language versions share it). */
+    public static function lockFor(Db $db, int $itemId): string
+    {
+        return self::lockName(min(self::group($db, $itemId)));
+    }
+
     /**
      * Moves waitlisted registrations up while seats are free and registration is open; returns how many. Instant: confirmed
      * and the visitor is told (course_moved_up). Confirm-first: waiting, the visitor is told and the form's recipients are
@@ -132,7 +138,7 @@ final class Registrations
             if ($free <= 0) {
                 break;
             }
-            $rows = $db->all("SELECT * FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state = 'waitlisted' AND item_id IN ($in) ORDER BY state_changed_at, enquiry_id", $ids);
+            $rows = $db->all("SELECT * FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state = 'waitlisted' AND item_id IN ($in) ORDER BY state_changed_at IS NULL, state_changed_at, enquiry_id", $ids);
             $id = self::nextToPromote(array_map(fn (array $r): array => ['enquiry_id' => (int) $r['enquiry_id'], 'seats' => (int) $r['seats']], $rows), $free);
             if ($id === null) {
                 break;
@@ -146,34 +152,44 @@ final class Registrations
         return $moved;
     }
 
-    /** The visitor's mail and, for a confirm-first course, the holder's. */
+    /** The visitor's mail (request received for confirm-first, moved up for instant) and, for confirm-first, the holder's. */
     private static function tell(App $app, array $collection, array $item, array $course, array $row): void
     {
         $data = (array) ($item['data'] ?? []);
         $element = Forms::findElement($app->db(), (string) $row['source'], (string) $row['element'], 'form');
+        // the stored answers skip some fields, so the name is found by label, not by position
+        $labels = [];
+        foreach ((array) ($element['content']['fields'] ?? []) as $field) {
+            if (($field['type'] ?? '') === 'text') {
+                $labels[] = (string) $field['label'];
+            }
+        }
         $name = '';
-        $answers = json_decode((string) $row['data'], true) ?: [];
-        foreach ((array) ($element['content']['fields'] ?? []) as $i => $field) {
-            if (($field['type'] ?? '') === 'text' && isset($answers[$i][1]) && FormMail::isName((string) $answers[$i][1])) {
-                $name = (string) $answers[$i][1];
+        foreach ((json_decode((string) $row['data'], true) ?: []) as $answer) {
+            if (in_array((string) ($answer[0] ?? ''), $labels, true) && FormMail::isName((string) ($answer[1] ?? ''))) {
+                $name = (string) $answer[1];
                 break;
             }
         }
         $fields = Calendar::fields($collection);
-        $start = (string) ($data[$fields['start']] ?? '');
+        $s = $app->settings();
+        $language = (string) $row['language'];
         if ((string) $row['email'] !== '') {
-            Messages::send($app, 'course_moved_up', (string) $row['language'], (string) $row['email'], [
-                'name' => $name, 'course' => (string) $item['name'], 'dates' => Calendar::when($start, (string) ($data[$fields['end']] ?? '')),
-                'schedule' => (string) ($data['schedule'] ?? ''), 'place' => (string) ($data[$fields['place']] ?? ''), 'seats' => (string) $row['seats'],
-            ]);
+            Language::runWith($language !== '' ? $language : Language::defaults($s), function () use ($app, $course, $item, $data, $fields, $row, $name, $language): void {
+                Messages::send($app, $course['mode'] === 'confirm' ? 'course_request' : 'course_moved_up', $language, (string) $row['email'], [
+                    'name' => $name, 'course' => (string) $item['name'], 'dates' => Calendar::when((string) ($data[$fields['start']] ?? ''), (string) ($data[$fields['end']] ?? '')),
+                    'schedule' => (string) ($data['schedule'] ?? ''), 'place' => (string) ($data[$fields['place']] ?? ''), 'seats' => (string) $row['seats'],
+                ]);
+            });
         }
         if ($course['mode'] === 'confirm' && $element !== null) {
-            $s = $app->settings();
             [$to, $bcc] = Forms::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $s->get('site_email'));
             if ($to !== []) {
-                $text = Language::runWith(Language::defaults($s), fn (): string => t('A seat is free and a registration moved up from the waiting list. Please confirm or decline it in the administration.')
-                    . "\n\n" . $item['name'] . "\n" . t('Seats') . ': ' . $row['seats']);
-                Mail::send($s, implode(', ', $to), FormMail::subject(t('Request:') . ' ' . $item['name']), (string) $text, '', $bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
+                Language::runWith(Language::defaults($s), function () use ($s, $item, $row, $to, $bcc): void {
+                    $text = t('A seat is free and a registration moved up from the waiting list. Please confirm or decline it in the administration.')
+                        . "\n\n" . $item['name'] . "\n" . t('Seats') . ': ' . $row['seats'];
+                    Mail::send($s, implode(', ', $to), FormMail::subject(t('Request:') . ' ' . $item['name']), $text, '', $bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
+                });
             }
         }
     }
