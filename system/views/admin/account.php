@@ -195,17 +195,17 @@ $toolSetSwitch = fn (string $set, string $target): string => '<button class="nav
 <?php if ($apps !== []): ?>
 <h2><?= e(t('Connected applications')) ?></h2>
 <?php foreach ($apps as $a): ?>
-<p><span class="badge"><?= e($a['name']) ?></span> <span class="badge"><?= e($accessLabel[$a['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $a['tool_set']) ?> <?= e(t('connected %s', format_date($a['created_at']))) ?>, <?= e($a['used_at'] ? t('last used %s', format_date($a['used_at'], true)) : t('not used yet')) ?>
-	<?= $toolSetSwitch((string) $a['tool_set'], 'app:' . $a['client_id']) ?>
-	<button class="navigation danger" type="submit" form="claude-connections" name="disconnect_client" value="<?= e($a['client_id']) ?>" data-confirm="<?= e(t('Disconnect the application? It will not get into the website until you allow it again.')) ?>"><?= e(t('Disconnect')) ?></button></p>
+<div class="connection"><p><span class="badge"><?= e($a['name']) ?></span> <span class="badge"><?= e($accessLabel[$a['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $a['tool_set']) ?> <?= e(t('connected %s', format_date($a['created_at']))) ?>, <?= e($a['used_at'] ? t('last used %s', format_date($a['used_at'], true)) : t('not used yet')) ?></p>
+	<div class="navigation-row"><?= $toolSetSwitch((string) $a['tool_set'], 'app:' . $a['client_id']) ?>
+	<button class="navigation danger" type="submit" form="claude-connections" name="disconnect_client" value="<?= e($a['client_id']) ?>" data-confirm="<?= e(t('Disconnect the application? It will not get into the website until you allow it again.')) ?>"><?= e(t('Disconnect')) ?></button></div></div>
 <?php endforeach ?>
 <?php endif ?>
 <p><?= e(t('Claude will work with the site')) ?> <strong><?= e(t('in your name and with your permissions')) ?></strong>: <?= e(t((int) $username['admin'] === 2 ? 'write and edit pages and news, and manage categories, collections and the look of the site.' : 'write and edit news.')) ?> <?= e(t('It creates new news items as drafts and new pages as hidden. All its changes are in the Change log. Protect the token like a password.')) ?></p>
 <?php foreach ($tokens as $t): ?>
-<p><span class="badge"><?= e($t['name']) ?></span> <span class="badge"><?= e($accessLabel[$t['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $t['tool_set']) ?> <?= e(t('created %s', format_date($t['created_at']))) ?>, <?= e($t['used_at'] ? t('last used %s', format_date($t['used_at'], true)) : t('not used yet')) ?>,
-	<?= $t['expires_at'] === null ? e(t('no expiry')) : ($t['expires_at'] < date('Y-m-d H:i:s') ? '<strong>' . e(t('expired %s', format_date($t['expires_at']))) . '</strong>' : e(t('valid until %s', format_date($t['expires_at'])))) ?>
-	<?= $toolSetSwitch((string) $t['tool_set'], 'token:' . $t['public_id']) ?>
-	<button class="navigation danger" type="submit" form="claude-connections" name="delete_token" value="<?= e($t['public_id']) ?>" data-confirm="<?= e(t('Revoke the token? Claude will no longer be able to sign in with it.')) ?>"><?= e(t('Revoke token')) ?></button></p>
+<div class="connection"><p><span class="badge"><?= e($t['name']) ?></span> <span class="badge"><?= e($accessLabel[$t['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $t['tool_set']) ?> <?= e(t('created %s', format_date($t['created_at']))) ?>, <?= e($t['used_at'] ? t('last used %s', format_date($t['used_at'], true)) : t('not used yet')) ?>,
+	<?= $t['expires_at'] === null ? e(t('no expiry')) : ($t['expires_at'] < date('Y-m-d H:i:s') ? '<strong>' . e(t('expired %s', format_date($t['expires_at']))) . '</strong>' : e(t('valid until %s', format_date($t['expires_at'])))) ?></p>
+	<div class="navigation-row"><?= $toolSetSwitch((string) $t['tool_set'], 'token:' . $t['public_id']) ?>
+	<button class="navigation danger" type="submit" form="claude-connections" name="delete_token" value="<?= e($t['public_id']) ?>" data-confirm="<?= e(t('Revoke the token? Claude will no longer be able to sign in with it.')) ?>"><?= e(t('Revoke token')) ?></button></div></div>
 <?php endforeach ?>
 <div class="row"><label for="token-name"><?= e(t('Name of the new token')) ?></label><div><input class="textfield" type="text" id="token-name" name="name" maxlength="100" size="30" placeholder="<?= e(t('e.g. Claude on my laptop')) ?>"></div></div>
 <div class="row"><label for="token-lifetime"><?= e(t('Valid for')) ?></label><div><select id="token-lifetime" name="lifetime">

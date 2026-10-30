@@ -534,6 +534,8 @@ a.danger:hover {
 	gap: 8px;
 	margin: 0 0 20px;
 }
+/* a listed AI connection (My account, a user's edit page): its details, then its buttons close below */
+.connection p { margin: 0 0 8px; }
 /* more actions below a form (export, duplicate, password link…) – spacing from the Save button */
 .navigation-row.actions-bottom { align-items: center; margin: 24px 0 0; }
 
