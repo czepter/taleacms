@@ -22,7 +22,7 @@ $builtIn = array_filter($facts, fn (array $f): bool => $f['builtIn']);
 <tbody>
 <?php foreach ($own as $f): ?>
 <tr>
-	<td><a href="<?= e($module->url('edit', ['key' => $f['key']])) ?>"><strong><?= e($f['label']) ?></strong></a><br><span class="small-text"><?= e(t(Facts::TYPES[$f['type']] ?? $f['type'])) ?><?= $f['schema'] !== '' ? ' · schema.org ' . e($f['schema']) : '' ?></span></td>
+	<td><a href="<?= e($module->url('edit', ['key' => $f['key']])) ?>"><strong><?= e($f['label']) ?></strong></a><br><span class="small-text"><?= e(t(Facts::TYPES[$f['type']] ?? $f['type'])) ?><?= $f['schema'] !== '' ? ' · schema.org ' . e($f['schema']) : '' ?><?= \Talea\Core\Sites::enabled() && $f['shared'] ? ' · ' . e(t('shared with all sites')) : '' ?></span></td>
 	<td><?= e($f['display']) ?></td>
 	<td><code>{{fact.<?= e($f['key']) ?>}}</code></td>
 	<td class="center"><?= (int) ($usage[$f['key']] ?? 0) ?></td>

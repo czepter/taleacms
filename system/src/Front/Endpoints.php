@@ -29,7 +29,7 @@ final class Endpoints
     public function favicon(): Response
     {
         // browsers ask on their own; instead of a full 404 page a link to the site icon, or an empty response
-        $icon = is_file(TALEA_ROOT . '/media/icon-32.png') ? $this->app->url('media/icon-32.png') : null;
+        $icon = is_file(TALEA_ROOT . '/' . \Talea\Core\MediaFolder::icon(32)) ? $this->app->url(\Talea\Core\MediaFolder::icon(32)) : null;
 
         return $icon !== null ? Response::redirect($icon, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
     }

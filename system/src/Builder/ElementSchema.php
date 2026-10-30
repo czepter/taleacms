@@ -133,7 +133,7 @@ final class ElementSchema
     {
         $types = [];
         foreach (Build::ELEMENTS as $className) {
-            if ($extensions !== null && $className::EXTENSION !== '' && !in_array($className::EXTENSION, $extensions, true)) {
+            if (($extensions !== null && $className::EXTENSION !== '' && !in_array($className::EXTENSION, $extensions, true)) || ($className::MULTISITE && !\Talea\Core\Sites::enabled())) {
                 $types[] = $className::TYPE;
             }
         }

@@ -8,6 +8,7 @@ use Talea\Admin\Module;
 use Talea\Admin\BuilderActions;
 use Talea\Core\Language;
 use Talea\Core\Response;
+use Talea\Core\Sites;
 use Talea\Builder\Components as KomponentyStavby;
 use Talea\Builder\Publisher;
 use Talea\Builder\Build;
@@ -75,21 +76,35 @@ final class Components extends Module
             return $this->back('The component needs a name.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
         }
         $data = ['name' => $name, 'properties' => (string) json_encode(KomponentyStavby::sanitizeProperties(is_array($_POST['properties'] ?? null) ? $_POST['properties'] : []), JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')];
-        if ($id > 0 && KomponentyStavby::byId($this->db, $id) !== null) {
-            $this->db->update('components', $data, ['component_id' => $id]);
-        } else {
-            $id = $this->db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('section')]])]);
+        // "Share with all sites" is offered only with several sites, and a shared component stays shared (the box is then disabled)
+        $shared = Sites::enabled() && $this->request->post('shared') === '1' ? true : null;
+        $before = $id > 0 ? KomponentyStavby::byId($this->db, $id) : null;
+        if ($id > 0 && $before === null) {
+            return $this->error('The component does not exist.', 404); // also another site's own component
         }
-        \Talea\Front\Cache::clear();
+        if ($shared === true && $before !== null && !KomponentyStavby::isShared($before) && ($refusal = KomponentyStavby::formRefusal($before['build'], $before['build_draft'])) !== null) {
+            return $this->back($refusal, 'edit', ['id' => $this->publicId($id)], 'error');
+        }
+        if ($before !== null) {
+            $this->db->update('components', $data, ['component_id' => $id]);
+            if ($shared === true && !KomponentyStavby::isShared($before)) {
+                KomponentyStavby::share($this->db, $id);
+            }
+        } else {
+            $id = KomponentyStavby::create($this->db, $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('section')]])], $shared === true);
+        }
+        // a component that is or was shared shows on every site
+        ($shared === true || ($before !== null && KomponentyStavby::isShared($before))) ? \Talea\Front\Cache::clearAll() : \Talea\Front\Cache::clear();
 
         return $this->back('The component was saved.');
     }
 
     protected function actionDelete(): Response
     {
-        if ($this->request->isPost()) {
-            $this->db->delete('components', ['component_id' => $this->idParam('component_id')]);
-            \Talea\Front\Cache::clear();
+        $k = $this->request->isPost() ? KomponentyStavby::byId($this->db, $this->idParam('component_id')) : null;
+        if ($k !== null) {
+            $this->db->delete('components', ['component_id' => (int) $k['component_id']]);
+            KomponentyStavby::isShared($k) ? \Talea\Front\Cache::clearAll() : \Talea\Front\Cache::clear();
         }
 
         return $this->back('The component was deleted. Places where it was used will be empty.');
@@ -107,7 +122,7 @@ final class Components extends Module
         if ($build['children'] === []) {
             return Response::json(['ok' => false, 'error' => t('A component cannot be created from this element.')], 400);
         }
-        $id = $this->db->insert('components', ['name' => $name, 'properties' => '[]', 'build' => Build::toJson($build), 'updated_at' => date('Y-m-d H:i:s')]);
+        $id = KomponentyStavby::create($this->db, ['name' => $name, 'properties' => '[]', 'build' => Build::toJson($build), 'updated_at' => date('Y-m-d H:i:s')]);
 
         return Response::json(['ok' => true, 'id' => $id, 'components' => self::listForEditor($this->db)]);
     }
@@ -139,9 +154,14 @@ final class Components extends Module
         ];
     }
 
+    protected function buildRefusal(array $target, ?string $json): ?string
+    {
+        return KomponentyStavby::isShared($target['row']) ? KomponentyStavby::formRefusal($json) : null;
+    }
+
     protected function saveDraft(array $target, ?string $draft): void
     {
-        $this->db->update('components', ['build_draft' => $draft], ['component_id' => $target['row']['component_id']]);
+        $this->db->update('components', ['build_draft' => $draft], ['component_id' => $target['row']['component_id']]); // loadBuildTarget() found it among the visible ones
     }
 
     protected function publishTarget(array $target): void
@@ -189,7 +209,7 @@ final class Components extends Module
             $usages[] = t('collection detail “%s”', $r['name']);
         }
         // a component inside itself does not count (and is not even rendered on the site)
-        foreach ($this->db->all('SELECT name FROM {components}' . $whereParts . ' AND component_id <> ? ORDER BY name', [$pattern, $pattern, $idm]) as $r) {
+        foreach ($this->db->all('SELECT name FROM {components}' . $whereParts . ' AND component_id <> ? AND ' . Sites::visible($this->db) . ' ORDER BY name', [$pattern, $pattern, $idm]) as $r) {
             $usages[] = t('component “%s”', $r['name']);
         }
 

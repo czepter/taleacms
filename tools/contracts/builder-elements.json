@@ -213,6 +213,10 @@
         "text_at_top",
         "width"
     ],
+    "site_cards": [
+        "count",
+        "link_text"
+    ],
     "social_links": [
         "show_names"
     ],

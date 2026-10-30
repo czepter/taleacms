@@ -26,6 +26,46 @@ final class MigrationSupport
         return $adapter->getOption('adapter') === 'sqlite';
     }
 
+    /** Multisite: a further site is being migrated (its prefix differs from the owner's, docs/specs/multisite.md). */
+    public static function siteRun(AdapterInterface $adapter): bool
+    {
+        $owner = (string) $adapter->getOption('owner_prefix');
+
+        return $owner !== '' && $owner !== (string) $adapter->getOption('table_prefix');
+    }
+
+    /** The install prefix (the base prefix: install tables, owner 1 and its site 1); older option sets without it count the owner prefix. */
+    public static function installPrefix(AdapterInterface $adapter): string
+    {
+        return (string) ($adapter->getOption('install_prefix') ?: $adapter->getOption('owner_prefix') ?: $adapter->getOption('table_prefix'));
+    }
+
+    /**
+     * Multisite: is this a table that an earlier run made while a later one is migrated? An owner table (Db::OWNER_TABLES) in the run of
+     * a further site of its owner, an install table (Db::INSTALL_TABLES) in every run but the install's own. The earlier run already
+     * changed it, and raw SQL with the table_prefix option would name a table that does not exist (PrefixAdapter skips the DSL writes itself).
+     */
+    public static function ownerTableInSiteRun(AdapterInterface $adapter, string $table): bool
+    {
+        if (in_array($table, Db::INSTALL_TABLES, true)) {
+            return self::installPrefix($adapter) !== (string) $adapter->getOption('table_prefix');
+        }
+
+        return self::siteRun($adapter) && in_array($table, Db::OWNER_TABLES, true);
+    }
+
+    /**
+     * Name of an index: every table outside the install's own prefix (a further site, a further owner) carries its prefix in front,
+     * because PostgreSQL and SQLite want index names unique in the whole database (as foreign key names already are). Owner 1 and its
+     * site 1 keep the plain names. Db::keyName() reads them the same way.
+     */
+    public static function indexName(AdapterInterface $adapter, string $name): string
+    {
+        $prefix = (string) $adapter->getOption('table_prefix');
+
+        return $prefix !== self::installPrefix($adapter) ? $prefix . $name : $name;
+    }
+
     /**
      * Type and options of a public_id column (UUID v4): CHAR(36) with a generated default on MySQL, a native uuid on PostgreSQL.
      * Core\Uuid fills the column on insert; the default covers raw inserts. Use: ->addColumn('public_id', ...MigrationSupport::publicId($this->getAdapter()))
@@ -70,7 +110,7 @@ final class MigrationSupport
         $table->create();
         $real = (string) $adapter->getOption('table_prefix') . $name;
         foreach ($fulltext as $index => $columns) {
-            $migration->execute((new Postgres())->fulltextIndex($real, $index, $columns));
+            $migration->execute((new Postgres())->fulltextIndex($real, self::indexName($adapter, $index), $columns));
         }
     }
 
@@ -91,6 +131,7 @@ final class MigrationSupport
     public static function ignoreCase(AbstractMigration $migration, array $columns): void
     {
         $adapter = $migration->getAdapter();
+        $columns = array_filter($columns, fn (string $table): bool => !self::ownerTableInSiteRun($adapter, $table), ARRAY_FILTER_USE_KEY);
         if (self::isSqlite($adapter)) {
             foreach ($columns as $table => $names) {
                 $definitions = [];

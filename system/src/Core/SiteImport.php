@@ -4,13 +4,8 @@ declare(strict_types=1);
 
 namespace Talea\Core;
 
-use Talea\Builder\Build;
 use Talea\Builder\Collections;
-use Talea\Builder\Components;
 use Talea\Builder\DesignSystem;
-use Talea\Builder\Popups;
-use Talea\Builder\SiteParts;
-use Talea\Builder\Style;
 
 /**
  * Import of a Talea export (1.8): moves a whole site into a new, empty installation – the counterpart of SiteExport.
@@ -30,6 +25,8 @@ use Talea\Builder\Style;
  */
 final class SiteImport
 {
+    use SiteImportRows;
+
     /** Tables in the order of import (a folder before media, a collection before its items). */
     public const array TABLES = ['categories', 'tags', 'popups', 'pages', 'news', 'redirects', 'classes', 'site_parts', 'components', 'forms', 'sections', 'menus',
         'collections', 'collection_templates', 'collection_items', 'document_versions', 'media_folders', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook',
@@ -40,6 +37,9 @@ final class SiteImport
         'collection_items', 'collection_templates', 'collections', 'news', 'categories', 'tags', 'pages', 'redirects', 'classes', 'site_parts', 'components', 'forms', 'sections',
         'menus', 'popups', 'media', 'media_folders', 'import_map', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads', 'notice_log', 'blueprints', 'notebook', 'draft_comments',
         'booking_staff_services', 'booking_hours', 'booking_off', 'booking_staff', 'booking_services']; // the bookings themselves stay: personal data of this site's customers
+
+    /** The rows a site import ADDS to the owner's shared tables (never empties them): ids are new, public ids that are taken get a new one. */
+    private const array OWNER_ROWS = ['media_folders', 'media', 'components', 'facts'];
 
     private const int BATCH = 300;
     private const int MEDIA_BATCH = 100;
@@ -57,13 +57,51 @@ final class SiteImport
     /** @var array<int, array<string, mixed>|null> idk => the collection when it is an official notice board (for the 'created' rows of imported notices) */
     private array $noticeBoards = [];
 
-    public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $admin)
+    /** @var string the folder of the state and working files: storage/import, or that of a site import */
+    private string $folder = WpFile::FOLDER;
+
+    /** @var array<string, array<string, int>> table => public id in the archive => the key the row got (the owner rows of a site import) */
+    private array $map = [];
+
+    /** @var array<string, array{name: string, email: string}> the people the archive names (authors of news, booking staff), by lower-case name */
+    private array $people = [];
+
+    /** @var string the archive's file name: names the working folder */
+    private string $stateFileName = '';
+
+    /** @var list<string> media paths of the archive that were refused (not a file of the archive), reported in the state */
+    private array $dropped = [];
+
+    /** @var array<string, string>|null archive path => path in the owner's media folder (a site import) */
+    private ?array $mediaMap = null;
+
+    /**
+     * $mediaDir non-empty = a SITE import (Sites → Import a Talea archive): $db is the new, empty site; media, folders, components and facts
+     * are ADDED to the owner's shared tables (the media files into $mediaDir) and the other sites keep working. $admin 0 = the importer is not
+     * a user of this owner (an operator): authors stay empty.
+     */
+    public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $admin, private readonly string $mediaDir = '')
     {
+    }
+
+    private function siteMode(): bool
+    {
+        return $this->mediaDir !== '';
+    }
+
+    /** @param array<string, mixed> $state the folder of an import's files */
+    private static function dir(array $state): string
+    {
+        return (string) ($state['folder'] ?? WpFile::FOLDER);
     }
 
     /** The integer key the exported row with this public id gets (0: not a public id of the export). */
     private function ref(string $table, mixed $publicId): int
     {
+        if ($this->siteMode() && in_array($table, self::OWNER_ROWS, true)) {
+            return Uuid::valid($publicId) ? (int) ($this->map[$table][(string) $publicId] ?? 0) : 0;
+        }
+
         return Uuid::valid($publicId) ? (int) ($this->ids[$table][(string) $publicId] ?? 0) : 0;
     }
 
@@ -71,6 +109,20 @@ final class SiteImport
     private static function publicId(array $r): string
     {
         return Uuid::valid($r['public_id'] ?? null) ? (string) $r['public_id'] : Uuid::v4();
+    }
+
+    /** publicId() for a row of the owner's shared tables: in a site import an id another site's row already has is not taken over. */
+    private function ownerPublicId(string $table, array $r): string
+    {
+        $id = self::publicId($r);
+
+        return $this->siteMode() && $this->db->value('SELECT 1 FROM {' . $table . '} WHERE public_id = ?', [$id]) !== null ? Uuid::v4() : $id;
+    }
+
+    /** The key a row of the owner's shared tables is stored under: its own number in a normal import (the site was empty), the new one in a site import. */
+    private function ownerKey(string $table, string $key, int $ordinal): array
+    {
+        return $this->siteMode() ? [] : [$key => $ordinal];
     }
 
     /* ---------- files in storage/import ---------- */
@@ -96,9 +148,9 @@ final class SiteImport
             && !preg_match('/^(talea-)?state-[0-9a-f]{16}\.json$/', $file); // state files of the imports live in the same folder
     }
 
-    public static function path(string $file): ?string
+    public static function path(string $file, string $folder = WpFile::FOLDER): ?string
     {
-        return self::isValidName($file) && is_file(WpFile::FOLDER . '/' . $file) ? WpFile::FOLDER . '/' . $file : null;
+        return self::isValidName($file) && is_file($folder . '/' . $file) ? $folder . '/' . $file : null;
     }
 
     public static function uploadName(string $original): string
@@ -111,47 +163,44 @@ final class SiteImport
     /* ---------- state ---------- */
 
     /** @return array<string, mixed> */
-    public static function newState(string $file): array
+    public static function newState(string $file, string $folder = WpFile::FOLDER): array
     {
-        return ['file' => $file, 'phase' => 'preparing', 'header' => [], 'counts' => [], 'media_total' => 0, 'table' => 0, 'position' => 0,
+        return ($folder !== WpFile::FOLDER ? ['folder' => $folder] : []) + ['file' => $file, 'phase' => 'preparing', 'header' => [], 'counts' => [], 'media_total' => 0, 'table' => 0, 'position' => 0,
             'emptied' => false, 'backup' => '', 'media_position' => 0, 'result' => [], 'media' => ['saved' => 0, 'skipped' => 0], 'errors' => []];
     }
 
-    private static function stateFile(string $file): string
+    private static function stateFile(string $file, string $folder = WpFile::FOLDER): string
     {
-        return WpFile::FOLDER . '/talea-state-' . substr(sha1($file), 0, 16) . '.json';
+        return $folder . '/talea-state-' . substr(sha1($file), 0, 16) . '.json';
     }
 
     /** Working folder of the import: content.json and one file per table. */
-    private static function workFolder(string $file): string
+    private static function workFolder(string $file, string $folder = WpFile::FOLDER): string
     {
-        return WpFile::FOLDER . '/talea-' . substr(sha1($file), 0, 16);
+        return $folder . '/talea-' . substr(sha1($file), 0, 16);
     }
 
     /** @return array<string, mixed>|null */
-    public static function loadState(string $file): ?array
+    public static function loadState(string $file, string $folder = WpFile::FOLDER): ?array
     {
-        $data = is_file(self::stateFile($file)) ? json_decode((string) file_get_contents(self::stateFile($file)), true) : null;
+        $data = is_file(self::stateFile($file, $folder)) ? json_decode((string) file_get_contents(self::stateFile($file, $folder)), true) : null;
 
-        return is_array($data) ? array_replace(self::newState($file), $data) : null;
+        return is_array($data) ? array_replace(self::newState($file, $folder), $data) : null;
     }
 
     /** @param array<string, mixed> $state */
     public static function saveState(array $state): void
     {
-        $path = self::stateFile((string) $state['file']);
+        $path = self::stateFile((string) $state['file'], self::dir($state));
         file_put_contents($path . '.tmp', (string) json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
         rename($path . '.tmp', $path);
     }
 
     /** Deletes the state and the working folder (the file itself stays until the administrator deletes it). */
-    public static function deleteState(string $file): void
+    public static function deleteState(string $file, string $folder = WpFile::FOLDER): void
     {
-        @unlink(self::stateFile($file));
-        foreach (glob(self::workFolder($file) . '/*') ?: [] as $part) {
-            @unlink($part);
-        }
-        @rmdir(self::workFolder($file));
+        @unlink(self::stateFile($file, $folder));
+        self::cleanUp($file, $folder);
     }
 
     /**
@@ -177,15 +226,16 @@ final class SiteImport
      * @param array<string, mixed> $state
      * @throws \RuntimeException the file is not a Talea export or comes from a newer Talea
      */
-    public static function prepare(array &$state): void
+    public static function prepare(array &$state, ?Db $owner = null): void
     {
-        $path = self::path((string) $state['file']) ?? throw new \RuntimeException('The file does not exist.');
-        $work = self::workFolder((string) $state['file']);
+        $path = self::path((string) $state['file'], self::dir($state)) ?? throw new \RuntimeException('The file does not exist.');
+        $work = self::workFolder((string) $state['file'], self::dir($state));
         if (!is_dir($work) && !@mkdir($work, 0775, true)) {
             throw new \RuntimeException('Cannot create the storage/import folder – check write permissions.');
         }
         $json = $work . '/content.json';
         $mediaCount = 0;
+        $entries = [];
         $renamed = [];
         $warnings = [];
         if (KaletaExport::is($path)) {
@@ -213,12 +263,25 @@ final class SiteImport
                 $target = ArchiveMedia::target($zip, $name);
                 if ($target !== null) {
                     $mediaCount++;
+                    $entries[$name] = $target;
                     if ($target !== $name) {
                         $renamed[$name] = $target; // photo.JPG is saved as photo.jpg – the content follows (split())
                     }
                 }
             }
             $zip->close();
+            if ($owner !== null) {
+                // a site import: the files go into the owner's media folder, next to what the owner's other sites keep there
+                $mediaMap = ArchiveMedia::intoFolder(array_values(array_unique($entries)), (string) $state['media_dir'], static fn (string $p): bool => is_file(TALEA_ROOT . '/' . $p)
+                    || $owner->value('SELECT 1 FROM {media} WHERE image_path = ? OR thumb_path = ?', [$p, $p]) !== null, substr(sha1((string) ($state['site_prefix'] ?? '') . '|' . $state['file']), 0, 6));
+                $renamed = []; // the content follows by name, also the archive's own spelling of an upper-case extension
+                foreach ($entries as $name => $target) {
+                    if ($mediaMap[$target] !== $name) {
+                        $renamed[$name] = $mediaMap[$target];
+                    }
+                }
+                file_put_contents($work . '/media-map.json', (string) json_encode($mediaMap === [] ? new \stdClass() : $mediaMap, JSON_UNESCAPED_SLASHES));
+            }
         } else {
             copy($path, $json);
         }
@@ -330,14 +393,20 @@ final class SiteImport
      */
     public function importData(array &$state): void
     {
+        $this->bind($state);
         if (!$state['emptied']) {
-            if (!self::siteContent($this->db)['empty']) {
-                throw new \RuntimeException('The site already has its own content. A Talea export can be imported only into a new, empty site.');
+            if ($this->siteMode()) {
+                $this->startSite($state);
+
+                return;
+            }
+            if (!self::siteContent($this->db)['empty'] || Sites::importRefusal($this->db) !== null) {
+                throw new \RuntimeException(Sites::importRefusal($this->db) ?? 'The site already has its own content. A Talea export can be imported only into a new, empty site.');
             }
             $state['backup'] = Backup::create($this->db, 'before_import');
             $this->db->emptyTables(self::EMPTIED);
             // an export that shares addresses between language versions needs the per-language keys before its rows arrive
-            $exported = json_decode((string) @file_get_contents(self::workFolder((string) $state['file']) . '/settings.json'), true);
+            $exported = json_decode((string) @file_get_contents(self::workFolder((string) $state['file'], $this->folder) . '/settings.json'), true);
             if (is_array($exported) && ($exported['slugs_per_language'] ?? '') === '1') {
                 Slug::switchPerLanguage($this->db, $this->settings, true);
             }
@@ -349,9 +418,11 @@ final class SiteImport
         $done = 0;
         $this->exportHasNoticeLog = (int) ($state['counts']['notice_log'] ?? 0) > 0;
         $this->loadIds((string) $state['file']);
-        while ($state['table'] < count(self::TABLES) && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
-            $table = self::TABLES[$state['table']];
-            $file = self::workFolder((string) $state['file']) . '/' . $table . '.ndjson';
+        $tables = self::order($this->siteMode());
+        $this->people = (array) ($state['people'] ?? []);
+        while ($state['table'] < count($tables) && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
+            $table = $tables[$state['table']];
+            $file = self::workFolder((string) $state['file'], $this->folder) . '/' . $table . '.ndjson';
             if (!is_file($file) || $state['position'] >= (int) ($state['counts'][$table] ?? 0)) {
                 $state['table']++;
                 $state['position'] = 0;
@@ -373,9 +444,13 @@ final class SiteImport
                     $state['result'][$table][$ok ? 'ok' : 'skipped'] = ($state['result'][$table][$ok ? 'ok' : 'skipped'] ?? 0) + 1;
                 }
             });
+            $this->saveMap();
         }
-        if ($state['table'] >= count(self::TABLES)) {
-            $this->db->syncSequences(...self::TABLES);
+        $state['people'] = $this->people;
+        $state['refused_media'] = array_slice(array_merge((array) ($state['refused_media'] ?? []), $this->dropped), 0, 50);
+        $this->dropped = [];
+        if ($state['table'] >= count($tables)) {
+            $this->db->syncSequences(...array_values(array_diff(self::TABLES, $this->siteMode() ? self::OWNER_ROWS : [])));
             $this->loadIds((string) $state['file']);
             $this->applySettings((string) $state['file'], (string) ($state['header']['talea'] ?? ''));
             $state['phase'] = $state['media_total'] > 0 ? 'media' : 'done';
@@ -385,9 +460,90 @@ final class SiteImport
         }
     }
 
+    /** @param array<string, mixed> $state the import this object works on: its files, and what an earlier batch added to the owner's shared tables */
+    private function bind(array $state): void
+    {
+        $this->folder = self::dir($state);
+        $this->stateFileName = (string) $state['file'];
+        $map = $this->siteMode() ? json_decode((string) @file_get_contents(self::workFolder($this->stateFileName, $this->folder) . '/owner-map.json'), true) : null;
+        $this->map = is_array($map) ? $map : [];
+        $this->mediaMap ??= $this->siteMode() ? (array) json_decode((string) @file_get_contents(self::workFolder($this->stateFileName, $this->folder) . '/media-map.json'), true) : [];
+    }
+
+    /**
+     * The tables in the order of import: a site import adds the owner's shared rows first, so that every reference to them is known.
+     *
+     * @return list<string>
+     */
+    public static function order(bool $site): array
+    {
+        return $site ? [...self::OWNER_ROWS, ...array_diff(self::TABLES, self::OWNER_ROWS)] : self::TABLES;
+    }
+
+    /**
+     * The first batch of a site import: the new site's tables are emptied again (a run that stopped half-way starts over), the components are
+     * given their numbers before anything refers to them, and the per-language address keys are switched on if the archive needs them.
+     * Nothing of the owner's other sites is touched: the owner's shared tables are only added to (and the rows of an earlier try removed).
+     *
+     * @param array<string, mixed> $state
+     */
+    private function startSite(array &$state): void
+    {
+        $this->undoOwnerRows($state);
+        $this->db->emptyTables(array_values(array_diff(self::EMPTIED, self::OWNER_ROWS, ['fact_history'])));
+        $exported = json_decode((string) @file_get_contents(self::workFolder((string) $state['file'], $this->folder) . '/settings.json'), true);
+        if (is_array($exported) && ($exported['slugs_per_language'] ?? '') === '1') {
+            Slug::switchPerLanguage($this->db, $this->settings, true);
+        }
+        // the components first: a component may place another one, which comes later in the file
+        $file = self::workFolder((string) $state['file'], $this->folder) . '/components.ndjson';
+        foreach (is_file($file) ? (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []) : [] as $n => $line) {
+            $r = json_decode($line, true);
+            if (is_array($r) && self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100) !== '') {
+                $r['_id'] = $n + 1;
+                $this->map['components'][self::componentKey($r)] = $this->addOwnerRow('components', ['name' => self::text(trim(strip_tags((string) $r['name'])), 100), 'properties' => '{}',
+                    'public_id' => $this->ownerPublicId('components', $r), 'site_id' => Sites::currentId($this->db), 'updated_at' => date('Y-m-d H:i:s')]);
+            }
+        }
+        $this->saveMap();
+        $state['emptied'] = true;
+    }
+
+    /** Adds a row to a shared table of the owner and remembers it, so that a failed import can take it out again. */
+    private function addOwnerRow(string $table, array $row): int
+    {
+        $id = $this->db->insert($table, $row);
+        file_put_contents(self::workFolder($this->stateFileName, $this->folder) . '/owner-rows.txt', $table . ' ' . $id . "\n", FILE_APPEND | LOCK_EX);
+
+        return $id;
+    }
+
+    private function saveMap(): void
+    {
+        if ($this->siteMode()) {
+            file_put_contents(self::workFolder($this->stateFileName, $this->folder) . '/owner-map.json', (string) json_encode($this->map === [] ? new \stdClass() : $this->map));
+        }
+    }
+
+    /** Takes the rows an import of this site added to the owner's shared tables out again (a failed or restarted import). */
+    public function undoOwnerRows(array $state): void
+    {
+        $this->bind($state);
+        $list = self::workFolder($this->stateFileName, $this->folder) . '/owner-rows.txt';
+        foreach (is_file($list) ? (file($list, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []) : [] as $line) {
+            [$table, $id] = explode(' ', $line) + [1 => '0'];
+            if (in_array($table, self::OWNER_ROWS, true)) {
+                $this->db->delete($table, [Db::PRIMARY_KEYS[$table] ?? 'id' => (int) $id]);
+            }
+        }
+        @unlink($list);
+        @unlink(self::workFolder($this->stateFileName, $this->folder) . '/owner-map.json');
+        $this->map = [];
+    }
+
     private function loadIds(string $file): void
     {
-        $this->ids ??= (array) json_decode((string) @file_get_contents(self::workFolder($file) . '/ids.json'), true);
+        $this->ids ??= (array) json_decode((string) @file_get_contents(self::workFolder($file, $this->folder) . '/ids.json'), true);
     }
 
     /** One row: cleaned by the table's rules, only columns this site has; false = skipped. $ordinal = its number in the table = its key. */
@@ -411,7 +567,7 @@ final class SiteImport
             'collection_items' => $this->collectionItem($r),
             'document_versions' => $this->documentVersion($r),
             'popups' => $this->popup($r),
-            'media_folders' => ['folder_id' => $ordinal, 'public_id' => self::publicId($r), 'name' => mb_substr(trim(strip_tags((string) ($r['name'] ?? ''))), 0, 100)],
+            'media_folders' => $this->ownerKey('media_folders', 'folder_id', $ordinal) + ['public_id' => $this->ownerPublicId('media_folders', $r), 'name' => mb_substr(trim(strip_tags((string) ($r['name'] ?? ''))), 0, 100)],
             'media' => $this->mediaRow($r),
             'facts' => self::fact($r),
             'hours_exceptions' => self::hoursException($r),
@@ -429,11 +585,25 @@ final class SiteImport
         }
         $tags = $clean['_tags'] ?? [];
         unset($clean['_tags']);
-        $clean = array_intersect_key($clean, array_flip($this->columns($table)));
+        $clean = array_intersect_key($clean + (in_array($table, ['components', 'facts'], true) ? ['site_id' => Sites::currentId($this->db)] : []), array_flip($this->columns($table))); // an imported component or fact belongs to this site
         try {
-            $this->db->insert($table, $clean);
+            if ($this->siteMode() && $table === 'components') {
+                $this->db->update('components', array_diff_key($clean, ['component_id' => 1, 'public_id' => 1]), ['component_id' => (int) $clean['component_id']]); // the row reserved for it
+            } elseif ($this->siteMode() && in_array($table, self::OWNER_ROWS, true)) {
+                $id = $this->addOwnerRow($table, $clean);
+                if (Uuid::valid($r['public_id'] ?? null) && $table !== 'facts') {
+                    $this->map[$table][(string) $r['public_id']] = $id;
+                }
+            } else {
+                $this->db->insert($table, $clean);
+            }
         } catch (\PDOException) {
             return false; // a duplicate number or address in the export
+        }
+        if ($table === 'news') {
+            $this->person((string) ($r['author'] ?? ''), '');
+        } elseif ($table === 'booking_staff') {
+            $this->person((string) $clean['name'], (string) $clean['email']);
         }
         foreach ($tags as $tagId) {
             $this->db->insertIgnore('news_tags', ['news_id' => $clean['news_id'], 'tag_id' => $tagId]);
@@ -443,6 +613,15 @@ final class SiteImport
         }
 
         return true;
+    }
+
+    /** Remembers a person the archive names (the author of a news item, a person who takes bookings), once. */
+    private function person(string $name, string $email): void
+    {
+        $name = trim(strip_tags($name));
+        if ($name !== '' || $email !== '') {
+            $this->people[mb_strtolower($email !== '' ? $email : $name)] ??= ['name' => mb_substr($name, 0, 120), 'email' => $email];
+        }
     }
 
     /** An imported notice of an official notice board (2.11, Core\Notices) starts its audit trail with a 'created' row by "import". */
@@ -464,451 +643,10 @@ final class SiteImport
         return $this->columns[$table] ??= $this->db->columns($table);
     }
 
-    /* ---------- rows ---------- */
-
-    /** An address from the export when it is valid, otherwise one made from the name. */
-    private static function slug(mixed $slug, string $fallback, int $max): string
-    {
-        $slug = is_string($slug) ? $slug : '';
-
-        return preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug) && strlen($slug) <= $max ? $slug : slugify($fallback, $max);
-    }
-
-    /** A value from a fixed list (types of pop-ups and the like), otherwise the first one. */
-    private static function pick(array $list, mixed $value): string
-    {
-        return is_string($value) && isset($list[$value]) ? $value : (string) array_key_first($list);
-    }
-
-    private static function text(mixed $v, int $max): string
-    {
-        return mb_substr(is_scalar($v) ? (string) $v : '', 0, $max);
-    }
-
-    /**
-     * The HTML of a page or news item from the export, sanitized the way a save without code rights is (Html::safe): the archive
-     * may come from anywhere, so it never brings script into the site. Structure, classes, images and links stay; an embedded
-     * YouTube or Vimeo player becomes its URL on its own line, which the site shows as a player again.
-     */
-    private static function html(mixed $v, int $max): string
-    {
-        return Html::safe(WpContent::embeddedVideos(self::text($v, $max)));
-    }
-
-    private static function date(mixed $v): ?string
-    {
-        return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $v) ? $v : null;
-    }
-
-    /**
-     * "True until" and "review by" (2.10) of pages, news, items and pop-ups.
-     *
-     * @return array{valid_until: ?string, review_by: ?string}
-     */
-    private static function validity(array $r): array
-    {
-        $day = fn (mixed $v): ?string => is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) === 1 ? $v : null;
-
-        return ['valid_until' => $day($r['valid_until'] ?? null), 'review_by' => $day($r['review_by'] ?? null)];
-    }
-
-    /** A business fact (2.10); a value that does not fit its type is left out. @return array<string, mixed>|null */
-    private static function fact(array $r): ?array
-    {
-        $key = (string) ($r['fact_key'] ?? '');
-        $type = isset(Facts::TYPES[$r['type'] ?? '']) ? (string) $r['type'] : 'text';
-        $value = Facts::clean($type, (string) ($r['value'] ?? ''));
-        if (!preg_match(Facts::KEY_PATTERN, $key) || isset(Facts::BUILT_IN[$key]) || $value === null || ($type === 'text' && Facts::startsWithScheme($value))) {
-            return null; // a text fact "javascript:…" is refused like in Facts::save (3.3.3, N50)
-        }
-
-        return ['fact_key' => $key, 'language' => self::language($r['language'] ?? ''), 'label' => self::text(strip_tags((string) ($r['label'] ?? $key)), 150), 'type' => $type, 'value' => $value,
-            'schema_prop' => isset(Facts::SCHEMA_PROPS[$r['schema_prop'] ?? '']) ? (string) $r['schema_prop'] : '', 'source' => self::text(strip_tags((string) ($r['source'] ?? '')), 255),
-            'updated_at' => date('Y-m-d H:i:s')];
-    }
-
-    /** An exception to the opening hours (2.10). @return array<string, mixed>|null */
-    /** An applied industry blueprint (2.11): only a manifest that passes Core\Blueprint::sanitize. */
-    private static function blueprint(array $r): ?array
-    {
-        [$manifest] = \Talea\Core\Blueprint::sanitize(is_array($r['manifest'] ?? null) ? $r['manifest'] : json_decode((string) ($r['manifest'] ?? ''), true));
-
-        return $manifest === null ? null : ['bkey' => $manifest['key'], 'name' => \Talea\Core\Blueprint::text($manifest['name']), 'manifest' => (string) json_encode($manifest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'applied_at' => date('Y-m-d H:i:s')];
-    }
-
-    /** A note of the agent notebook (2.15, Core\Notebook) – the author and the dates stay as they were. @return array<string, mixed>|null */
-    private static function note(array $r): ?array
-    {
-        $title = self::text(trim(strip_tags((string) ($r['title'] ?? ''))), 150);
-        $text = self::text(trim(strip_tags((string) ($r['text'] ?? ''))), Notebook::MAX_TEXT);
-        if ($title === '' || $text === '') {
-            return null;
-        }
-        $date = fn (mixed $v): string => is_string($v) && strtotime($v) !== false ? date('Y-m-d H:i:s', (int) strtotime($v)) : date('Y-m-d H:i:s');
-
-        return ['id' => (int) ($r['id'] ?? 0) > 0 ? (int) $r['id'] : null, 'topic' => Notebook::topic($r['topic'] ?? '') ?? 'other', 'title' => $title, 'text' => $text, 'pinned' => !empty($r['pinned']) ? 1 : 0,
-            'author' => self::text(trim(strip_tags((string) ($r['author'] ?? ''))), 100), 'created_at' => $date($r['created_at'] ?? null), 'updated_at' => $date($r['updated_at'] ?? null)];
-    }
-
-    /** @param array<string, mixed> $r */
-    private static function bookingService(array $r): ?array
-    {
-        $name = self::text(strip_tags((string) ($r['name'] ?? '')), 150);
-        $duration = (int) ($r['duration_min'] ?? 0);
-        if (trim($name) === '' || $duration < 5 || $duration > Booking::MAX_DURATION) {
-            return null;
-        }
-
-        return ['id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'duration_min' => $duration, 'buffer_min' => max(0, min(240, (int) ($r['buffer_min'] ?? 0))), 'price_text' => self::text(strip_tags((string) ($r['price_text'] ?? '')), 60),
-            'description' => self::text(strip_tags((string) ($r['description'] ?? '')), 500), 'active' => !empty($r['active']) ? 1 : 0, 'requires_confirmation' => !empty($r['requires_confirmation']) ? 1 : 0, 'sort_order' => (int) ($r['sort_order'] ?? 0)];
-    }
-
-    /** @param array<string, mixed> $r the account link (user_id) does not travel – the users of the new site are different */
-    private static function bookingStaff(array $r): ?array
-    {
-        $name = self::text(strip_tags((string) ($r['name'] ?? '')), 150);
-        $email = trim((string) ($r['email'] ?? ''));
-        if (trim($name) === '') {
-            return null;
-        }
-
-        return ['id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'email' => filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($email, 0, 190) : '', 'active' => !empty($r['active']) ? 1 : 0, 'sort_order' => (int) ($r['sort_order'] ?? 0)];
-    }
-
-    /** @param array<string, mixed> $r */
-    private function bookingHours(array $r): ?array
-    {
-        $ranges = Booking::parseHours([(int) ($r['weekday'] ?? 0) => (string) ($r['time_from'] ?? '') . '-' . (string) ($r['time_to'] ?? '')]);
-        $staff = $this->ref('booking_staff', $r['staff_id'] ?? null);
-        $service = ($r['service_id'] ?? null) === null ? null : $this->ref('booking_services', $r['service_id']);
-        if ($staff <= 0 || $service === 0 || $ranges === null || $ranges === []) {
-            return null; // hours of a service that did not come along are left out, never turned into the general hours
-        }
-        [$from, $to] = $ranges[(int) $r['weekday']][0];
-
-        return ['staff_id' => $staff, 'service_id' => $service, 'weekday' => (int) $r['weekday'], 'time_from' => $from, 'time_to' => $to];
-    }
-
-    /** @param array<string, mixed> $r */
-    private function bookingOff(array $r): ?array
-    {
-        $range = Booking::offRange(substr((string) ($r['off_from'] ?? ''), 0, 16), substr((string) ($r['off_to'] ?? ''), 0, 16));
-        if ($range === null) {
-            return null;
-        }
-
-        return ['staff_id' => ($staff = $this->ref('booking_staff', $r['staff_id'] ?? null)) > 0 ? $staff : null, 'off_from' => $range[0], 'off_to' => $range[1], 'note' => self::text(strip_tags((string) ($r['note'] ?? '')), 150)];
-    }
-
-    private static function hoursException(array $r): ?array
-    {
-        $from = (string) ($r['date_from'] ?? '');
-        $to = (string) ($r['date_to'] ?? '');
-        $closed = !empty($r['closed']);
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) || $to < $from
-            || (!$closed && (Hours::parseRanges((string) ($r['hours'] ?? '')) ?? []) === [])) {
-            return null;
-        }
-
-        return ['date_from' => $from, 'date_to' => $to, 'closed' => $closed ? 1 : 0, 'hours' => $closed ? '' : self::text((string) $r['hours'], 100),
-            'note' => self::text(strip_tags((string) ($r['note'] ?? '')), 150), 'notice_days' => max(0, min(60, (int) ($r['notice_days'] ?? 7))), 'created_at' => date('Y-m-d H:i:s')];
-    }
-
-    /** A row of the notice log (2.11, Core\Notices) as exported – the trail is kept as it was. @return array<string, mixed>|null */
-    private function noticeLogRow(array $r): ?array
-    {
-        $at = (string) ($r['at'] ?? '');
-        $item = $this->ref('collection_items', $r['item_id'] ?? null);
-        if ((int) ($r['id'] ?? 0) <= 0 || $item <= 0 || !in_array($r['action'] ?? '', Notices::ACTIONS, true) || strtotime($at) === false) {
-            return null;
-        }
-        $fields = is_array($r['fields'] ?? null) ? $r['fields'] : json_decode((string) ($r['fields'] ?? ''), true);
-
-        return ['id' => (int) $r['id'], 'item_id' => $item, 'action' => (string) $r['action'], 'at' => date('Y-m-d H:i:s', (int) strtotime($at)),
-            'by' => self::text(strip_tags((string) ($r['by'] ?? '')), 100), 'fields' => (string) json_encode(is_array($fields) ? $fields : [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
-    }
-
-    private static function language(mixed $v): string
-    {
-        return is_string($v) && preg_match('/^' . Language::TAG . '$/D', $v) ? $v : '';
-    }
-
-    /** A path of an image or file: from media/, or an https:// address; anything else (javascript:…) is dropped. */
-    private static function file(mixed $v): string
-    {
-        $v = is_string($v) ? trim($v) : '';
-
-        return preg_match('#^(/?media/[^\s"\'<>]+|https://[^\s"\'<>]+)$#', $v) && !str_contains($v, '..') ? $v : '';
-    }
-
-    /** A builder build from the export: through the validator like any save; null for an empty or broken one. */
-    private function build(mixed $v): ?string
-    {
-        $build = is_array($v) ? $v : (is_string($v) && $v !== '' ? json_decode($v, true) : null);
-        if (!is_array($build)) {
-            return null;
-        }
-        // components and booking elements point at public ids in the export: now at the keys they get on this site
-        $build = json_decode(SiteExport::mapReferences('build', (string) json_encode($build), $this->mapper()), true) ?: $build;
-        [$clean] = Build::sanitize($build, true);
-
-        return Build::toJson($clean);
-    }
-
-    /** @return \Closure(string, mixed): int the reference map for SiteExport::mapReferences – a public id of the export to the new key (0 = none) */
-    private function mapper(): \Closure
-    {
-        return fn (string $table, mixed $publicId): int => $this->ref($table, $publicId);
-    }
-
-    private function category(array $r): ?array
-    {
-        $name = self::text(strip_tags((string) ($r['name'] ?? '')), 100);
-
-        return $name !== '' ? ['category_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 120),
-            'description' => self::text($r['description'] ?? '', 5000), 'weight' => (int) ($r['weight'] ?? 0), 'language' => self::language($r['language'] ?? ''),
-            'translation_of' => $this->ref('categories', $r['translation_of'] ?? null) ?: null] : null;
-    }
-
-    private function tag(array $r): ?array
-    {
-        $name = self::text(strip_tags((string) ($r['name'] ?? '')), 100);
-
-        return $name !== '' ? ['tag_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 120),
-            'description' => self::text($r['description'] ?? '', 5000), 'image' => self::file($r['image'] ?? '')] : null;
-    }
-
-    private function page(array $r): ?array
-    {
-        $title = self::text(trim(strip_tags((string) ($r['title'] ?? ''))), 200);
-        if ($title === '') {
-            return null;
-        }
-
-        return ['page_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'title' => $title, 'slug' => self::slug($r['slug'] ?? '', $title, 120), 'description' => self::text($r['description'] ?? '', 300),
-            'seo_title' => self::text($r['seo_title'] ?? '', 200), 'image' => self::file($r['image'] ?? ''), 'noindex' => (int) !empty($r['noindex']),
-            'text' => self::html($r['text'] ?? '', 4_000_000), 'visible' => (int) !empty($r['visible']), 'publish_at' => self::date($r['publish_at'] ?? null),
-            'in_menu' => (int) !empty($r['in_menu']), 'sort_order' => (int) ($r['sort_order'] ?? 0), 'updated_at' => self::date($r['updated_at'] ?? null) ?? date('Y-m-d H:i:s'),
-            'language' => self::language($r['language'] ?? ''), 'translation_of' => $this->ref('pages', $r['translation_of'] ?? null) ?: null, 'parent_id' => $this->ref('pages', $r['parent_id'] ?? null) ?: null,
-            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null)] + self::validity($r) + SeoFields::fromInput($r);
-    }
-
-    private function newsItem(array $r): ?array
-    {
-        $title = self::text(trim(strip_tags((string) ($r['title'] ?? ''))), 255);
-        if ($title === '') {
-            return null;
-        }
-        $row = ['news_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'title' => $title, 'slug' => self::slug($r['slug'] ?? '', $title, 160), 'intro' => self::html($r['intro'] ?? '', 100_000),
-            'text' => self::html($r['text'] ?? '', 4_000_000), 'image' => self::file($r['image'] ?? ''), 'image_caption' => self::text($r['image_caption'] ?? '', 300),
-            'image_author' => self::text($r['image_author'] ?? '', 120), 'category_id' => $this->ref('categories', $r['category_id'] ?? null), 'author_id' => $this->admin,
-            'published_at' => self::date($r['published_at'] ?? null) ?? date('Y-m-d H:i:s'), 'visible' => (int) !empty($r['visible']), 'keywords' => self::text($r['keywords'] ?? '', 500),
-            'seo_title' => self::text($r['seo_title'] ?? '', 255), 'seo_description' => self::text($r['seo_description'] ?? '', 320), 'noindex' => (int) !empty($r['noindex']),
-            'visit' => (int) ($r['visit'] ?? 0), 'edited_at' => self::date($r['edited_at'] ?? null), 'updated_at' => self::date($r['updated_at'] ?? null),
-            // already announced on the old site: the import sends no webhook and no IndexNow for the whole archive
-            'announced_at' => date('Y-m-d H:i:s'), 'language' => self::language($r['language'] ?? ''), 'translation_of' => $this->ref('news', $r['translation_of'] ?? null) ?: null, 'search_text' => null,
-            '_tags' => array_values(array_filter(array_map(fn (mixed $t): int => $this->ref('tags', $t), is_array($r['tags'] ?? null) ? $r['tags'] : []), fn (int $i): bool => $i > 0))] + self::validity($r) + SeoFields::fromInput($r);
-        if (is_string($r['faq'] ?? null)) {
-            $row['faq'] = self::text($r['faq'], 60_000);
-        }
-
-        return $row;
-    }
-
-    private function redirect(array $r): ?array
-    {
-        // addresses as the Redirects module stores them: the old one without the slashes around, the target a path or a URL;
-        // an empty target (or "/") is the home page, stored as '' and checked as "/" like the module does
-        // an archive from before match types (or a converted Kaleta export) has no match_type: an exact rule
-        $match = in_array($r['match_type'] ?? null, RedirectRules::MATCHES, true) ? $r['match_type'] : 'exact';
-        $type = in_array((int) ($r['type'] ?? 301), RedirectRules::TYPES, true) ? (int) ($r['type'] ?? 301) : 301;
-        $from = is_string($r['from_path'] ?? null) ? ($match === 'exact' ? trim($r['from_path'], '/ ') : $r['from_path']) : '';
-        $to = is_string($r['to_path'] ?? null) ? trim($r['to_path']) : '';
-        $home = $type < 400 && trim($to, '/') === '';
-        if ($home) {
-            $to = '';
-        }
-
-        $valid = ($match !== 'exact' || preg_match('#^[^\s/][^\s]{0,254}$#', $from))
-            && RedirectRules::validate($from, $home ? '/' : $to, $match, $type) === null
-            && is_string($r['to_path'] ?? null)
-            && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{0,255}$#i', $to);
-
-        return $valid
-            ? ['redirect_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'from_path' => $from, 'to_path' => $to, 'match_type' => $match, 'type' => $type, 'active' => empty($r['active'] ?? 1) ? 0 : 1, 'hits' => 0, 'created_at' => date('Y-m-d H:i:s'),
-                'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
-            : null;
-    }
-
-    private function sharedClass(array $r): ?array
-    {
-        $name = (string) ($r['name'] ?? '');
-        if (!preg_match(Build::CLASS_PATTERN, $name)) {
-            return null;
-        }
-        $errors = [];
-        $discarded = [];
-        $style = Style::sanitize(is_array($r['style'] ?? null) ? $r['style'] : json_decode((string) ($r['style'] ?? ''), true), $name, $errors);
-
-        return ['name' => $name, 'style' => (string) json_encode($style ?: new \stdClass(), JSON_UNESCAPED_UNICODE), 'css' => Style::customCss((string) ($r['css'] ?? ''), $discarded), 'updated_at' => date('Y-m-d H:i:s')];
-    }
-
-    private function sitePart(array $r): ?array
-    {
-        $type = (string) ($r['type'] ?? '');
-        $variant = (string) ($r['variant'] ?? '');
-        if (!isset(SiteParts::TYPES[$type]) || ($variant !== '' && !preg_match(SiteParts::VARIANT_PATTERN, $variant))) {
-            return null;
-        }
-        $pages = is_array($r['pages'] ?? null) ? $r['pages'] : json_decode((string) ($r['pages'] ?? ''), true);
-        $pages = is_array($pages) ? array_map(fn (mixed $p): int => $this->ref('pages', $p), $pages) : $pages;
-
-        return ['type' => $type, 'language' => self::language($r['language'] ?? ''), 'variant' => $variant, 'name' => self::text(strip_tags((string) ($r['name'] ?? '')), 100),
-            'pages' => is_array($pages) ? (string) json_encode(array_values(array_filter(array_map('intval', $pages), fn (int $i): bool => $i > 0))) : null,
-            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')];
-    }
-
-    private function component(array $r): ?array
-    {
-        $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
-        $properties = is_array($r['properties'] ?? null) ? $r['properties'] : json_decode((string) ($r['properties'] ?? ''), true);
-
-        return $name !== '' ? ['component_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name,
-            'properties' => (string) json_encode(Components::sanitizeProperties($properties), JSON_UNESCAPED_UNICODE),
-            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
-    }
-
-    /** A form (docs/specs/form-builder.md): its build is its one Form element, through the same validator as every build. */
-    private function formRow(array $r): ?array
-    {
-        $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 120);
-        $form = fn (?string $json): ?string => $json === null ? null : Build::toJson(\Talea\Builder\FormRecords::definitionBuild(Build::fromJson($json)));
-
-        return $name !== '' ? ['form_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'build' => $form($this->build($r['build'] ?? null)),
-            'build_draft' => $form($this->build($r['build_draft'] ?? null)), 'origin' => '', 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')] : null;
-    }
-
-    /** The key a component or section got from a fleet design kit (2.16, Fleet\Kit) – kept, so the next kit updates it instead of adding a copy. */
-    private static function kitKey(mixed $v): ?string
-    {
-        return is_string($v) && preg_match(\Talea\Fleet\Kit::KEY_PATTERN, $v) ? $v : null;
-    }
-
-    private function section(array $r): ?array
-    {
-        $element = is_array($r['element'] ?? null) ? $r['element'] : json_decode((string) ($r['element'] ?? ''), true);
-        $element = is_array($element) ? json_decode(SiteExport::mapReferences('element', (string) json_encode($element), $this->mapper()), true) : $element;
-        $build = is_array($element) ? json_decode((string) $this->build(['v' => Build::VERSION, 'children' => [$element]]), true) : null;
-        $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
-
-        return $name !== '' && isset($build['children'][0])
-            ? ['section_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'element' => (string) json_encode($build['children'][0], JSON_UNESCAPED_UNICODE), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
-    }
-
-    private function menu(array $r): ?array
-    {
-        $location = (string) ($r['location'] ?? '');
-        $items = is_array($r['items'] ?? null) ? $r['items'] : json_decode((string) ($r['items'] ?? ''), true);
-        $items = is_array($items) ? json_decode(SiteExport::mapReferences('menu', (string) json_encode($items), $this->mapper()), true) : $items;
-
-        return isset(Menu::LOCATIONS[$location]) ? ['location' => $location, 'language' => self::language($r['language'] ?? ''),
-            'items' => (string) json_encode(Menu::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'updated_at' => date('Y-m-d H:i:s')] : null;
-    }
-
-    private function collection(array $r): ?array
-    {
-        $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
-        $fields = is_array($r['fields'] ?? null) ? $r['fields'] : json_decode((string) ($r['fields'] ?? ''), true);
-
-        return $name !== '' ? ['collection_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 110),
-            'fields' => (string) json_encode(Collections::sanitizeFields($fields), JSON_UNESCAPED_UNICODE), 'detail' => (int) !empty($r['detail']),
-            'admin_menu' => (int) (!array_key_exists('admin_menu', $r) || !empty($r['admin_menu'])), // an older export has no such column: in the menu, as after the upgrade
-            'hidden_redirect' => Collections::cleanRedirect((string) ($r['hidden_redirect'] ?? '')) ?? '',
-            'preset' => \Talea\Builder\Presets::get((string) ($r['preset'] ?? '')) !== null ? (string) $r['preset'] : '',
-            'schema_org' => ($schema = \Talea\Builder\CollectionSchema::sanitize(is_array($r['schema_org'] ?? null) ? $r['schema_org'] : json_decode((string) ($r['schema_org'] ?? ''), true), Collections::sanitizeFields($fields))) === null
-                ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
-            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
-    }
-
-    private function collectionTemplate(array $r): ?array
-    {
-        return ($idk = $this->ref('collections', $r['collection_id'] ?? null)) > 0 ? ['collection_id' => $idk, 'language' => self::language($r['language'] ?? ''), 'build' => $this->build($r['build'] ?? null),
-            'build_draft' => $this->build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
-    }
-
-    private function collectionItem(array $r): ?array
-    {
-        $idk = $this->ref('collections', $r['collection_id'] ?? null);
-        $fields = $idk > 0 ? json_decode((string) $this->db->value('SELECT fields FROM {collections} WHERE collection_id = ?', [$idk]), true) : null;
-        $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 200);
-        if (!is_array($fields) || $name === '') {
-            return null; // an item without its collection
-        }
-        $data = is_array($r['data'] ?? null) ? $r['data'] : json_decode((string) ($r['data'] ?? ''), true);
-
-        return ['item_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'collection_id' => $idk, 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 160),
-            'data' => (string) json_encode(Collections::sanitizeData($fields, is_array($data) ? $data : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'sort_order' => (int) ($r['sort_order'] ?? 0), 'visible' => (int) !empty($r['visible']), 'language' => self::language($r['language'] ?? ''),
-            'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s'),
-            'seo_title' => self::text($r['seo_title'] ?? '', 200), 'description' => self::text($r['description'] ?? '', 300), 'image' => self::file($r['image'] ?? ''),
-            'noindex' => (int) !empty($r['noindex']), 'publish_at' => self::date($r['publish_at'] ?? null)] + self::validity($r) + SeoFields::fromInput($r);
-    }
-
-    /** A previous file of a document (2.11); a row whose document was not imported fails on the foreign key and is skipped. */
-    private function documentVersion(array $r): ?array
-    {
-        $file = is_string($r['file'] ?? null) ? trim($r['file']) : '';
-        $item = $this->ref('collection_items', $r['item_id'] ?? null);
-        if ($item <= 0 || preg_match(Collections::MEDIA_PATTERN, $file) !== 1 || str_contains($file, '..')) {
-            return null;
-        }
-
-        return ['item_id' => $item, 'file' => $file, 'version' => self::text(strip_tags((string) ($r['version'] ?? '')), 100),
-            'replaced_at' => self::date($r['replaced_at'] ?? null) ?? date('Y-m-d H:i:s'), 'replaced_by' => self::text(strip_tags((string) ($r['replaced_by'] ?? '')), 100)];
-    }
-
-    private function popup(array $r): ?array
-    {
-        $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
-        $address = (string) ($r['slug'] ?? '');
-        if ($name === '' || !preg_match(Popups::ADDRESS_PATTERN, $address)) {
-            return null;
-        }
-        $rules = is_array($r['rules'] ?? null) ? $r['rules'] : json_decode((string) ($r['rules'] ?? ''), true);
-        $rules = is_array($rules) ? json_decode(SiteExport::mapReferences('rules', (string) json_encode($rules), $this->mapper()), true) : $rules;
-
-        return ['popup_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'slug' => $address,
-            'type' => self::pick(Popups::TYPES, $r['type'] ?? ''), 'trigger_type' => self::pick(Popups::TRIGGERS, $r['trigger_type'] ?? ''),
-            'value' => max(0, min(100_000, (int) ($r['value'] ?? 0))), 'rules' => (string) json_encode(Popups::sanitizeRules(is_array($rules) ? $rules : []), JSON_UNESCAPED_UNICODE),
-            'frequency' => self::pick(Popups::FREQUENCIES, $r['frequency'] ?? ''),
-            'days' => max(0, min(3650, (int) ($r['days'] ?? 0))), 'active' => (int) !empty($r['active']), 'sort_order' => (int) ($r['sort_order'] ?? 0),
-            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] + self::validity($r);
-    }
-
-    private function mediaRow(array $r): ?array
-    {
-        // format 1 named the columns differently (file, width, height)
-        $file = self::file($r['image_path'] ?? ($r['file'] ?? ''));
-        if (!str_starts_with(ltrim($file, '/'), 'media/')) {
-            return null;
-        }
-        $folder = $this->ref('media_folders', $r['folder_id'] ?? null);
-
-        return ['media_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'owner_id' => $this->admin,
-            'folder_id' => $folder > 0 && $this->db->value('SELECT 1 FROM {media_folders} WHERE folder_id = ?', [$folder]) !== null ? $folder : null,
-            'name' => self::text($r['name'] ?? '', 150), 'description' => self::text($r['description'] ?? '', 500), 'author' => self::text($r['author'] ?? '', 120),
-            'image_path' => ltrim($file, '/'), 'image_width' => max(0, min(65535, (int) ($r['image_width'] ?? ($r['width'] ?? 0)))),
-            'image_height' => max(0, min(65535, (int) ($r['image_height'] ?? ($r['height'] ?? 0)))), 'image_size' => max(0, (int) ($r['image_size'] ?? 0)),
-            'thumb_path' => ltrim(self::file($r['thumb_path'] ?? ''), '/'), 'thumb_width' => max(0, min(65535, (int) ($r['thumb_width'] ?? 0))),
-            'thumb_height' => max(0, min(65535, (int) ($r['thumb_height'] ?? 0))), 'color' => is_string($r['color'] ?? null) && preg_match('/^(#[0-9a-f]{6}|-)?$/i', $r['color']) ? $r['color'] : '',
-            'focal_point' => is_string($r['focal_point'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/', $r['focal_point']) ? $r['focal_point'] : '', 'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s')];
-    }
-
     /** The public settings of the export (the same allowlist the export uses); the address of this site stays. */
     private function applySettings(string $file, string $fromVersion): void
     {
-        $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/settings.json'), true);
+        $values = json_decode((string) @file_get_contents(self::workFolder($file, $this->folder) . '/settings.json'), true);
         foreach (is_array($values) ? $values : [] as $key => $value) {
             $key = (string) $key;
             $base = (string) preg_replace('/_' . Language::TAG . '$/D', '', $key);
@@ -954,8 +692,9 @@ final class SiteImport
      */
     public function importMedia(array &$state): void
     {
+        $this->bind($state);
         $zip = new \ZipArchive();
-        $path = self::path((string) $state['file']);
+        $path = self::path((string) $state['file'], $this->folder);
         if ($path === null || $zip->open($path, \ZipArchive::RDONLY) !== true) {
             throw new \RuntimeException('The file does not exist.');
         }
@@ -969,6 +708,8 @@ final class SiteImport
             if ($target === null) {
                 continue;
             }
+            $this->mediaMap ??= $this->siteMode() ? (array) json_decode((string) @file_get_contents(self::workFolder($this->stateFileName, $this->folder) . '/media-map.json'), true) : [];
+            $target = $this->mediaMap[$target] ?? $target; // a site import: into the owner's folder, under a name that is free
             $done++;
             $full = TALEA_ROOT . '/' . $target;
             $ok = is_dir(dirname($full)) || @mkdir(dirname($full), 0775, true);
@@ -978,7 +719,7 @@ final class SiteImport
             } elseif ($ok) {
                 // streamed into the working folder: a video or a large PDF does not have to fit in memory, and the file reaches
                 // media/ only once its content is what the extension says
-                $temporary = self::workFolder((string) $state['file']) . '/media-' . bin2hex(random_bytes(6)) . '.tmp';
+                $temporary = self::workFolder((string) $state['file'], $this->folder) . '/media-' . bin2hex(random_bytes(6)) . '.tmp';
                 $in = $zip->getStream($name);
                 $out = $in === false ? false : @fopen($temporary, 'wb');
                 $ok = $in !== false && $out !== false && stream_copy_to_stream($in, $out) !== false;
@@ -1012,7 +753,9 @@ final class SiteImport
         for ($i = 0; $i < 500 && Search::complete($this->db, 200) > 0; $i++) {
             // the search index of the imported news, 200 at a time
         }
-        \Talea\Front\Cache::clear();
+        if (!$this->siteMode()) {
+            \Talea\Front\Cache::clear(); // a site import is not served yet
+        }
     }
 
     /* ---------- the import as a background job ---------- */
@@ -1103,11 +846,11 @@ final class SiteImport
     }
 
     /** Removes the working folder of a finished import (the export file itself stays). */
-    public static function cleanUp(string $file): void
+    public static function cleanUp(string $file, string $folder = WpFile::FOLDER): void
     {
-        foreach (glob(self::workFolder($file) . '/*') ?: [] as $part) {
+        foreach (glob(self::workFolder($file, $folder) . '/*') ?: [] as $part) {
             @unlink($part);
         }
-        @rmdir(self::workFolder($file));
+        @rmdir(self::workFolder($file, $folder));
     }
 }

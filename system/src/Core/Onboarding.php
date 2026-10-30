@@ -63,7 +63,9 @@ final class Onboarding
         $before = Extensions::enabled($s);
         Extensions::save($s, array_values(array_unique([...$before, ...array_filter(array_map(fn (string $f): string => self::FEATURES[$f][1], $features))])));
         // after the extensions: the footer templates offer the newsletter sign-up only while it is on
-        Looks::apply($app, $look, $palette, $fonts);
+        if (LookFamily::parent($app->db()) === null) { // a look family's child already has its parent's look
+            Looks::apply($app, $look, $palette, $fonts);
+        }
         $s->set('appearance_saved', '1');
         $pages = [];
         foreach (['about', ...array_filter(array_map(fn (string $f): string => self::FEATURES[$f][2], $features))] as $key) {

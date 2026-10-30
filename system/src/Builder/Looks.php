@@ -121,6 +121,9 @@ final class Looks
      */
     public static function apply(App $app, string $key, int $palette = 0, int $fonts = 0): bool
     {
+        if (($refusal = \Talea\Core\LookFamily::refusal($app->db())) !== null) {
+            throw new \DomainException($refusal); // a look family's child takes its look from the parent
+        }
         $look = self::get($key);
         $ds = self::variant($key, $palette, $fonts);
         if ($look === null || $ds === null) {

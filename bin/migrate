@@ -6,6 +6,7 @@
  * --if-installed: do nothing (exit 0) while the site is not installed yet - the installer creates the tables itself.
  * --backup: when migrations are pending, write a database backup first (storage/backups/, reason "before-update"): the rollback is
  *   "restore this dump and start the previous image" (docs/DEPLOYMENT.md). Nothing is written when there is nothing to apply.
+ *   The dump holds every site of the database (multisite: docs/specs/multisite.md).
  * Exit code 0 = up to date or migrated, 1 = failed. More (status, rollback, create) with `php vendor/bin/phinx` and phinx.php.
  */
 
@@ -34,9 +35,8 @@ if (!is_array($config) || !isset($config['db'])) {
 try {
     if (in_array('--backup', $argv, true)) {
         $db = \Talea\Core\Db::fromConfig($config['db']);
-        $pending = Migrator::pending($db);
-        if ($pending !== [] && $db->tableExists('settings')) {
-            echo 'Backing up the database before applying ' . count($pending) . " migration(s)...\n";
+        if (Migrator::anyPending($db) && $db->tableExists('settings')) {
+            echo "Backing up the database (every site) before applying migrations...\n";
             echo \Talea\Core\Backup::create($db, 'before-update') . "\n";
         }
     }
@@ -46,6 +46,35 @@ try {
     \Talea\Core\ErrorReport::tag('area', 'migrate');
     \Talea\Core\ErrorReport::capture($e, 'fatal', ['handled' => false]); // sent by the shutdown function, before the exit code reaches the entrypoint
     fwrite(STDERR, 'Migration failed: ' . $e->getMessage() . "\n");
+    exit(1);
+}
+
+// multisite startup guard (docs/specs/multisite.md): further sites without the flag would silently stay dark, so the start refuses;
+// with the flag on, site 1 answers to the host of its site address from the first start
+try {
+    $db = \Talea\Core\Db::fromConfig($config['db']);
+    if ($db->tableExists('owners') && !\Talea\Core\Owners::enabled() && (int) $db->value('SELECT COUNT(*) FROM {owners}') > 1) {
+        fwrite(STDERR, "This database has more than one owner, but TALEA_OWNERS (with TALEA_MULTISITE) is off. Set TALEA_MULTISITE=1 and TALEA_OWNERS=1 and start again.\n");
+        exit(1);
+    }
+    if ($db->tableExists('sites')) {
+        if (!\Talea\Core\Sites::enabled()) {
+            if ((int) $db->value("SELECT COUNT(*) FROM {sites} WHERE status <> 'trashed'") > 1) {
+                fwrite(STDERR, "This database has more than one site, but TALEA_MULTISITE is off. Set TALEA_MULTISITE=1 (or trash the further sites) and start again.\n");
+                exit(1);
+            }
+        } elseif ((int) $db->value('SELECT COUNT(*) FROM {site_domains} WHERE site_id = 1') === 0) {
+            $url = \Talea\Core\SiteUrl::fromEnvironment();
+            $host = \Talea\Core\Sites::addFirstDomain($db, $url !== '' ? $url : (string) $db->value("SELECT value FROM {settings} WHERE name = 'site_url'"));
+            if ($host !== null) {
+                echo "Site 1 answers to $host.\n";
+            } else {
+                fwrite(STDERR, "Warning: multisite is on, but site 1 has no domain and there is no site address to take it from (TALEA_SITE_URL).\n");
+            }
+        }
+    }
+} catch (Throwable $e) {
+    fwrite(STDERR, 'Multisite check failed: ' . $e->getMessage() . "\n");
     exit(1);
 }
 echo $applied === [] ? "Database is up to date.\n" : 'Applied ' . count($applied) . ' migration(s): ' . implode(', ', $applied) . "\n";

@@ -112,6 +112,9 @@ final class Auth
         // the failure counter is reset only by a completed sign-in (recordSignIn): with two-factor sign-in a correct password
         // must not wipe the wrong codes counted so far, or the per-account lock would never be reached (3.3.2, N7)
 
+        if (($noAccess = self::noAccessHere($this->db, $user)) !== null) {
+            return $noAccess; // asked after the password: it is not a way to find out which accounts exist
+        }
         $this->session->regenerate();
         if ($this->hasTwoStep($user)) {
             // the password matches, but the account has two-factor sign-in: only the code from the app, a backup code or a passkey completes it
@@ -125,6 +128,12 @@ final class Auth
         return null;
     }
 
+    /** Roles per site: why this account may not work on the site $db is connected to, or null. @param array<string, mixed> $user */
+    private static function noAccessHere(Db $db, array $user): ?string
+    {
+        return Sites::allowsHere($db, $user) ? null : t('You have no access to this site.');
+    }
+
     /**
      * The account a sign-in name points to: the one with that user name, or else the one with that e-mail address. An address
      * that several accounts share signs none of them in – the name tells them apart.
@@ -133,11 +142,12 @@ final class Auth
      */
     private function account(string $login): ?array
     {
-        $user = $this->db->one('SELECT * FROM {users} WHERE username = ?', [$login]);
+        // the row that stands for an operator (Core\Owners::operatorRow) never signs in with a password: only the handoff opens it
+        $user = $this->db->one('SELECT * FROM {users} WHERE username = ? AND operator_user_id IS NULL', [$login]);
         if ($user !== null || !str_contains($login, '@')) {
             return $user;
         }
-        $matches = $this->db->all('SELECT * FROM {users} WHERE email = ? LIMIT 2', [$login]);
+        $matches = $this->db->all('SELECT * FROM {users} WHERE email = ? AND operator_user_id IS NULL LIMIT 2', [$login]);
 
         return count($matches) === 1 ? $matches[0] : null;
     }
@@ -265,7 +275,7 @@ final class Auth
             return null;
         }
         $token = $this->db->one('SELECT * FROM {user_remember_tokens} WHERE token_hash = ? AND expires_at > NOW()', [hash('sha256', $cookie)]);
-        $user = $token === null ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$token['user_id']]);
+        $user = $token === null ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE AND operator_user_id IS NULL', [$token['user_id']]);
         if ($user === null || !hash_equals(self::passwordHash((string) $user['password']), (string) $token['fingerprint'])) {
             $this->forget();
 
@@ -301,6 +311,7 @@ final class Auth
     {
         $this->db->run('DELETE FROM {user_remember_tokens} WHERE user_id = ? AND token_hash <> ?', [$idu, self::rememberHash()]);
         $this->db->run('DELETE FROM {user_devices} WHERE user_id = ? AND token_hash <> ?', [$idu, self::deviceHash()]);
+        Owners::revokeOperator($this->db, $idu); // an operator's rows in the clients go too (their sessions in the clients with them); made again at the next handoff
     }
 
     /** Ends the "stay signed in" token of this browser and drops its cookie. */
@@ -461,7 +472,7 @@ final class Auth
         $key = $this->db->one('SELECT * FROM {user_passkeys} WHERE credential_hash = ?' . ($pending !== null ? ' AND user_id = ?' : ''),
             array_merge([hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))], $pending !== null ? [(int) $pending['user_id']] : []));
         $userId = $pending !== null ? (int) $pending['user_id'] : (int) ($key['user_id'] ?? 0);
-        $user = $userId === 0 ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$userId]);
+        $user = $userId === 0 ? null : $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE AND operator_user_id IS NULL', [$userId]);
         // no lock check: a passkey assertion cannot be guessed, so it opens a locked account (as first step or as second factor);
         // everything else about it is still verified below, and wrong ones still count
         try {
@@ -496,6 +507,28 @@ final class Auth
         $this->db->update('users', ['failed_logins' => 0, 'locked_until' => null, 'last_login_at' => date('Y-m-d H:i:s')], ['user_id' => $idu]);
     }
 
+    /**
+     * The sign-in of an administrator who came from another site of the owner with a handoff token (Core\Sites::claimHandoff): the
+     * second site trusts the first one's sign-in, so no password and no second step is asked. A blocked account or one that is not an
+     * administrator is refused. A new session id, as for every sign-in.
+     */
+    public function signInFromHandoff(int $userId): bool
+    {
+        $user = $this->db->one('SELECT user_id, password, operator_user_id FROM {users} WHERE user_id = ? AND blocked = FALSE AND admin = ?', [$userId, self::ADMIN]);
+        $fingerprint = ($user['operator_user_id'] ?? null) === null ? null : Owners::operatorFingerprint($this->db, (int) $user['operator_user_id']);
+        if ($user === null || (($user['operator_user_id'] ?? null) !== null && $fingerprint === null)) {
+            return false;
+        }
+        $this->session->regenerate();
+        $this->recordSignIn($userId);
+        $this->startSignIn($userId, (string) $user['password']);
+        if ($fingerprint !== null) {
+            $this->session->set('operator_fp', $fingerprint); // checked on every request (sessionUser)
+        }
+
+        return true;
+    }
+
     public function logout(): void
     {
         $this->forget();
@@ -508,6 +541,9 @@ final class Auth
     {
         if ($this->user === false) {
             $this->user = $this->sessionUser() ?? $this->restoreSignIn();
+            if ($this->user !== null && !Sites::allowsHere($this->db, $this->user)) {
+                $this->user = null; // roles per site: a person who may not work on this site is signed out here
+            }
         }
 
         return $this->user;
@@ -524,6 +560,14 @@ final class Auth
         $user = is_int($id) ? $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = FALSE', [$id]) : null;
         if ($user === null) {
             return null;
+        }
+        if (($user['operator_user_id'] ?? null) !== null) {
+            // an operator's row lives only as long as the operator is an unblocked administrator of owner 1 AND keeps the password the
+            // session was opened with: a new password of the operator ends it
+            $fingerprint = Owners::operatorFingerprint($this->db, (int) $user['operator_user_id']);
+            if ($fingerprint === null || !hash_equals($fingerprint, (string) $this->session->get('operator_fp', ''))) {
+                return null;
+            }
         }
         $hash = $this->session->get('fingerprint');
         if ($hash === null) {

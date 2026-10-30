@@ -26,7 +26,7 @@ use Talea\Builder\HtmlConverter;
 final class Tools
 {
     use BuildTargets;
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\MemberTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ExperimentTools, Handlers\ReportTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\MemberTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ExperimentTools, Handlers\ReportTools, Handlers\SiteTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -46,8 +46,8 @@ final class Tools
     /** @return list<array<string, mixed>> tool definitions for tools/list: the tools of switched-off extensions are left out */
     public function listAll(): array
     {
-        return [...array_values(array_filter(self::definitions(), fn (array $n): bool => ($extension = Catalog::extension($n['name'])) === ''
-            || \Talea\Core\Extensions::isEnabled($this->app->settings(), $extension))), ...\Talea\Extension\Registry::get()->toolDefinitions()];
+        return [...array_values(array_filter(self::definitions(), fn (array $n): bool => (($extension = Catalog::extension($n['name'])) === ''
+            || \Talea\Core\Extensions::isEnabled($this->app->settings(), $extension)) && (!in_array($n['name'], Catalog::SITE_TOOLS, true) || \Talea\Core\Sites::enabled()))), ...\Talea\Extension\Registry::get()->toolDefinitions()];
     }
 
     /**
@@ -197,7 +197,7 @@ final class Tools
             ['list_components', 'Components of the site: a reusable block with properties (name, button text…) placed on pages with the component element. Edit the build with the *_build tools and the component parameter.', $s([])],
             ['save_component', 'Creates a component (without id – it starts with an empty section) or renames it and changes its properties (administrators). Properties: [{"key":"title","label":"Title","type":"text","default":"…"}].',
                 $s(['id' => $pid('component ID – only when changing it'), 'name' => $text('component name'),
-                    'properties' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the whole list of properties: key, label, type (text | lines | html | image | link | choice), default; a choice needs "options": ["…", "…"] and its default is one of them']])],
+                    'properties' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the whole list of properties: key, label, type (text | lines | html | image | link | choice), default; a choice needs "options": ["…", "…"] and its default is one of them'], 'shared' => ['type' => 'boolean', 'description' => 'several sites only: true = every site of the owner uses the component (a change shows on all of them), false = this site only (default for a new one)']])],
             ['delete_component', 'Deletes a component for good (administrators; only when the username explicitly asks). Places where it is used become empty.', $s(['id' => $pid('component ID')], ['id'])],
             ['list_forms', 'Forms of the site (Enquiries → Forms): each form is defined once – its fields, logic and e-mails in the build of the form (one element of type form, edited with the *_build tools and the form parameter) – and placed on pages with a form_embed element {"type":"form_embed","content":{"form":"<form id>","thank_you_page":"","button_text":"","widths":{"<field key>":3}}} (widths in columns of six: 2, 3, 4; none = full width). A form element written inside a page becomes such a form when the page is published.', $s([])],
             ['create_form', 'Creates a form (it starts as a draft from a starter: enquiry | download | empty) and returns its id and the element that places it. Change its fields with get_build / edit_build and form: <id>, then publish_build with form – a page shows only a published form.',
@@ -292,7 +292,7 @@ final class Tools
                 $s(['language' => $text('language version, e.g. de (optional; its own values where it has them)')])],
             ['save_fact', 'Creates or changes a business fact (people with access to Business details, 2.10). Types: text | number | money (1500 CZK) | date (YYYY-MM-DD) | year | phone | email | url. Optionally a schema.org property of the company (foundingDate, numberOfEmployees, priceRange, slogan, award, areaServed, knowsLanguage, founder). With language: the value for that language version. Returns the sentences that still state the old value as plain text.',
                 $s(['key' => $text('a-z, digits, _ – the token is {{fact.key}}'), 'label' => $text('name, e.g. Founded'), 'type' => $text('text (default) | number | money | date | year | phone | email | url'), 'value' => $text('the value'),
-                    'schema_property' => $text('optional schema.org property'), 'source' => $text('where the value comes from (not shown on the site)'), 'language' => $text('only the value of a language version (optional)')], ['key', 'value'])],
+                    'schema_property' => $text('optional schema.org property'), 'source' => $text('where the value comes from (not shown on the site)'), 'language' => $text('only the value of a language version (optional)'), 'shared' => ['type' => 'boolean', 'description' => 'several sites only: true = the fact is the same on every site of the owner, false = this site only (default for a new one)']], ['key', 'value'])],
             ['delete_fact', 'Deletes a business fact (people with access to Business details, only on the user\'s explicit request). Content that still uses its token shows nothing there – the answer lists those places.',
                 $s(['key' => $text('fact key')], ['key'])],
             ['find_claims', 'The claims inventory (read-only, 2.10): without text, sentences across pages, news, items, site parts, pop-ups and components that state years, numbers, percentages or amounts as plain text – candidates for facts. With text, every sentence that states that text (e.g. an old value).',
@@ -391,7 +391,7 @@ final class Tools
                     'links' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the drafts you made: [{"label": "Services – draft build", "url": "https://…/preview…"}] or plain strings (a URL, or a label such as "page About us")']], ['id', 'status', 'summary'])],
         ];
 
-        return array_values(array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], $tools));
+        return array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], [...$tools, ...self::siteDefinitions($s, $text, $pid)]);
     }
 
     /** @return list<string> names of all tools (including those of disabled extensions) */

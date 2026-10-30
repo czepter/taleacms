@@ -46,6 +46,9 @@ trait SettingsTools
         $errors = [];
         foreach ($changes as $key => $value) {
             $key = (string) $key;
+            if ($key === 'dark_mode' && ($lock = \Talea\Core\LookFamily::refusal($db, false)) !== null && (string) $value !== $siteSettings->get('dark_mode')) {
+                throw new \DomainException($lock); // handed down by the parent of a look family
+            }
             if ($key === 'extensions' || $key === 'additional_languages') {
                 // lists (2.2): extensions switched on, further language versions of the site
                 $list = array_values(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : explode(',', (string) $value))));
@@ -92,7 +95,7 @@ trait SettingsTools
                     // as in Appearance
                     $ok = \Talea\Core\Images::icons(TALEA_ROOT . '/' . $path);
                 } elseif ($key === 'favicon') {
-                    array_map(fn (int $n): bool => @unlink(TALEA_ROOT . '/media/icon-' . $n . '.png'), \Talea\Core\Images::ICON_SIZES);
+                    array_map(fn (int $n): bool => @unlink(TALEA_ROOT . '/' . \Talea\Core\MediaFolder::icon($n)), \Talea\Core\Images::ICON_SIZES);
                 }
                 if (!$ok) {
                     $errors[$key] = 'A path to a file from Media (media/…) or from the system (image/…); an icon must be convertible to PNG.';
@@ -117,7 +120,7 @@ trait SettingsTools
                 // access only, and never while the server sets it (TALEA_SITE_URL, Core\SiteUrl)
                 $url = is_string($value) ? rtrim(trim($value), '/') : '';
                 $refusal = match (true) {
-                    \Talea\Core\SiteUrl::fromEnvironment() !== '' => 'The server sets the site address (TALEA_SITE_URL) and applies it when the site starts: change it in the hosting and restart the site.',
+                    \Talea\Core\SiteUrl::locked($this->app->db()) => 'The server sets the site address (TALEA_SITE_URL) and applies it when the site starts: change it in the hosting and restart the site.',
                     ($auth->connection()['access'] ?? 'full') !== 'full' => 'The site address can be changed only by a connection with full access.',
                     \Talea\Admin\Modules\Settings::verifyValue($key, $url) === null => 'An address like https://example.com – the scheme and the host, no path.',
                     default => null,

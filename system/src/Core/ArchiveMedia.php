@@ -71,6 +71,48 @@ final class ArchiveMedia
     }
 
     /**
+     * Where the files of an archive land in a media folder that already holds other files (a new site of an owner, Core\SiteImport):
+     * in $dir, with the archive's own owner folder, if it had one, left out. A file whose name is taken (on disk or in the media table, $taken)
+     * keeps its folder but gets $suffix after its stem, with all its variants (a-1.jpg, a-1-1200.jpg, a-1.webp), so they stay together and
+     * the content can follow by name. Never overwrites, never reuses.
+     *
+     * @param list<string> $targets paths as path() gives them
+     * @param callable(string): bool $taken is a file or media row at this path?
+     * @return array<string, string> archive path => path in $dir
+     */
+    public static function intoFolder(array $targets, string $dir, callable $taken, string $suffix): array
+    {
+        $relative = fn (string $path): string => (string) preg_replace('#^media/' . MediaFolder::OWNER . '#', '', $path);
+        $groups = [];
+        foreach ($targets as $path) {
+            $groups[self::stem($relative($path))][] = $path;
+        }
+        $map = [];
+        foreach ($groups as $stem => $paths) {
+            $clash = false;
+            foreach ($paths as $path) {
+                $clash = $clash || $taken($dir . '/' . $relative($path));
+            }
+            foreach ($paths as $path) {
+                $rest = $relative($path);
+                $map[$path] = $dir . '/' . ($clash ? $stem . '-' . $suffix . substr($rest, strlen($stem)) : $rest);
+            }
+        }
+
+        return $map;
+    }
+
+    /** "2026/10/a-ab12cd-1200.jpg" => "2026/10/a-ab12cd": the folder and the name without variant and extensions. */
+    private static function stem(string $relative): string
+    {
+        $base = basename($relative);
+        $dot = strpos($base, '.');
+        $name = (string) preg_replace('/-(?:1200|nahled)$/D', '', $dot === false ? $base : substr($base, 0, $dot));
+
+        return (dirname($relative) === '.' ? '' : dirname($relative) . '/') . $name;
+    }
+
+    /**
      * Is the file what its extension says? An image must be a raster image (JPG, PNG, GIF, WebP, AVIF or ICO), any other
      * file must not be HTML, PHP, a script, SVG or a program (Files::forbiddenContent, as for an upload). SVG is cleaned
      * by Svg::sanitize instead.

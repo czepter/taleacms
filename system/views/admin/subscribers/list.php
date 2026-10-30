@@ -10,12 +10,29 @@
  * @var int $pageNumber
  * @var string $service connected mailing service (empty = none)
  * @var array{pending: ?string, failed: ?string} $queue
+ * @var array<int, array<string, mixed>> $sites the sites of an "all sites" list by number (empty = this site only)
+ * @var ?string $sitesFilter the "this site / all sites" select, null with one site
  */
 use Talea\Core\Newsletter;
 
 $admin = $app->auth()->isAdmin();
+$all = $sites !== [];
+$here = array_filter(['sites' => $all ? 'all' : '']); // kept by the search and the pages
+// an address on another site is handled there: its chip opens that site's list (the handoff signs the administrator in)
+$chip = function (int $siteId, int $status) use ($sites, $app, $csrf): string {
+    $s = $sites[$siteId] ?? null;
+    if ($s === null) {
+        return '';
+    }
+    $label = bdi($s['name']) . ' · ' . e((int) $status === 1 ? t('confirmed') : t('awaiting confirmation'));
+    if ($s['current'] || !$s['can_open']) {
+        return '<span class="tag">' . $label . '</span> ';
+    }
+
+    return '<form class="inline" method="post" action="' . e($app->url('admin.php?module=sites&action=handoff')) . '">' . $csrf . '<input type="hidden" name="id" value="' . e($s['public_id']) . '"><input type="hidden" name="to" value="module=subscribers"><button class="navigation" type="submit" title="' . e(t('Open on %s', $s['name'])) . '">' . $label . '</button></form> ';
+};
 echo $app->view->render('admin/list/head', ['count' => (string) $total,
-    'secondary' => $confirmed > 0 ? '<a class="navigation" href="' . e($module->url('csv')) . '">' . e(t('Export confirmed (CSV)')) . ' · ' . $confirmed . '</a>' : '']);
+    'secondary' => $confirmed > 0 && !$all ? '<a class="navigation" href="' . e($module->url('csv')) . '">' . e(t('Export confirmed (CSV)')) . ' · ' . $confirmed . '</a>' : '']);
 ?>
 <p class="small-text"><?= e(t('Addresses from the Newsletter sign-up element. Only people who confirmed by the link in the e-mail count as subscribers. Send them news under Newsletters, or with your own tool – the export includes the unsubscribe link.')) ?></p>
 <?php if ($service !== ''): ?>
@@ -31,10 +48,23 @@ echo $app->view->render('admin/list/head', ['count' => (string) $total,
 <?php elseif ($admin): ?>
 <p class="small-text"><?= e(t('Using Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing? Once connected in Features, the site sends confirmed subscribers straight to your list.')) ?> <a href="<?= e($app->url('admin.php?module=extensions#newsletter')) ?>"><?= e(t('Connect a service')) ?></a></p>
 <?php endif ?>
-<?= $app->view->render('admin/list/toolbar', ['tabs' => [], 'tabsLabel' => '', 'action' => $app->url('admin.php'), 'hidden' => ['module' => 'subscribers'],
+<?= $app->view->render('admin/list/toolbar', ['tabs' => [], 'tabsLabel' => '', 'action' => $app->url('admin.php'), 'hidden' => ['module' => 'subscribers'] + $here, 'filters' => $sitesFilter ?? '',
     'search' => ['name' => 'search', 'value' => $search, 'placeholder' => t('Search e-mail'), 'label' => t('Search e-mail')]]) ?>
 <?php if ($subscribers === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'newsletter_signup', 'heading' => t($search !== '' ? 'Nothing found.' : 'No subscribers yet.'), 'text' => t('Put the Newsletter sign-up element on the website – for example in the footer.')]) ?>
+<?php elseif ($all): ?>
+<div class="tab-wrap"><table class="listing">
+<thead><tr><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Sites')) ?></th><th scope="col"><?= e(t('Subscribed')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($subscribers as $o): ?>
+<tr data-subscriber-sites>
+	<td class="cell-main"><span class="cell-title"><?= bdi($o['email']) ?></span></td>
+	<td><?php foreach ($o['sites'] as $siteId => $status) { echo $chip((int) $siteId, (int) $status); } ?></td>
+	<td class="cell-weak"><?= e(format_ago($o['last'])) ?></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table></div>
 <?php else: ?>
 <div class="tab-wrap"><table class="listing">
 <thead><tr><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Status')) ?></th><?php if ($service !== ''): ?><th scope="col"><?= e(t('Service')) ?></th><?php endif ?><th scope="col"><?= e(t('Subscribed')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
@@ -61,8 +91,8 @@ echo $app->view->render('admin/list/head', ['count' => (string) $total,
 </table></div>
 <?php if ($total > 100): ?>
 <p class="navigation-row">
-<?php if ($pageNumber > 1): ?><a class="navigation" href="<?= e($module->url('', ['search' => $search, 'page' => $pageNumber - 1])) ?>"><?= e(t('Previous')) ?></a><?php endif ?>
-<?php if ($pageNumber * 100 < $total): ?><a class="navigation" href="<?= e($module->url('', ['search' => $search, 'page' => $pageNumber + 1])) ?>"><?= e(t('Next')) ?></a><?php endif ?>
+<?php if ($pageNumber > 1): ?><a class="navigation" href="<?= e($module->url('', ['search' => $search, 'page' => $pageNumber - 1] + $here)) ?>"><?= e(t('Previous')) ?></a><?php endif ?>
+<?php if ($pageNumber * 100 < $total): ?><a class="navigation" href="<?= e($module->url('', ['search' => $search, 'page' => $pageNumber + 1] + $here)) ?>"><?= e(t('Next')) ?></a><?php endif ?>
 </p>
 <?php endif ?>
 <?php endif ?>

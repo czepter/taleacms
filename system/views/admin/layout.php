@@ -115,6 +115,15 @@ $userName = $username['name'] ?: $username['username'];
 		<button class="palette-start" type="button" data-palette title="<?= e(t('Quick search and commands')) ?> (Ctrl K)" aria-label="<?= e(t('Quick search and commands')) ?>"><?= $icon('b-search') ?></button>
 		<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	</div>
+<?php if (isset($modules['sites']) && ($switcher = Talea\Admin\Modules\Sites::switcher($app)) !== null): // multisite: the site you work on and the way to the others ?>
+	<details class="site-switcher">
+		<summary><?= bdi($switcher['current']) ?></summary>
+<?php foreach ($switcher['others'] as $other): ?>
+		<form method="post" action="<?= e($app->url('admin.php?module=sites&action=handoff')) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="id" value="<?= e($other['public_id']) ?>"><button type="submit"><?= bdi($other['name']) ?></button></form>
+<?php endforeach ?>
+		<a href="<?= e($app->url('admin.php?module=sites')) ?>"><?= e(t('All sites')) ?></a>
+	</details>
+<?php endif ?>
 	<nav class="menu-wrap" aria-label="<?= e(t('Main menu')) ?>">
 <?php if (($sidebar ?? '') !== ''): ?>
 	<?= $sidebar ?>

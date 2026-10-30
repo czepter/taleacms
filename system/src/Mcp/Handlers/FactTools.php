@@ -6,6 +6,7 @@ namespace Talea\Mcp\Handlers;
 
 use Talea\Core\Facts;
 use Talea\Core\Language;
+use Talea\Core\Sites;
 
 /**
  * MCP tools for business facts (2.10, Core\Facts): the facts, saving them, and the claims inventory – sentences that
@@ -24,7 +25,7 @@ trait FactTools
         return [
             'facts' => array_values(array_map(fn (array $f): array => ['key' => $f['key'], 'label' => $f['label'], 'type' => $f['type'], 'value' => $f['value'], 'shown_as' => $f['display'],
                 'schema_property' => $f['schema'] !== '' ? $f['schema'] : null, 'source' => $f['source'] !== '' ? $f['source'] : null, 'from_settings' => $f['builtIn'],
-                'used_in' => $usage[$f['key']] ?? 0], Facts::all($this->app, $language))),
+                'used_in' => $usage[$f['key']] ?? 0] + (Sites::enabled() ? ['shared' => $f['shared']] : []), Facts::all($this->app, $language))),
             'token' => '{{fact.<key>}} in texts, buttons, links (tel:{{fact.company_phone}}) and the number of a counter; the site fills it in for visitors.',
             'computed' => ['tokens' => array_map(fn (array $c): array => ['token' => $c['token'], 'shows_now' => $c['value'] !== '' ? $c['value'] : null, 'about' => $c['about']], Facts::computedExamples($this->app)),
                 'note' => 'Computed when a page is shown, so they never go stale: {{years_since:<year|YYYY-MM-DD|fact.key>}} = full years since; {{count:<collection address>}} = visible items of the collection, {{count:news}} = published news. A wrong argument shows nothing and site_audit (kind fact) reports it.'],
@@ -44,7 +45,7 @@ trait FactTools
         $before = Facts::all($this->app)[$key] ?? null;
         $data = array_filter(['label' => $a['label'] ?? null, 'type' => $a['type'] ?? null, 'value' => isset($a['value']) ? (string) $a['value'] : null,
             'schema' => $a['schema_property'] ?? null, 'source' => $a['source'] ?? null], fn (mixed $v): bool => $v !== null);
-        $error = Facts::save($this->app, $key, $data, $language);
+        $error = Facts::save($this->app, $key, $data, $language, Sites::enabled() && isset($a['shared']) ? (bool) $a['shared'] : null);
         if ($error !== null) {
             throw new \DomainException($error);
         }

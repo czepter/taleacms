@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Builder;
 
 use Talea\Core\Db;
+use Talea\Core\Sites;
 
 /**
  * Components – reusable blocks of the builder (table tl_components). Inside a component there are {{properties}} – the same
@@ -21,13 +22,13 @@ final class Components
     /** @return list<array<string, mixed>> */
     public static function all(Db $db): array
     {
-        return array_map(self::extract(...), $db->all('SELECT * FROM {components} ORDER BY name'));
+        return array_map(self::extract(...), $db->all('SELECT * FROM {components} WHERE ' . Sites::visible($db) . ' ORDER BY name'));
     }
 
     /** @return array<string, mixed>|null */
     public static function byId(Db $db, int $idm): ?array
     {
-        $r = $db->one('SELECT * FROM {components} WHERE component_id = ?', [$idm]);
+        $r = $db->one('SELECT * FROM {components} WHERE component_id = ? AND ' . Sites::visible($db), [$idm]); // another site's own component is not found
 
         return $r === null ? null : self::extract($r);
     }
@@ -40,7 +41,7 @@ final class Components
     public static function builds(Db $db): array
     {
         $builds = [];
-        foreach ($db->all('SELECT component_id, build, build_draft FROM {components}') as $r) {
+        foreach ($db->all('SELECT component_id, build, build_draft FROM {components} WHERE ' . Sites::visible($db)) as $r) {
             $build = Build::fromJson($r['build'] ?? $r['build_draft']);
             if ($build !== null) {
                 $builds[(int) $r['component_id']] = $build;
@@ -48,6 +49,47 @@ final class Components
         }
 
         return $builds;
+    }
+
+    /**
+     * Adds a component: its own to the current site, or with $shared one every site of the owner can use (site_id NULL).
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function create(Db $db, array $data, bool $shared = false): int
+    {
+        return $db->insert('components', $data + ['site_id' => $shared ? null : Sites::currentId($db)]);
+    }
+
+    /** Whether a component (a row of all()/byId()) is shared with every site. @param array<string, mixed> $component */
+    public static function isShared(array $component): bool
+    {
+        return ($component['site_id'] ?? null) === null;
+    }
+
+    /**
+     * Shares a component with every site of the owner. One way: other sites may already use it, so it is not made private again
+     * (delete it to take it away). The caller has found the row with byId(), so it is one this site sees.
+     */
+    public static function share(Db $db, int $idm): void
+    {
+        $db->update('components', ['site_id' => null], ['component_id' => $idm]);
+    }
+
+    /**
+     * Why a build may not be in a shared component, or null: forms belong to one site (their records, enquiries and recipients are
+     * that site's), so a Form or form_embed element in a component every site uses would point at rows the other sites do not have.
+     * The texts are for t(); the MCP handlers say them in English.
+     */
+    public static function formRefusal(?string ...$builds): ?string
+    {
+        foreach ($builds as $json) {
+            if ($json !== null && preg_match('/"type":"(?:' . Elements\Form::TYPE . '|' . Elements\FormEmbed::TYPE . ')"/', $json) === 1) {
+                return 'A shared component cannot contain a form – forms belong to one site. Keep the component for this site only, or put the form on the page.';
+            }
+        }
+
+        return null;
     }
 
     private static function extract(array $r): array

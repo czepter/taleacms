@@ -184,6 +184,18 @@ final class Catalog
         'propose_booking_times' => ['write', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
+        // The owner's sites (multisite, only with TALEA_MULTISITE and for administrators): Handlers\SiteTools
+        'list_owner_sites' => ['read', ''],
+        'create_site' => ['write', ''],
+        'update_site' => ['write', ''],
+        'set_look_parent' => ['write', ''],
+        'transfer_site' => ['destructive', ''],
+        'trash_site' => ['destructive', ''],
+        'restore_site' => ['write', ''],
+        'add_site_domain' => ['write', ''],
+        'check_site_domain' => ['write', ''],
+        'update_site_domain' => ['write', ''],
+        'remove_site_domain' => ['destructive', ''],
         // Requests to Claude (2.15): update_request changes nothing on the site – a note and a status on a request, whose
         // work is done as drafts – so a drafts-only connection may answer the requests it works on
         'list_requests' => ['read', ''],
@@ -212,13 +224,19 @@ final class Catalog
      * Tools that reach outside the site (an upload from an address, an import, the migration report that fetches the old
      * site) – the MCP openWorldHint, and a reason for run_destructive_tool.
      */
-    public const array OPEN_WORLD = ['upload_file', 'upload_files', 'replace_media', 'import_website', 'migration_report'];
+    public const array OPEN_WORLD = ['upload_file', 'upload_files', 'replace_media', 'import_website', 'migration_report', 'check_site_domain'];
 
     /**
      * Writes that send something to a person (an e-mail to a customer or a test newsletter): the runner treats them like a
      * destructive tool – nothing can take a sent e-mail back – although their access is "write" (update_request: draft, but status done e-mails the requester).
      */
     public const array SENDS = ['send_test_newsletter', 'request_testimonial', 'confirm_booking', 'propose_booking_times', 'update_request'];
+
+    /**
+     * The tools of the owner's sites: listed and callable only with TALEA_MULTISITE (Core\Sites::enabled()), like the tools of an
+     * extension that is off. They work on the registry of sites, so they take no `site` argument.
+     */
+    public const array SITE_TOOLS = ['list_owner_sites', 'create_site', 'update_site', 'set_look_parent', 'transfer_site', 'trash_site', 'restore_site', 'add_site_domain', 'check_site_domain', 'update_site_domain', 'remove_site_domain'];
 
     /** How a connection lists its tools: "all" (as before) or "essentials" (ESSENTIALS, find_tools and the runners it needs). */
     public const array TOOL_SETS = ['all', 'essentials'];
