@@ -60,6 +60,8 @@ final class ShortLinksTest extends DatabaseTestCase
 
         $this->assertIsString(ShortLinks::save($app, ['target_type' => 'page', 'target_id' => 999999]));
         $this->assertIsString(ShortLinks::save($app, ['target_type' => 'url', 'target_url' => 'javascript:alert(1)']));
+        $this->assertIsString(ShortLinks::save($app, ['target_type' => 'url', 'target_url' => '/javascript:alert(1)']), 'the slash does not hide a scheme');
+        $this->assertIsString(ShortLinks::save($app, ['target_type' => 'url', 'target_url' => '/https://evil.example']), 'nor an external address');
 
         ShortLinks::delete($app, (int) $row['short_link_id']);
         $this->assertNull($app->db()->one('SELECT 1 FROM {short_links} WHERE short_link_id = ?', [$row['short_link_id']]));

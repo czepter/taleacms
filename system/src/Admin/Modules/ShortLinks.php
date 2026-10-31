@@ -30,12 +30,6 @@ final class ShortLinks extends Module
     /** content type => its table; the picker value is "<type>:<public id>" */
     private const array TABLES = ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items'];
 
-    /** The printed address, with the site's origin (what the copy button hands over and the QR code holds). */
-    public static function address(App $app, string $path): string
-    {
-        return $app->request->origin() . $app->request->basePath() . '/' . $path;
-    }
-
     /** The "Short link" links of an edit screen of content (type page | news | item): create one for it, and the list of its links. HTML, '' when not available. */
     public static function entryLinks(App $app, string $type, string $publicId): string
     {
@@ -95,7 +89,7 @@ final class ShortLinks extends Module
         $links = array_map(fn (array $row): array => $row + [
             'label_target' => $this->targetLabel($row),
             'is_public' => \Talea\Core\ShortLinks::targetUrl($app, $row) !== null,
-            'address' => self::address($app, $row['path']),
+            'address' => \Talea\Core\ShortLinks::address($app, $row['path']),
         ], $rows);
 
         return $this->view('list', 'Short links', ['links' => $links, 'filtered' => $target !== null]);
@@ -132,12 +126,17 @@ final class ShortLinks extends Module
         $content = $this->parseTarget($p->post('target'));
         $input += $content !== null ? ['target_type' => $content[0], 'target_id' => $content[1]] : ['target_type' => $p->post('target') === 'url' ? 'url' : ''];
         $input['name'] = $p->post('kind') === 'name' ? ltrim(mb_strtolower(trim($p->post('name'))), '/') : '';
-
-        $saved = \Talea\Core\ShortLinks::save($this->app, $input, $this->idParam('short_link_id'));
-        if (is_string($saved)) {
-            return $this->back(t($saved), '', $form, 'error');
+        if (!$editing && $p->post('kind') === 'name' && $input['name'] === '') {
+            return $this->back('Enter the short address, or choose a random one.', '', $form, 'error');
         }
-        ChangeLog::write($this->app, 'short_links', 'save', '/' . $saved['path'] . ' → ' . $this->targetLabel($saved));
+
+        $id = $this->idParam('short_link_id');
+        $previous = $id > 0 ? $this->db->one('SELECT * FROM {short_links} WHERE short_link_id = ?', [$id]) : null;
+        $saved = \Talea\Core\ShortLinks::save($this->app, $input, $id);
+        if (is_string($saved)) {
+            return $this->back($saved, '', $form, 'error');
+        }
+        ChangeLog::write($this->app, 'short_links', 'save', '/' . $saved['path'] . ': ' . ($previous !== null ? $this->targetLabel($previous) . ' → ' : '') . $this->targetLabel($saved));
 
         return $this->back('Short link saved.');
     }

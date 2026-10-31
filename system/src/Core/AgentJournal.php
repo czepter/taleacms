@@ -35,7 +35,10 @@ final class AgentJournal
     public const array TABLES = ['settings', 'categories', 'news', 'news_revisions', 'news_drafts', 'news_tags', 'tags', 'media', 'media_folders',
         'media_usage', 'pages', 'page_revisions', 'site_parts', 'build_revisions', 'classes', 'redirects', 'collections', 'collection_items', 'collection_templates',
         'document_versions', 'menus', 'sections', 'popups', 'components', 'newsletters', 'look_versions', 'facts', 'fact_history', 'hours_exceptions', 'blueprints',
-        'social_drafts', 'notebook', 'requests', 'request_messages', 'draft_comments'];
+        'social_drafts', 'notebook', 'requests', 'request_messages', 'draft_comments', 'short_links'];
+
+    /** Counters that move on their own (a visitor follows a short link): undo neither counts them as a change nor takes them back. */
+    private const array VOLATILE = ['short_links' => ['hits', 'last_hit_at']];
 
     /** Tables with visitors' personal data: never journaled; rows an older release journaled are redacted by forget(). */
     public const array PERSONAL_TABLES = ['enquiries', 'testimonial_requests', 'bookings', 'subscribers', 'mail', 'subscription_queue', 'newsletter_queue'];
@@ -234,7 +237,8 @@ final class AgentJournal
                 $db = $row['prefix'] === '' ? $host->forSite($host->ownerPrefix) : $host->forSite($row['prefix']);
                 $current = $db->one('SELECT * FROM {' . $row['table'] . '} WHERE ' . self::condition($db, array_keys($row['key'])), array_values($row['key']));
                 $expected = $row['after'] !== null ? json_decode((string) $row['after'], true) : null;
-                if (!$force && !self::same($current, $expected)) {
+                $volatile = array_flip(self::VOLATILE[$row['table']] ?? []);
+                if (!$force && !self::same($current === null ? null : array_diff_key($current, $volatile), $expected === null ? null : array_diff_key($expected, $volatile))) {
                     $pk = Db::PRIMARY_KEYS[$row['table']] ?? null; // a row of a public-id table is named by its public id, never by the integer key
                     $result['conflicts'][] = ['table' => $row['table'], 'key' => $pk !== null && count($row['key']) === 1 && isset($row['key'][$pk]) ? $db->publicId($row['table'], (int) $row['key'][$pk]) : $row['key']];
 
@@ -248,7 +252,7 @@ final class AgentJournal
 
                     continue;
                 }
-                $before = (array) json_decode((string) $row['before'], true);
+                $before = array_intersect_key($current ?? [], $volatile) + (array) json_decode((string) $row['before'], true);
                 $columns = array_keys($before);
                 $db->upsert($row['table'], $before, $db->primaryKey($row['table']));
                 $result['restored']++;

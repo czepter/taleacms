@@ -59,9 +59,11 @@ final class ShortLinksTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertStringContainsString('noindex', $r->headers['x-robots-tag'] ?? '');
         $r = $visitor->get('/FLYER');
         $this->assertSame([302, $site->base . '/aboutus?utm_source=flyer&utm_medium=print'], [$r->status, $r->redirect], 'typed from paper');
+        $r = $visitor->get('/S/K7F2QM');
+        $this->assertSame([302, 'https://example.org/x'], [$r->status, $r->redirect], 'the code typed with a capital s and capitals');
         $r = $visitor->get('/s/k7f2qm');
         $this->assertSame([302, 'https://example.org/x'], [$r->status, $r->redirect]);
-        $this->assertSame([2, 1], [$this->hits('flyer'), $this->hits('s/k7f2qm')]);
+        $this->assertSame([2, 2], [$this->hits('flyer'), $this->hits('s/k7f2qm')]);
         $this->assertNotNull($site->value('SELECT last_hit_at FROM tl_short_links WHERE path = ?', ['flyer']));
 
         $this->assertNotSame(302, $visitor->post('/flyer', [])->status, 'GET and HEAD only');

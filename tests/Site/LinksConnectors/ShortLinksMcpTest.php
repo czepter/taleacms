@@ -57,6 +57,37 @@ final class ShortLinksMcpTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertSame(1, $this->rowCount());
     }
 
+    public function testUndoBringsBackADeletedAndRetargetedLinkDespiteNewHits(): void
+    {
+        $site = $this->site();
+        $visitor = $site->client('visitor');
+        foreach (['gone-link', 'moved-link'] as $name) {
+            $site->exec("INSERT INTO tl_short_links (public_id, path, target_type, target_url, created_at) VALUES (?, ?, 'url', 'https://example.org/old', ?)", [\Talea\Core\Uuid::v4(), $name, date('Y-m-d H:i:s')]);
+        }
+        $ids = array_column($site->mcpResult('list_short_links')['short_links'], 'id', 'path');
+        $site->exec("UPDATE tl_agent_sessions SET last_at = '2000-01-01 00:00:00'"); // the calls below form a session of their own
+
+        $site->mcpResult('delete_short_link', ['id' => $ids['gone-link']]);
+        $site->mcpResult('save_short_link', ['id' => $ids['moved-link'], 'target' => ['type' => 'url', 'url' => 'https://example.org/new']]);
+        $this->assertNotSame(302, $visitor->get('/gone-link')->status);
+        $this->assertSame('https://example.org/new', $visitor->get('/moved-link')->redirect, 'a visitor follows the link after the change: its counter moved');
+
+        $text = $site->mcpText('undo_agent_session', ['id' => (int) $site->value('SELECT MAX(id) FROM tl_agent_sessions'), 'confirm' => true]);
+        $this->assertStringContainsString('"conflicts":[]', $text, 'a moved counter is no conflict');
+        $this->assertSame([302, 'https://example.org/old'], [$visitor->get('/gone-link')->status, $visitor->get('/gone-link')->redirect], 'the deleted link answers again');
+        $this->assertSame('https://example.org/old', $visitor->get('/moved-link')->redirect, 'the retarget is taken back');
+        $this->assertSame(2, (int) $site->value("SELECT hits FROM tl_short_links WHERE path = 'moved-link'"), 'the counter keeps what visitors made of it');
+    }
+
+    public function testCreatePageRefusalNamesTheShortLink(): void
+    {
+        $site = $this->site();
+        $site->mcpResult('save_short_link', ['name' => 'taken-by-link', 'target' => ['type' => 'url', 'url' => 'https://example.org']]);
+        $r = $site->mcp('create_page', ['title' => 'Taken by link', 'slug' => 'taken-by-link']);
+        $this->assertTrue($r['result']['isError'] ?? false);
+        $this->assertStringContainsString('short link', (string) ($r['result']['content'][0]['text'] ?? ''));
+    }
+
     public function testRefusals(): void
     {
         $site = $this->site();

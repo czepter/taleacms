@@ -258,7 +258,7 @@ final class WebImport
         $seo = WpImport::availableSlug(
             slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['title'], 110),
             fn (string $url): bool => in_array($url, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null,
+                || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null || ShortLinks::takesName($this->db, $url),
         );
         $build = $this->build($page['title'], $page['content']);
 

@@ -44,6 +44,10 @@ final class ShortLinksExportAuditTest extends \Talea\Tests\Site\Support\SiteTest
         $page = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'aboutus'");
         self::$ids = ['page' => $site->publicId('pages', $page), 'flyer' => $this->link('flyer', 'page', $page, 'flyer'),
             'code' => $this->link('s/k7f2qm', 'url', 'https://example.org/x'), 'gone' => $this->link('gone', 'page', $page + 9000)];
+        $this->assertStringContainsString('"id"', $site->mcpText('create_page', ['title' => 'Oldpage', 'slug' => 'oldpage', 'visible' => true]));
+        $old = (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'oldpage'");
+        self::$ids['old'] = $this->link('old', 'page', $old);
+        $site->exec('UPDATE tl_pages SET deleted_at = NOW() WHERE page_id = ?', [$old]);
 
         $site->admin()->post('/admin.php?module=transfer&action=export', ['_csrf' => $site->csrf()]);
         preg_match_all('/export-[0-9]*-[0-9]*\.zip/', $site->admin()->get('/admin.php?module=transfer')->body, $m);
@@ -86,7 +90,7 @@ final class ShortLinksExportAuditTest extends \Talea\Tests\Site\Support\SiteTest
         $this->assertStringContainsString('The site has been imported', (string) $result?->body);
 
         $paths = array_column($new->rows('SELECT path, public_id FROM tl_short_links ORDER BY path'), 'public_id', 'path');
-        $this->assertSame(['flyer' => self::$ids['flyer'], 's/k7f2qm' => self::$ids['code']], $paths, 'public ids and paths are kept; the link to missing content is skipped');
+        $this->assertSame(['flyer' => self::$ids['flyer'], 'gone' => self::$ids['gone'], 'old' => self::$ids['old'], 's/k7f2qm' => self::$ids['code']], $paths, 'public ids and paths are kept; a link to trashed or purged content is kept too');
         $this->assertSame(
             (string) $new->internalId('pages', self::$ids['page']),
             (string) $new->value("SELECT target_id FROM tl_short_links WHERE path = 'flyer'"),
@@ -94,13 +98,17 @@ final class ShortLinksExportAuditTest extends \Talea\Tests\Site\Support\SiteTest
         );
         $r = $new->client()->get('/flyer');
         $this->assertSame([302, $new->base . '/aboutus?utm_source=flyer'], [$r->status, $r->redirect], 'the imported short link works');
+        foreach (['gone', 'old'] as $path) {
+            $r = $new->client()->get('/' . $path);
+            $this->assertSame([302, $new->base . '/'], [$r->status, $r->redirect], 'a link whose content cannot be reached leads to the home page');
+        }
     }
 
     #[Depends('testExportCarriesContentTargetsAsPublicIds')]
     public function testAuditFlagsALinkWhoseTargetIsGone(): void
     {
         $site = $this->site();
-        $site->exec("DELETE FROM tl_short_links WHERE path = 'gone'");
+        $site->exec("DELETE FROM tl_short_links WHERE path IN ('gone', 'old')");
         $this->assertArrayNotHasKey('short_link', (array) json_decode($site->mcpText('site_audit'), true)['by_kind']);
         $site->exec("UPDATE tl_pages SET deleted_at = NOW() WHERE slug = 'aboutus'");
         $text = $site->mcpText('site_audit');

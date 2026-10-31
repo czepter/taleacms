@@ -106,7 +106,7 @@ trait ShortLinkTools
 
         return [
             'id' => (int) $row['short_link_id'],
-            'url' => $this->app->request->origin() . $this->app->request->basePath() . '/' . $row['path'],
+            'url' => ShortLinks::address($this->app, (string) $row['path']),
             'path' => (string) $row['path'],
             'label' => (string) $row['label'],
             'target' => $row['target_type'] === 'url' ? ['type' => 'url', 'url' => (string) $row['target_url']] : ['type' => (string) $row['target_type'], 'id' => (int) $row['target_id']],

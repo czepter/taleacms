@@ -559,7 +559,7 @@ final class Privacy
 
             return $id;
         }
-        $slug = Slug::makeUnique(slugify($statement['title']), fn (string $u): bool => $db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$u]) !== null);
+        $slug = Slug::makeUnique(slugify($statement['title']), fn (string $u): bool => $db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$u]) !== null || ShortLinks::takesName($db, $u));
         $id = $db->insert('pages', $record + ['slug' => $slug, 'visible' => 0, 'in_menu' => 1, 'sort_order' => 90]);
         $s->set('accessibility_statement_page', (string) $id);
         \Talea\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created: ' . $statement['title']);

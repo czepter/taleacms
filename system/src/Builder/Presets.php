@@ -184,7 +184,7 @@ final class Presets
     private static function createListPage(App $app, array $preset, string $key, string $name, string $pageSeo, string $collectionSeo, array $fields): ?int
     {
         $db = $app->db();
-        if ($db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$pageSeo]) !== null) {
+        if ($db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$pageSeo]) !== null || \Talea\Core\ShortLinks::takesName($db, $pageSeo)) {
             return null;
         }
         $build = self::listPage($preset, $name, $collectionSeo, $fields);

@@ -111,9 +111,10 @@ final class ShortLinks
      * The validated columns of a short link (target, campaign fields, label), or the English refusal. The one rule set of the admin, MCP and the import.
      *
      * @param array<string, mixed> $input target_type, target_id (the row id), target_url, the UTM keys, label
+     * @param bool $keepMissing the import: a content target that cannot be mapped is kept as NULL (the link then leads home and is flagged) instead of refused
      * @return array<string, mixed>|string
      */
-    public static function clean(Db $db, array $input): array|string
+    public static function clean(Db $db, array $input, bool $keepMissing = false): array|string
     {
         $type = (string) ($input['target_type'] ?? '');
         if (!in_array($type, self::TYPES, true)) {
@@ -127,7 +128,9 @@ final class ShortLinks
             }
         } else {
             $data['target_id'] = (int) ($input['target_id'] ?? 0);
-            if (!self::contentExists($db, $type, $data['target_id'])) {
+            if ($keepMissing) {
+                $data['target_id'] = $data['target_id'] > 0 ? $data['target_id'] : null;
+            } elseif (!self::contentExists($db, $type, $data['target_id'])) {
                 return 'The chosen content does not exist.';
             }
         }
@@ -183,10 +186,16 @@ final class ShortLinks
         $app->db()->delete('short_links', ['short_link_id' => $id]);
     }
 
-    /** The QR code of the printed address (the plain path, so a trailing-slash setting never changes what is printed). */
+    /** The printed address with the site's origin (what the copy button hands over and the QR code holds); the plain path, so a trailing-slash setting never changes it. */
+    public static function address(App $app, string $path): string
+    {
+        return $app->request->origin() . $app->request->basePath() . '/' . $path;
+    }
+
+    /** The QR code of the printed address. */
     public static function qrSvg(App $app, string $path): string
     {
-        $address = $app->request->origin() . $app->request->basePath() . '/' . $path;
+        $address = self::address($app, $path);
 
         return Qr::svg($address, $address);
     }
@@ -243,11 +252,12 @@ final class ShortLinks
         if (preg_match('#^https?://[^/?\#]+#i', $url) === 1) {
             return $url;
         }
-        // no scheme (javascript:, data:, mailto:) and no protocol-relative //host
-        if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $url) === 1 || str_starts_with($url, '//')) {
+        // a site path: the leading slash goes first, then no scheme is left (javascript:, data:, mailto:, /https://x) and no protocol-relative //host
+        $path = ltrim($url, '/');
+        if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $path) === 1 || str_starts_with($url, '//')) {
             return null;
         }
 
-        return ltrim($url, '/');
+        return $path;
     }
 }

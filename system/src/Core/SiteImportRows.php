@@ -294,13 +294,13 @@ trait SiteImportRows
             : null;
     }
 
-    /** A short link: the same rules as the admin (ShortLinks::clean), the content target back to this site's row id; no target or a taken path = skipped. */
+    /** A short link: the same rules as the admin (ShortLinks::clean), the content target back to this site's row id (one that cannot be mapped stays NULL: the link leads home); a taken path = skipped. */
     private function shortLink(array $r): ?array
     {
         $path = is_string($r['path'] ?? null) ? $r['path'] : '';
         $table = ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items'][$r['target_type'] ?? ''] ?? null;
         $clean = $path !== '' && ShortLinks::pathError($this->db, $path) === null
-            ? ShortLinks::clean($this->db, ['target_id' => $table === null ? 0 : $this->ref($table, $r['target_id'] ?? null)] + $r)
+            ? ShortLinks::clean($this->db, ['target_id' => $table === null ? 0 : $this->ref($table, $r['target_id'] ?? null)] + $r, true)
             : null;
 
         return is_array($clean)

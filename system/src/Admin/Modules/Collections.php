@@ -112,8 +112,11 @@ final class Collections extends Module
             return $this->back('The collection needs a name.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
         }
         $seo = slugify($r->post('slug') !== '' ? $r->post('slug') : $name, 110);
-        if (in_array($seo, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->db) || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $id]) !== null || \Talea\Core\ShortLinks::takesName($this->db, $seo)) {
+        if (in_array($seo, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->db) || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $id]) !== null) {
             return $this->back(t('The address “%s” is already used by the system or another collection.', $seo), $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
+        }
+        if (\Talea\Core\ShortLinks::takesName($this->db, $seo)) {
+            return $this->back(t('The address “%s” is used by a short link, choose another or delete the short link.', $seo), $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
         }
         // the fields in the order of their position (admin.js renumbers it after a drag); a ticked "remove" drops one;
         // Earlier / Later without a script (move = "<index>:-1|1") swaps it with its neighbour and comes back to the form
