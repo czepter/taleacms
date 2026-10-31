@@ -95,7 +95,9 @@ final class PublicIdsExportTest extends SiteTestCase
             [json_encode([['type' => 'page', 'page_id' => $child, 'text' => '', 'new_window' => false, 'children' => []]])]);
         $site->exec("INSERT INTO tl_tags (name, slug) VALUES ('Ids tag', 'ids-tag')");
         $site->exec('INSERT INTO tl_news_tags (news_id, tag_id) SELECT MIN(news_id), (SELECT tag_id FROM tl_tags WHERE slug = ?) FROM tl_news', ['ids-tag']);
+        $site->exec("INSERT INTO tl_media_folders (name) VALUES ('Ids child')"); // the child comes first in the file: the import links the tree in a second pass
         $site->exec("INSERT INTO tl_media_folders (name) VALUES ('Ids folder')");
+        $site->exec("UPDATE tl_media_folders SET parent_id = (SELECT folder_id FROM (SELECT folder_id FROM tl_media_folders WHERE name = 'Ids folder') p) WHERE name = 'Ids child'");
         $site->exec("UPDATE tl_media SET folder_id = (SELECT folder_id FROM tl_media_folders WHERE name = 'Ids folder') WHERE media_id = (SELECT media_id FROM (SELECT MIN(media_id) AS media_id FROM tl_media) m)");
         $site->exec("UPDATE tl_pages SET translation_of = NULL WHERE page_id = ?", [$child]);
 
@@ -165,6 +167,7 @@ final class PublicIdsExportTest extends SiteTestCase
         $this->assertSame('news,enquiries,redirects,page_check,bookings', $new->settingValue('extensions'), 'the features as they were: Statistics, switched off, stays off');
         $this->assertSame('1', (string) $new->value('SELECT COUNT(*) FROM tl_news_tags nt JOIN tl_tags t ON t.tag_id = nt.tag_id WHERE t.slug = ?', ['ids-tag']), 'a tag link of a news item is kept');
         $this->assertSame('1', (string) $new->value("SELECT COUNT(*) FROM tl_media m JOIN tl_media_folders f ON f.folder_id = m.folder_id WHERE f.name = 'Ids folder'"), 'a media folder relation is kept');
+        $this->assertSame('Ids folder', $new->value("SELECT p.name FROM tl_media_folders c JOIN tl_media_folders p ON p.folder_id = c.parent_id WHERE c.name = 'Ids child'"), 'a media folder keeps its parent through export and import');
         $this->assertSame('1', (string) $new->value('SELECT COUNT(*) FROM tl_booking_staff_services'), 'the person and the service stay linked');
         $this->assertSame([['service_id' => null, 'weekday' => 1], ['service_id' => $new->internalId('booking_services', self::$ids['service']), 'weekday' => 6]],
             array_map(fn (array $r): array => ['service_id' => $r['service_id'] === null ? null : (int) $r['service_id'], 'weekday' => (int) $r['weekday']], $new->rows('SELECT service_id, weekday FROM tl_booking_hours ORDER BY weekday')),

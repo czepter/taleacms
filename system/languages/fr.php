@@ -258,7 +258,6 @@ return [
     'Craftsmanship' => 'Savoir-faire',
     'Craftsmanship you can rely on' => 'Un savoir-faire sur lequel vous pouvez compter',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Créez d’abord une collection Agences (Collections → Nouvelles agences), ou choisissez une collection dans le panneau Contenu.',
-    'Crop focal point' => 'Point focal du recadrage',
     'Cup' => 'Tasse',
     'Customer' => 'Client',
     'Customer reviews' => 'Avis clients',

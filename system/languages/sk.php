@@ -255,7 +255,6 @@ return [
     'Craftsmanship' => 'Remeslo',
     'Craftsmanship you can rely on' => 'Remeslo, na ktoré sa môžete spoľahnúť',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Najprv vytvorte kolekciu Pobočky (Kolekcie → Nové pobočky), alebo vyberte kolekciu v paneli Obsah.',
-    'Crop focal point' => 'Ohnisko orezu',
     'Cup' => 'Šálka',
     'Customer' => 'Zákazník',
     'Customer reviews' => 'Hodnotenia zákazníkov',

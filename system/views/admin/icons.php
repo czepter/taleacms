@@ -88,6 +88,8 @@ $paths = [
     'down' => '<path d="m6 9 6 6 6-6"/>',
     'reply' => '<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v4"/>',
     'flag' => '<path d="M5 21V4"/><path d="M5 4h12l-2.500 4.500L17 13H5"/>',
+    'grid' => '<rect x="4" y="4" width="7" height="7" rx="1.500"/><rect x="13" y="4" width="7" height="7" rx="1.500"/><rect x="4" y="13" width="7" height="7" rx="1.500"/><rect x="13" y="13" width="7" height="7" rx="1.500"/>',
+    'list' => '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>',
     'layers' => '<path d="M12 2 3 7l9 5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
 ];
 

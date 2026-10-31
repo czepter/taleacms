@@ -12,7 +12,10 @@ namespace Talea\Core;
  */
 final class Files
 {
-    public const array FILE_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'txt', 'csv', 'zip', 'epub', 'gpx', 'ics', 'mp3', 'm4a', 'ogg', 'wav', 'mp4', 'webm', 'woff2', 'woff'];
+    /** The kinds of the Media type filter (Admin\Modules\Media): attachments by extension; every other attachment is a document. */
+    public const array AUDIO_EXTENSIONS = ['mp3', 'm4a', 'ogg', 'wav'];
+    public const array VIDEO_EXTENSIONS = ['mp4', 'webm'];
+    public const array FILE_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'txt', 'csv', 'zip', 'epub', 'gpx', 'ics', ...self::AUDIO_EXTENSIONS, ...self::VIDEO_EXTENSIONS, 'woff2', 'woff'];
     private const int MAX_BYTES = 200 * 1024 * 1024;
     private const string FORBIDDEN_TYPES = '#html|php|javascript|svg|x-sh|x-dosexec|x-executable|x-mach|x-msdownload#i';
 

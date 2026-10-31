@@ -268,7 +268,6 @@ return [
     'Craftsmanship' => 'Szakértelem',
     'Craftsmanship you can rely on' => 'Szakértelem, amelyre számíthat',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Először hozzon létre egy Telephelyek gyűjteményt (Gyűjtemények → Új telephelyek), vagy válasszon gyűjteményt a Tartalom panelen.',
-    'Crop focal point' => 'Fókuszpont a vágáshoz',
     'Cup' => 'Bögre',
     'Customer' => 'Ügyfél',
     'Customer reviews' => 'Ügyfélvélemények',

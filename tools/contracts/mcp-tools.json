@@ -1441,6 +1441,20 @@
             "openWorldHint": false
         }
     },
+    "move_media_folder": {
+        "parameters": {
+            "id": "string",
+            "parent": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "preview_link": {
         "parameters": {
             "collection": "string",
@@ -1931,7 +1945,8 @@
     "save_media_folder": {
         "parameters": {
             "id": "string",
-            "name": "string"
+            "name": "string",
+            "parent": "string"
         },
         "required": [
             "name"
