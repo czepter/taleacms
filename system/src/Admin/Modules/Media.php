@@ -179,14 +179,22 @@ final class Media extends Module
         return $this->back(t('The file is public: %s', $file['image_path']), '', ['waiting' => 1]);
     }
 
-    /** JSON list for the image picker dialog in the editor; the same filters as in the list. */
+    /**
+     * JSON list for the image picker dialog in the editor (image/picker.js): the same filters as in the list (`folder`, `recent`,
+     * `search`, `article`, `page`; 60 files per page) and the folder tree, depth first, with the public id of each folder and of its parent.
+     */
     protected function actionListing(): Response
     {
         [$where, $params] = $this->filter(false);
+        $all = \Talea\Core\MediaFolders::all($this->db);
+        $publicIds = array_column($all, 'public_id', 'folder_id');
 
         return Response::json([
             'images' => array_map($this->toJson(...), $this->load($where, $params, (max(1, $this->request->getInt('page', 1)) - 1) * 60, 60)),
-            'folders' => array_map(fn (array $s): array => ['id' => $s['public_id'], 'name' => $s['name']], \Talea\Core\MediaFolders::all($this->db)),
+            'folders' => array_map(fn (array $f): array => [
+                'id' => $f['public_id'], 'name' => $f['name'], 'parent' => $f['parent_id'] === null ? null : ($publicIds[$f['parent_id']] ?? null),
+                'depth' => $f['depth'], 'count' => $f['count'],
+            ], \Talea\Core\MediaFolders::tree($all)),
         ]);
     }
 
@@ -831,7 +839,10 @@ final class Media extends Module
             'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'],
             // attachment for download (PDF, document, audio…): without a thumbnail, inserted into the text as a link
             'file' => $o['thumb_path'] === '', 'extension' => strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION)), 'size' => \Talea\Core\Files::size((int) ($o['image_size'] ?? 0)),
-        ];
+            'created' => (string) ($o['created_at'] ?? ''),
+            // may the person change this file's description (the owner or an administrator): the picker saves a typed description to Media only then
+            'editable' => $this->app->auth()->isAdmin() || (int) ($o['owner_id'] ?? $this->app->auth()->id()) === $this->app->auth()->id(),
+        ] + (isset($o['used_at']) ? ['used' => (int) $o['used_at']] : []); // used: the places that use the file – only the list knows it
     }
 
     /**
