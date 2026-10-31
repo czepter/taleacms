@@ -118,8 +118,8 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 		<option value="<?= e($s['public_id']) ?>"><?= e($s['name']) ?></option>
 <?php endforeach ?>
 	</select>
-	<button class="navigation" type="submit" name="bulk" value="presun"><?= e(t('Move to folder')) ?></button>
-	<button class="navigation danger" type="submit" name="bulk" value="smaz" data-confirm="<?= e(t('Really delete the selected files? Files the site still uses are skipped.')) ?>"><?= e(t('Delete')) ?></button>
+	<button class="navigation" type="submit" name="bulk" value="move"><?= e(t('Move to folder')) ?></button>
+	<button class="navigation danger" type="submit" name="bulk" value="delete" data-confirm="<?= e(t('Really delete the selected files? Files the site still uses are skipped.')) ?>"><?= e(t('Delete')) ?></button>
 </p>
 </form>
 

@@ -414,7 +414,11 @@ final class Media extends Module
             return $this->back();
         }
         $backTo = $this->request->post('back') === 'cleanup' ? 'cleanup' : '';
-        $move = $this->request->post('bulk') === 'move';
+        $action = $this->request->post('bulk');
+        if ($action !== 'move' && $action !== 'delete') {
+            return $this->back(); // an unknown action must never fall through to deleting
+        }
+        $move = $action === 'move';
         $target = $this->idParam('to_folder', 'media_folders') ?: null;
         $count = 0;
         $skipped = 0;

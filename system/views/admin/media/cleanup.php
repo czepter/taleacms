@@ -76,7 +76,7 @@ $deletable = 0;
 <?php if ($deletable > 0): ?>
 <form id="cleanup" class="media-bulk" method="post" action="<?= e($module->url('bulk')) ?>" data-confirm="<?= e(t('Delete the selected files for good? Media has no trash. Files the site still uses are skipped.')) ?>">
 	<?= $csrf ?>
-	<input type="hidden" name="bulk" value="smaz">
+	<input type="hidden" name="bulk" value="delete">
 	<input type="hidden" name="back" value="cleanup">
 	<button class="navigation danger" type="submit"><?= e(t('Delete selected files')) ?></button>
 </form>

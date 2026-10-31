@@ -56,6 +56,22 @@ final class ContentHygieneTest extends SiteTestCase
         $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM tl_change_log WHERE module = 'media' AND action = 'deleted'"), 'clean-up: the change is logged');
     }
 
+    public function testBulkMoveKeepsFilesAndAnUnknownActionDeletesNothing(): void
+    {
+        $id = $this->upload('bulk-move-f16.png');
+        $media = $this->site()->publicId('media', $id);
+        $folder = (string) $this->site()->mcpResult('save_media_folder', ['name' => 'Bulk move'])['id'];
+        $this->assertPage('/admin.php?module=media', 200, 'name="bulk" value="move"', message: 'media list: the Move button sends "move"');
+        $this->assertPage('/admin.php?module=media', 200, 'name="bulk" value="delete"', message: 'media list: the Delete button sends "delete"');
+
+        $this->adminPost('/admin.php?module=media&action=bulk', ['bulk' => 'smaz', 'selected' => [$media]], formPage: '/admin.php?module=media');
+        $this->adminPost('/admin.php?module=media&action=bulk', ['selected' => [$media]], formPage: '/admin.php?module=media');
+        $this->assertSame('1', (string) $this->site()->value('SELECT COUNT(*) FROM tl_media WHERE media_id = ?', [$id]), 'bulk: an unknown or missing action deletes nothing');
+
+        $this->adminPost('/admin.php?module=media&action=bulk', ['bulk' => 'move', 'to_folder' => $folder, 'selected' => [$media]], formPage: '/admin.php?module=media');
+        $this->assertSame('1|' . $this->site()->internalId('media_folders', $folder), $this->site()->value('SELECT COUNT(*) FROM tl_media WHERE media_id = ?', [$id]) . '|' . $this->site()->value('SELECT folder_id FROM tl_media WHERE media_id = ?', [$id]), 'bulk: Move keeps the file and sets its folder');
+    }
+
     public function testAltTextsOverMcpAndInBulk(): void
     {
         $this->site()->setting('additional_languages', 'de'); // the German version (section 5 switched it on)
