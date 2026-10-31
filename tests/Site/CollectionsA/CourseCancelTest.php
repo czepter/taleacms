@@ -18,7 +18,7 @@ final class CourseCancelTest extends SiteTestCase
         $visitor = $this->visitor();
         $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         $page = $visitor->get('/courses-test/' . $slug);
-        sleep(4); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
+        sleep(1); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
         $visitor->post('/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/' . $slug,
             'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => $name, 'p1' => $email, 'p3' => '1', 'seats' => $seats]);
     }

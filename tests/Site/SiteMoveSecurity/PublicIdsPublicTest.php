@@ -100,7 +100,7 @@ final class PublicIdsPublicTest extends SiteTestCase
         $site->setting('webhook_test_url', 'http://127.0.0.1:' . $site->freePort()); // nothing listens: the call fails and its body stays in the log
         $html = $site->client()->get('/contact')->body;
         $field = fn (string $name): string => preg_match('/name="' . $name . '" value="([^"]*)"/', $html, $m) === 1 ? html_entity_decode($m[1]) : '';
-        sleep(2); // the form asks for a moment between loading and sending
+        sleep(1); // the form asks for a moment between loading and sending
         $site->client()->post('/form', ['source' => $field('source'), 'element' => $field('element'), 'back' => '/contact', 'as_time' => $field('as_time'), 'as_signature' => $field('as_signature'),
             'p0' => 'Jane', 'p1' => 'jane@example.org', 'p2' => '', 'p3' => 'Hello', 'p4' => '1']);
         $body = (string) $site->value("SELECT body FROM tl_webhook_deliveries WHERE event = 'enquiry_received' ORDER BY id DESC LIMIT 1");

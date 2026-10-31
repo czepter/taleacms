@@ -19,7 +19,7 @@ final class CourseRegistrationTest extends SiteTestCase
         $visitor = $this->visitor();
         $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         $page = $drawn ?? $visitor->get('/courses-test/' . $slug);
-        sleep($drawn === null ? 4 : 0); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
+        sleep($drawn === null ? 1 : 0); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
 
         return $visitor->post('/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/' . $slug,
             'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Anna', 'p1' => $email, 'p3' => '1'] + $extra)->redirect;
@@ -99,7 +99,7 @@ final class CourseRegistrationTest extends SiteTestCase
     public function testListOffShowsFull(): void
     {
         $stale = $this->visitor()->get('/courses-test/tango'); // drawn while there is a seat; the second visitor sends it after the seat went
-        sleep(4);
+        sleep(1);
         $this->assertStringContainsString('result=registered', $this->register('tango', 'cara@example.com', ['seats' => '5'], $stale));
         $this->assertSame('1', $this->sq("SELECT seats FROM tl_enquiries WHERE email = 'cara@example.com'"), 'the count is clamped to the capacity');
         $this->assertStringContainsString('result=full', $this->register('tango', 'dan@example.com', [], $stale));
@@ -278,7 +278,7 @@ final class CourseRegistrationTest extends SiteTestCase
         $visitor = $this->visitor();
         $page = $visitor->get('/de/courses-test/rumba');
         $this->assertSame(200, $page->status);
-        sleep(4);
+        sleep(1);
         $redirect = $visitor->post('/de/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/de/courses-test/rumba',
             'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Gerda', 'p1' => 'gerda@example.com', 'p3' => '1'])->redirect;
         $this->assertStringContainsString('result=', $redirect);

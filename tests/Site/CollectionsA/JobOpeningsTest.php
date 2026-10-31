@@ -95,7 +95,7 @@ final class JobOpeningsTest extends SiteTestCase
         $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         $cv = $this->site()->workDir('cv') . '/cv.pdf';
         file_put_contents($cv, "%PDF-1.4 test CV\n");
-        sleep(4); // the antispam minimum time, as the old script waited
+        sleep(1); // the antispam minimum time, as the old script waited
         $response = $this->visitor()->upload('/form', [
             'source' => self::$source, 'element' => self::$element, 'back' => '/job-openings/carpenter', 'as_time' => self::$time, 'as_signature' => self::$signature,
             'p0' => 'John', 'p1' => 'jan@example.cz', 'p2' => '', 'p4' => 'I am applying.', 'p5' => '1', 'p6' => '<b>Carpenter</b>',

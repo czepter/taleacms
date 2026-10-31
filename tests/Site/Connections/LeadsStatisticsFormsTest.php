@@ -169,7 +169,7 @@ PHP);
     public function testEnquiryOriginAndStatisticsOverMcpAndAdmin(): void
     {
         $site = $this->site();
-        sleep(4); // the form must have been open a few seconds (anti-spam time signature)
+        sleep(1); // the form must have been open a few seconds (anti-spam time signature)
         $this->submitForm(['p0' => ['Bathroom'], 'p2' => 'petr@example.cz', 'tl_landing' => '/services', 'tl_campaign' => 'utm_source=google&utm_medium=cpc&utm_campaign=kitchen', 'tl_referrer' => 'google.com']);
         $this->assertSame('/services|google.com|utm_source=google&utm_medium=cpc&utm_campaign=kitchen', $site->value("SELECT CONCAT(landing_page, '|', referrer, '|', campaign) FROM tl_enquiries WHERE email = 'petr@example.cz'"),
             'an enquiry carries the first page, the campaign and the referring site of the visit');
@@ -298,7 +298,7 @@ PHP);
         $form = $this->loadForm();
         $this->assertStringContainsString('class="tl-captcha cf-turnstile" data-sitekey="test-site"', $form->body, 'CAPTCHA: the Turnstile widget in the form');
         $this->assertSame(1, substr_count($form->body, 'challenges.cloudflare.com/turnstile/v0/api.js'), 'CAPTCHA: its script once');
-        sleep(4);
+        sleep(1);
         $this->assertStringContainsString('result=captcha', $this->captchaPost('fail@example.cz', ['cf-turnstile-response' => 'wrong']), 'CAPTCHA: a failed check is refused');
         $this->assertStringContainsString('result=captcha', $this->captchaPost('none@example.cz'), 'CAPTCHA: a form without the answer is refused');
         $this->captchaPost('pass@example.cz', ['cf-turnstile-response' => 'pass']);
@@ -309,7 +309,7 @@ PHP);
         $form = $this->loadForm();
         $this->assertStringContainsString('name="g-recaptcha-response" value="" data-recaptcha="test-site"', $form->body, 'reCAPTCHA v3 field');
         $this->assertStringContainsString('recaptcha/api.js?render=test-site', $form->body, 'reCAPTCHA v3 script');
-        sleep(4);
+        sleep(1);
         $this->assertStringContainsString('result=captcha', $this->captchaPost('low@example.cz', ['g-recaptcha-response' => 'low']), 'reCAPTCHA v3: a low score is refused');
 
         self::stopCaptcha();

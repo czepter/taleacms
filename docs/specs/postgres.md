@@ -2,7 +2,7 @@
 
 Status: the product's SQL is portable: `php tools/sql-dialect-scan.php` finds no MySQL-only line outside `Core\Dialect\MySql` (run it locally before you
 commit to keep it at zero; CI does not run it). The same code runs on MySQL 8 and PostgreSQL 18; the installer, the whole site suite, the integration and the unit suites run on both
-(`composer test:pg` for the integration suite, `TALEA_TEST_DB_DRIVER=pgsql vendor/bin/paratest --testsuite site` for the sites). Section 5 lists what the conversion
+(CI runs MySQL only; the release tag runs PostgreSQL and SQLite, release.yml job `engines`. `composer test:pg` for the integration suite, `TALEA_TEST_DB_DRIVER=pgsql vendor/bin/paratest --testsuite site` for the sites). Section 5 lists what the conversion
 decided and found; section 6 what is left.
 
 ## 1. What the scan found

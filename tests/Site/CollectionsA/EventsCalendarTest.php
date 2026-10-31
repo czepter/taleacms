@@ -85,7 +85,7 @@ final class EventsCalendarTest extends SiteTestCase
         $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         $page = $visitor->get('/events-test/yoga');
         $fields = ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/events-test/yoga', 'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Eva', 'p4' => '1'];
-        sleep(4); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam), as the old script waited
+        sleep(1); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam), as the old script waited
         $register = static fn (string $email): string => $visitor->post('/form', $fields + ['p1' => $email])->redirect;
 
         $this->assertStringContainsString('result=ok', $register('eva@example.cz'), 'a registration is accepted');

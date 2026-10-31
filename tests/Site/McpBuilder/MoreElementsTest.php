@@ -51,7 +51,7 @@ final class MoreElementsTest extends SiteTestCase
         preg_match('/name="as_signature" value="([^"]*)"/', $form, $signature);
         preg_match('/name="as_time" value="([^"]*)"/', $form, $time);
 
-        sleep(5); // the form refuses a submit faster than its minimum time (data-wait="4")
+        sleep(1); // the form refuses a submit faster than its minimum time (data-wait="1" under TALEA_ANTISPAM_MIN)
         $answer = $this->visitor()->post('/subscribe', ['email' => 'Subscriber@Example.com', 'back' => '/z-html', 'anchor' => 'x', 'as_signature' => $signature[1] ?? '', 'as_time' => $time[1] ?? '', 'website' => '']);
         $this->assertSame(303, $answer->status, 'signing up for the newsletter redirects');
         $this->assertStringEndsWith('/z-html?subscription=ok#x', $answer->redirect, 'signing up for the newsletter');

@@ -26,7 +26,7 @@ final class MessagesTest extends SiteTestCase
         $visitor = $this->site()->client('visitor');
         $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         $page = $visitor->get('/courses-test/salsa');
-        sleep(4); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
+        sleep(1); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
 
         return $visitor->post('/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/salsa',
             'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Anna', 'p1' => $email, 'p3' => '1'])->redirect;

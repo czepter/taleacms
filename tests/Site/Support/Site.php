@@ -63,17 +63,18 @@ final class Site
         $this->pdo = TestDatabase::connect($this->database);
 
         $this->copyProject($project);
-        $this->ports = ['captcha' => $this->freePort(), 'fake' => $this->freePort()];
-        $fake = $this->startPhp($project . '/tools', 'fake-services.php', [], $this->ports['fake']);
-        $this->port = $this->freePort();
-        $this->base = 'http://127.0.0.1:' . $this->port;
+        $this->ports = ['captcha' => $this->freePort()];
+        $fake = $this->ports['fake'] = $this->startPhp($project . '/tools', 'fake-services.php');
         if ($template !== null) {
             $this->cloneTemplate($template);
         }
-        $this->startPhp($this->root, 'system/dev-router.php', [
+        // the port is chosen by startPhp() right before it binds (and chosen again when another process was quicker): choosing it
+        // earlier left the time of the table clone for a parallel worker to take it ("Address already in use")
+        $this->port = $this->startPhp($this->root, 'system/dev-router.php', [
             'TALEA_CAPTCHA_VERIFY' => 'http://127.0.0.1:' . $this->ports['captcha'] . '/', 'TALEA_CONNECTORS_FAKE' => 'http://127.0.0.1:' . $fake,
             'TALEA_AI_URL' => 'http://127.0.0.1:' . $fake . '/ai/v1/messages', 'TALEA_ANTISPAM_MIN' => '1', 'TALEA_IMPORT_LOCAL' => '1', 'TALEA_FIREWALL_LOCAL' => '1', 'TALEA_LINKS_LOCAL' => '1', 'TALEA_FLEET_LOCAL' => '1',
-        ] + ($this->options['env'] ?? []), $this->port);
+        ] + ($this->options['env'] ?? []));
+        $this->base = 'http://127.0.0.1:' . $this->port;
 
         if ($template !== null) {
             $this->password = $template['password'];
@@ -428,7 +429,7 @@ final class Site
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $chosen = $port ?? $this->freePort();
             $log = $this->work . '/server-' . $chosen . '.log';
-            $process = proc_open([PHP_BINARY, '-d', 'opcache.enable_cli=1', '-d', 'opcache.revalidate_freq=0', '-d', 'opcache.memory_consumption=128', '-S', '127.0.0.1:' . $chosen, $router], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $log, 'w'], 2 => ['file', $log, 'a']], $pipes, $dir, array_merge(getenv(), $env));
+            $process = proc_open([PHP_BINARY, '-d', 'opcache.enable_cli=1', '-d', 'opcache.revalidate_freq=0', '-d', 'opcache.memory_consumption=128', '-S', '127.0.0.1:' . $chosen, $router], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $log, 'w'], 2 => ['file', $log, 'a']], $pipes, $dir, array_merge(getenv(), ['PHP_CLI_SERVER_WORKERS' => '2'], $env));
             $this->processes[] = $process;
             for ($i = 0; $i < 200 && proc_get_status($process)['running']; $i++) {
                 if (str_contains((string) @file_get_contents($log), ') started')) {
@@ -514,19 +515,49 @@ final class Site
 
     // ---- internals
 
+    /**
+     * The code of the project (what a site needs, without tools, docs and tests) into this site's folder. One pristine copy per
+     * state of the files is kept in the temp dir and copied with cp (about ten times faster than copying a thousand files from PHP).
+     */
     private function copyProject(string $project): void
     {
-        $files = (string) shell_exec('cd ' . escapeshellarg($project) . ' && git ls-files -z --cached --others --exclude-standard');
-        foreach (array_filter(explode("\0", $files)) as $relative) {
+        $files = [];
+        $key = '';
+        foreach (array_filter(explode("\0", (string) shell_exec('cd ' . escapeshellarg($project) . ' && git ls-files -z --cached --others --exclude-standard'))) as $relative) {
             // the site does not need the project's tools, docs or tests; vendor/ is linked below (git does not carry it anyway)
-            if (preg_match('#^(tools|docs|tests|\.github|\.claude)/#', $relative) === 1 || !is_file($project . '/' . $relative)) {
-                continue;
+            if (preg_match('#^(tools|docs|tests|\.github|\.claude)/#', $relative) !== 1 && is_file($project . '/' . $relative)) {
+                $files[] = $relative;
+                $key .= $relative . filemtime($project . '/' . $relative) . filesize($project . '/' . $relative);
             }
-            $target = $this->root . '/' . $relative;
-            if (!is_dir(dirname($target))) {
-                mkdir(dirname($target), 0775, true);
+        }
+        $cache = sys_get_temp_dir() . '/talea-code-' . substr(md5($key), 0, 12);
+        $lock = fopen($cache . '.lock', 'c');
+        flock($lock, LOCK_EX);
+        try {
+            if (!is_dir($cache)) {
+                $building = $cache . '.building-' . getmypid();
+                foreach ($files as $relative) {
+                    if (!is_dir(dirname($building . '/' . $relative))) {
+                        mkdir(dirname($building . '/' . $relative), 0775, true);
+                    }
+                    copy($project . '/' . $relative, $building . '/' . $relative);
+                }
+                rename($building, $cache);
+                // copies of earlier states of the code go (a run takes well under STALE_TEMPLATE_SECONDS)
+                foreach (glob(sys_get_temp_dir() . '/talea-code-*', GLOB_ONLYDIR) ?: [] as $old) {
+                    if ($old !== $cache && filemtime($old) < time() - self::STALE_TEMPLATE_SECONDS) {
+                        $this->removeDirectory($old);
+                    }
+                }
             }
-            copy($project . '/' . $relative, $target);
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+        mkdir($this->root, 0775, true);
+        exec('cp -R ' . escapeshellarg($cache . '/.') . ' ' . escapeshellarg($this->root) . ' 2>&1', $output, $code);
+        if ($code !== 0) {
+            throw new \RuntimeException('Copying the project failed: ' . implode("\n", $output));
         }
         foreach (['media', 'storage/log', 'storage/cache', 'storage/import', 'extensions'] as $dir) {
             if (!is_dir($this->root . '/' . $dir)) {
