@@ -15,7 +15,7 @@ final class MediaFoldersTest extends TestCase
     {
         $f = fn (int $id, string $name, ?int $parent): array => ['folder_id' => $id, 'name' => $name, 'parent_id' => $parent, 'count' => 0];
 
-        return [$f(2, 'Castle', 1), $f(4, 'Church', 1), $f(3, 'Details', 2), $f(5, 'Press', null), $f(1, 'Weddings', 1 === 1 ? null : null)];
+        return [$f(2, 'Castle', 1), $f(4, 'Church', 1), $f(3, 'Details', 2), $f(5, 'Press', null), $f(1, 'Weddings', null)];
     }
 
     public function testChildrenAndTree(): void
