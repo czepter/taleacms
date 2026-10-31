@@ -63,7 +63,7 @@ trait ShortLinkTools
         }
         $row = ShortLinks::save($this->app, $input, $id);
         if (is_string($row)) {
-            throw new \InvalidArgumentException(t($row));
+            throw new \InvalidArgumentException($row);
         }
 
         return $this->shortLinkView($row) + ['qr_svg' => ShortLinks::qrSvg($this->app, (string) $row['path'])];
