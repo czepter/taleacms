@@ -294,6 +294,21 @@ trait SiteImportRows
             : null;
     }
 
+    /** A short link: the same rules as the admin (ShortLinks::clean), the content target back to this site's row id; no target or a taken path = skipped. */
+    private function shortLink(array $r): ?array
+    {
+        $path = is_string($r['path'] ?? null) ? $r['path'] : '';
+        $table = ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items'][$r['target_type'] ?? ''] ?? null;
+        $clean = $path !== '' && ShortLinks::pathError($this->db, $path) === null
+            ? ShortLinks::clean($this->db, ['target_id' => $table === null ? 0 : $this->ref($table, $r['target_id'] ?? null)] + $r)
+            : null;
+
+        return is_array($clean)
+            ? $clean + ['short_link_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'path' => $path, 'hits' => 0,
+                'created_at' => is_string($r['created_at'] ?? null) && strtotime($r['created_at']) !== false ? date('Y-m-d H:i:s', strtotime($r['created_at'])) : date('Y-m-d H:i:s')]
+            : null;
+    }
+
     private function sharedClass(array $r): ?array
     {
         $name = (string) ($r['name'] ?? '');

@@ -29,12 +29,12 @@ final class SiteImport
 
     /** Tables in the order of import (a folder before media, a collection before its items). */
     public const array TABLES = ['categories', 'tags', 'popups', 'pages', 'news', 'redirects', 'classes', 'site_parts', 'components', 'forms', 'sections', 'menus',
-        'collections', 'collection_templates', 'collection_items', 'document_versions', 'media_folders', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook',
+        'collections', 'collection_templates', 'collection_items', 'short_links', 'document_versions', 'media_folders', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook',
         'booking_services', 'booking_staff', 'booking_staff_services', 'booking_hours', 'booking_off'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['news_tags', 'news_revisions', 'news_drafts', 'page_revisions', 'build_revisions', 'media_usage', 'broken_links',
-        'collection_items', 'collection_templates', 'collections', 'news', 'categories', 'tags', 'pages', 'redirects', 'classes', 'site_parts', 'components', 'forms', 'sections',
+        'short_links', 'collection_items', 'collection_templates', 'collections', 'news', 'categories', 'tags', 'pages', 'redirects', 'classes', 'site_parts', 'components', 'forms', 'sections',
         'menus', 'popups', 'media', 'media_folders', 'import_map', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads', 'notice_log', 'blueprints', 'notebook', 'draft_comments',
         'booking_staff_services', 'booking_hours', 'booking_off', 'booking_staff', 'booking_services']; // the bookings themselves stay: personal data of this site's customers
 
@@ -556,6 +556,7 @@ final class SiteImport
             'pages' => $this->page($r),
             'news' => $this->newsItem($r),
             'redirects' => $this->redirect($r),
+            'short_links' => $this->shortLink($r),
             'classes' => $this->sharedClass($r),
             'site_parts' => $this->sitePart($r),
             'components' => $this->component($r),
