@@ -12,20 +12,21 @@
  * @var list<array<string, mixed>> $tree  the whole tree (Core\MediaFolders::tree), for the Move select
  * @var string $level                     public id of the folder whose level is shown ('' = the top level): Rename and Move return to it
  * @var list<int> $below                  folder_ids below this folder (they cannot take it)
+ * @var array<int, string> $publicOf       folder_id => public id
  */
 $icon = require __DIR__ . '/../icons.php';
 $id = $folder['public_id'];
 $meta = array_filter([$subs > 0 ? count_text($subs, '1 folder', '%d folders') : '', count_text($folder['count'], '1 file', '%d files')]);
 ?>
-<div class="media-folder-card">
-	<span class="media-mosaic<?= $thumbs === [] ? ' empty' : '' ?>" aria-hidden="true">
+<div class="media-folder-card" data-media-drop data-id="<?= e($id) ?>" data-name="<?= e($folder['name']) ?>" data-below="<?= e(implode(' ', array_map(fn (int $b): string => $publicOf[$b] ?? '', $below))) ?>">
+	<span class="media-mosaic<?= $thumbs === [] ? ' empty' : '' ?>" aria-hidden="true" draggable="true" data-media-drag="folder">
 <?php if ($thumbs === []): ?>
 		<?= $icon('categories') ?>
 <?php else: for ($i = 0; $i < 3; $i++): ?>
-		<span><?php if (isset($thumbs[$i])): ?><img src="<?= e($app->url($thumbs[$i])) ?>" alt="" loading="lazy"><?php endif ?></span>
+		<span><?php if (isset($thumbs[$i])): ?><img src="<?= e($app->url($thumbs[$i])) ?>" alt="" loading="lazy" draggable="false"><?php endif ?></span>
 <?php endfor; endif ?>
 	</span>
-	<a class="media-folder-name" href="<?= e($module->url('', ['folder' => $id])) ?>"><?= $icon('categories') ?><span title="<?= e($folder['name']) ?>"><?= bdi($folder['name']) ?></span></a>
+	<a class="media-folder-name" draggable="true" data-media-drag="folder" href="<?= e($module->url('', ['folder' => $id])) ?>"><?= $icon('categories') ?><span title="<?= e($folder['name']) ?>"><?= bdi($folder['name']) ?></span></a>
 	<span class="media-folder-meta">
 		<span><?= e(implode(' · ', $meta)) ?><?= $folder['newest'] !== null ? ' · ' . e(t('Changed %s', format_ago($folder['newest']))) : '' ?></span>
 <?php if ($folder['missing'] > 0): ?>

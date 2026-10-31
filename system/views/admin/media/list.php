@@ -20,6 +20,7 @@
  * @var string|null $newsItem  title of the news item used as the filter
  * @var array<string, mixed>|null $item  the file opened with ?item= (the details panel)
  * @var array{prev: ?string, next: ?string, used: list<string>, canEdit: bool}|null $panel
+ * @var array{places: array<string, array<int, int|null>>, message: string}|null $undo  the move the Undo notice offers
  */
 $icon = require __DIR__ . '/../icons.php';
 $tree = Talea\Core\MediaFolders::tree($folders);
@@ -50,7 +51,7 @@ $itemUrl = fn (array $o): string => $link(['item' => $o['public_id']]);
 
 // page head: the guide link comes from the layout, then New folder and the primary Upload
 $app->view->slot('actions', '<button class="navigation" type="button" popovertarget="folder-new">' . $icon('categories') . e(t('New folder')) . '</button>'
-    . '<button class="btn" type="button" popovertarget="media-upload">' . $icon('upload') . e(t('Upload')) . '</button>');
+    . '<button class="btn" type="button" popovertarget="media-upload" data-upload-pick>' . $icon('upload') . e(t('Upload')) . '</button>');
 
 // the heading of the files section
 $files = match (true) {
@@ -58,11 +59,19 @@ $files = match (true) {
     $filter['waiting'] => t('Waiting for approval'), $filter['article'] > 0 => t('Files'), $current !== null => t('Files in %s', $current['name']), default => t('Not in a folder'),
 };
 $folderIdHere = $current['public_id'] ?? '';
+$folderNameHere = $current['name'] ?? t('All media');
+$publicOf = array_column($folders, 'public_id', 'folder_id');
+$accept = 'image/jpeg,image/png,image/webp,image/gif,image/svg+xml,.svg,.' . implode(',.', Talea\Core\Files::FILE_EXTENSIONS);
+$formats = t('JPG, PNG, WebP and GIF images as well as downloadable attachments (PDF, documents, spreadsheets, ZIP, audio, video), up to %s per file. Large photos are scaled down to %s px and location data is removed.', $limit, Talea\Core\Images::MAX_SIDE);
+// data-media-screen: image/media.js (upload tray, drop to upload, drag into folders) reads the addresses and the folder from here; data-level '*' = a view across folders, where no level is current
 ?>
-<div class="media">
+<div class="media" data-media-screen data-upload-url="<?= e($module->url('upload', ['format' => 'json'])) ?>" data-move-url="<?= e($module->url('bulk', ['format' => 'json'])) ?>" data-folder-move-url="<?= e($module->url('folder_move', ['format' => 'json'])) ?>" data-item-url="<?= e($module->url()) ?>" data-describe-url="<?= e($module->url('', ['recent' => 1, 'view' => 'table'])) ?>" data-folder="<?= e($folderIdHere) ?>" data-folder-name="<?= e($folderNameHere) ?>" data-level="<?= $across ? '*' : e($folderIdHere) ?>">
 <?= $app->view->render('admin/media/rail', ['app' => $app, 'module' => $module, 'filter' => $filter, 'counts' => $counts, 'folders' => $folders, 'path' => $path, 'current' => $current]) ?>
 
 <div class="media-content">
+<?php if ($undo !== null): ?>
+<form class="notice notice-ok media-undo" method="post" action="<?= e($module->url('undo_move')) ?>" role="status"><?= $csrf ?><span><?= e($undo['message']) ?></span><button class="navigation" type="submit"><?= e(t('Undo')) ?></button></form>
+<?php endif ?>
 <?php if ($newsItem !== null): ?>
 <p class="notice"><?= e(t('Images used in the news item “%s”.', $newsItem)) ?> <a href="<?= e($module->url()) ?>"><?= e(t('Show all media')) ?></a></p>
 <?php endif ?>
@@ -75,10 +84,10 @@ $folderIdHere = $current['public_id'] ?? '';
 <?php if ($path === [] && !$across): ?>
 		<span aria-current="page"><?= e(t('All media')) ?></span>
 <?php else: ?>
-		<a href="<?= e($module->url()) ?>"><?= e(t('All media')) ?></a>
+		<a href="<?= e($module->url()) ?>" data-media-drop data-id="" data-name="<?= e(t('All media')) ?>"><?= e(t('All media')) ?></a>
 <?php foreach ($path as $i => $part): $last = $i === array_key_last($path) && !$across; ?>
 		<span class="sep" aria-hidden="true">/</span>
-<?php if ($last): ?><span aria-current="page"><?= bdi($part['name']) ?></span><?php else: ?><a href="<?= e($module->url('', ['folder' => $part['public_id']])) ?>"><?= bdi($part['name']) ?></a><?php endif ?>
+<?php if ($last): ?><span aria-current="page"><?= bdi($part['name']) ?></span><?php else: ?><a href="<?= e($module->url('', ['folder' => $part['public_id']])) ?>" data-media-drop data-id="<?= e($part['public_id']) ?>" data-name="<?= e($part['name']) ?>"><?= bdi($part['name']) ?></a><?php endif ?>
 <?php endforeach ?>
 <?php if ($across): ?>
 		<span class="sep" aria-hidden="true">/</span><span aria-current="page"><?= e($files) ?></span>
@@ -122,7 +131,7 @@ $folderIdHere = $current['public_id'] ?? '';
 	<div class="media-folder-grid">
 <?php foreach ($cards as $folder): ?>
 <?= $app->view->render('admin/media/folder_card', ['app' => $app, 'module' => $module, 'csrf' => $csrf, 'folder' => $folder, 'thumbs' => $thumbnails[$folder['folder_id']] ?? [], 'subs' => $subfolders[$folder['folder_id']] ?? 0,
-    'tree' => $tree, 'level' => $folderIdHere, 'below' => Talea\Core\MediaFolders::descendants($folders, $folder['folder_id'])]) ?>
+    'tree' => $tree, 'level' => $folderIdHere, 'below' => Talea\Core\MediaFolders::descendants($folders, $folder['folder_id']), 'publicOf' => $publicOf]) ?>
 <?php endforeach ?>
 		<button class="media-folder-new" type="button" popovertarget="folder-new"><?= $icon('plus') ?><?= e(t('New folder')) ?></button>
 	</div>
@@ -150,9 +159,9 @@ $folderIdHere = $current['public_id'] ?? '';
 <?php foreach ($images as $o): $isImage = $o['thumb_path'] !== ''; $label = $o['name'] !== '' ? $o['name'] : basename($o['image_path']); ?>
 		<tr id="m-<?= e($o['public_id']) ?>">
 			<td class="cell-select"><input type="checkbox" name="selected[]" value="<?= e($o['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $label)) ?>"></td>
-			<td class="cell-main"><div class="media-file">
-				<a class="media-mini" href="<?= e($itemUrl($o)) ?>" tabindex="-1" aria-hidden="true"><?php if ($isImage): ?><img src="<?= e($app->url($o['thumb_path'])) ?>" alt="" loading="lazy"><?php else: ?><span><?= e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) ?></span><?php endif ?></a>
-				<div class="cell-text"><a class="cell-title" href="<?= e($itemUrl($o)) ?>" title="<?= e(basename($o['image_path'])) ?>"><?= bdi(basename($o['image_path'])) ?></a>
+			<td class="cell-main"><div class="media-file" draggable="true" data-media-drag="file" data-id="<?= e($o['public_id']) ?>">
+				<a class="media-mini" href="<?= e($itemUrl($o)) ?>" tabindex="-1" aria-hidden="true" draggable="false"><?php if ($isImage): ?><img draggable="false" src="<?= e($app->url($o['thumb_path'])) ?>" alt="" loading="lazy"><?php else: ?><span><?= e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) ?></span><?php endif ?></a>
+				<div class="cell-text"><a class="cell-title" draggable="false" href="<?= e($itemUrl($o)) ?>" title="<?= e(basename($o['image_path'])) ?>"><?= bdi(basename($o['image_path'])) ?></a>
 				<span class="cell-sub"><?= e($o['folder_id'] !== null ? ($names[(int) $o['folder_id']] ?? '') : t('Not in a folder')) ?><?php if ($o['staged_at'] !== null): ?> · <span class="media-flag-text media-flag-waiting"><?= e(t('Waiting for approval')) ?></span><?php if ($app->auth()->canPublish()): ?> <button class="navigation" type="submit" form="bulk" formaction="<?= e($module->url('approve')) ?>" name="media_id" value="<?= e($o['public_id']) ?>"><?= e(t('Publish file')) ?></button><?php endif ?><?php endif ?></span></div>
 			</div></td>
 			<td class="cell-input"><?php if ($isImage): ?><input class="textfield media-description" type="text" value="<?= e((string) $o['name']) ?>" maxlength="150" placeholder="<?= e(t('Describe what the image shows')) ?>" aria-label="<?= e(t('Description of image %s', basename($o['image_path']))) ?>" data-description-media="<?= e($o['public_id']) ?>" data-address="<?= e($module->url('save_caption')) ?>" form=""><?php else: ?><span class="cell-weak">–</span><?php endif ?></td>
@@ -167,10 +176,10 @@ $folderIdHere = $current['public_id'] ?? '';
 <?php else: ?>
 	<div class="media-grid">
 <?php foreach ($images as $o): $isImage = $o['thumb_path'] !== ''; $label = $o['name'] !== '' ? $o['name'] : basename($o['image_path']); ?>
-		<div class="media-tile<?= $item !== null && $item['public_id'] === $o['public_id'] ? ' open' : '' ?>" id="m-<?= e($o['public_id']) ?>">
+		<div class="media-tile<?= $item !== null && $item['public_id'] === $o['public_id'] ? ' open' : '' ?>" id="m-<?= e($o['public_id']) ?>" draggable="true" data-media-drag="file" data-id="<?= e($o['public_id']) ?>">
 			<div class="media-tile-image">
 			<label class="media-tile-check"><input type="checkbox" name="selected[]" value="<?= e($o['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $label)) ?>"></label>
-			<a class="media-thumb<?= $isImage ? '' : ' file' ?>" href="<?= e($itemUrl($o)) ?>" aria-label="<?= e(t('Details of %s', $label)) ?>"><?php if ($isImage): ?><img src="<?= e($app->url($o['thumb_path'])) ?>" alt="<?= e($o['name']) ?>" loading="lazy" width="<?= (int) $o['thumb_width'] ?>" height="<?= (int) $o['thumb_height'] ?>"><?php else: ?><span><?= e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) ?></span><?php endif ?></a>
+			<a class="media-thumb<?= $isImage ? '' : ' file' ?>" href="<?= e($itemUrl($o)) ?>" aria-label="<?= e(t('Details of %s', $label)) ?>" draggable="false"><?php if ($isImage): ?><img draggable="false" src="<?= e($app->url($o['thumb_path'])) ?>" alt="<?= e($o['name']) ?>" loading="lazy" width="<?= (int) $o['thumb_width'] ?>" height="<?= (int) $o['thumb_height'] ?>"><?php else: ?><span><?= e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) ?></span><?php endif ?></a>
 			<span class="media-tile-flags">
 <?php if ($isImage && $o['name'] === ''): ?><span class="media-flag media-flag-alt"><?= e(t('No description')) ?></span><?php endif ?>
 <?php if ((int) $o['used_at'] === 0): ?><span class="media-flag media-flag-unused"><?= e(t('Unused')) ?></span><?php endif ?>
@@ -208,6 +217,10 @@ $folderIdHere = $current['public_id'] ?? '';
 <?= $app->view->render('admin/media/panel', ['app' => $app, 'module' => $module, 'csrf' => $csrf, 'o' => $item, 'panel' => $panel, 'tree' => $tree,
     'listState' => $state(), 'closeUrl' => $link(['item' => null]), 'prevUrl' => $panel['prev'] !== null ? $link(['item' => $panel['prev']]) : null, 'nextUrl' => $panel['next'] !== null ? $link(['item' => $panel['next']]) : null]) ?>
 <?php endif ?>
+<input type="file" accept="<?= e($accept) ?>" multiple hidden data-upload-input>
+<div class="media-drop-overlay" data-drop-overlay hidden aria-hidden="true">
+	<div class="media-drop-box"><?= $icon('upload') ?><strong data-drop-title data-pattern="<?= e(t('Drop to upload to %s')) ?>"><?= e(t('Drop to upload to %s', $folderNameHere)) ?></strong><p><?= e($formats) ?></p></div>
+</div>
 </div>
 
 <form class="media-pop" id="folder-new" popover method="post" action="<?= e($module->url('folder')) ?>"><?= $csrf ?>
@@ -217,10 +230,12 @@ $folderIdHere = $current['public_id'] ?? '';
 	<span class="media-pop-buttons"><button class="navigation" type="button" popovertarget="folder-new" popovertargetaction="hide"><?= e(t('Cancel')) ?></button><button class="btn" type="submit"><?= e(t('Create folder')) ?></button></span>
 </form>
 
-<form class="media-pop media-upload" id="media-upload" popover method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>" data-upload><?= $csrf ?>
+<?php // without JavaScript the Upload button opens this form; with it the button opens the file chooser and the upload tray (image/media.js) ?>
+<form class="media-pop media-upload" id="media-upload" popover method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>"><?= $csrf ?>
 	<input type="hidden" name="folder_id" value="<?= e($folderIdHere) ?>">
 	<label for="files"><?= e($current !== null ? t('Upload to %s', $current['name']) : t('Upload images and attachments')) ?></label>
-	<input type="file" id="files" name="files[]" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,.svg,<?= e('.' . implode(',.', Talea\Core\Files::FILE_EXTENSIONS)) ?>" multiple required>
-	<span class="help"><?= e(t('JPG, PNG, WebP and GIF images as well as downloadable attachments (PDF, documents, spreadsheets, ZIP, audio, video), up to %s per file. Large photos are scaled down to %s px and location data is removed.', $limit, Talea\Core\Images::MAX_SIDE)) ?></span>
+	<input type="file" id="files" name="files[]" accept="<?= e($accept) ?>" multiple required>
+	<span class="help"><?= e($formats) ?></span>
 	<span class="media-pop-buttons"><button class="navigation" type="button" popovertarget="media-upload" popovertargetaction="hide"><?= e(t('Cancel')) ?></button><input class="btn" type="submit" value="<?= e(t('Upload')) ?>"></span>
 </form>
+<script src="<?= e($app->url('image/media.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>

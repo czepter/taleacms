@@ -39,6 +39,7 @@ $language = Talea\Core\Language::code();
 <?php endforeach ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= $version ?>" defer></script>
 <script src="<?= e($app->url('image/editor.js')) ?>?v=<?= $version ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-file="<?= Talea\Core\Files::limit() ?>" data-max-file-text="<?= e(Talea\Core\Files::limitText()) ?>" data-max-page="<?= Talea\Core\Images::MAX_SIDE ?>" defer></script>
+<script src="<?= e($app->url('image/picker.js')) ?>?v=<?= $version ?>" defer></script>
 <script type="module" src="<?= e($app->url('image/builder/main.js')) ?>?v=<?= $version ?>"></script>
 </body>
 </html>
