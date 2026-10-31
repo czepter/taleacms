@@ -58,7 +58,7 @@ final class SiteImport
     private array $noticeBoards = [];
 
     /** @var string the folder of the state and working files: storage/import, or that of a site import */
-    private string $folder = WpFile::FOLDER;
+    private string $folder = '';
 
     /** @var array<string, array<string, int>> table => public id in the archive => the key the row got (the owner rows of a site import) */
     private array $map = [];
@@ -92,7 +92,7 @@ final class SiteImport
     /** @param array<string, mixed> $state the folder of an import's files */
     private static function dir(array $state): string
     {
-        return (string) ($state['folder'] ?? WpFile::FOLDER);
+        return (string) ($state['folder'] ?? WpFile::dir());
     }
 
     /** The integer key the exported row with this public id gets (0: not a public id of the export). */
@@ -131,7 +131,7 @@ final class SiteImport
     public static function listAll(): array
     {
         $files = [];
-        foreach (glob(WpFile::FOLDER . '/*.{zip,json}', GLOB_BRACE) ?: [] as $path) {
+        foreach (glob(WpFile::dir() . '/*.{zip,json}', GLOB_BRACE) ?: [] as $path) {
             if (self::isValidName(basename($path))) {
                 $files[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
             }
@@ -148,8 +148,10 @@ final class SiteImport
             && !preg_match('/^(talea-)?state-[0-9a-f]{16}\.json$/', $file); // state files of the imports live in the same folder
     }
 
-    public static function path(string $file, string $folder = WpFile::FOLDER): ?string
+    public static function path(string $file, ?string $folder = null): ?string
     {
+        $folder ??= WpFile::dir();
+
         return self::isValidName($file) && is_file($folder . '/' . $file) ? $folder . '/' . $file : null;
     }
 
@@ -163,25 +165,25 @@ final class SiteImport
     /* ---------- state ---------- */
 
     /** @return array<string, mixed> */
-    public static function newState(string $file, string $folder = WpFile::FOLDER): array
+    public static function newState(string $file, ?string $folder = null): array
     {
-        return ($folder !== WpFile::FOLDER ? ['folder' => $folder] : []) + ['file' => $file, 'phase' => 'preparing', 'header' => [], 'counts' => [], 'media_total' => 0, 'table' => 0, 'position' => 0,
+        return ($folder !== null && $folder !== WpFile::dir() ? ['folder' => $folder] : []) + ['file' => $file, 'phase' => 'preparing', 'header' => [], 'counts' => [], 'media_total' => 0, 'table' => 0, 'position' => 0,
             'emptied' => false, 'backup' => '', 'media_position' => 0, 'result' => [], 'media' => ['saved' => 0, 'skipped' => 0], 'errors' => []];
     }
 
-    private static function stateFile(string $file, string $folder = WpFile::FOLDER): string
+    private static function stateFile(string $file, ?string $folder = null): string
     {
-        return $folder . '/talea-state-' . substr(sha1($file), 0, 16) . '.json';
+        return ($folder ?? WpFile::dir()) . '/talea-state-' . substr(sha1($file), 0, 16) . '.json';
     }
 
     /** Working folder of the import: content.json and one file per table. */
-    private static function workFolder(string $file, string $folder = WpFile::FOLDER): string
+    private static function workFolder(string $file, ?string $folder = null): string
     {
-        return $folder . '/talea-' . substr(sha1($file), 0, 16);
+        return ($folder ?? WpFile::dir()) . '/talea-' . substr(sha1($file), 0, 16);
     }
 
     /** @return array<string, mixed>|null */
-    public static function loadState(string $file, string $folder = WpFile::FOLDER): ?array
+    public static function loadState(string $file, ?string $folder = null): ?array
     {
         $data = is_file(self::stateFile($file, $folder)) ? json_decode((string) file_get_contents(self::stateFile($file, $folder)), true) : null;
 
@@ -197,7 +199,7 @@ final class SiteImport
     }
 
     /** Deletes the state and the working folder (the file itself stays until the administrator deletes it). */
-    public static function deleteState(string $file, string $folder = WpFile::FOLDER): void
+    public static function deleteState(string $file, ?string $folder = null): void
     {
         @unlink(self::stateFile($file, $folder));
         self::cleanUp($file, $folder);
@@ -869,7 +871,7 @@ final class SiteImport
     }
 
     /** Removes the working folder of a finished import (the export file itself stays). */
-    public static function cleanUp(string $file, string $folder = WpFile::FOLDER): void
+    public static function cleanUp(string $file, ?string $folder = null): void
     {
         foreach (glob(self::workFolder($file, $folder) . '/*') ?: [] as $part) {
             @unlink($part);

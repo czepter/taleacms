@@ -73,6 +73,7 @@ final class App
             if ($site['prefix'] !== ($config['db']['prefix'] ?? 'tl_')) {
                 $config['db']['site_prefix'] = $site['prefix'];
                 \Talea\Front\Cache::useSite($site['prefix']);
+                WpFile::useSite((string) $site['public_id']);
             }
         }
         $app = new self($config, null, $site);

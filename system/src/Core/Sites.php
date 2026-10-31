@@ -627,6 +627,30 @@ final class Sites
         return count($tables);
     }
 
+    /**
+     * Empties the site this connection works on: every table of its prefix except the migration log, and the settings unless $settings. The owner's
+     * shared tables (users, media, components, facts), the site's row and its host names are never touched. Returns how many tables were emptied.
+     */
+    public static function emptyContent(Db $db, bool $settings): int
+    {
+        if ($db->prefix === $db->ownerPrefix || preg_match('/^[a-z][a-z0-9]*_$/', $db->prefix) !== 1) {
+            throw new \InvalidArgumentException('Only a further site can be emptied.');
+        }
+        $keep = ['migrations', ...Db::OWNER_TABLES, ...Db::INSTALL_TABLES, ...($settings ? [] : ['settings'])];
+        $tables = [];
+        foreach ($db->dialect()->dumpTables($db->pdo(), $db->prefix) as $table) {
+            $name = substr($table, strlen($db->prefix));
+            if (str_starts_with($table, $db->prefix) && !in_array($name, $keep, true)) {
+                $tables[] = $name;
+            }
+        }
+        $db->emptyTables($tables);
+        self::forgetCurrent();
+        \Talea\Front\Cache::clearAll();
+
+        return count($tables);
+    }
+
     /** The owner job sites_cleanup: a site that has been in the trash for TRASH_DAYS loses its tables and its row (the domains go with it). */
     public static function cleanup(Db $db): string
     {

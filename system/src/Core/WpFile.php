@@ -25,19 +25,52 @@ final class WpFile
     {
     }
 
+    /** @var string public id of the further site this process serves ('' = the install's own site 1, whose files sit directly in the folder) */
+    private static string $site = '';
+
+    /** Sets the site this process serves (multisite): every further site keeps its imports, checks and states in a folder of its own. */
+    public static function useSite(string $publicId): void
+    {
+        self::$site = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $publicId) === 1 ? $publicId : '';
+    }
+
+    /** The part of a path that belongs to the site ('' for site 1): "/site-<public id>". */
+    public static function sitePart(): string
+    {
+        return self::$site !== '' ? '/site-' . self::$site : '';
+    }
+
+    /** The import folder of the site this process serves, not created. */
+    public static function dir(): string
+    {
+        return self::FOLDER . self::sitePart();
+    }
+
+    /** Deletes everything in the import folder of the site this process serves (never the install's own folder, which belongs to site 1). */
+    public static function clear(): void
+    {
+        if (self::$site === '' || !is_dir(self::dir())) {
+            return;
+        }
+        $items = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(self::dir(), \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($items as $item) {
+            $item->isDir() && !$item->isLink() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+        }
+    }
+
     /* ---------- folder storage/import ---------- */
 
     /** Folder for exports; it creates itself, including the denial of web access. */
     public static function folder(): string
     {
-        if (!is_dir(self::FOLDER) && !@mkdir(self::FOLDER, 0775, true)) {
+        if (!is_dir(self::dir()) && !@mkdir(self::dir(), 0775, true)) {
             throw new \RuntimeException('Cannot create the storage/import folder – check write permissions.');
         }
         if (!is_file(self::FOLDER . '/.htaccess')) {
             @file_put_contents(self::FOLDER . '/.htaccess', "Require all denied\n");
         }
 
-        return self::FOLDER;
+        return self::dir();
     }
 
     /**
@@ -48,7 +81,7 @@ final class WpFile
     public static function listAll(): array
     {
         $files = [];
-        foreach (glob(self::FOLDER . '/*.{xml,XML}', GLOB_BRACE) ?: [] as $path) {
+        foreach (glob(self::dir() . '/*.{xml,XML}', GLOB_BRACE) ?: [] as $path) {
             if (self::isValidName(basename($path))) {
                 $files[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
             }
@@ -68,7 +101,7 @@ final class WpFile
     /** Path to an existing file by the name from the form; null = invalid name or the file does not exist. */
     public static function path(string $file): ?string
     {
-        return self::isValidName($file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
+        return self::isValidName($file) && is_file(self::dir() . '/' . $file) ? self::dir() . '/' . $file : null;
     }
 
     /** A safe name for an uploaded file: without diacritics and spaces, always with the .xml extension. */

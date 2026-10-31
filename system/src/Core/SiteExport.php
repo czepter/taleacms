@@ -92,10 +92,10 @@ final class SiteExport
         return ['file' => basename($base) . '.zip', 'media' => $reason === '', 'reason' => $reason];
     }
 
-    /** The folder of the exports this connection may see: the install's, or the further owner's own. */
+    /** The folder of the exports this connection may see: the install's (a further site of it has a folder of its own), or the further owner's own. */
     private static function folder(?Db $for): string
     {
-        return $for === null || Owners::isFirst($for) ? Backup::FOLDER : OwnerFiles::folder($for);
+        return $for === null || Owners::isFirst($for) ? Backup::FOLDER . WpFile::sitePart() : OwnerFiles::folder($for);
     }
 
     /** @return list<array{file:string, size:int, time:int}> newest on top; with $for a further owner's own exports only */

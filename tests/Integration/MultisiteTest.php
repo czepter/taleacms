@@ -289,4 +289,30 @@ final class MultisiteTest extends DatabaseTestCase
         $this->assertNull($own->value("SELECT value FROM {settings} WHERE name = 'journal_probe'"));
         $own->delete('agent_sessions', ['connection' => 'probe']);
     }
+
+    public function testEmptyingASiteLeavesTheOthersAndTheMigrationLogAlone(): void
+    {
+        $site = $this->db()->forSite('tl2_');
+        $this->db()->insert('site_parts', ['type' => 'footer', 'build' => '{"v":1,"children":[]}']);
+        $site->insert('site_parts', ['type' => 'footer', 'build' => '{"v":1,"children":[]}']);
+        $site->run("INSERT INTO {settings} (name, value) VALUES ('empty_probe', 'x')");
+        $logged = (int) $site->value('SELECT COUNT(*) FROM {migrations}');
+
+        $this->assertGreaterThan(0, Sites::emptyContent($site, false));
+
+        $this->assertSame(0, (int) $site->value('SELECT COUNT(*) FROM {site_parts}'));
+        $this->assertSame('x', $site->value("SELECT value FROM {settings} WHERE name = 'empty_probe'"), 'the settings stay unless asked for');
+        $this->assertSame($logged, (int) $site->value('SELECT COUNT(*) FROM {migrations}'));
+        $this->assertSame(1, (int) $this->db()->value('SELECT COUNT(*) FROM {site_parts}'), 'site 1 keeps its rows');
+
+        Sites::emptyContent($site, true);
+        $this->assertNull($site->value("SELECT value FROM {settings} WHERE name = 'empty_probe'"));
+        $this->db()->delete('site_parts', ['type' => 'footer']);
+    }
+
+    public function testTheFirstSiteCannotBeEmptied(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        Sites::emptyContent($this->db(), true);
+    }
 }

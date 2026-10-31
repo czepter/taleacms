@@ -19,6 +19,7 @@ use Talea\Core\SiteImport;
 use Talea\Core\SiteImports;
 use Talea\Core\SiteFigures;
 use Talea\Core\Sites as SiteRegistry;
+use Talea\Core\WpFile;
 
 /**
  * The owner's sites (Settings → Sites, only with TALEA_MULTISITE): create an empty site or a copy of one, name it, set its state, give
@@ -383,6 +384,36 @@ final class Sites extends Module
         $error = SiteRegistry::trash($this->db, (int) $site['site_id']);
 
         return $error === null ? $this->back('The site is in the trash. It is deleted for good after 30 days.', '', [], 'ok') : $this->back($error, '', [], 'error');
+    }
+
+    /** Empties the site you are working on: an export first, then every table of the site; shared media, components and facts stay. */
+    protected function actionEmpty(): Response
+    {
+        $site = $this->site();
+        if (!$this->request->isPost() || $site === null) {
+            return $this->back();
+        }
+        $edit = ['id' => $site['public_id']];
+        if ((int) $site['site_id'] === 1) {
+            return $this->back('The first site cannot be emptied.', 'edit', $edit, 'error');
+        }
+        if ((int) $site['site_id'] !== $this->currentId()) {
+            return $this->back('Open this site first, then empty it from its own administration.', 'edit', $edit, 'error');
+        }
+        if (trim($this->request->post('confirm_name')) !== (string) ($site['name'] !== '' ? $site['name'] : $site['slug'])) {
+            return $this->back('The name does not match. Nothing was emptied.', 'edit', $edit, 'error');
+        }
+        try {
+            $export = SiteExport::create($this->db, $this->app->settings());
+        } catch (\RuntimeException) {
+            return $this->back('Nothing was emptied: the export before it could not be made.', 'edit', $edit, 'error');
+        }
+        $settings = $this->request->postBool('reset_settings');
+        SiteRegistry::emptyContent($this->db, $settings);
+        WpFile::clear();
+        ChangeLog::write($this->app, 'sites', 'empty', $export['file']);
+
+        return $this->back($settings ? 'The site is empty and its settings are reset. The export made before is in Backups and exports.' : 'The site is empty. The export made before is in Backups and exports.', 'edit', $edit, 'ok');
     }
 
     protected function actionRestore(): Response
