@@ -56,7 +56,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <div class="media-folder-edit">
 	<form method="post" action="<?= e($module->url('folder')) ?>"><?= $csrf ?><input type="hidden" name="folder_id" value="<?= e($activeFolder['public_id']) ?>"><input class="textfield" type="text" name="name" value="<?= e($activeFolder['name']) ?>" maxlength="100" required aria-label="<?= e(t('Folder name')) ?>"> <button class="navigation" type="submit"><?= e(t('Rename')) ?></button></form>
 <?php if ($app->auth()->isAdmin()): ?>
-	<form method="post" action="<?= e($module->url('folder_delete')) ?>" data-confirm="<?= e(t('Delete the folder? Its images will be kept and become uncategorized.')) ?>"><?= $csrf ?><input type="hidden" name="folder_id" value="<?= e($activeFolder['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete folder')) ?></button></form>
+	<form method="post" action="<?= e($module->url('folder_delete')) ?>" data-confirm="<?= e(t('Delete the folder? Its files and subfolders move up one level.')) ?>"><?= $csrf ?><input type="hidden" name="folder_id" value="<?= e($activeFolder['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete folder')) ?></button></form>
 <?php endif ?>
 </div>
 <?php endif ?>

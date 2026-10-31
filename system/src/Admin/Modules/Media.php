@@ -75,7 +75,7 @@ final class Media extends Module
         ]);
     }
 
-    /** Creating or renaming a folder. */
+    /** Creating a folder (optionally inside the folder `parent`) or renaming one; a rename leaves its place in the tree. */
     protected function actionFolder(): Response
     {
         $name = mb_substr($this->request->post('name'), 0, 100);
@@ -86,20 +86,39 @@ final class Media extends Module
         if ($ids > 0) {
             $this->db->update('media_folders', ['name' => $name], ['folder_id' => $ids]);
         } else {
-            $ids = $this->db->insert('media_folders', ['name' => $name]);
+            $ids = $this->db->insert('media_folders', ['name' => $name, 'parent_id' => $this->idParam('parent', 'media_folders') ?: null]);
         }
 
         return $this->back('Folder saved.', '', ['section' => $this->publicId($ids, 'media_folders')]);
     }
 
-    /** Deleting a folder; the images stay and move to the unsorted ones. */
+    /** Moving a folder into another one (`parent`; empty = top level). Editors and administrators; refuses a cycle. */
+    protected function actionFolderMove(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        if (!$this->app->auth()->canPublish()) { // a folder moves with everything in it: editors and administrators
+            return $this->back(t('Moving a folder is for editors and administrators.'), '', [], 'error');
+        }
+        $id = $this->idParam('folder_id', 'media_folders');
+        try {
+            \Talea\Core\MediaFolders::move($this->db, $id, $this->idParam('parent', 'media_folders') ?: null);
+        } catch (\DomainException $e) {
+            return $this->back(t('The folder cannot be moved there.'), '', [], 'error');
+        }
+
+        return $this->back('Folder moved.', '', ['section' => $this->publicId($id, 'media_folders')]);
+    }
+
+    /** Deleting a folder; its files and subfolders move up one level. */
     protected function actionFolderDelete(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
-            $this->db->delete('media_folders', ['folder_id' => $this->idParam('folder_id', 'media_folders')]);
+            \Talea\Core\MediaFolders::delete($this->db, $this->idParam('folder_id', 'media_folders'));
         }
 
-        return $this->back('Folder deleted, its images are now uncategorized.');
+        return $this->back('Folder deleted, its files and subfolders moved up one level.');
     }
 
     /**
