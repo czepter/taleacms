@@ -564,6 +564,19 @@
             "openWorldHint": false
         }
     },
+    "delete_short_link": {
+        "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "discard_draft": {
         "parameters": {
             "collection": "string",
@@ -1358,6 +1371,15 @@
             "openWorldHint": false
         }
     },
+    "list_short_links": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_site_parts": {
         "parameters": [],
         "required": [],
@@ -2024,6 +2046,21 @@
             "element",
             "name"
         ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_short_link": {
+        "parameters": {
+            "id": "string",
+            "label": "string",
+            "name": "string",
+            "target": "object",
+            "utm": "object"
+        },
+        "required": [],
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": false,
