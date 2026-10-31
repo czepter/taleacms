@@ -620,7 +620,7 @@ final class Transfer extends Module
             SiteImport::prepare($state);
         } catch (\RuntimeException $e) {
             SiteImport::deleteState($file);
-            @unlink(WpFile::FOLDER . '/' . $file);
+            @unlink(WpFile::dir() . '/' . $file);
 
             return $this->back(self::message($e), type: 'error');
         }

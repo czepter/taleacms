@@ -179,6 +179,9 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
 - **Files of the install belong to owner 1 for now.** Backups and their off-site copy, exports/imports (the Import and export module, the staged
   WordPress file), the error log and the media archive are single folders of the install; for a further owner the screens, actions and
   jobs are refused (`Owners::sharedFilesRefusal`, `Module::INSTALL_FILE_ACTIONS`, `Transfer::availableTo`). Uploads have a folder per owner (below).
+- **Further sites of one owner keep their import files apart.** `WpFile::useSite()` (set by `App::boot` from the routed site) gives a site other than the install's site 1
+  its own folder `storage/import/site-<public id>/` (web import and migration check states, WordPress and Talea archives, uploads) and
+  `storage/backups/site-<public id>/` for its exports; site 1 keeps the plain folders. Shared tables of the owner (users, media, components, facts) stay shared.
 - **Isolation test** (`tests/Site/Multisite/OwnersIsolationTest.php`, `tests/Integration/OwnersTest.php`): two owners with the same page
   slugs, component names and media paths; public routes (page cache), search, sitemap, llms.txt, feed, admin lists, the other owner's component,
   session cookie replayed by hand, MCP tokens and `site`, signed preview links, handoff tokens, waiting files, backups and exports, owner
