@@ -98,7 +98,7 @@ final class EnquiryTriageTest extends SiteTestCase
         $config = $site->path('config.php');
         $original = (string) file_get_contents($config);
         file_put_contents($config, preg_replace('/<\?php/', "<?php define('TALEA_AI_URL', 'http://127.0.0.1:$port/');", $original, 1));
-        sleep(3); // OPcache of the test server revalidates the file after 2 s, as the old script waited
+        sleep(1); // the test server revalidates OPcache on every request (revalidate_freq=0); one second keeps the new mtime apart
         try {
             $id = $this->insertEnquiry('john@example.com', '[["Message","The lock on our door does not work"]]', 0);
             $site->setting('ai_key', 'test-key-for-the-fake-provider');
