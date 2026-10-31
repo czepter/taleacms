@@ -114,6 +114,9 @@ it has not run). "The all-in-one website builder you host yourself" (Microweber 
 |---|---|---|
 | Version | 4.1.0 | `system/bootstrap.php` |
 | First release | 2026-09-24 (v1.0.0) | git tag |
+| Fork base | Kaleta 3.7.0, October 2026; later Kaleta changes rebuilt through 3.11.0 | `NOTICE`, `docs/DECISIONS.md` |
+| Came with Kaleta | page builder, design system, bookings, forms, newsletter, collections, MCP, backups, passkeys | tree at the fork commit |
+| Added in Talea | container image, PostgreSQL and SQLite, 14 looks, font library, canvas composing, AI wizard and Ask box, A/B tests, member login, structured data element, multisite | README "What Talea changes" |
 | Licence | GPL-2.0-or-later | `LICENSE` |
 | Finished looks | 14 | `system/looks/` |
 | Ready-made sections | 40 | README |
