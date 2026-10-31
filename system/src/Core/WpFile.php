@@ -46,6 +46,18 @@ final class WpFile
         return self::FOLDER . self::sitePart();
     }
 
+    /** Deletes everything in the import folder of the site this process serves (never the install's own folder, which belongs to site 1). */
+    public static function clear(): void
+    {
+        if (self::$site === '' || !is_dir(self::dir())) {
+            return;
+        }
+        $items = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(self::dir(), \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($items as $item) {
+            $item->isDir() && !$item->isLink() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+        }
+    }
+
     /* ---------- folder storage/import ---------- */
 
     /** Folder for exports; it creates itself, including the denial of web access. */

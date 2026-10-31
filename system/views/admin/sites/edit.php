@@ -152,6 +152,26 @@ $hidden = '<input type="hidden" name="id" value="' . e($id) . '">';
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Add')) ?>"></p>
 </form>
 
+<?php if ((int) $site['site_id'] !== 1): ?>
+<h2><?= e(t('Empty this site')) ?></h2>
+<?php if ((int) $site['site_id'] === $current): ?>
+<p class="small-text"><?= e(t('Deletes the pages, news, collections, forms, enquiries, bookings, statistics and import files of this site. The site, its host names, users, media, components and facts stay. An export of the site is made first.')) ?></p>
+<form class="form" method="post" action="<?= e($module->url('empty')) ?>" data-confirm="<?= e(t('Empty this site? An export is made first, the content is deleted.')) ?>"><?= $csrf . $hidden ?>
+<div class="row">
+	<label for="confirm_name"><?= e(t('Type the name of the site to confirm')) ?></label>
+	<div><input class="textfield" type="text" id="confirm_name" name="confirm_name" required autocomplete="off" placeholder="<?= e($site['name'] !== '' ? $site['name'] : $site['slug']) ?>"></div>
+</div>
+<div class="row">
+	<label for="reset_settings"><?= e(t('Reset the settings')) ?></label>
+	<div><input type="checkbox" id="reset_settings" name="reset_settings" value="1"><span class="help"><?= e(t('Also sets this site’s settings back to the defaults.')) ?></span></div>
+</div>
+<p class="buttons"><button class="btn danger" type="submit"><?= e(t('Empty this site')) ?></button></p>
+</form>
+<?php else: ?>
+<p class="small-text"><?= e(t('To empty this site, open it first (Open this site in the list) and use this page there.')) ?></p>
+<?php endif ?>
+<?php endif ?>
+
 <?php if ((int) $site['site_id'] !== 1 && (int) $site['site_id'] !== $current): ?>
 <h2><?= e(t('Delete this site')) ?></h2>
 <form class="inline" method="post" action="<?= e($module->url('trash')) ?>" data-confirm="<?= e(t('Move this site to the trash? It is deleted for good after 30 days.')) ?>"><?= $csrf . $hidden ?><button class="btn danger" type="submit"><?= e(t('Move to trash')) ?></button></form>
