@@ -114,7 +114,7 @@ final class DocumentLibraryTest extends SiteTestCase
         $site->clearPageCache();
         $visitor = $this->visitor();
         $form = $visitor->get('/price-list-by-email');
-        sleep(4); // the antispam minimum time, as the old script waited
+        sleep(1); // the antispam minimum time, as the old script waited
         $sent = $visitor->post('/form', ['source' => $form->field('source'), 'element' => $form->field('element'), 'back' => '/price-list-by-email', 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature'), 'p0' => 'gate@example.cz']);
         $this->assertStringContainsString('result=ok', $sent->redirect, 'the form was sent');
         $this->assertSame('1', $this->sq("SELECT data LIKE '%File sent by e-mail%pricelist-v2.pdf%' FROM tl_enquiries WHERE email = 'gate@example.cz'"), 'the enquiry records which file was sent');

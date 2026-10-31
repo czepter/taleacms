@@ -29,7 +29,7 @@ final class CourseMailLinksTest extends SiteTestCase
         $this->site()->clearPageCache();
         $visitor = $this->visitor();
         $page = $visitor->get('/courses-test/salsa');
-        sleep(4); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
+        sleep(1); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
         $visitor->post('/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/salsa',
             'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Anna', 'p1' => 'anna@example.com', 'p3' => '1']);
 

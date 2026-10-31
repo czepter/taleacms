@@ -112,7 +112,7 @@ final class PopupsTest extends SiteTestCase
         $time = $this->formField($html, 'as_time');
         $this->assertSame("popup:{$this->publicPopup()}|ab12cd3", "$source|$element", 'the form in the window has the window as its source');
 
-        sleep(4); // the form asks for 4 seconds between loading and sending
+        sleep(1); // the form asks for TALEA_ANTISPAM_MIN seconds between loading and sending
         $location = $this->site()->client()->post('/form', [
             'source' => $source, 'element' => $element, 'back' => '/', 'as_time' => $time, 'as_signature' => $this->formField($html, 'as_signature'), 'p0' => 'okno@example.cz',
         ])->redirect;

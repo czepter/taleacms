@@ -44,7 +44,7 @@ final class FormContextTest extends SiteTestCase
             $form = $visitor->get($path);
             self::${$property} = ['source' => $form->field('source'), 'element' => $form->field('element'), 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature')];
         }
-        sleep(4); // the antispam does not accept a form sent sooner than four seconds
+        sleep(1); // the antispam does not accept a form sent sooner than TALEA_ANTISPAM_MIN seconds (one in the harness)
 
         $registration = $visitor->post('/form', self::$eventForm + ['back' => '/events-test/yoga', 'p0' => 'Eva', 'p1' => 'eva@example.com', 'p4' => '1']);
         $this->assertStringContainsString('result=registered', $registration->redirect, 'the registration was accepted (a single event takes seats like a course)');

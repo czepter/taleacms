@@ -1,5 +1,6 @@
 # Checks every change on PHP 8.5, the version the container image (FrankenPHP) runs: the repository's own checks, the PHPUnit suites
-# on MySQL 8.4 and on PostgreSQL 18, the browser walk, static analysis and security scanning.
+# on MySQL 8.4, the browser walk, static analysis and security scanning. PostgreSQL 18 and SQLite run when a release is tagged
+# (release.yml, job engines): the four runners are the bottleneck, and a job fewer per change shortens the wait for all of them.
 name: CI
 on:
   push:
@@ -134,25 +135,6 @@ jobs:
       - name: PHPUnit (integration and whole installed sites; the unit suite runs in Repository checks)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
         env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
-
-  postgres:
-    name: Tests on PostgreSQL 18
-    needs: gate
-    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
-    runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 30
-    services:
-      db:
-        image: postgres:18
-        env: { POSTGRES_PASSWORD: postgres }
-        ports: ['5432']
-        options: --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=20
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: ./.github/actions/php-composer
-      - name: PHPUnit (integration and whole installed sites)
-        run: vendor/bin/paratest --processes 4 --testsuite integration,site
-        env: { TALEA_TEST_DB_DRIVER: pgsql, TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_PG_HOST: db, TALEA_TEST_PG_PORT: 5432, TALEA_TEST_PG_USER: postgres, TALEA_TEST_PG_PASSWORD: postgres }
 
   browser:
     name: Browser walk (Chrome)

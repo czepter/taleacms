@@ -51,7 +51,7 @@ final class QuizFormTest extends SiteTestCase
         $form = $this->visitor->get($this->path);
         $this->fields = ['source' => $form->field('source'), 'element' => $form->field('element'), 'back' => $this->path, 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature')];
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
-        sleep(4); // the anti-spam signature has a minimum age
+        sleep(1); // the anti-spam signature has a minimum age
     }
 
     /** @param array<string, mixed> $answers */

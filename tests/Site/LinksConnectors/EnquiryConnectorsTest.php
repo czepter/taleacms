@@ -112,7 +112,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
     {
         $site = $this->site();
         $first = $this->queueMax();
-        sleep(4); // the form is signed with its time; a too fast submission is refused as a bot
+        sleep(1); // the form is signed with its time; a too fast submission is refused as a bot
         // the visit trigger of background jobs runs at most once a minute – mark it as just run, so only the cron call below delivers
         $site->exec("INSERT INTO tl_settings (name, value) VALUES ('notification_check', UNIX_TIMESTAMP()) ON DUPLICATE KEY UPDATE value = VALUES(value)");
         $location = $this->submit(['p0' => 'Karl Smith', 'p1' => 'karl@example.cz', 'p2' => '+420 777 123 456', 'p3' => 'I want a new kitchen.', 'p4' => '1']);
@@ -173,7 +173,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
         $this->assertNotSame('', self::$job['element'], 'the job item page carries the application form');
         $cv = $site->workDir('files') . '/cv.pdf';
         file_put_contents($cv, "%PDF-1.4 test CV\n");
-        sleep(4);
+        sleep(1);
 
         $apply = function (string $email) use ($site, $cv): string {
             $site->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");

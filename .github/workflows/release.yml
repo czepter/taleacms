@@ -1,5 +1,5 @@
 # Container images (docs/RELEASING.md). A tag vX.Y.Z (or a pre-release vX.Y.Z-rc.N) builds the release image: tests unless CI already
-# passed for the tagged commit, the multi-arch image to GHCR with the tags of tools/image-tags.sh, a cosign signature (keyless, GitHub
+# passed for the tagged commit (PostgreSQL and SQLite always, CI runs MySQL only), the multi-arch image to GHCR with the tags of tools/image-tags.sh, a cosign signature (keyless, GitHub
 # OIDC) and the GitHub release with generated notes. Nothing else runs it: a merge to main builds no image.
 # Each architecture builds natively: amd64 on the self-hosted runners, arm64 on a GitHub-hosted arm64 runner; the job image joins them.
 # Cache: amd64 keeps one BuildKit builder on the runner host (talea-release) with every layer and the apt and Composer cache mounts
@@ -73,8 +73,28 @@ jobs:
         run: vendor/bin/paratest --processes 4 --testsuite unit,integration,site
         env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
+  # CI tests MySQL only; the other engines are tested here, whatever CI passed: PostgreSQL 18, then SQLite (files, no server)
+  engines:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 60
+    services:
+      db:
+        image: postgres:18
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432']
+        options: --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: ./.github/actions/php-composer
+      - name: PHPUnit on PostgreSQL (integration and whole installed sites)
+        run: vendor/bin/paratest --processes 4 --testsuite integration,site
+        env: { TALEA_TEST_DB_DRIVER: pgsql, TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_PG_HOST: db, TALEA_TEST_PG_PORT: 5432, TALEA_TEST_PG_USER: postgres, TALEA_TEST_PG_PASSWORD: postgres }
+      - name: PHPUnit on SQLite (integration and whole installed sites)
+        run: vendor/bin/paratest --processes 4 --testsuite integration,site
+        env: { TALEA_TEST_DB_DRIVER: sqlite, TALEA_CI_NETWORK: "${{ job.services.db.network }}" }
+
   meta:
-    needs: test
+    needs: [test, engines]
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 5
     outputs:
