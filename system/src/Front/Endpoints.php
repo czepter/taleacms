@@ -229,7 +229,7 @@ final class Endpoints
             return null;
         }
         // a HEAD request (link previews, uptime checks) is answered the same but is not a visit
-        if ($this->app->request->method() !== 'HEAD') {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
             $db->run('UPDATE {short_links} SET hits = hits + 1, last_hit_at = ? WHERE short_link_id = ?', [date('Y-m-d H:i:s'), $row['short_link_id']]);
         }
         $target = \Talea\Core\ShortLinks::targetUrl($this->app, $row);
