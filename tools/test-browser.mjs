@@ -1473,6 +1473,9 @@ await step('booking: pick a day, the month stays drawn and the free times load',
   await visit('/booking-test');
   if (await page.locator('.tl-booking [data-no-script]:visible').count()) { throw new Error('the fallback field shows although the script runs'); }
   const free = page.locator('.tl-booking-days button:not(:disabled)').first();
+  // late on the last day of a month the lead time leaves no free day in it: the next month has them
+  await page.locator('.tl-booking-days').waitFor({ timeout: 5000 });
+  if (!(await free.count())) { await page.locator('.tl-booking-month button').last().click(); }
   await free.waitFor({ timeout: 5000 });
   await free.click();
   await page.locator('.tl-booking-times button').first().waitFor({ timeout: 5000 });
