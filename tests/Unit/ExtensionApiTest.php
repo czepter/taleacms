@@ -91,9 +91,9 @@ final class ExtensionApiTest extends TestCase
             'a prefix of a core route or a reserved slug is refused the way a prefix another add-on owns is; a free prefix is accepted once');
         $handlers = array_column(\Talea\Front\Kernel::routes()->routes(), 'handler');
         $addOn = array_search('Kernel::addOnRoute', $handlers, true);
-        $this->assertSame([true, 'Endpoints::status', 'Kernel::pageAt'], [$addOn === (int) array_search('Kernel::pageAt', $handlers, true) - 1, $handlers[$addOn - 1] ?? '', $handlers[$addOn + 1] ?? ''],
+        $this->assertSame([true, 'Endpoints::shortLink', 'Kernel::pageAt'], [$addOn === (int) array_search('Kernel::pageAt', $handlers, true) - 1, $handlers[$addOn - 1] ?? '', $handlers[$addOn + 1] ?? ''],
             'add-on routes are asked after the last core route and right before pages and collections');
-        $this->assertSame([], array_diff(['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'health', 'tasks', 'consent', 'form', 'form-step', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og', 'member', 'fleet', 'experiment', 'oauth'],
+        $this->assertSame([], array_diff(['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'health', 'tasks', 'consent', 'form', 'form-step', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og', 'member', 'fleet', 'experiment', 'oauth', 's'],
             \Talea\Front\Kernel::reservedSlugs()), 'the reserved slugs come from the route table and keep the addresses outside it');
     }
 }

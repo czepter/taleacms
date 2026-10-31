@@ -26,7 +26,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 // the content fields of a news item in a right-to-left version (Arabic) are written from the right
 $contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($app->settings(), (string) ($newsItem['language'] ?? '')));
 ?>
-<p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a></p>
+<p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a><?php if (!empty($newsItem['public_id'])): ?> <?= Talea\Admin\Modules\ShortLinks::entryLinks($app, 'news', $newsItem['public_id']) ?><?php endif ?></p>
 
 <?php if (!empty($draftOnServer)): ?>
 <script type="application/json" id="draft-server"><?= json_encode(['time' => strtotime($draftOnServer['saved_at']) * 1000, 'fields' => json_decode($draftOnServer['data'], true)], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>

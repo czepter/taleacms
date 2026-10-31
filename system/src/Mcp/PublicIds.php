@@ -56,10 +56,12 @@ final class PublicIds
         'list_requests' => ['id' => 'requests'], 'update_request' => ['id' => 'requests'],
         'get_site' => ['id' => 'fleet_sites'],
         'save_member_group' => ['id' => 'member_groups'], 'delete_member_group' => ['id' => 'member_groups'],
+        'save_short_link' => ['id' => 'short_links', 'target.id' => self::BY_TARGET], 'delete_short_link' => ['id' => 'short_links'],
         'set_content_groups' => ['id' => ['type', ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items']], 'groups.*' => 'member_groups'],
     ];
 
     private const array BY_KIND = ['kind', ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items']];
+    private const array BY_TARGET = ['type', ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items']];
     private const array BY_TYPE = ['type', ['page' => 'pages', 'news' => 'news', 'collection_item' => 'collection_items']];
 
     /**
@@ -120,6 +122,8 @@ final class PublicIds
         'list_requests' => ['requests.*.id' => 'requests', 'requests.*.about.id' => ['type', ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items']], 'requests.*.attachments.*.id' => 'media'],
         'update_request' => ['id' => 'requests'],
         'list_sites' => ['sites.*.id' => 'fleet_sites'], 'get_site' => ['id' => 'fleet_sites'],
+        'list_short_links' => ['short_links.*.id' => 'short_links', 'short_links.*.target.id' => self::BY_TARGET],
+        'save_short_link' => ['id' => 'short_links', 'target.id' => self::BY_TARGET],
         'list_member_groups' => ['groups.*.id' => 'member_groups'], 'save_member_group' => ['group.id' => 'member_groups'], 'delete_member_group' => ['deleted' => 'member_groups'],
         'set_content_groups' => ['id' => ['type', ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items']], 'groups.*' => 'member_groups'],
         'undo_agent_session' => ['conflicts.*.key' => ['table', []]],

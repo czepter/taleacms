@@ -103,6 +103,7 @@ final class Kernel
         Modules\SearchPerformance::class,
         Modules\SeoTitles::class,
         Modules\Redirects::class,
+        Modules\ShortLinks::class,
         Modules\MissingPages::class,
         Modules\Audit::class,
         Modules\News::class,

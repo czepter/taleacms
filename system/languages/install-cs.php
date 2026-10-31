@@ -1744,6 +1744,8 @@ return [
     'Shield with a check' => 'Štít s fajfkou',
     'Shop or showroom' => 'Obchod nebo showroom',
     'Shops and production' => 'Obchody a výroba',
+    'Short addresses and QR codes for print, with campaign parameters that stay off the paper. A short link can be pointed at new content any time.' => 'Krátké adresy a QR kódy do tisku s kampaňovými parametry, které na papíře nejsou vidět. Krátký odkaz lze kdykoli přesměrovat na nový obsah.',
+    'Short links' => 'Krátké odkazy',
     'Show' => 'Zobrazit',
     'Show all media' => 'Zobrazit všechna média',
     'Show from' => 'Zobrazit od',

@@ -146,7 +146,7 @@ final class Presets
         $name = mb_substr(trim($name) !== '' ? trim($name) : t($preset['name']), 0, 100);
         $seo = $base = slugify($name, 100);
         for ($i = 2; $db->value('SELECT 1 FROM {collections} WHERE slug = ?', [$seo]) !== null || in_array($seo, \Talea\Front\Kernel::reservedSlugs(), true)
-            || isset(\Talea\Core\Language::AVAILABLE[$seo]); $i++) {
+            || isset(\Talea\Core\Language::AVAILABLE[$seo]) || \Talea\Core\ShortLinks::takesName($db, $seo); $i++) {
             $seo = $base . '-' . $i;
         }
         $fields = self::fields($db, $preset);
@@ -184,7 +184,7 @@ final class Presets
     private static function createListPage(App $app, array $preset, string $key, string $name, string $pageSeo, string $collectionSeo, array $fields): ?int
     {
         $db = $app->db();
-        if ($db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$pageSeo]) !== null) {
+        if ($db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$pageSeo]) !== null || \Talea\Core\ShortLinks::takesName($db, $pageSeo)) {
             return null;
         }
         $build = self::listPage($preset, $name, $collectionSeo, $fields);

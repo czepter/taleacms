@@ -155,6 +155,15 @@ final class SiteExport
         // popups with rules and the published build; not the counters (they are only this site's statistics)
         self::fields($f, 'popups', $all('popups', 'SELECT popup_id, public_id, name, slug, type, trigger_type, value, rules, frequency, days, active, sort_order, valid_until, review_by, build, build_draft FROM {popups} ORDER BY popup_id', [], ['rules' => 'rules'] + $builds));
         self::fields($f, 'collection_items', $one('collection_items', 'SELECT item_id, public_id, collection_id, name, slug, data, seo_title, description, image, noindex, focus_keywords, key_page, robots, canonical_url, breadcrumb_title, share_title, share_description, sort_order, visible, publish_at, valid_until, review_by, language, created_at FROM {collection_items} WHERE item_id > ? AND deleted_at IS NULL ORDER BY item_id LIMIT 500', 'item_id', ['collection_id' => 'collections']));
+        // short links (Core\ShortLinks): a content target is the public id of the row; the counters are only this site's statistics
+        $targets = ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items'];
+        self::fields($f, 'short_links', (function () use ($db, $targets): \Generator {
+            foreach ($db->all('SELECT public_id, path, target_type, target_id, target_url, utm_source, utm_medium, utm_campaign, utm_term, utm_content, label, created_at FROM {short_links} ORDER BY short_link_id') as $row) {
+                $row['target_id'] = isset($targets[$row['target_type']]) ? ($db->publicId($targets[$row['target_type']], (int) $row['target_id']) ?: null) : null;
+
+                yield $row;
+            }
+        })());
         // the previous files of documents (2.11) go along – they are content, kept for good; download counts are only this site's statistics
         self::fields($f, 'document_versions', $one('document_versions', 'SELECT id, item_id, file, version, replaced_at, replaced_by FROM {document_versions} WHERE id > ? ORDER BY id LIMIT 1000', 'id', ['item_id' => 'collection_items']));
         self::fields($f, 'media_folders', $all('media_folders', 'SELECT folder_id, public_id, name, parent_id FROM {media_folders} ORDER BY folder_id', ['parent_id' => 'media_folders']));
@@ -406,7 +415,7 @@ final class SiteExport
             . "format, format_version, talea, created_at   header (format \"talea-export\", format version, Talea version, created)\n"
             . "settings         site name and description, identity (logo, colours, fonts, networks), time zone, languages, home page,\n"
             . "                 the features switched on (extensions) and off (extensions_off)\n"
-            . "Public ids: every row of pages, categories, tags, news, redirects, components, sections, collections, collection_items, popups, media,\n"
+            . "Public ids: every row of pages, categories, tags, news, redirects, short_links, components, sections, collections, collection_items, popups, media,\n"
             . "                 media_folders, booking_services and booking_staff has a public_id (UUID v4). The integer keys of the database are not in the file;\n"
             . "                 every reference between rows (parent_id, translation_of, category_id, folder_id, collection_id, item_id, tags, staff_id, service_id,\n"
             . "                 the home_page setting, menu pages, pop-up pages, the pages of a site part, the component and booking elements inside builds)\n"
@@ -417,6 +426,7 @@ final class SiteExport
             . "news             news: public_id, title, intro and text (HTML), published_at, visible (1 = published), category_id (public id of the category), language,\n"
             . "                 translation_of (public id of the news item it translates), author (a name), tags (list of public ids of tags) and more\n"
             . "redirects        redirects: from_path -> to_path, match_type (exact, contains, starts, ends or regex), type (301, 302, 307, 410 or 451), active, auto_score (NULL = by hand; 0-100 = created by the site itself)\n"
+            . "short_links      short links: public_id, path (a name or s/<code>), target_type (page, news, item or url), target_id (public id of the page, news item or collection item), target_url, utm_source, utm_medium, utm_campaign, utm_term, utm_content, label, created_at\n"
             . "classes          shared classes of the builder: name, style (JSON), css\n"
             . "site_parts       site parts (header, footer, wrappers): type, language, variant, pages, build, build_draft\n"
             . "components       components: public_id, name, properties, build, build_draft (the \"component\" element refers to a public_id), kit_key (from a fleet kit, 2.16)\n"

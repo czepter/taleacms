@@ -648,7 +648,7 @@ final class WpImport
             $fields = json_decode((string) $existing['fields'], true) ?: $fields;
         } else {
             $seo = self::availableSlug($wanted, fn (string $url): bool => in_array($url, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ?', [$url]) !== null || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null);
+                || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ?', [$url]) !== null || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null || ShortLinks::takesName($this->db, $url));
             // a product catalogue keeps the preset (the enquiry basket and the comparison find its fields), its structured data and item template
             $schema = $preset !== null && is_array($preset['schema']) ? \Talea\Builder\CollectionSchema::sanitize($preset['schema'], $fields) : null;
             $idk = $this->db->insert('collections', ['name' => mb_substr($preset !== null ? t((string) $preset['name']) : WpTypes::label($type), 0, 100), 'slug' => $seo, 'detail' => 1,

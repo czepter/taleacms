@@ -541,6 +541,12 @@ final class Registry
         return $self->routes[$m[1]][1]($app->request, trim($m[2] ?? '', '/'));
     }
 
+    /** Does an add-on route own this first path segment? (Core\ShortLinks refuses such a name.) */
+    public static function ownsPrefix(string $prefix): bool
+    {
+        return isset(self::$instance?->routes[$prefix]);
+    }
+
     public function addHealthRows(string $slug, callable $rows): void
     {
         $this->healthRows[$slug] = $rows;

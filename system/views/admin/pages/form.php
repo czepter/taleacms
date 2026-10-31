@@ -181,6 +181,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <?php if ($page['page_id']): ?>
 <div class="navigation-row actions-bottom">
 <a class="navigation" href="<?= e($module->url('export', ['id' => $page['public_id']])) ?>"><?= e(t('Download as JSON')) ?></a>
+<?= Talea\Admin\Modules\ShortLinks::entryLinks($app, 'page', $page['public_id']) ?>
 <form class="inline" method="post" action="<?= e($module->url('duplicate')) ?>"><?= $csrf ?><input type="hidden" name="page_id" value="<?= e($page['public_id']) ?>"><input type="hidden" name="title" value="<?= e($page['title']) ?>"><button class="navigation" type="submit"><?= e(t('Duplicate page')) ?></button></form>
 <?php if (($page['build'] ?? null) !== null): ?>
 <form class="inline" method="post" action="<?= e($module->url('build_text')) ?>" data-confirm="<?= e(t('Return the page to plain text? The build stays in versions and you can go back to it.')) ?>"><?= $csrf ?><input type="hidden" name="page_id" value="<?= e($page['public_id']) ?>"><button class="navigation danger" type="submit"><?= e(t('Return page to text')) ?></button></form>
