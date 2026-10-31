@@ -69,7 +69,7 @@ the grid and resized by handles. Output is still CSS grid placement, not absolut
 
 ### Phase C: media on the canvas
 
-Status: specified, not built. Phase C is about the picture inside a box, not the box: what part of a photo shows, in what
+Status: data model (M6) and crop mode (C1, M7, `image/builder/media.js`) built; C2 and C3 specified, not built. Phase C is about the picture inside a box, not the box: what part of a photo shows, in what
 shape, and what sits behind a section. Every write is a normal `Style` / `content` change of the current breakpoint, one
 `applyChange` per gesture, like phases A and B.
 

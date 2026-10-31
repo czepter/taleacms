@@ -567,6 +567,107 @@ await step('compose (mouse): the marquee selects several elements, an image file
   await page.waitForFunction((n) => JSON.stringify(window.taleaBuilder.state.build).split('"type":"image"').length > n, before, { timeout: 15000 });
 });
 
+// ---------- crop mode of an image (compose phase C1): focal point and shape, by mouse and by keyboard ----------
+const crop = (p, name) => frameIn(p).locator(`#tl-bd-overlay [data-bdo="${name}"]`).first();
+const styleOf = async (p, bp) => find((await p.evaluate(() => window.taleaBuilder.state.build)).children, 'cimg').style?.[bp] ?? {};
+const focalOf = (v) => (v ?? '').split('% ').map((x) => parseInt(x, 10));
+/** Opens crop mode with the toolbar button of the selected image. */
+async function openCrop(p) {
+  await crop(p, 'crop').click();
+  await frameIn(p).locator('#tl-bd-overlay .bdc-photo').waitFor({ timeout: 5000 }).catch(async (e) => {
+    const info = await p.evaluate(() => ({ gesture: window.taleaBuilder.state.gesture, overlay: window.taleaBuilder.previewDoc().getElementById('tl-bd-overlay')?.innerHTML.slice(0, 300) }));
+    throw new Error('crop mode did not open: ' + JSON.stringify(info));
+  });
+}
+/** Presses at a point of the whole photo (as fractions of its box), drags a little and lets go. */
+async function dragPhoto(p, fx, fy) {
+  const photo = frameIn(p).locator('#tl-bd-overlay .bdc-photo');
+  const b = await photo.boundingBox();
+  const x = b.x + b.width * fx;
+  const y = b.y + b.height * fy;
+  await p.mouse.move(b.x + b.width * 0.3, b.y + b.height * 0.3);
+  await p.mouse.down();
+  await p.mouse.move(x, y, { steps: 6 });
+  if (SHOTS) { await p.screenshot({ path: `${SHOTS}/crop-dragging.png` }); }
+  await p.mouse.up();
+  await p.waitForTimeout(350); // the photo settles back
+  if (SHOTS) { await p.screenshot({ path: `${SHOTS}/crop-settled.png` }); }
+}
+
+await step('crop (mouse): 16:9 and a focal point by dragging the photo, one undo step, phone 3:4 leaves desktop alone, reload', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'cimg');
+  const before = await undoDepth(page);
+  await openCrop(page);
+  expect(await frameIn(page).locator('#tl-bd-overlay .bdo-b[data-bdo="move"]').count() === 0, 'the handles and the toolbar of the element did not step aside');
+  await crop(page, 'crop-ratio-16-9').click();
+  expect(await crop(page, 'crop-ratio-16-9').getAttribute('aria-pressed') === 'true', 'the 16:9 button is not pressed');
+  await dragPhoto(page, 0.62, 0.38);
+  // while the crop is open nothing is written; the window is back on the element after the photo settled
+  expect((await undoDepth(page)) === before, 'crop mode wrote before Done');
+  const win = await frameIn(page).locator('#tl-bd-overlay .bdc-win').boundingBox();
+  const shown = await node(page, 'cimg').boundingBox();
+  expect(Math.abs(win.x - shown.x) < 2 && Math.abs(win.y - shown.y) < 2 && Math.abs(win.width - shown.width) < 2 && Math.abs(win.height - shown.height) < 2, `the window is not on the element's box: ${JSON.stringify([win, shown])}`);
+  await crop(page, 'crop-done').click();
+  await idle(page);
+  expect((await undoDepth(page)) === before + 1, 'ratio and focal point together are not exactly one undo step');
+  let base = await styleOf(page, 'base');
+  const [fx, fy] = focalOf(base.focal_point);
+  expect(base.aspect_ratio === '16/9' && base.object_fit === 'cover' && Math.abs(fx - 62) <= 2 && Math.abs(fy - 38) <= 2, `desktop crop is ${JSON.stringify(base)}`);
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(300);
+  base = await styleOf(page, 'base');
+  expect(!base.aspect_ratio && !base.focal_point && !base.object_fit && (await undoDepth(page)) === before, 'one undo did not revert the whole crop');
+  // again, then a phone edit
+  await pick(page, 'cimg');
+  await openCrop(page);
+  await crop(page, 'crop-ratio-16-9').click();
+  await dragPhoto(page, 0.62, 0.38);
+  await crop(page, 'crop-done').click();
+  await idle(page);
+  const desktop = await styleOf(page, 'base');
+  await device(page, 'Mobile', 'mobile');
+  await pick(page, 'cimg');
+  await openCrop(page);
+  expect(await crop(page, 'crop-ratio-16-9').getAttribute('aria-pressed') === 'true', 'the phone does not show the inherited 16:9 as pressed');
+  expect(!(await crop(page, 'crop-ratio-16-9').evaluate((b) => b.classList.contains('bdc-own'))), 'an inherited ratio is marked as overridden');
+  await crop(page, 'crop-ratio-3-4').click();
+  expect(await crop(page, 'crop-ratio-3-4').evaluate((b) => b.classList.contains('bdc-own')), 'the phone override has no dot');
+  await crop(page, 'crop-done').click();
+  await idle(page);
+  const mobile = await styleOf(page, 'mobile');
+  expect(mobile.aspect_ratio === '3/4' && !mobile.focal_point, `phone crop is ${JSON.stringify(mobile)}`);
+  expect(JSON.stringify(await styleOf(page, 'base')) === JSON.stringify(desktop), 'the phone crop changed the desktop style');
+  await pick(page, 'cimg');
+  expect(await crop(page, 'crop').evaluate((b) => b.classList.contains('bdc-own')), 'the Crop button has no dot where the phone overrides the desktop shape');
+  const saved = find((await savedBuild(page, 'mouse')).children, 'cimg');
+  expect(saved.style.base.aspect_ratio === '16/9' && saved.style.mobile.aspect_ratio === '3/4' && saved.style.base.focal_point === desktop.focal_point, `the saved crop is ${JSON.stringify(saved.style)}`);
+  await device(page, 'Desktop', 'base');
+  await pick(page, 'cimg');
+  expect(!(await crop(page, 'crop').evaluate((b) => b.classList.contains('bdc-own'))), 'the Crop button has a dot on desktop, where nothing is inherited');
+});
+
+await step('crop (mouse): Cancel and Esc write nothing, a double-click opens it, an unchanged Done is no history step', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'cimg');
+  const before = await undoDepth(page);
+  const style = JSON.stringify(await styleOf(page, 'base'));
+  await openCrop(page);
+  await crop(page, 'crop-ratio-1').click();
+  await dragPhoto(page, 0.9, 0.9);
+  await crop(page, 'crop-cancel').click();
+  await frameIn(page).locator('#tl-bd-overlay .bdc').waitFor({ state: 'detached', timeout: 5000 });
+  await node(page, 'cimg').dblclick(); // a double-click on the image opens crop mode too
+  await frameIn(page).locator('#tl-bd-overlay .bdc-photo').waitFor({ timeout: 5000 });
+  await crop(page, 'crop-ratio-21-9').click();
+  await page.keyboard.press('Escape');
+  await openCrop(page);
+  await crop(page, 'crop-done').click();
+  await idle(page);
+  expect((await undoDepth(page)) === before && JSON.stringify(await styleOf(page, 'base')) === style, 'Cancel, Esc or an unchanged Done wrote something');
+  expect(await frameIn(page).locator('#tl-bd-overlay .bdc').count() === 0, 'crop mode did not close');
+});
+
 // keyboard only
 await step('compose (keyboard): Enter walks the handles, arrows change the spacing', async () => {
   await openBuilder(page, 'keys');
@@ -609,6 +710,36 @@ await step('compose (keyboard): Alt+arrows resize an image to half width', async
   for (let i = 0; i < 6; i++) { await page.keyboard.press('Alt+ArrowLeft'); await page.waitForTimeout(120); }
   const build = await savedBuild(page, 'keys');
   expect(find(build.children, 'cimg').style.base.width === '50%', `the image width is ${find(build.children, 'cimg').style.base.width}`);
+});
+
+await step('crop (keyboard): Enter opens, arrows and a digit, Enter is Done, Esc cancels', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'cimg');
+  const before = await undoDepth(page);
+  await page.keyboard.press('Enter');
+  await frameIn(page).locator('#tl-bd-overlay .bdc-photo').waitFor({ timeout: 5000 });
+  expect(await crop(page, 'crop-focal').evaluate((c) => c === c.ownerDocument.activeElement), 'the focus is not on the crosshair');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Shift+ArrowDown');
+  expect(await crop(page, 'crop-focal').getAttribute('aria-valuetext') === 'Focal point 60 %, 51 %', `the live value is ${await crop(page, 'crop-focal').getAttribute('aria-valuetext')}`);
+  await page.keyboard.press('5'); // 16:9
+  await page.keyboard.press('Enter');
+  await idle(page);
+  const base = await styleOf(page, 'base');
+  expect(base.focal_point === '60% 51%' && base.aspect_ratio === '16/9' && base.object_fit === 'cover', `keyboard crop is ${JSON.stringify(base)}`);
+  expect((await undoDepth(page)) === before + 1, 'the keyboard crop is not exactly one undo step');
+  // Home centres, Esc restores the state before crop mode
+  await pick(page, 'cimg');
+  await page.keyboard.press('Enter');
+  await frameIn(page).locator('#tl-bd-overlay .bdc-photo').waitFor({ timeout: 5000 });
+  await page.keyboard.press('Home');
+  expect(await crop(page, 'crop-focal').getAttribute('aria-valuetext') === 'Focal point 50 %, 50 %', 'Home did not centre the point');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  expect(JSON.stringify(await styleOf(page, 'base')) === JSON.stringify(base) && (await undoDepth(page)) === before + 1, 'Esc wrote something');
+  const saved = await savedBuild(page, 'keys');
+  expect(find(saved.children, 'cimg').style.base.focal_point === '60% 51%', 'the keyboard crop did not survive a reload');
 });
 
 await step('compose (keyboard): Ctrl+Shift+arrow moves the button into the next column, arrows select siblings', async () => {

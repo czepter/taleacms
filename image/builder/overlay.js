@@ -37,6 +37,8 @@ const STYLE = `
 #tl-bd-overlay .bdo-b:hover{background:rgb(255 255 255/.18)}
 #tl-bd-overlay .bdo-b:focus-visible{outline:calc(2px*var(--s)) solid #8ab4f8;outline-offset:calc(-2px*var(--s))}
 #tl-bd-overlay .bdo-b[aria-pressed="true"]{background:#ff4f2e}
+#tl-bd-overlay .bdo-b:disabled{opacity:.4;cursor:not-allowed}
+#tl-bd-overlay .bdo-b:disabled:hover{background:transparent}
 #tl-bd-overlay .bdo-b svg{width:calc(18px*var(--s));height:calc(18px*var(--s));fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #tl-bd-overlay .bdo-sep{width:calc(1px*var(--s));margin:calc(4px*var(--s)) calc(2px*var(--s));background:rgb(255 255 255/.3)}
 #tl-bd-overlay .bdo-b[data-bdo="move"]{cursor:grab}
