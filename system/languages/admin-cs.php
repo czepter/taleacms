@@ -5404,6 +5404,7 @@ return [
     'The table has no header (TH cells) – a screen reader cannot tell what each column means.' => 'Tabulka nemá záhlaví (buňky TH) – čtečka neumí říct, co který sloupec znamená.',
     'The tables were created, but config.php could not be written. Check the write permissions.' => 'Tabulky jsou vytvořeny, ale nepodařilo se zapsat config.php. Zkontrolujte práva k zápisu.',
     'The tag does not exist.' => 'Štítek neexistuje.',
+    'The target folder does not exist.' => 'Cílová složka neexistuje.',
     'The target must be a path on this site or a full https://… address.' => 'Cíl musí být cesta na tomto webu nebo celá adresa https://….',
     'The target would match the rule itself: a loop.' => 'Cíl by odpovídal samotnému pravidlu: smyčka.',
     'The template could not be used.' => 'Šablonu se nepodařilo použít.',

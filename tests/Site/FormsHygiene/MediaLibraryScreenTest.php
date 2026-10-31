@@ -70,7 +70,7 @@ final class MediaLibraryScreenTest extends SiteTestCase
         $this->assertStringNotContainsString($f['top-named'], $inside);
 
         // the left menu: the tree opens the branch of the current folder and marks the current one
-        $this->assertMatchesRegularExpression('#<a class="rail-link" href="[^"]*folder=' . $weddings . '" aria-current="page">#', $inside, 'the rail marks the current folder');
+        $this->assertMatchesRegularExpression('#<a class="media-rail-link" href="[^"]*folder=' . $weddings . '" aria-current="page">#', $inside, 'the rail marks the current folder');
         $this->assertStringContainsString('<ul class="media-tree-sub"><li>', $inside, 'the branch of the current folder is open');
         $this->assertStringContainsString('<ul class="media-tree-sub closed">', $root, 'on the top level a folder with subfolders is closed');
 
@@ -102,7 +102,7 @@ final class MediaLibraryScreenTest extends SiteTestCase
         // cross-cutting views show only files
         $recent = $this->page('&recent=1');
         $this->assertStringContainsString($f['in-castle'], $recent);
-        $this->assertStringNotContainsString('class="folder-grid"', $recent);
+        $this->assertStringNotContainsString('class="media-folder-grid"', $recent);
         $this->assertStringContainsString($f['in-weddings'], $this->page('&search=' . urlencode('In weddings')));
 
         // Show more: 40 at first, 40 more per click
@@ -112,10 +112,82 @@ final class MediaLibraryScreenTest extends SiteTestCase
                 SELECT ?, owner_id, NULL, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, created_at FROM tl_media WHERE public_id = ?', [Uuid::v4(), $seed]);
         }
         $first = $this->page();
-        $this->assertSame(40, substr_count($first, 'class="tile"'), 'the first screen shows 40 files');
+        $this->assertSame(40, substr_count($first, 'class="media-tile"'), 'the first screen shows 40 files');
         $this->assertMatchesRegularExpression('#Showing 40 of \d+#', $first);
         $this->assertStringContainsString('show=80', $first, 'Show more raises show by 40');
-        $this->assertGreaterThan(40, substr_count($this->page('&show=80'), 'class="tile"'));
+        $this->assertGreaterThan(40, substr_count($this->page('&show=80'), 'class="media-tile"'));
         $this->assertSame(1, substr_count($this->page('&show=5'), 'Showing 40 of'), 'show below 40 is raised to 40');
+    }
+
+    public function testDetailsPanel(): void
+    {
+        $site = $this->site();
+        $target = (string) $site->mcpResult('save_media_folder', ['name' => 'Panel target'])['id'];
+        $a = $this->image('panel-a', null, 'Panel A');
+        $b = $this->image('panel-b', null, 'Panel B');
+        $c = $this->image('panel-c', null, 'Panel C');
+        $doc = $this->image('panel-doc');
+        $site->exec("UPDATE tl_media SET image_path = REPLACE(image_path, '.png', '.pdf'), thumb_path = '' WHERE public_id = ?", [$doc]);
+        $ids = fn (string $pid): int => $site->internalId('media', $pid);
+        $this->assertStringNotContainsString('class="media-panel"', $this->page(), 'no panel without item');
+
+        // the panel, with the neighbours in the list order (newest first: C, B, A among these) and the list kept in the links
+        $panel = $this->page('&item=' . $b . '&sort=newest&type=image');
+        $this->assertStringContainsString('class="media-panel"', $panel);
+        $this->assertStringContainsString('data-focal', $panel, 'an image has the focal point');
+        $this->assertStringContainsString('name="focus_x"', $panel);
+        $this->assertMatchesRegularExpression('#href="[^"]*item=' . $c . '[^"]*type=image[^"]*" aria-label="Previous file"|href="[^"]*type=image[^"]*item=' . $c . '[^"]*" aria-label="Previous file"#', $panel, 'Previous is the file before it in the list, with the list parameters');
+        $this->assertStringContainsString('aria-label="Close details"', $panel);
+        $this->assertStringContainsString('download', $panel);
+        $this->assertStringContainsString('data-copy="#media-address"', $panel);
+        $this->assertStringContainsString('Not used anywhere.', $panel);
+        $this->assertDoesNotMatchRegularExpression('#form="media-delete"[^>]*disabled#', $panel, 'an unused file can be deleted');
+        $this->assertStringContainsString('popovertarget="media-replace"', $panel, 'Replace file for a PNG');
+
+        // the first file of the list has no Previous
+        $this->assertStringNotContainsString('aria-label="Previous file"', $this->page('&item=' . $this->site()->publicId('media', (int) $site->value('SELECT MAX(media_id) FROM tl_media')) . '&sort=newest'));
+
+        // a used file: Delete is disabled and says why
+        $path = (string) $site->value('SELECT image_path FROM tl_media WHERE public_id = ?', [$a]);
+        $site->exec('UPDATE tl_pages SET text = ? WHERE page_id = ?', ['<p><img src="/' . $path . '"></p>', (int) $site->value('SELECT MIN(page_id) FROM tl_pages')]);
+        $used = $this->page('&item=' . $a);
+        $this->assertStringContainsString('Used in 1 place', $used);
+        $this->assertMatchesRegularExpression('#form="media-delete"[^>]*disabled#', $used);
+        $this->assertStringContainsString('The file is used in 1 place. Remove it there first to delete it.', $used);
+
+        // an attachment: an extension block instead of the preview, no focal point
+        $attachment = $this->page('&item=' . $doc);
+        $this->assertStringNotContainsString('data-focal', $attachment);
+        $this->assertStringContainsString('media-panel-preview file', $attachment);
+        $this->assertStringNotContainsString('popovertarget="media-replace"', $attachment);
+
+        // a file waiting for approval: the status and Publish file instead of Replace
+        $site->exec('UPDATE tl_media SET staged_at = ? WHERE public_id = ?', [date('Y-m-d H:i:s'), $c]);
+        $waiting = $this->page('&item=' . $c);
+        $this->assertStringContainsString('media-flag-waiting', $waiting);
+        $this->assertStringContainsString('form="media-approve"', $waiting);
+        $this->assertStringNotContainsString('popovertarget="media-replace"', $waiting);
+        $site->exec('UPDATE tl_media SET staged_at = NULL WHERE public_id = ?', [$c]);
+
+        // Save: fields, the folder, and the redirect keeps the item and the list
+        $csrf = $site->admin()->get('/admin.php?module=media')->csrf();
+        $answer = $site->admin()->post('/admin.php?module=media&action=save', ['_csrf' => $csrf, 'media_id' => $b, 'name' => 'Renamed B', 'description' => 'Caption B', 'author' => 'Me', 'folder_id' => $target, 'focus_x' => 20, 'focus_y' => 70, 'list' => 'sort=size&type=image']);
+        $this->assertStringContainsString('item=' . $b, $answer->redirect);
+        $this->assertStringContainsString('sort=size', $answer->redirect);
+        $this->assertSame('Renamed B|Caption B|Me|20% 70%|' . $site->internalId('media_folders', $target), implode('|', [
+            $site->value('SELECT name FROM tl_media WHERE media_id = ?', [$ids($b)]), $site->value('SELECT description FROM tl_media WHERE media_id = ?', [$ids($b)]),
+            $site->value('SELECT author FROM tl_media WHERE media_id = ?', [$ids($b)]), $site->value('SELECT focal_point FROM tl_media WHERE media_id = ?', [$ids($b)]),
+            $site->value('SELECT folder_id FROM tl_media WHERE media_id = ?', [$ids($b)]),
+        ]), 'the panel saves the fields and moves the file');
+        $site->admin()->post('/admin.php?module=media&action=save', ['_csrf' => $csrf, 'media_id' => $b, 'name' => 'Renamed B', 'folder_id' => '']);
+        $this->assertNull($site->value('SELECT folder_id FROM tl_media WHERE media_id = ?', [$ids($b)]), 'an empty folder takes the file out of its folder');
+
+        // Delete of one file goes through the bulk action
+        $site->admin()->post('/admin.php?module=media&action=bulk', ['_csrf' => $csrf, 'bulk' => 'delete', 'selected' => [$b]]);
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_media WHERE public_id = ?', [$b]));
+
+        // Rename of a folder card returns to the level it came from
+        $answer = $site->admin()->post('/admin.php?module=media&action=folder', ['_csrf' => $csrf, 'folder_id' => $target, 'name' => 'Panel target 2', 'level' => '']);
+        $this->assertStringNotContainsString('folder=', $answer->redirect, 'the top level, not the renamed folder');
     }
 }

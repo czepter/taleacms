@@ -5411,6 +5411,7 @@ return [
     'The table has no header (TH cells) – a screen reader cannot tell what each column means.' => 'Die Tabelle hat keine Kopfzeile (TH-Zellen) – ein Screenreader kann nicht erkennen, was jede Spalte bedeutet.',
     'The tables were created, but config.php could not be written. Check the write permissions.' => 'Die Tabellen wurden erstellt, aber config.php konnte nicht geschrieben werden. Prüfen Sie die Schreibrechte.',
     'The tag does not exist.' => 'Das Schlagwort existiert nicht.',
+    'The target folder does not exist.' => 'Der Zielordner existiert nicht.',
     'The target must be a path on this site or a full https://… address.' => 'Das Ziel muss ein Pfad dieser Website oder eine vollständige https://…-Adresse sein.',
     'The target would match the rule itself: a loop.' => 'Das Ziel würde auf die Regel selbst passen: eine Schleife.',
     'The template could not be used.' => 'Die Vorlage konnte nicht verwendet werden.',

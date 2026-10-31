@@ -70,7 +70,70 @@ final class Media extends Module
             'counts' => $this->counts(),
             'newsItem' => $filter['article'] > 0 ? $this->db->value('SELECT title FROM {news} WHERE news_id = ?', [$filter['article']]) : null,
             'item' => $item === null ? null : $this->db->one('SELECT o.* FROM {media} o WHERE o.media_id = ?', [$item]),
+            'panel' => $item === null ? null : $this->panel($item, $where, $params),
         ]);
+    }
+
+    /**
+     * What the details panel needs besides the row: the neighbours of the file in the list (by the same filter and order, in one
+     * query that returns only the two ids), the places that use it and whether the person may change or delete it.
+     *
+     * @param list<int|string> $params
+     * @return array{prev: ?string, next: ?string, used: list<string>, canEdit: bool}
+     */
+    private function panel(int $id, string $where, array $params): array
+    {
+        $order = str_replace('used_at', '(SELECT COUNT(*) FROM {media_usage} p2 WHERE p2.media_id = o.media_id)', self::SORT_ORDERS[$this->request->get('sort')][1] ?? self::SORT_ORDERS['newest'][1]);
+        $near = $this->db->one(
+            "SELECT prev_id, next_id FROM (SELECT o.media_id AS id, LAG(o.public_id) OVER (ORDER BY {$order}) AS prev_id, LEAD(o.public_id) OVER (ORDER BY {$order}) AS next_id
+                 FROM {media} o WHERE {$where}) neighbours WHERE id = ?",
+            [...$params, $id],
+        );
+        $news = $this->db->all('SELECT n.title FROM {media_usage} u JOIN {news} n ON n.news_id = u.news_id WHERE u.media_id = ? ORDER BY n.title', [$id]);
+
+        return [
+            'prev' => $near['prev_id'] ?? null, 'next' => $near['next_id'] ?? null, 'canEdit' => $this->canEdit($id),
+            'used' => [...array_map(fn (array $n): string => t('news item') . ' ' . $n['title'], $news), ...($this->elsewhere()[$id] ?? [])],
+        ];
+    }
+
+    /**
+     * Where a save returns to: the state of the list the panel was opened from (the hidden field `list`, a query string of the
+     * known list parameters) with the file still open.
+     *
+     * @return array<string, string>
+     */
+    private function listReturn(string $itemId): array
+    {
+        parse_str($this->request->post('list'), $list);
+        $known = array_intersect_key($list, array_flip(['folder', 'type', 'recent', 'missing', 'unused', 'waiting', 'article', 'search', 'sort', 'view', 'show']));
+
+        return array_filter(array_map(fn ($v): string => is_string($v) ? $v : '', $known), fn (string $v): bool => $v !== '') + ['item' => $itemId];
+    }
+
+    /** The level a folder card's Rename or Move came from (hidden field `level`; empty = the top level), or null when the form does not say. */
+    private function levelReturn(): ?array
+    {
+        if (!$this->request->hasPost('level')) {
+            return null;
+        }
+
+        return \Talea\Core\Uuid::valid($this->request->post('level')) ? ['folder' => $this->request->post('level')] : [];
+    }
+
+    /**
+     * The folder a form field names: null = no folder (the field is empty: the top level), false = it names a folder that does not
+     * exist (a stale page, a mistyped id) - which must not pass for the top level.
+     */
+    private function targetFolder(string $name): int|null|false
+    {
+        $id = $this->idParam($name, 'media_folders');
+        if ($id > 0) {
+            return $id;
+        }
+        $given = $this->request->post($name) !== '' ? $this->request->post($name) : $this->request->get($name);
+
+        return $given === '' || $given === '0' ? null : false;
     }
 
     /** @return array{total: int, recent: int, missing: int, waiting: int, unused: int} the numbers of the left menu */
@@ -140,7 +203,7 @@ final class Media extends Module
             $ids = $this->db->insert('media_folders', ['name' => $name, 'parent_id' => $this->idParam('parent', 'media_folders') ?: null]);
         }
 
-        return $this->back('Folder saved.', '', ['folder' => $this->publicId($ids, 'media_folders')]);
+        return $this->back('Folder saved.', '', $this->levelReturn() ?? ['folder' => $this->publicId($ids, 'media_folders')]);
     }
 
     /** Moving a folder into another one (`parent`; empty = top level). Editors and administrators; refuses a cycle. */
@@ -159,7 +222,7 @@ final class Media extends Module
             return $this->back(t('The folder cannot be moved there.'), '', [], 'error');
         }
 
-        return $this->back('Folder moved.', '', ['folder' => $this->publicId($id, 'media_folders')]);
+        return $this->back('Folder moved.', '', $this->levelReturn() ?? ['folder' => $this->publicId($id, 'media_folders')]);
     }
 
     /** Deleting a folder; its files and subfolders move up one level. */
@@ -376,17 +439,22 @@ final class Media extends Module
         try {
             $new = Images::replace($image['image_path'], $file);
         } catch (\RuntimeException $e) {
-            return $this->back(t($e->getMessage()), 'list', ['item' => $image['public_id']], 'error');
+            return $this->back(t($e->getMessage()), 'list', $this->listReturn($image['public_id']), 'error');
         }
         $this->db->update('media', $new + ['color' => ''], ['media_id' => $ido]);
         \Talea\Front\Cache::clear();
 
-        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['item' => $image['public_id']]);
+        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', $this->listReturn($image['public_id']));
     }
 
     protected function actionSave(): Response
     {
-        if ($this->request->isPost() && $this->canEdit($this->idParam('media_id'))) {
+        $id = $this->idParam('media_id');
+        if ($this->request->isPost() && $this->canEdit($id)) {
+            $folder = $this->request->hasPost('folder_id') ? $this->targetFolder('folder_id') : null;
+            if ($folder === false) {
+                return $this->back(t('The target folder does not exist.'), '', $this->listReturn($this->publicId($id)), 'error');
+            }
             $x = max(0, min(100, $this->request->postInt('focus_x', 50)));
             $y = max(0, min(100, $this->request->postInt('focus_y', 50)));
             $this->db->update('media', [
@@ -394,11 +462,11 @@ final class Media extends Module
                 'description' => mb_substr($this->request->post('description'), 0, 500),
                 'author' => mb_substr(trim($this->request->post('author')), 0, 120),
                 'focal_point' => $x === 50 && $y === 50 ? '' : $x . '% ' . $y . '%',
-            ], ['media_id' => $this->idParam('media_id')]);
+            ] + ($this->request->hasPost('folder_id') ? ['folder_id' => $folder] : []), ['media_id' => $id]);
             \Talea\Front\Cache::clear();
         }
 
-        return $this->back('Image description saved.');
+        return $this->back('Image description saved.', '', $id > 0 ? $this->listReturn($this->publicId($id)) : []);
     }
 
     /** Description for the blind (alt = field "nazev", as in the detail and in the editor) directly from the grid – without reloading (image/admin.js). */
@@ -613,10 +681,10 @@ final class Media extends Module
         };
     }
 
-    /** List sort orders: key from the URL => [label, ORDER BY]. */
+    /** List sort orders: key from the URL => [label, ORDER BY]; each ends in the unique media_id so that the details panel's neighbours (LAG/LEAD) match the list. */
     public const array SORT_ORDERS = [
-        'newest' => ['newest', 'o.media_id DESC'], 'oldest' => ['oldest', 'o.media_id ASC'], 'name' => ['by name', 'o.name ASC, o.media_id DESC'],
-        'size' => ['largest files', 'o.image_size DESC'], 'unused' => ['least used', 'used_at ASC, o.media_id DESC'],
+        'newest' => ['Newest first', 'o.media_id DESC'], 'oldest' => ['Oldest first', 'o.media_id ASC'], 'name' => ['By name', 'o.name ASC, o.media_id DESC'],
+        'size' => ['Largest files first', 'o.image_size DESC, o.media_id DESC'], 'unused' => ['Least used first', 'used_at ASC, o.media_id DESC'],
     ];
 
     /** @return list<array<string, mixed>> */
