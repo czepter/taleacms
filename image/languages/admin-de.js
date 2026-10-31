@@ -1764,6 +1764,7 @@ window.TALEA_TRANSLATIONS = {
 	"Save to my sections": "In meinen Abschnitten speichern",
 	"Save to my sections (then insert it on any page)": "In meinen Abschnitten speichern (danach auf jeder Seite einfügbar)",
 	"Save your backup codes – each works once when you do not have your phone. They will not be shown again.": "Speichern Sie Ihre Backup-Codes – jeder ist einmal verwendbar, wenn Sie Ihr Smartphone nicht zur Hand haben. Sie werden nicht erneut angezeigt.",
+	"Saved": "Gespeichert",
 	"Saved automatically.": "Automatisch gespeichert.",
 	"Saved, but with warnings: ": "Gespeichert, aber mit Warnungen: ",
 	"Saving also changes the permissions of these users:": "Durch das Speichern ändern sich auch die Berechtigungen dieser Benutzer:",
