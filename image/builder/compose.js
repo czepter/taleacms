@@ -6,7 +6,7 @@
  * sliders with arrow keys), the toolbar buttons "Compose / Stack", "Tidy up" and the layer buttons, and converts a section between the two layouts.
  * Everything ends as the normal style of the CURRENT screen size in one history step; the server (Build::sanitize) drops the properties anywhere
  * else. A section stacks on tablet and phone, so on those canvases the compose handles are absent unless the grid is shown there ("phone only"). */
-import { T, state, on, applyChange, writeStyle, setState } from './core.js';
+import { T, state, on, applyChange, writeStyle, setState, effectiveValue } from './core.js';
 import { previewDoc } from './canvas.js';
 import { C } from './overlay.js';
 
@@ -17,7 +17,6 @@ const LAST_COLUMN_LINE = 13;
 const LAST_ROW_LINE = 40;
 const PLACEMENT = ['grid_column_start', 'grid_column_end', 'grid_row_start', 'grid_row_end'];
 const LAYERS = ['below', 'base', 'above', 'top'];
-const CHAIN = { base: ['base'], tablet: ['tablet', 'base'], mobile: ['mobile', 'tablet', 'base'] };
 const num = (v) => parseFloat(v) || 0;
 const clamp = (v, low, high) => Math.max(low, Math.min(high, v));
 
@@ -75,14 +74,8 @@ function metrics(doc, container) {
 }
 
 /** The value of a style property as the current screen size sees it (it inherits from the larger ones); 0 = not set. */
-function modelNumber(p, key) {
-	for (const s of CHAIN[state.bp] || ['base']) {
-		const v = p.style && !Array.isArray(p.style) && p.style[s] ? p.style[s][key] : undefined;
-		if (v) { return parseInt(v, 10) || 0; }
-	}
-	return 0;
-}
-const modelLayer = (p) => { for (const s of CHAIN[state.bp] || ['base']) { const v = p.style && !Array.isArray(p.style) && p.style[s] ? p.style[s].layer : undefined; if (v) { return v; } } return 'base'; };
+const modelNumber = (p, key) => parseInt(effectiveValue(p, key), 10) || 0;
+const modelLayer = (p) => effectiveValue(p, 'layer') || 'base';
 
 /** The cell of an element: its stored lines, or (not placed yet) the lines its box is nearest to. {c0, c1, r0, r1}: end lines are exclusive. */
 function cellOf(p, node, m) {

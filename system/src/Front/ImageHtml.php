@@ -48,9 +48,9 @@ final class ImageHtml
             }
             // background color only for photos: a PNG is often a logo or an illustration with transparency and a colored
             // rectangle would show through behind it;
-            // focal point: where the crop centers when the photo fills a different shape (object-fit: cover)
+            // focal point: where the crop centers when the photo fills a different shape (object-fit: cover); a placement's --tl-focal wins over the file's point
             $style = (strtolower($m[4]) !== 'png' && preg_match('/^#[0-9a-f]{6}$/', (string) $o['color']) ? 'background-color:' . $o['color'] . ';' : '')
-                . (preg_match('/^\d{1,3}% \d{1,3}%$/', (string) ($o['focal_point'] ?? '')) ? 'object-position:' . $o['focal_point'] . ';' : '');
+                . (preg_match('/^\d{1,3}% \d{1,3}%$/', (string) ($o['focal_point'] ?? '')) ? 'object-position:var(--tl-focal, ' . $o['focal_point'] . ');' : '');
             if ($style !== '' && !preg_match('#\bstyle=#i', $attributes)) {
                 $toAdd .= ' style="' . $style . '"';
             } elseif ($style !== '' && preg_match('#\bstyle="([^"]*)"#i', $m[1] . $m[5])) {

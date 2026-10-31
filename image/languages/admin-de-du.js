@@ -103,6 +103,7 @@ Object.assign(window.TALEA_TRANSLATIONS, {
 	"Do you really no longer want to receive news at %s?": "Möchtest du an %s wirklich keine News mehr erhalten?",
 	"Done, your website is running": "Fertig, deine Website läuft",
 	"Downloading images from the old site: %s of %s news items and pages done, %s images downloaded. Keep this page open, I will continue automatically.": "Ich lade Bilder von der alten Website herunter: %s von %s News-Beiträgen und Seiten erledigt, %s Bilder heruntergeladen. Lass diese Seite geöffnet, ich mache automatisch weiter.",
+	"Drag the photo to choose what shows.": "Ziehe das Foto, um den sichtbaren Ausschnitt zu wählen.",
 	"E.g. /privacy-policy – create the page in the Pages section.": "Z. B. /datenschutz – erstelle die Seite im Bereich Seiten.",
 	"Each version has its own pages, categories and news. A news item's language is set by its category. Link translations in the editor.": "Jede Version hat ihre eigenen Seiten, Kategorien und News. Die Sprache eines News-Beitrags ergibt sich aus seiner Kategorie. Übersetzungen verknüpfst du im Editor.",
 	"Edit text with collection {{tags}} in the Content panel.": "Text mit {{tags}} der Sammlung bearbeitest du im Bereich „Inhalt“.",

@@ -11,7 +11,7 @@ Status of phase B (#23): built (`image/builder/compose.js`; style properties `gr
 Section fields `layout`, `stack_from`). Deviations from the text above: the layer scale is stored by name and renders `z-index` -1 / 0 / 1 / 2;
 rows are `minmax(var(--tl-space-l), auto)` (the unit is fixed, a row still grows with its text, so a paragraph never overflows its cell);
 Stack to Compose reads the positions from the desktop canvas (on tablet or phone it writes one clean column); a tablet or phone placement is possible
-with `stack_from` = phone only. Phase C (crop mode, canvas background, replace by drop) is specified in section 3, not built.
+with `stack_from` = phone only. Phase C (crop mode, canvas background, replace by drop) is built, see its status below.
 
 ## 1. Problem
 
@@ -69,7 +69,22 @@ the grid and resized by handles. Output is still CSS grid placement, not absolut
 
 ### Phase C: media on the canvas
 
-Status: specified, not built. Phase C is about the picture inside a box, not the box: what part of a photo shows, in what
+Status: built (M6 data, M7 crop mode C1 in `image/builder/media.js`, M8 Background popover C2 in `image/builder/background.js` and replace by drop C3 in
+`media.js` + `overlay.js`). Deviations from the text below: the popover is a `popover="manual"` element drawn again by every `C.render` (a saved draft swaps the
+canvas), closed by Esc, a press outside or the button; its title names the screen size as the device switcher does (Desktop / Tablet / Mobile). The overlay chips
+write `overlay` = `rgb(0 0 0 / 0.3)` (Darken) or `rgb(0 0 0 / 0.55)` (Darken more), or the `gradient` option "darken at the bottom (over a photo)"; for that
+`Style::css` now puts a `gradient` of the same state as a layer over the background image (before it, the photo's declaration won and the gradient was lost).
+"None" and "Remove image" can only remove what the current screen size sets itself: a colour or overlay passed on from a wider size is switched off with
+`transparent`, an inherited image or darkening gradient is removed on the wider size (the button says so). The focal point of a background is not offered
+with `background-attachment: fixed`, and the crop frame is the element's border box (a section with a border is off by the border width). The contrast line
+under the tabs is the builder's own check (`contrastCheck`, panels.js), run once per canvas, so a colour change shows its warning when the saved draft has
+swapped the canvas; it skips elements on a photo and never blocks. Replace by drop: an image file over an image or over any element inside a
+section / container that shows a background image in the current screen size (the nearest such element wins), a video over a section with a background video;
+Media keeps an image's alt in its name, so a file picked from Media (toolbar Replace, popover Choose) brings its name as the alt when it has one, while a file
+just uploaded or dropped has only a file name: the old alt stays and the status line says to check it (an empty alt takes the name); both end in `C.replaceImage`.
+The screen size of a drop or of a popover upload is the one at the moment of the drop or the choice, not of the moment the upload ends. Replacing a background
+removes `background_focal` from that size and from every narrower size that takes the new photo from it. "Darken at the bottom" on a size that only inherits the
+photo writes the photo (and its point) into that size too, and Remove image takes an own darkening gradient with it. Phase C is about the picture inside a box, not the box: what part of a photo shows, in what
 shape, and what sits behind a section. Every write is a normal `Style` / `content` change of the current breakpoint, one
 `applyChange` per gesture, like phases A and B.
 
@@ -233,7 +248,7 @@ Phase C:
 | M5 | Phase B Compose section: style properties, sanitizer, vocabulary, contracts, editor placement, tidy-up | XL |
 | M6 | Phase C data: `focal_point`, `background_focal`, sanitize, CSS, `ImageHtml` precedence, figure fix, Vocabulary, contracts, `update_media` | S |
 | M7 | C1 crop mode (pointer, keyboard, ratio strip), browser tests 9–10 for crop | M |
-| M8 | C2 background popover, C3 replace by drop, browser tests 9–10 for both | M |
+| M8 | C2 background popover, C3 replace by drop, browser tests 9–10 for both (built) | M |
 
 M1–M4 ship without any data-model change and can be released incrementally.
 
