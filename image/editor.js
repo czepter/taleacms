@@ -202,22 +202,22 @@
 		return shrink(file).then(function (s) { return { file: s, error: tooLarge(s).replace(s.name + ': ', '') }; });
 	};
 
-	function upload(selected) {
-		return prepareFiles(selected).then(function (files) { return files.length ? send(files) : []; });
+	// folder = public id of the Media folder the files go into ('' = none)
+	function upload(selected, folder) {
+		return prepareFiles(selected).then(function (files) { return files.length ? send(files, folder) : []; });
 	}
 
-	function send(files) {
+	function send(files, folder) {
 		var data = new FormData();
-		var folder = document.querySelector('.gallery-window[open] select');
 		data.append('_csrf', CSRF);
-		data.append('folder_id', folder && folder.value !== '' && folder.value !== 'article' ? folder.value : '0');
+		data.append('folder_id', folder || '0');
 		files.forEach(function (s) { data.append('files[]', s); });
 		return fetch(GALLERY + '/upload?format=json', { method: 'POST', body: data, credentials: 'same-origin' })
 			.then(function (r) { return r.json(); })
 			.then(function (j) {
 				if (j.errors && j.errors.length) { announce(j.errors.join('\n')); }
 				// a file that is already in Media comes back as a duplicate with the existing file
-				return (j.images || []).concat((j.duplicates || []).map(function (d) { return d.image; }));
+				return (j.images || []).concat((j.duplicates || []).map(function (d) { d.image.duplicate = true; return d.image; }));
 			})
 			.catch(function () { announce(T('Upload failed. Check your connection and try again.')); return []; });
 	}
@@ -226,116 +226,7 @@
 		return transfer && transfer.files && transfer.files.length && Array.prototype.every.call(transfer.files, function (f) { return /^image\//.test(f.type); });
 	}
 
-	/* ---------- gallery dialog ---------- */
-
-	var modal = null;
-
-	// vice = true: tapping selects images and they are inserted at once as a photo gallery
-	function pickImage(backwards, more, withAttachments) {
-		var selected = [];
-		if (!modal) {
-			modal = document.createElement('dialog');
-			modal.className = 'gallery-window';
-			modal.innerHTML = '<div class="gallery-window-head"><strong>' + T('Media') + '</strong>'
-				+ '<label class="btn">' + T('Upload new') + '<input type="file" multiple hidden></label>'
-				// on a phone and tablet: take a photo straight into the text (CSS shows the button only on touch devices)
-				+ '<label class="navigation gallery-take-photo">' + T('Take a photo') + '<input type="file" accept="image/*" capture="environment" hidden></label>'
-				+ '<button type="button" class="btn" data-insert hidden></button>' // "Insert gallery (n)" – only when selecting several photos
-				+ '<button type="button" class="navigation" data-close>' + T('Close') + '</button></div>'
-				+ '<div class="gallery-window-filter"><select aria-label="' + T('Folder') + '"></select>'
-				+ '<input class="textfield" type="search" placeholder="' + T('Search media…') + '" aria-label="' + T('Search media') + '"></div>'
-				+ '<p class="placeholder"></p><div class="gallery-grid"></div>' // the hint text is set on every opening;
-			document.body.appendChild(modal);
-			modal.querySelector('[data-close]').addEventListener('click', function () { modal.close(); });
-			modal.querySelector('[data-insert]').addEventListener('click', function () { modal.close(); modal.onPick(modal.chosen.slice()); });
-			modal.querySelector('select').addEventListener('change', function () { load(this.value); });
-			var waiting = null; // search runs only after a short pause in typing, not after every letter
-			modal.querySelector('input[type=search]').addEventListener('input', function () {
-				clearTimeout(waiting);
-				waiting = setTimeout(function () { load(modal.querySelector('select').value); }, 300);
-			});
-			Array.prototype.forEach.call(modal.querySelectorAll('input[type=file]'), function (inputEl) { inputEl.addEventListener('change', function () {
-				upload(this.files).then(function (newItems) { newItems.reverse().forEach(function (o) { add(o, true); }); });
-				this.value = '';
-			}); });
-			modal.addEventListener('dragover', function (e) { e.preventDefault(); });
-			modal.addEventListener('drop', function (e) {
-				e.preventDefault();
-				if (e.dataTransfer.files.length) { upload(e.dataTransfer.files).then(function (newItems) { newItems.reverse().forEach(function (o) { add(o, true); }); }); }
-			});
-		}
-		var grid = modal.querySelector('.gallery-grid');
-		function add(o, upward) {
-			var b = document.createElement('button');
-			b.type = 'button';
-			b.className = 'gallery-item';
-			if (o.file && !modal.withFiles) { return; } // main image, logo, gallery: images only
-			b.innerHTML = o.file ? '<span class="gallery-file"><span></span></span><span></span>' : '<img loading="lazy" alt=""><span></span>';
-			if (o.file) { b.firstChild.firstChild.textContent = o.extension; } else { b.firstChild.src = o.thumbnail; }
-			b.lastChild.textContent = o.name || T('untitled');
-			b.addEventListener('click', function () {
-				if (!modal.multiple) { modal.close(); modal.onPick(o); return; }
-				var i = modal.chosen.indexOf(o);
-				if (i === -1) { modal.chosen.push(o); } else { modal.chosen.splice(i, 1); }
-				b.classList.toggle('selected', i === -1);
-				b.setAttribute('aria-pressed', i === -1 ? 'true' : 'false');
-				modal.mark();
-			});
-			if (upward) { grid.prepend(b); } else { grid.appendChild(b); }
-		}
-		// filter: "" = all, "clanek" = images of this news item, number = folder (0 = unfiled)
-		function load(filter) {
-			var query = filter === 'article' ? '&article=' + encodeURIComponent(NEWS_ID) : (filter !== '' ? '&folder=' + filter : '');
-			var search = modal.querySelector('input[type=search]').value.trim();
-			if (search !== '') { query += '&search=' + encodeURIComponent(search); }
-			grid.textContent = T('Loading…');
-			fetch(GALLERY + '/listing?' + query, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
-				var selection = modal.querySelector('select');
-				selection.textContent = '';
-				[['', T('All media')]].concat(NEWS_ID ? [['article', T('In this text')]] : [], [['0', T("Unsorted")]], j.folders.map(function (s) { return [String(s.id), T('Folder: ') + s.name]; })).forEach(function (v) {
-					var o = document.createElement('option');
-					o.value = v[0]; o.textContent = v[1]; o.selected = v[0] === filter;
-					selection.appendChild(o);
-				});
-				grid.textContent = j.images.length ? '' : (search !== '' ? T('Nothing matches your search.') : T('No images here yet.'));
-				j.images.forEach(function (o) { add(o, false); });
-				additional(query, 2, j.images.length);
-			});
-		}
-		// the server returns 60 items per page: a full page = offer more, so older files are reachable too
-		function additional(query, pageNumber, loaded) {
-			if (loaded < 60) { return; }
-			var btn = document.createElement('button');
-			btn.type = 'button';
-			btn.className = 'navigation media-more';
-			btn.textContent = T('Load more');
-			btn.addEventListener('click', function () {
-				btn.disabled = true;
-				fetch(GALLERY + '/listing?' + query + '&page=' + pageNumber, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
-					btn.remove();
-					j.images.forEach(function (o) { add(o, false); });
-					additional(query, pageNumber + 1, j.images.length);
-				});
-			});
-			grid.appendChild(btn);
-		}
-		modal.onPick = backwards;
-		modal.multiple = !!more;
-		modal.withFiles = !!withAttachments && !more;
-		modal.chosen = selected;
-		modal.mark = function () {
-			var btn = modal.querySelector('[data-insert]');
-			btn.hidden = !modal.multiple;
-			btn.disabled = modal.chosen.length < 2;
-			btn.textContent = modal.chosen.length < 2 ? T('Select at least 2 photos') : T('Insert gallery (') + modal.chosen.length + ')';
-		};
-		modal.mark();
-		modal.querySelector('.placeholder').textContent = more
-			? T('Click photos in the order they should appear. You can also drop files here.')
-			: T('Click an image to insert it. You can also drop files here – they upload to the selected folder.');
-		modal.showModal();
-		load(modal.querySelector('select').value || '');
-	}
+	/* The image picker dialog ("Choose an image") is image/picker.js; it calls back into taleaUploadFiles below. */
 
 	function imageHtml(o) {
 		return '<figure><img src="' + esc(o.url) + '" alt="' + esc(o.name) + '" width="' + o.width + '" height="' + o.height + '" loading="lazy" data-id="' + o.id + '">'
@@ -469,7 +360,7 @@
 		}
 		function insertImage(gallery) {
 			var scope = window.getSelection().rangeCount ? window.getSelection().getRangeAt(0).cloneRange() : null;
-			pickImage(function (o) {
+			window.taleaPickImage(function (o) {
 				surface.focus();
 				if (scope && surface.contains(scope.startContainer)) { window.getSelection().removeAllRanges(); window.getSelection().addRange(scope); }
 				statement('insertHTML', gallery ? galleryHtml(o) : (o.file ? attachmentHtml(o) : imageHtml(o)));
@@ -661,7 +552,7 @@
 		preview.alt = '';
 		function show() { preview.hidden = field.value.trim() === ''; if (!preview.hidden) { preview.src = field.value; } }
 		field.after(btn, preview);
-		btn.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; show(); field.dispatchEvent(new Event('input', { bubbles: true })); }); });
+		btn.addEventListener('click', function () { window.taleaPickImage(function (o) { field.value = o.url; show(); field.dispatchEvent(new Event('input', { bubbles: true })); }); });
 		field.addEventListener('change', show);
 		preview.addEventListener('error', function () { preview.hidden = true; });
 		show();
@@ -675,7 +566,7 @@
 		btn.className = 'navigation';
 		btn.textContent = T('Choose from Media');
 		field.after(btn);
-		btn.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; field.dispatchEvent(new Event('input', { bubbles: true })); }, false, true); });
+		btn.addEventListener('click', function () { window.taleaPickImage(function (o) { field.value = o.url; field.dispatchEvent(new Event('input', { bubbles: true })); }, false, true, true); });
 	});
 
 	/* ---------- a gallery field of a collection: photo tiles edited right in the item form ---------- */
@@ -784,7 +675,7 @@
 	});
 
 	window.taleaCreateEditor = createEditor; // the page builder creates the editor itself over a dynamic field
-	window.taleaPickImage = pickImage; // picking an image from Media for the builder (the callback gets {url, name, …})
+	window.taleaUploadFiles = upload; // for the picker (image/picker.js): scaled down, sent into a folder; resolves to the files, a duplicate marked duplicate: true
 
 	var editors = Array.prototype.map.call(document.querySelectorAll('textarea[data-editor]'), createEditor);
 	var draftForm = document.querySelector('form[data-draft]');

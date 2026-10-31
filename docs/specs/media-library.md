@@ -88,9 +88,27 @@ only the files section, over the whole library.
 
 ## Picker in the editor
 
-The image picker (`image/editor.js`, `media/listing`) gets the same left menu (All media, Recently uploaded, Used on
-this page is out of scope, the folder tree), search, the grid, and a side column with the selected image and its
-description field: an image without a description asks for one, and it is saved to Media before inserting.
+The image picker (`image/picker.js`, listing from `media/listing`) opens from the text editor, the image and file fields of
+forms and collections, and the page builder (`window.taleaPickImage`). It is a dialog in three columns, like the Media screen:
+
+- Left: All media, Recently uploaded, "In this text" (only while a news item is open), then the folder tree (indented by
+  depth, direct counts, the open folder marked).
+- Middle: search and the grid of files; a file without a description shows its file name in weak italics. A full page of 60 offers
+  Load more.
+- Right (one file at a time): the selected file, its name, size, number of uses and the Description field.
+
+Choosing is select, then insert: a click selects, a double click or Enter inserts at once, the footer button (Insert image / Insert
+file) inserts too. A photo gallery (several photos) has no side column: the clicks are the order, Insert gallery (n) needs two.
+A file without a description asks for one in the side column; what is typed is saved to Media (`save_caption`) before the file is
+inserted, so every place that uses it has it, and the file is inserted with that name as its alt text. An empty description never
+blocks inserting.
+
+Uploading from the picker (button, Take a photo on touch devices, files dropped on the dialog) goes into the open folder through
+the same scaling and duplicate check as the Media screen; a file that is already in Media is selected instead of added again.
+The listing answers `folders` as the tree (`id`, `name`, `parent`, `depth`, `count`) and takes `folder` (`0` = in no folder),
+`recent=1`, `search`, `article` and `page`; every file carries `created`, `used` and `editable` (the owner or an administrator). The
+description typed in the side column is saved to Media only for an editable file; for any other the field says it is used only for
+this insertion.
 
 ## Data and server
 
