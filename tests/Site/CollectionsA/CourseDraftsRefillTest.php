@@ -40,6 +40,7 @@ final class CourseDraftsRefillTest extends SiteTestCase
         $this->register('bob@example.com', 'Bob'); // the course is full: the waiting list
         $this->assertSame('waitlisted', $this->state('bob@example.com'));
 
+        $mails = $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'bob@example.com'");
         $itemId = (int) $this->sq("SELECT item_id FROM tl_collection_items WHERE slug = 'salsa'");
         $pid = $this->site()->publicId('collection_items', $itemId);
         $this->site()->exec('UPDATE tl_collection_items SET visible = 0 WHERE item_id = ?', [$itemId]); // a drafts-only connection changes hidden items only
@@ -50,7 +51,7 @@ final class CourseDraftsRefillTest extends SiteTestCase
             $this->site()->exec("UPDATE tl_api_tokens SET access = 'full'");
         }
         $this->assertSame('waitlisted', $this->state('bob@example.com'), 'a drafts-only write does not move anyone into a seat');
-        $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'bob@example.com'"), 'and sends no mail');
+        $this->assertSame($mails, $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'bob@example.com'"), 'and sends no mail');
 
         $this->mcpText('save_collection_item', ['collection' => 'courses-test', 'id' => $pid, 'values' => $values + ['capacity' => '5']]);
         $this->assertNotSame('waitlisted', $this->state('bob@example.com'), 'a connection that may publish frees the seat');
