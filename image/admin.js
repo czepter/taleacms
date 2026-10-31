@@ -75,7 +75,7 @@
 			select.appendChild(entry.group);
 		});
 		select.value = chosen;
-		if (words.length) { select.size = Math.min(10, Math.max(2, select.querySelectorAll('option').length)); } else { select.removeAttribute('size'); }
+		if (words.length) { select.size = Math.min(10, Math.max(2, select.querySelectorAll('option, optgroup').length)); } else { select.removeAttribute('size'); }
 	});
 
 	// Variable buttons (Titles and descriptions): data-insert="%title%" data-insert-into="field id" puts the variable at
