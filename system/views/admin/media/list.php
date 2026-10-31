@@ -219,7 +219,7 @@ $formats = t('JPG, PNG, WebP and GIF images as well as downloadable attachments 
 <?php endif ?>
 <input type="file" accept="<?= e($accept) ?>" multiple hidden data-upload-input>
 <div class="media-drop-overlay" data-drop-overlay hidden aria-hidden="true">
-	<div class="drop-box"><?= $icon('upload') ?><strong data-drop-title data-pattern="<?= e(t('Drop to upload to %s')) ?>"><?= e(t('Drop to upload to %s', $folderNameHere)) ?></strong><p><?= e($formats) ?></p></div>
+	<div class="media-drop-box"><?= $icon('upload') ?><strong data-drop-title data-pattern="<?= e(t('Drop to upload to %s')) ?>"><?= e(t('Drop to upload to %s', $folderNameHere)) ?></strong><p><?= e($formats) ?></p></div>
 </div>
 </div>
 

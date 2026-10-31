@@ -45,9 +45,9 @@
 	};
 
 	var buildTray = function () {
-		var node = el('aside', 'upload-tray');
+		var node = el('aside', 'media-tray');
 		node.setAttribute('role', 'status');
-		var head = el('div', 'tray-head'), buttons = el('span', 'tray-buttons');
+		var head = el('div', 'media-tray-head'), buttons = el('span', 'media-tray-buttons');
 		var title = el('strong');
 		var minimise = el('button', 'icon-btn', '–'), close = el('button', 'icon-btn', '×');
 		minimise.type = close.type = 'button';
@@ -55,10 +55,10 @@
 		minimise.addEventListener('click', function () { node.classList.toggle('minimised'); });
 		close.addEventListener('click', closeTray);
 		buttons.append(minimise, close); head.append(title, buttons);
-		var bar = el('div', 'tray-progress'), fill = el('span');
+		var bar = el('div', 'media-tray-progress'), fill = el('span');
 		bar.appendChild(fill);
-		var list = el('ul', 'tray-list');
-		var foot = el('div', 'tray-foot'), cancel = el('button', 'navigation', T('Cancel the rest'));
+		var list = el('ul', 'media-tray-list');
+		var foot = el('div', 'media-tray-foot'), cancel = el('button', 'navigation', T('Cancel the rest'));
 		cancel.type = 'button';
 		cancel.addEventListener('click', stopTray);
 		var describe = el('a', 'btn', T('Describe the new images'));
@@ -92,7 +92,7 @@
 
 	var addRow = function (file, folder) {
 		var item = { file: file, folder: folder, state: 'waiting', fraction: 0, image: false };
-		item.row = el('li', 'tray-row');
+		item.row = el('li', 'media-tray-row');
 		var text = el('div', 'cell-text');
 		item.sub = el('span', 'cell-sub');
 		item.bar = el('div', 'bar');
@@ -100,7 +100,7 @@
 		item.barFill = el('span');
 		item.bar.appendChild(item.barFill);
 		text.append(el('span', 'cell-title', file.name), item.sub, item.bar);
-		item.row.append(el('span', 'mini', (file.name.split('.').pop() || '').toUpperCase().slice(0, 4)), text, el('span', 'tray-mark'));
+		item.row.append(el('span', 'mini', (file.name.split('.').pop() || '').toUpperCase().slice(0, 4)), text, el('span', 'media-tray-mark'));
 		tray.list.appendChild(item.row);
 		items.push(item);
 		setRow(item, 'waiting', T('Waiting'));
@@ -282,7 +282,7 @@
 			hover = target;
 		}
 		if (!target) { if (label) { label.hidden = true; } return; }
-		if (!label) { label = document.createElement('div'); label.className = 'drop-label'; document.body.appendChild(label); }
+		if (!label) { label = document.createElement('div'); label.className = 'media-drop-label'; document.body.appendChild(label); }
 		label.hidden = false;
 		label.textContent = dragging.folder ? T('Move folder here') : dragging.ids.length === 1 ? T('Move 1 file here') : T('Move %d files here').replace('%d', dragging.ids.length);
 		label.style.left = (e.clientX + 14) + 'px';

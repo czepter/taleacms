@@ -66,7 +66,9 @@ only the files section, over the whole library.
   page an overlay says "Drop to upload to <folder>" with the formats line. Dropping on a folder card uploads into that
   folder. The Upload button opens the file chooser. Without JavaScript the hidden form still posts.
 - An upload tray (bottom right; minimise, close) lists each file: uploaded (✓), progress, waiting, skipped ("Already in
-  Media as <file> · Open it" – same size and sha1 as an existing file), failed (the reason). Files go one at a time
+  Media as <file> · Open it" – the same uploaded bytes as an existing file: `media.source_sha1`, the hash of what was
+  uploaded, taken before the file is saved and also for GIFs and attachments; a file that waits for approval does not count; Replace
+  stores the hash of the new file; MCP uploads still store duplicates), failed (the reason). Files go one at a time
   through `upload?format=json`. When at least one image arrived: "Describe the new images" opens Recently uploaded in the
   table view.
 
@@ -92,7 +94,7 @@ description field: an image without a description asks for one, and it is saved 
 
 ## Data and server
 
-- Migration: `media_folders.parent_id` (nullable, foreign key to `media_folders.folder_id`, `ON DELETE SET NULL`).
+- Migrations: `media.source_sha1` (nullable, indexed; existing rows stay empty); `media_folders.parent_id` (nullable, foreign key to `media_folders.folder_id`, `ON DELETE SET NULL`).
 - `Core\MediaFolders` (new; `Core\MediaFolder` is the owner's directory and stays as it is): the tree (`all()` with
   `parent_id`, direct file count, missing-description count, newest file date), `thumbnails()` (the three newest thumbnails of a
   level's folders in one query), `path()`
@@ -102,7 +104,7 @@ description field: an image without a description asks for one, and it is saved 
 - URL parameters (English): `folder` (public id; `0` = not in a folder; replaces `section`), `view=table`, `type`
   (`image|document|video|audio`), `recent=1`, `missing=1`, `unused=1`, `waiting=1`, `search`, `sort`, `show`, `item`.
 - Actions: `folder` (create/rename, takes `parent`), `folder_move`, `folder_delete`, `bulk` (`move`/`delete`;
-  `format=json` for drag and drop), `undo_move`, `upload` (unchanged, plus the duplicate check), `save`, `save_caption`,
+  `format=json` for drag and drop), `undo_move` (the session keeps the previous places of the last move for an hour; once), `upload` (plus the duplicate check; JSON lists `duplicates`), `save`, `save_caption`,
   `replace`.
 - MCP: `list_media_folders` returns `parent` and `path`; `save_media_folder` takes `parent`; `delete_media_folder`
   moves the content up; a new `move_media_folder`. `save_media_folder` with an `id` moves first (a `parent` that is given, empty = top
