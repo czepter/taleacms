@@ -42,9 +42,6 @@
 .image-preview { display: block; max-width: 260px; max-height: 160px; margin-top: 8px; border-radius: var(--ed-radius-small); object-fit: cover; }
 [data-image] + button.navigation { margin-top: 6px; }
 
-.upload { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 20px; padding: 16px; border: 2px dashed var(--ed-line); border-radius: var(--ed-radius); background: var(--ed-surface); }
-.upload-active { border-color: var(--ed-accent); }
-.upload .help { flex-basis: 100%; font-size: 12px; color: var(--ed-text-weak); }
 
 .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
 .gallery-item { margin: 0; padding: 0; border: 0; border-radius: var(--ed-radius); background: var(--ed-surface); overflow: hidden; color: var(--ed-text); font: inherit; font-size: 12px; text-align: left; }
@@ -68,23 +65,7 @@ button.gallery-item:hover, button.gallery-item:focus-visible { border-color: var
 
 .canvas { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--ed-card-line, var(--ed-line)); border-radius: var(--ed-radius); background: var(--ed-bar); }
 
-/* ---------- Media: folders on the left, images on the right ---------- */
-
-.media { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 24px; align-items: start; }
-.media-folders { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; font-size: 13px; } /* minmax: the "New folder" form must not stretch the column */
-.media-folders a { padding: 5px 8px; border-radius: var(--ed-radius-small); text-decoration: none; }
-.media-folders a:hover { background: var(--ed-bar); }
-.media-folders a.active { background: var(--ed-bar); font-weight: bold; color: var(--ed-text); }
-.media-folders strong { margin-top: 14px; padding: 0 8px; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ed-text-weak); }
-.media-folders form { display: flex; gap: 4px; margin-top: 10px; }
-.media-folders form .textfield { min-width: 0; flex: 1; }
-.media-folder-edit { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.media-folder-edit form { margin: 0; }
-.media-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
 .gallery-window-filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-@media (max-width: 760px) {
-	.media { grid-template-columns: minmax(0, 1fr); }
-}
 
 /* ---------- shared odds and ends: the expandable "More settings" (status badges and option cards are in image/admin.css) ---------- */
 
