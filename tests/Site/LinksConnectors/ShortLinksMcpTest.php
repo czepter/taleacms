@@ -79,15 +79,6 @@ final class ShortLinksMcpTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertSame(2, (int) $site->value("SELECT hits FROM tl_short_links WHERE path = 'moved-link'"), 'the counter keeps what visitors made of it');
     }
 
-    public function testCreatePageRefusalNamesTheShortLink(): void
-    {
-        $site = $this->site();
-        $site->mcpResult('save_short_link', ['name' => 'taken-by-link', 'target' => ['type' => 'url', 'url' => 'https://example.org']]);
-        $r = $site->mcp('create_page', ['title' => 'Taken by link', 'slug' => 'taken-by-link']);
-        $this->assertTrue($r['result']['isError'] ?? false);
-        $this->assertStringContainsString('short link', (string) ($r['result']['content'][0]['text'] ?? ''));
-    }
-
     public function testRefusals(): void
     {
         $site = $this->site();

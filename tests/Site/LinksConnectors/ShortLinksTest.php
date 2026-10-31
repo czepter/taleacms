@@ -132,7 +132,7 @@ final class ShortLinksTest extends \Talea\Tests\Site\Support\SiteTestCase
         $visitor = $site->client('visitor');
         $this->assertContains('s', \Talea\Front\Kernel::reservedSlugs());
 
-        $this->assertStringContainsString('already exists', $site->mcpText('create_page', ['title' => 'Flyer', 'slug' => 'flyer', 'visible' => true]), 'MCP refuses the taken address');
+        $this->assertStringContainsString('used by a short link', $site->mcpText('create_page', ['title' => 'Flyer', 'slug' => 'flyer', 'visible' => true]), 'MCP refuses the taken address');
         $this->adminPost('/admin.php?module=pages&action=save', ['title' => 'Flyer', 'visible' => '1', 'text' => '<p>Hello</p>'], '/admin.php?module=pages');
         $this->assertSame(['flyer-2'], array_column($site->rows("SELECT slug FROM tl_pages WHERE slug LIKE 'flyer%'"), 'slug'), 'the admin page takes the next free address');
         $this->assertSame($site->base . '/landing', $visitor->get('/flyer')->redirect, 'the short link keeps answering');
