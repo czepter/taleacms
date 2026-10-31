@@ -367,6 +367,7 @@ return [
     'A short description of the service and who it is for.' => 'Krátký popis služby a pro koho je.',
     'A short file at /llms.txt that lists your pages for AI assistants that read websites.' => 'Krátký soubor na /llms.txt, který vypisuje vaše stránky pro AI asistenty čtoucí weby.',
     'A short label, a big headline and a button – all centred.' => 'Krátký štítek, velký nadpis a tlačítko – vše na středu.',
+    'A short link already uses this URL.' => 'Tuto adresu už používá krátký odkaz.',
     'A short quiz in three steps; the visitor leaves contact details and then sees an estimate. Fill in the questions and amounts.' => 'Krátký kvíz o třech krocích; návštěvník nechá kontakt a poté uvidí odhad. Doplňte otázky a částky.',
     'A short text for the window.' => 'Krátký text okna.',
     'A sign-in link that turns into the member’s name and a sign-out button once they are signed in.' => 'Odkaz „Přihlásit se“, který se po přihlášení změní na jméno člena a tlačítko pro odhlášení.',

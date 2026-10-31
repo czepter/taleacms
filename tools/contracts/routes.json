@@ -362,6 +362,24 @@
     },
     {
         "methods": [
+            "GET",
+            "HEAD"
+        ],
+        "pattern": "/s/{code:[A-Za-z0-9]{6}}",
+        "when": "extension:short_links",
+        "handler": "Endpoints::shortLinkCode"
+    },
+    {
+        "methods": [
+            "GET",
+            "HEAD"
+        ],
+        "pattern": "/{name:[A-Za-z0-9][A-Za-z0-9-]{1,59}}",
+        "when": "extension:short_links",
+        "handler": "Endpoints::shortLink"
+    },
+    {
+        "methods": [
             "ANY"
         ],
         "pattern": "/{prefix:[a-z][a-z0-9_-]{1,30}}{rest:.*}",

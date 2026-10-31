@@ -369,6 +369,7 @@ return [
     'A short description of the service and who it is for.' => 'Eine kurze Beschreibung der Leistung und für wen sie gedacht ist.',
     'A short file at /llms.txt that lists your pages for AI assistants that read websites.' => 'Eine kurze Datei unter /llms.txt, die Ihre Seiten für AI-Assistenten auflistet, die Websites lesen.',
     'A short label, a big headline and a button – all centred.' => 'Ein kurzes Label, eine große Überschrift und ein Button – alles zentriert.',
+    'A short link already uses this URL.' => 'Diese Adresse wird bereits von einem Kurzlink verwendet.',
     'A short quiz in three steps; the visitor leaves contact details and then sees an estimate. Fill in the questions and amounts.' => 'Ein kurzes Quiz in drei Schritten; Besucher hinterlassen ihre Kontaktdaten und sehen dann eine Einschätzung. Fragen und Beträge ergänzen.',
     'A short text for the window.' => 'Ein kurzer Text für das Fenster.',
     'A sign-in link that turns into the member’s name and a sign-out button once they are signed in.' => 'Ein Anmelde-Link, der nach der Anmeldung zum Namen des Mitglieds und einer Abmelden-Schaltfläche wird.',

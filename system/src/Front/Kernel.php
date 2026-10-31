@@ -289,6 +289,8 @@ final class Kernel
             ->add('ANY', '/screen/{secret:[a-f0-9]{32}}', [Endpoints::class, 'screen'])
             ->add('ANY', '/status.json', [Endpoints::class, 'status'])
             // add-ons (Api::route) come after every core address, which they cannot take (reservedSlugs()), and before pages and collections
+            ->add(['GET', 'HEAD'], '/s/{code:[A-Za-z0-9]{6}}', [Endpoints::class, 'shortLinkCode'], $extension('short_links'), 'extension:short_links')
+            ->add(['GET', 'HEAD'], '/{name:[A-Za-z0-9][A-Za-z0-9-]{1,59}}', [Endpoints::class, 'shortLink'], $extension('short_links'), 'extension:short_links') // only a stored short name answers
             ->add('ANY', '/{prefix:[a-z][a-z0-9_-]{1,30}}{rest:.*}', [self::class, 'addOnRoute']) // only an add-on's own prefix answers
             ->add('ANY', '/{slug:.*}', [self::class, 'pageAt']) // a page, when one has this address
             ->add('ANY', '/_section/{key:[a-z0-9-]{1,40}}', [self::class, 'previewSection'], fn (App $app): bool => $app->auth()->hasModule('pages'), 'permission:pages')

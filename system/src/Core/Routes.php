@@ -65,6 +65,9 @@ final class Routes
             || $db->value('SELECT 1 FROM {collections} WHERE slug = ?', [$slug]) !== null) {
             return 'A page or a collection already uses this URL.';
         }
+        if (ShortLinks::takesName($db, $slug)) {
+            return 'A short link already uses this URL.';
+        }
 
         return null;
     }

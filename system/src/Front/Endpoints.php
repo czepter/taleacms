@@ -211,6 +211,34 @@ final class Endpoints
         return \Talea\Mcp\UploadLinks::receive($this->app, $token);
     }
 
+    /** /s/<code>: a random short link. */
+    public function shortLinkCode(string $code): ?Response
+    {
+        return $this->shortLink('s/' . $code);
+    }
+
+    /** /<name>: a named short link; no row = null, the next route tries. */
+    public function shortLink(string $name): ?Response
+    {
+        if ($this->app->languagePrefix !== '') {
+            return null;
+        }
+        $db = $this->app->db();
+        $row = $db->one('SELECT * FROM {short_links} WHERE path = ?', [strtolower($name)]);
+        if ($row === null) {
+            return null;
+        }
+        $db->run('UPDATE {short_links} SET hits = hits + 1, last_hit_at = ? WHERE short_link_id = ?', [date('Y-m-d H:i:s'), $row['short_link_id']]);
+        $target = \Talea\Core\ShortLinks::targetUrl($this->app, $row);
+
+        // an unreachable target leads home (the campaign fields are gone with it); a site path may start with '?' (the home page plus campaign fields)
+        return new Response('', 302, [
+            'Location' => $target === null ? $this->app->url('') : (preg_match('~^https?://~i', $target) === 1 ? $target : $this->app->url($target)),
+            'Cache-Control' => 'no-store',
+            'X-Robots-Tag' => 'noindex',
+        ]);
+    }
+
     /** /download/<token> */
     public function download(string $token): Response
     {

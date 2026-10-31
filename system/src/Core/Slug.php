@@ -80,7 +80,8 @@ final class Slug
         [$id] = self::TABLES[$table] ?? throw new \InvalidArgumentException('Unknown table ' . $table);
         [$where, $params] = self::scope($db, $language);
 
-        return $db->value("SELECT 1 FROM {{$table}} WHERE slug = ? AND {$id} <> ?{$where} LIMIT 1", [$slug, $except, ...$params]) !== null;
+        return $db->value("SELECT 1 FROM {{$table}} WHERE slug = ? AND {$id} <> ?{$where} LIMIT 1", [$slug, $except, ...$params]) !== null
+            || ($table === 'pages' && ShortLinks::takesName($db, $slug)); // a short link keeps its address, the page takes the next free one
     }
 
     /** The type word of a slug made from a number (fromId): table => [id column, word]. */

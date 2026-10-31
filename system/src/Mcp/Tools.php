@@ -967,7 +967,7 @@ final class Tools
     {
         $seo = slugify($given, 110);
         if ($seo === '' || in_array($seo, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$seo]) || \Talea\Core\Routes::isNewsSlug($seo, $this->app->db())
-            || $this->app->db()->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $collectionId]) !== null) {
+            || $this->app->db()->value('SELECT collection_id FROM {collections} WHERE slug = ? AND collection_id <> ?', [$seo, $collectionId]) !== null || \Talea\Core\ShortLinks::takesName($this->app->db(), $seo)) {
             throw new \InvalidArgumentException('The address “' . $seo . '” is already used by the system or another collection.');
         }
 
