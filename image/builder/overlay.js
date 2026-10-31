@@ -37,6 +37,8 @@ const STYLE = `
 #tl-bd-overlay .bdo-b:hover{background:rgb(255 255 255/.18)}
 #tl-bd-overlay .bdo-b:focus-visible{outline:calc(2px*var(--s)) solid #8ab4f8;outline-offset:calc(-2px*var(--s))}
 #tl-bd-overlay .bdo-b[aria-pressed="true"]{background:#ff4f2e}
+#tl-bd-overlay .bdo-b:disabled{opacity:.4;cursor:not-allowed}
+#tl-bd-overlay .bdo-b:disabled:hover{background:transparent}
 #tl-bd-overlay .bdo-b svg{width:calc(18px*var(--s));height:calc(18px*var(--s));fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #tl-bd-overlay .bdo-sep{width:calc(1px*var(--s));margin:calc(4px*var(--s)) calc(2px*var(--s));background:rgb(255 255 255/.3)}
 #tl-bd-overlay .bdo-b[data-bdo="move"]{cursor:grab}
@@ -399,7 +401,7 @@ C.toolbar = (doc, picks, main) => {
 			add('variant', T('Next appearance of the button'), () => { const next = variants[(variants.indexOf(p.content.variant) + 1) % variants.length]; applyChange(() => { p.content.variant = next; }); C.announce(next); }, icon(doc, 'button'));
 		}
 		if (p.type === 'image') {
-			add('replace', T('Replace the image'), () => window.taleaPickImage && window.taleaPickImage((o) => { applyChange(() => { p.content.src = o.url; if (!p.content.alt && o.name) { p.content.alt = o.name; } }); }), icon(doc, 'replace'));
+			add('replace', T('Replace the image'), () => window.taleaPickImage && window.taleaPickImage((o) => C.replaceImage(p, o, 'media')), icon(doc, 'replace'));
 			add('alt', T('Description for blind visitors (alt)'), () => askName(T('Image description'), T('What does the image show?'), p.content.alt || '', null).then((v) => { if (v !== null) { applyChange(() => { p.content.alt = v; }); } }), text('alt', 'font-size:calc(11px*var(--s))'));
 		}
 	}
@@ -546,19 +548,60 @@ function marquee(doc) {
 /* ---------- files dropped from the computer: uploaded to Media and inserted at the drop spot ---------- */
 
 const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+/** The kinds of the files being dragged (a drag only tells the types, a drop has the files): ['image/png', …]. */
+const fileTypes = (e) => (e.dataTransfer.files.length ? Array.from(e.dataTransfer.files) : Array.from(e.dataTransfer.items || []).filter((i) => i.kind === 'file')).map((f) => f.type);
+/** Uploads files to Media (folder none); the ones that arrived, [{url, name, description, …}]. A failure is said in the status line. */
+C.upload = async (files) => {
+	const uploaded = [];
+	for (const file of files) {
+		const j = await query(D.urls.admin + '/media/upload?format=json', { 'files[]': file, folder_id: '0' });
+		if (j.images && j.images.length) { uploaded.push(...j.images); } else { setState((j.errors && j.errors[0]) || j.error || T('Upload failed. Check your connection and try again.'), true); }
+	}
+	return uploaded;
+};
+/** media.js: what a lone file dropped at the pointer replaces ({kind, id, node, label}) instead of being inserted; null = insert. */
+C.replaceTarget = null;
+C.replaceWith = null; // media.js: (target, uploaded file, screen size at the drop) => writes it
+function replaceFrame(doc, hit) {
+	let frame = doc.getElementById('tl-bd-replace');
+	if (!hit) { if (frame) { frame.style.display = 'none'; } return; }
+	if (!frame) {
+		frame = mk(doc, 'div', { id: 'tl-bd-replace', 'aria-hidden': 'true' }, mk(doc, 'span'));
+		frame.style.cssText = 'position:absolute;z-index:2147483646;pointer-events:none;outline:3px solid #ff4f2e;outline-offset:-3px;background:rgb(255 79 46/.14);place-items:center';
+		frame.firstChild.style.cssText = 'padding:6px 12px;border-radius:6px;background:#1d1d1f;color:#fff;font:600 13px/1.2 system-ui,sans-serif;max-width:90%;text-align:center';
+		doc.body.append(frame);
+	}
+	const r = C.page(hit.node);
+	frame.firstChild.textContent = hit.label;
+	Object.assign(frame.style, { display: 'grid', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+}
 function fileDrop(doc) {
 	doc.addEventListener('dragover', (e) => {
 		if (!hasFiles(e)) { return; }
 		e.preventDefault();
 		e.dataTransfer.dropEffect = 'copy';
+		const hit = C.replaceTarget && C.replaceTarget(doc, e, fileTypes(e));
+		replaceFrame(doc, hit);
+		if (hit) { showSpot(doc, null); return; }
 		state.dragging = { newType: 'image' };
 		const place = canvasSpot(doc, e);
 		state.dragging = null;
 		showSpot(doc, place);
 	});
+	doc.addEventListener('dragleave', (e) => { if (!e.relatedTarget) { replaceFrame(doc, null); showSpot(doc, null); } });
 	doc.addEventListener('drop', async (e) => {
 		if (!hasFiles(e)) { return; }
 		e.preventDefault();
+		const hit = C.replaceTarget && C.replaceTarget(doc, e, fileTypes(e));
+		replaceFrame(doc, null);
+		if (hit) {
+			showSpot(doc, null);
+			setState(T('Uploading…'));
+			const bp = state.bp; // the screen size of the drop, not of the moment the upload ends
+			const [file] = await C.upload(Array.from(e.dataTransfer.files));
+			if (file) { C.replaceWith(hit, file, bp); } // a failed upload changed nothing
+			return;
+		}
 		state.dragging = { newType: 'image' };
 		const place = canvasSpot(doc, e);
 		state.dragging = null;
@@ -568,11 +611,7 @@ function fileDrop(doc) {
 		if (!place) { setState(T('Drop the files onto an element or between elements of the page.'), true); return; }
 		if (!usableFiles.length) { setState(T('Only images and MP4 or WebM videos can be dropped on the page.'), true); return; }
 		setState(T('Uploading…'));
-		const uploaded = [];
-		for (const file of usableFiles) {
-			const j = await query(D.urls.admin + '/media/upload?format=json', { 'files[]': file, folder_id: '0' });
-			if (j.images && j.images.length) { uploaded.push(...j.images); } else { setState((j.errors && j.errors[0]) || j.error || T('Upload failed. Check your connection and try again.'), true); }
-		}
+		const uploaded = await C.upload(usableFiles);
 		if (!uploaded.length) { return; }
 		const elements = uploaded.map((o) => {
 			const video = /\.(mp4|webm)$/i.test(o.url);

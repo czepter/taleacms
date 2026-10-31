@@ -52,6 +52,8 @@ final class BrowserWalkTest extends TestCase
                 $site->exec("INSERT INTO tl_media (image_path, thumb_path, name, image_width, image_height, created_at) VALUES (?, '', ?, ?, ?, NOW())", ["media/2026/05/$name.jpg", "Photo $name", $w, $h]);
                 $photoList[] = ['src' => "media/2026/05/$name.jpg", 'alt' => "Photo $name"];
             }
+            // a file the Media picker offers as an image (the photos above have no thumbnail, so the picker lists them as attachments): the background popover picks it
+            $site->exec("INSERT INTO tl_media (image_path, thumb_path, name, image_width, image_height, created_at) VALUES ('media/2026/05/gt-b.jpg', 'media/2026/05/gt-b.jpg', 'Pick gt-b', 300, 400, NOW())");
             $gallery = fn (string $id, string $layout): array => ['id' => $id, 'type' => 'gallery', 'tag' => 'div', 'content' => ['photos' => $photoList, 'layout' => $layout, 'label' => "Gallery $layout", 'ratio' => '4 / 3', 'caption' => '', 'folder' => '']];
             $build = ['v' => 1, 'children' => [['id' => 's2', 'type' => 'section', 'tag' => 'section',
                 'content' => ['width' => 'content', 'background_video' => '', 'on_scroll' => '', 'text_at_top' => ''],

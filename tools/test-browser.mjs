@@ -379,7 +379,8 @@ async function until(p, fn, arg, what, timeout = 15000) {
  * The editor at rest: no autosave pending or running, no gesture, and no fresh canvas loading (a finished save reloads the canvas:
  * the new iframe carries .bd-loading until it is swapped in, and an overlay handle or a size taken before the swap is stale).
  */
-const idle = (p) => until(p, () => { const s = window.taleaBuilder.state; return !s.timer && !s.saving && !s.retries && !s.gesture && !document.querySelector('.bd-frame iframe.bd-loading'); }, null, 'the autosave is done and the canvas is swapped');
+const idle = (p) => until(p, () => { const s = window.taleaBuilder.state; return !s.timer && !s.saving && !s.retries && !s.gesture && !document.querySelector('.bd-frame iframe.bd-loading'); }, null, 'the autosave is done and the canvas is swapped')
+  .catch(async (e) => { throw new Error(e.message + ' ' + JSON.stringify(await p.evaluate(() => { const s = window.taleaBuilder.state; return { timer: !!s.timer, saving: s.saving, retries: s.retries, gesture: s.gesture, loading: !!document.querySelector('.bd-frame iframe.bd-loading'), status: document.body.textContent.match(/(Saving failed|Could not|Unsaved|Draft saved|Saved, but)[^.]*/)?.[0] }; }).catch(() => ({})))); });
 /** The draft as the server has it: wait until the autosave is done, then read it from a fresh load. */
 async function savedBuild(p, kind) {
   await until(p, () => { const s = window.taleaBuilder.state; return !s.timer && !s.saving && !s.retries && s.saved === JSON.stringify(s.build); }, null, 'the draft is saved');
@@ -560,11 +561,299 @@ await step('compose (mouse): the marquee selects several elements, an image file
     const transfer = new DataTransfer();
     transfer.items.add(new File([png], 'dropped.png', { type: 'image/png' }));
     const r = doc.querySelector('[data-tl-id="cimg"]').getBoundingClientRect();
-    const at = { clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.8, dataTransfer: transfer, bubbles: true, cancelable: true };
+    const at = { clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.8, shiftKey: true, dataTransfer: transfer, bubbles: true, cancelable: true }; // Shift: insert (a lone image dropped without it replaces the image it lands on)
     doc.querySelector('[data-tl-id="cimg"]').dispatchEvent(new DragEvent('dragover', at));
     doc.querySelector('[data-tl-id="cimg"]').dispatchEvent(new DragEvent('drop', at));
   });
   await page.waitForFunction((n) => JSON.stringify(window.taleaBuilder.state.build).split('"type":"image"').length > n, before, { timeout: 15000 });
+});
+
+// ---------- crop mode of an image (compose phase C1): focal point and shape, by mouse and by keyboard ----------
+const crop = (p, name) => frameIn(p).locator(`#tl-bd-overlay [data-bdo="${name}"]`).first();
+const styleOf = async (p, bp) => find((await p.evaluate(() => window.taleaBuilder.state.build)).children, 'cimg').style?.[bp] ?? {};
+const focalOf = (v) => (v ?? '').split('% ').map((x) => parseInt(x, 10));
+/** Opens crop mode with the toolbar button of the selected image. */
+async function openCrop(p) {
+  await crop(p, 'crop').click();
+  await frameIn(p).locator('#tl-bd-overlay .bdc-photo').waitFor({ timeout: 5000 }).catch(async (e) => {
+    const info = await p.evaluate(() => ({ gesture: window.taleaBuilder.state.gesture, overlay: window.taleaBuilder.previewDoc().getElementById('tl-bd-overlay')?.innerHTML.slice(0, 300) }));
+    throw new Error('crop mode did not open: ' + JSON.stringify(info));
+  });
+}
+/** Presses at a point of the whole photo (as fractions of its box), drags a little and lets go. */
+async function dragPhoto(p, fx, fy) {
+  const photo = frameIn(p).locator('#tl-bd-overlay .bdc-photo');
+  const b = await photo.boundingBox();
+  const x = b.x + b.width * fx;
+  const y = b.y + b.height * fy;
+  await p.mouse.move(b.x + b.width * 0.3, b.y + b.height * 0.3);
+  await p.mouse.down();
+  await p.mouse.move(x, y, { steps: 6 });
+  if (SHOTS) { await p.screenshot({ path: `${SHOTS}/crop-dragging.png` }); }
+  await p.mouse.up();
+  await p.waitForTimeout(350); // the photo settles back
+  if (SHOTS) { await p.screenshot({ path: `${SHOTS}/crop-settled.png` }); }
+}
+
+await step('crop (mouse): 16:9 and a focal point by dragging the photo, one undo step, phone 3:4 leaves desktop alone, reload', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'cimg');
+  const before = await undoDepth(page);
+  await openCrop(page);
+  expect(await frameIn(page).locator('#tl-bd-overlay .bdo-b[data-bdo="move"]').count() === 0, 'the handles and the toolbar of the element did not step aside');
+  await crop(page, 'crop-ratio-16-9').click();
+  expect(await crop(page, 'crop-ratio-16-9').getAttribute('aria-pressed') === 'true', 'the 16:9 button is not pressed');
+  await dragPhoto(page, 0.62, 0.38);
+  // while the crop is open nothing is written; the window is back on the element after the photo settled
+  expect((await undoDepth(page)) === before, 'crop mode wrote before Done');
+  const win = await frameIn(page).locator('#tl-bd-overlay .bdc-win').boundingBox();
+  const shown = await node(page, 'cimg').boundingBox();
+  expect(Math.abs(win.x - shown.x) < 2 && Math.abs(win.y - shown.y) < 2 && Math.abs(win.width - shown.width) < 2 && Math.abs(win.height - shown.height) < 2, `the window is not on the element's box: ${JSON.stringify([win, shown])}`);
+  await crop(page, 'crop-done').click();
+  await idle(page);
+  expect((await undoDepth(page)) === before + 1, 'ratio and focal point together are not exactly one undo step');
+  let base = await styleOf(page, 'base');
+  const [fx, fy] = focalOf(base.focal_point);
+  expect(base.aspect_ratio === '16/9' && base.object_fit === 'cover' && Math.abs(fx - 62) <= 2 && Math.abs(fy - 38) <= 2, `desktop crop is ${JSON.stringify(base)}`);
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(300);
+  base = await styleOf(page, 'base');
+  expect(!base.aspect_ratio && !base.focal_point && !base.object_fit && (await undoDepth(page)) === before, 'one undo did not revert the whole crop');
+  // again, then a phone edit
+  await pick(page, 'cimg');
+  await openCrop(page);
+  await crop(page, 'crop-ratio-16-9').click();
+  await dragPhoto(page, 0.62, 0.38);
+  await crop(page, 'crop-done').click();
+  await idle(page);
+  const desktop = await styleOf(page, 'base');
+  await device(page, 'Mobile', 'mobile');
+  await pick(page, 'cimg');
+  await openCrop(page);
+  expect(await crop(page, 'crop-ratio-16-9').getAttribute('aria-pressed') === 'true', 'the phone does not show the inherited 16:9 as pressed');
+  expect(!(await crop(page, 'crop-ratio-16-9').evaluate((b) => b.classList.contains('bdc-own'))), 'an inherited ratio is marked as overridden');
+  await crop(page, 'crop-ratio-3-4').click();
+  expect(await crop(page, 'crop-ratio-3-4').evaluate((b) => b.classList.contains('bdc-own')), 'the phone override has no dot');
+  await crop(page, 'crop-done').click();
+  await idle(page);
+  const mobile = await styleOf(page, 'mobile');
+  expect(mobile.aspect_ratio === '3/4' && !mobile.focal_point, `phone crop is ${JSON.stringify(mobile)}`);
+  expect(JSON.stringify(await styleOf(page, 'base')) === JSON.stringify(desktop), 'the phone crop changed the desktop style');
+  await pick(page, 'cimg');
+  expect(await crop(page, 'crop').evaluate((b) => b.classList.contains('bdc-own')), 'the Crop button has no dot where the phone overrides the desktop shape');
+  const saved = find((await savedBuild(page, 'mouse')).children, 'cimg');
+  expect(saved.style.base.aspect_ratio === '16/9' && saved.style.mobile.aspect_ratio === '3/4' && saved.style.base.focal_point === desktop.focal_point, `the saved crop is ${JSON.stringify(saved.style)}`);
+  await device(page, 'Desktop', 'base');
+  await pick(page, 'cimg');
+  expect(!(await crop(page, 'crop').evaluate((b) => b.classList.contains('bdc-own'))), 'the Crop button has a dot on desktop, where nothing is inherited');
+});
+
+await step('crop (mouse): Cancel and Esc write nothing, a double-click opens it, an unchanged Done is no history step', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'cimg');
+  const before = await undoDepth(page);
+  const style = JSON.stringify(await styleOf(page, 'base'));
+  await openCrop(page);
+  await crop(page, 'crop-ratio-1').click();
+  await dragPhoto(page, 0.9, 0.9);
+  await crop(page, 'crop-cancel').click();
+  await frameIn(page).locator('#tl-bd-overlay .bdc').waitFor({ state: 'detached', timeout: 5000 });
+  await node(page, 'cimg').dblclick(); // a double-click on the image opens crop mode too
+  await frameIn(page).locator('#tl-bd-overlay .bdc-photo').waitFor({ timeout: 5000 });
+  await crop(page, 'crop-ratio-21-9').click();
+  await page.keyboard.press('Escape');
+  await openCrop(page);
+  await crop(page, 'crop-done').click();
+  await idle(page);
+  expect((await undoDepth(page)) === before && JSON.stringify(await styleOf(page, 'base')) === style, 'Cancel, Esc or an unchanged Done wrote something');
+  expect(await frameIn(page).locator('#tl-bd-overlay .bdc').count() === 0, 'crop mode did not close');
+});
+
+// ---------- background popover and replace by drop (compose phase C2, C3) ----------
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+const bgStyle = async (p, id, bp = 'base') => find((await p.evaluate(() => window.taleaBuilder.state.build)).children, id).style?.[bp] ?? {};
+const popover = (p) => frameIn(p).locator('#tl-bd-bg');
+/** The popover is drawn again by every saved draft (the canvas is swapped): wait for the editor to be at rest, then for it. */
+async function popoverAfterSave(p) {
+  await idle(p);
+  await popover(p).waitFor({ timeout: 5000 });
+}
+/** A file dragged from the computer onto an element of the canvas: a synthetic dragover (and drop) with a small PNG (or a video type). */
+async function dragFile(p, id, { drop = true, shift = false, type = 'image/png', name = 'dropped.png' } = {}) {
+  await frameIn(p).locator('body').evaluate(async (body, o) => {
+    const doc = body.ownerDocument;
+    const canvas = doc.createElement('canvas');
+    canvas.width = canvas.height = 16;
+    canvas.getContext('2d').fillRect(0, 0, 8, 8);
+    const png = o.type === 'image/png' ? await new Promise((done) => canvas.toBlob(done, 'image/png')) : new Blob(['x'], { type: o.type });
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([png], o.name, { type: o.type }));
+    const node = doc.querySelector(`[data-tl-id="${o.id}"]`);
+    const r = node.getBoundingClientRect();
+    const at = { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, shiftKey: o.shift, dataTransfer: transfer, bubbles: true, cancelable: true };
+    node.dispatchEvent(new DragEvent('dragover', at));
+    if (o.drop) { node.dispatchEvent(new DragEvent('drop', at)); }
+  }, { id, shift, type, name, drop });
+}
+
+await step('background (mouse): colour, uploaded and picked image, "darken at the bottom", focal point, each one undo step, reload', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'cs1', true);
+  let depth = await undoDepth(page);
+  await handle(page, 'background').click();
+  await popover(page).waitFor({ timeout: 5000 });
+  expect((await popover(page).getAttribute('aria-label')) === 'Background · Desktop', `the popover is titled ${await popover(page).getAttribute('aria-label')}`);
+  expect(await frameIn(page).locator('#tl-bd-bg [role="tab"]').count() === 3, 'a section has the tabs Colour, Image and Video');
+  // the swatches show the colours of the canvas
+  const swatch = await handle(page, 'bg-sw-primary').evaluate((b) => [getComputedStyle(b).backgroundColor, getComputedStyle(b.ownerDocument.documentElement).getPropertyValue('--tl-color-primary')]);
+  expect(swatch[0] !== 'rgba(0, 0, 0, 0)' && swatch[1].trim() !== '', `the swatch is not the token colour: ${JSON.stringify(swatch)}`);
+  await handle(page, 'bg-sw-primary').click();
+  await popoverAfterSave(page);
+  expect((await bgStyle(page, 'cs1')).background === 'primary' && (await undoDepth(page)) === ++depth, 'a swatch is not exactly one undo step');
+  // the image: upload through the file chooser
+  await handle(page, 'bg-tab-image').click();
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser', { timeout: 5000 }), handle(page, 'bg-upload').click()]);
+  await chooser.setFiles({ name: 'bgup.png', mimeType: 'image/png', buffer: PNG });
+  await until(page, () => !!window.taleaBuilder.find('cs1').p.style.base.background_image, null, 'the uploaded background image is set');
+  await popoverAfterSave(page);
+  expect((await undoDepth(page)) === ++depth && /bgup/.test((await bgStyle(page, 'cs1')).background_image), `upload: ${JSON.stringify(await bgStyle(page, 'cs1'))}`);
+  // choose from Media replaces it
+  await handle(page, 'bg-pick').click();
+  await page.locator('dialog.gallery-window[open] .gallery-item', { hasText: 'Pick gt-b' }).click({ timeout: 8000 }).catch(async (e) => { throw new Error(e.message.split('\n')[0] + ' ' + (await page.evaluate(() => { const d = document.querySelector('dialog.gallery-window'); return d ? d.open + ' ' + d.innerText.slice(0, 300) : typeof window.taleaPickImage + ' no dialog'; }))); });
+  await until(page, () => /gt-b/.test(window.taleaBuilder.find('cs1').p.style.base.background_image || ''), null, 'the picked background image is set');
+  await popoverAfterSave(page);
+  expect((await undoDepth(page)) === ++depth, 'choosing from Media is not exactly one undo step');
+  // the overlay: darken at the bottom is a layer on the photo
+  await handle(page, 'bg-ov-bottom').click();
+  await popoverAfterSave(page);
+  expect((await bgStyle(page, 'cs1')).gradient === 'linear-gradient(180deg, transparent, rgb(0 0 0 / 0.55))' && (await undoDepth(page)) === ++depth, 'the overlay chip is not exactly one undo step');
+  const painted = await node(page, 'cs1').evaluate((n) => getComputedStyle(n).backgroundImage);
+  expect(/^linear-gradient\(rgba\(0, 0, 0, 0\), rgba\(0, 0, 0, 0\.55\)\)/.test(painted) && /gt-b/.test(painted), `the canvas does not paint the gradient over the photo: ${painted}`);
+  // the focal point: crop mode on the background, no shape strip
+  await handle(page, 'bg-focal').click();
+  await frameIn(page).locator('#tl-bd-overlay .bdc-photo').waitFor({ timeout: 5000 });
+  expect(await frameIn(page).locator('#tl-bd-overlay [data-ratio]').count() === 0, 'a background has no shape strip');
+  const win = await frameIn(page).locator('#tl-bd-overlay .bdc-win').boundingBox();
+  const shown = await node(page, 'cs1').boundingBox();
+  expect(Math.abs(win.width - shown.width) < 2 && Math.abs(win.height - shown.height) < 2, 'the crop window is not the element box');
+  // the photo is far taller than the section: the finger goes down and up inside the window, the point is where the pointer ended on the photo
+  const photo = await frameIn(page).locator('#tl-bd-overlay .bdc-photo').boundingBox();
+  const end = { x: win.x + win.width * 0.7, y: win.y + win.height * 0.6 };
+  await page.mouse.move(win.x + win.width * 0.3, win.y + win.height * 0.4);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(350);
+  await crop(page, 'crop-done').click();
+  await popoverAfterSave(page);
+  const [fx, fy] = focalOf((await bgStyle(page, 'cs1')).background_focal);
+  const want = [(end.x - photo.x) / photo.width * 100, (end.y - photo.y) / photo.height * 100];
+  expect(Math.abs(fx - want[0]) <= 4 && Math.abs(fy - want[1]) <= 4 && (await undoDepth(page)) === ++depth, `background focal point is ${JSON.stringify(await bgStyle(page, 'cs1'))}, expected about ${want.map(Math.round)}`);
+  // Esc closes and gives the focus back to the button
+  await page.keyboard.press('Escape');
+  await popover(page).waitFor({ state: 'detached', timeout: 3000 });
+  expect(await handle(page, 'background').evaluate((b) => b === b.ownerDocument.activeElement), 'the focus did not return to the Background button');
+  // a phone edit leaves desktop alone and is titled by the screen size
+  await device(page, 'Mobile', 'mobile');
+  await pick(page, 'cs1', true);
+  await handle(page, 'background').click();
+  await popover(page).waitFor({ timeout: 5000 });
+  expect((await popover(page).getAttribute('aria-label')) === 'Background · Mobile', 'the popover does not name the screen size');
+  await handle(page, 'bg-tab-colour').click(); // the inherited photo opened the Image tab
+  await handle(page, 'bg-sw-secondary').click();
+  await popoverAfterSave(page);
+  expect((await bgStyle(page, 'cs1', 'mobile')).background === 'secondary' && (await bgStyle(page, 'cs1')).background === 'primary', 'the phone colour changed the desktop one');
+  // one undo step reverts the phone colour, redo brings it back
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(300);
+  expect(!(await bgStyle(page, 'cs1', 'mobile')).background && (await bgStyle(page, 'cs1')).background === 'primary', 'one undo did not revert exactly the phone colour');
+  await page.keyboard.press('Control+Shift+z');
+  await page.waitForTimeout(300);
+  expect((await bgStyle(page, 'cs1', 'mobile')).background === 'secondary', 'redo did not bring the phone colour back');
+  // "darken at the bottom" on a size that only inherits the photo keeps the photo there (a gradient is layered over an image of the same state only)
+  await handle(page, 'bg-tab-image').click();
+  await handle(page, 'bg-ov-bottom').click();
+  await popoverAfterSave(page);
+  const darkened = await bgStyle(page, 'cs1', 'mobile');
+  expect(/gt-b/.test(darkened.background_image) && darkened.gradient && darkened.background_focal === (await bgStyle(page, 'cs1')).background_focal, `darken on the phone: ${JSON.stringify(darkened)}`);
+  expect(/gt-b/.test(await node(page, 'cs1').evaluate((n) => getComputedStyle(n).backgroundImage)), 'the photo disappeared on the phone');
+  // removing the image there takes the darkening with it, desktop keeps its own
+  await handle(page, 'bg-remove').click();
+  await popoverAfterSave(page);
+  const removed = await bgStyle(page, 'cs1', 'mobile');
+  expect(!removed.background_image && !removed.gradient && removed.background === 'secondary' && (await bgStyle(page, 'cs1')).gradient, `remove on the phone: ${JSON.stringify(removed)}`);
+  await device(page, 'Desktop', 'base');
+  const saved = find((await savedBuild(page, 'mouse')).children, 'cs1');
+  expect(saved.style.base.background === 'primary' && /gt-b/.test(saved.style.base.background_image) && saved.style.base.gradient && saved.style.base.background_focal && saved.style.mobile.background === 'secondary', `the saved background is ${JSON.stringify(saved.style)}`);
+});
+
+await step('drop (mouse): an image file replaces an image (focal point gone, shape kept, one undo step), Shift inserts, a background and a video are replaced', async () => {
+  await openBuilder(page, 'mouse');
+  await page.evaluate(() => window.taleaBuilder.applyChange(() => {
+    const p = window.taleaBuilder.find('cimg').p;
+    p.style.base = { ...p.style.base, focal_point: '20% 30%', aspect_ratio: '16/9', object_fit: 'cover' };
+    p.style.mobile = { focal_point: '10% 10%' };
+    const s = window.taleaBuilder.find('cs1').p;
+    s.style.base = { ...s.style.base, background_image: 'media/2026/05/gt-b.jpg', background_focal: '30% 30%' };
+    s.content.background_video = 'media/2026/05/clip.mp4';
+    s.style.tablet = { background_focal: '10% 10%' }; // takes the photo from desktop
+    s.style.mobile = { background_image: 'media/2026/05/gt-b.jpg', background_focal: '5% 5%' }; // has a photo of its own
+  }));
+  await idle(page);
+  const sources = async () => (await page.evaluate(() => JSON.stringify(window.taleaBuilder.state.build))).split('"type":"image"').length;
+  const count = await sources();
+  const oldSrc = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cimg').content.src;
+  // the whole image is outlined while a file is over it
+  await dragFile(page, 'cimg', { drop: false });
+  const frame = frameIn(page).locator('#tl-bd-replace');
+  expect((await frame.textContent()) === 'Replace image · Shift: insert' && await frame.isVisible(), 'the image is not outlined with the replace label');
+  await dragFile(page, 'cimg', { drop: false, shift: true });
+  expect(!(await frame.isVisible()), 'Shift should show the insertion line, not the replace frame');
+  await dragFile(page, 'ch1', { drop: false });
+  expect((await frame.textContent()) === 'Replace background · Shift: insert', 'a section with a background photo is not outlined');
+  await dragFile(page, 'ch1', { drop: false, type: 'video/mp4', name: 'clip.mp4' });
+  expect((await frame.textContent()) === 'Replace background · Shift: insert' && await frame.isVisible(), 'a video over a section with a background video is not outlined');
+  // drop on the image
+  let depth = await undoDepth(page);
+  const said = page.waitForFunction(() => document.body.textContent.includes('Image replaced. Check that the description still fits.'), null, { timeout: 15000, polling: 50 });
+  await dragFile(page, 'cimg');
+  await until(page, (old) => window.taleaBuilder.find('cimg').p.content.src !== old, oldSrc, 'the dropped file replaced the image');
+  await said;
+  const p = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cimg');
+  expect(!p.style.base.focal_point && !p.style.mobile?.focal_point, `the old focal point stayed: ${JSON.stringify(p.style)}`);
+  expect(p.style.base.aspect_ratio === '16/9' && p.content.alt === 'A photo', `shape or description lost: ${JSON.stringify([p.style, p.content.alt])}`);
+  expect((await undoDepth(page)) === depth + 1 && (await sources()) === count, 'the replacement is not exactly one undo step / inserted a new element');
+  await idle(page);
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(300);
+  const back = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cimg');
+  expect(back.content.src === oldSrc && back.style.base.focal_point === '20% 30%' && back.style.mobile.focal_point === '10% 10%', 'one undo did not restore the image and its points');
+  // Shift inserts
+  depth = await undoDepth(page);
+  await dragFile(page, 'cimg', { shift: true });
+  await until(page, (n) => JSON.stringify(window.taleaBuilder.state.build).split('"type":"image"').length > n, count, 'Shift-drop inserted an image');
+  expect(find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cimg').content.src === oldSrc, 'Shift-drop replaced the image');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(300);
+  await idle(page);
+  // drop on a background
+  depth = await undoDepth(page);
+  await dragFile(page, 'ch1');
+  await until(page, () => window.taleaBuilder.find('cs1').p.style.base.background_image !== 'media/2026/05/gt-b.jpg', null, 'the dropped file replaced the background');
+  const section = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cs1');
+  expect(!section.style.base.background_focal && (await undoDepth(page)) === depth + 1 && find([section], 'ch1'), `background replace: ${JSON.stringify(section.style)}`);
+  expect(!section.style.tablet && section.style.mobile.background_focal === '5% 5%', `the point of a size that takes the new photo stayed, or the one of a size with its own photo went: ${JSON.stringify(section.style)}`);
+});
+
+await step('replace (toolbar): a file picked from Media brings its description as the alt', async () => {
+  await openBuilder(page, 'mouse');
+  await pick(page, 'cimg');
+  const oldSrc = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cimg').content.src;
+  await handle(page, 'replace').click();
+  await page.locator('dialog.gallery-window[open] .gallery-item', { hasText: 'Pick gt-b' }).click({ timeout: 8000 });
+  await until(page, (old) => window.taleaBuilder.find('cimg').p.content.src !== old, oldSrc, 'the picked file replaced the image');
+  const alt = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cimg').content.alt;
+  expect(alt === 'Pick gt-b', `the alt after Replace is ${JSON.stringify(alt)}`);
 });
 
 // keyboard only
@@ -609,6 +898,65 @@ await step('compose (keyboard): Alt+arrows resize an image to half width', async
   for (let i = 0; i < 6; i++) { await page.keyboard.press('Alt+ArrowLeft'); await page.waitForTimeout(120); }
   const build = await savedBuild(page, 'keys');
   expect(find(build.children, 'cimg').style.base.width === '50%', `the image width is ${find(build.children, 'cimg').style.base.width}`);
+});
+
+await step('crop (keyboard): Enter opens, arrows and a digit, Enter is Done, Esc cancels', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'cimg');
+  const before = await undoDepth(page);
+  await page.keyboard.press('Enter');
+  await frameIn(page).locator('#tl-bd-overlay .bdc-photo').waitFor({ timeout: 5000 });
+  expect(await crop(page, 'crop-focal').evaluate((c) => c === c.ownerDocument.activeElement), 'the focus is not on the crosshair');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Shift+ArrowDown');
+  expect(await crop(page, 'crop-focal').getAttribute('aria-valuetext') === 'Focal point 60 %, 51 %', `the live value is ${await crop(page, 'crop-focal').getAttribute('aria-valuetext')}`);
+  await page.keyboard.press('5'); // 16:9
+  await page.keyboard.press('Enter');
+  await idle(page);
+  const base = await styleOf(page, 'base');
+  expect(base.focal_point === '60% 51%' && base.aspect_ratio === '16/9' && base.object_fit === 'cover', `keyboard crop is ${JSON.stringify(base)}`);
+  expect((await undoDepth(page)) === before + 1, 'the keyboard crop is not exactly one undo step');
+  // Home centres, Esc restores the state before crop mode
+  await pick(page, 'cimg');
+  await page.keyboard.press('Enter');
+  await frameIn(page).locator('#tl-bd-overlay .bdc-photo').waitFor({ timeout: 5000 });
+  await page.keyboard.press('Home');
+  expect(await crop(page, 'crop-focal').getAttribute('aria-valuetext') === 'Focal point 50 %, 50 %', 'Home did not centre the point');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  expect(JSON.stringify(await styleOf(page, 'base')) === JSON.stringify(base) && (await undoDepth(page)) === before + 1, 'Esc wrote something');
+  const saved = await savedBuild(page, 'keys');
+  expect(find(saved.children, 'cimg').style.base.focal_point === '60% 51%', 'the keyboard crop did not survive a reload');
+});
+
+await step('background (keyboard): the popover by Tab and arrows, a swatch with Enter, Esc closes', async () => {
+  await openBuilder(page, 'keys');
+  await pick(page, 'cs1', true);
+  const before = await undoDepth(page);
+  const active = () => frameIn(page).locator('body').evaluate((b) => b.ownerDocument.activeElement.getAttribute('data-bdo'));
+  await handle(page, 'background').focus();
+  await page.keyboard.press('Enter');
+  await popover(page).waitFor({ timeout: 5000 });
+  await until(page, () => window.taleaBuilder.previewDoc().activeElement.getAttribute('data-bdo') === 'bg-tab-colour', null, 'the focus went into the popover, onto the selected tab');
+  await page.keyboard.press('ArrowRight'); // the arrows move between the tabs
+  await until(page, () => window.taleaBuilder.previewDoc().activeElement.getAttribute('data-bdo') === 'bg-tab-image', null, 'ArrowRight did not select the Image tab');
+  expect(await handle(page, 'bg-tab-image').getAttribute('aria-selected') === 'true', 'the Image tab is not selected');
+  await page.keyboard.press('ArrowLeft');
+  await until(page, () => window.taleaBuilder.previewDoc().activeElement.getAttribute('data-bdo') === 'bg-tab-colour', null, 'ArrowLeft did not return to the Colour tab');
+  await page.keyboard.press('Tab');
+  expect((await active()) === 'bg-sw-none', `Tab from the tab reached ${await active()}`);
+  await page.keyboard.press('Tab');
+  expect((await active()) === 'bg-sw-primary', `the next Tab reached ${await active()}`);
+  await page.keyboard.press('Enter');
+  await idle(page);
+  expect((await bgStyle(page, 'cs1')).background === 'primary' && (await undoDepth(page)) === before + 1, 'Enter on a swatch is not exactly one undo step');
+  await popover(page).waitFor({ timeout: 5000 });
+  await until(page, () => window.taleaBuilder.previewDoc().activeElement.getAttribute('data-bdo') === 'bg-sw-primary', null, 'the focus did not come back to the swatch after the canvas was swapped');
+  await page.keyboard.press('Escape');
+  await popover(page).waitFor({ state: 'detached', timeout: 3000 });
+  expect((await active()) === 'background', `the focus after Esc is on ${await active()}`);
+  expect(await page.evaluate(() => window.taleaBuilder.state.selected) === 'cs1', 'Esc moved the selection to the parent');
 });
 
 await step('compose (keyboard): Ctrl+Shift+arrow moves the button into the next column, arrows select siblings', async () => {
@@ -683,6 +1031,53 @@ await step('compose (touch): the four tasks by pointer events of a finger', asyn
   expect(find(build.children, 'cg3').style.base.columns === '2fr 1fr 1fr', `touch: the columns are ${find(build.children, 'cg3').style.base.columns}`);
   expect(find(build.children, 'cimg').style.base.width === '50%', `touch: the image width is ${find(build.children, 'cimg').style.base.width}`);
   expect(parentOf(build.children, 'btn1').id === 'colb', 'touch: the button did not move to the right column');
+  await touch.close();
+});
+
+await step('background and crop (touch): a swatch is tapped, the photo is dragged by a finger', async () => {
+  const touch = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'en-GB', hasTouch: true });
+  await touch.addInitScript(() => { try { localStorage.setItem('tl-bd-tour', '1'); } catch (e) { /* ignore */ } });
+  const tp = await touch.newPage();
+  watch(tp);
+  await tp.goto(BASE + '/admin.php', { waitUntil: 'networkidle' });
+  await tp.fill('input[name="username"]', 'admin');
+  await tp.fill('input[name="password"]', PASSWORD);
+  await Promise.all([tp.waitForNavigation(), tp.press('input[name="password"]', 'Enter')]);
+  const cdp = await touch.newCDPSession(tp);
+  const centre = async (locator) => { await locator.scrollIntoViewIfNeeded().catch(() => {}); const b = await locator.boundingBox(); if (!b) throw new Error(`${locator} has no box`); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const tapOn = async (locator) => { const c = await centre(locator); await tp.touchscreen.tap(c.x, c.y); };
+  await openBuilder(tp, 'touch');
+  await idle(tp);
+  // the background: tap the section, the button, a swatch
+  await node(tp, 'cs1').scrollIntoViewIfNeeded().catch(() => {});
+  const box = await node(tp, 'cs1').boundingBox();
+  await tp.touchscreen.tap(box.x + 3, box.y + 3);
+  await tp.waitForFunction(() => window.taleaBuilder.state.selected === 'cs1');
+  await handle(tp, 'background').waitFor({ timeout: 5000 });
+  await tapOn(handle(tp, 'background'));
+  await popover(tp).waitFor({ timeout: 5000 });
+  await tapOn(handle(tp, 'bg-sw-secondary'));
+  await idle(tp).catch((e) => { throw new Error('after the swatch: ' + e.message); });
+  expect((await bgStyle(tp, 'cs1')).background === 'secondary', `touch: the colour is ${JSON.stringify(await bgStyle(tp, 'cs1'))}`);
+  // the crop: tap the image, the Crop button, drag the photo with a finger, Done
+  await tp.evaluate(() => window.taleaBuilder.selection('cimg'));
+  await handle(tp, 'crop').waitFor({ timeout: 5000 });
+  await tp.waitForTimeout(800);
+  await handle(tp, 'crop').tap({ timeout: 8000 });
+  const photo = frameIn(tp).locator('#tl-bd-overlay .bdc-photo');
+  await photo.waitFor({ timeout: 5000 });
+  const b = await photo.boundingBox();
+  const from = { x: b.x + b.width * 0.3, y: b.y + b.height * 0.3 };
+  const to = { x: b.x + b.width * 0.75, y: b.y + b.height * 0.6 };
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] });
+  for (let i = 1; i <= 10; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + (to.x - from.x) * i / 10, y: from.y + (to.y - from.y) * i / 10 }] }); }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await tp.waitForTimeout(350);
+  await tp.waitForTimeout(1500); // a tap right after a synthetic finger drag is taken for part of it (no click): a person lifts the finger first
+  await crop(tp, 'crop-done').tap({ timeout: 8000 });
+  await idle(tp).catch((e) => { throw new Error('after Done: ' + e.message); });
+  const [fx, fy] = focalOf((await bgStyle(tp, 'cimg')).focal_point);
+  expect(Math.abs(fx - 75) <= 4 && Math.abs(fy - 60) <= 4, `touch: the focal point is ${JSON.stringify(await bgStyle(tp, 'cimg'))}`);
   await touch.close();
 });
 
