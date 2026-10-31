@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Talea\Admin\Modules;
 
+use Talea\Admin\MessageSettings;
+use Talea\Admin\SettingValues;
 use Talea\Admin\Module;
 use Talea\Core\Response;
 use Talea\Core\Extensions;
 use Talea\Core\Health;
+use Talea\Core\Messages;
 use Talea\Core\Backup;
 
 /**
@@ -28,7 +31,7 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'enquiries' => 'Enquiries', 'ai' => 'AI', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'enquiries' => 'Enquiries', 'messages' => 'Messages', 'ai' => 'AI', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
     /** Tabs that belong to a feature (Core\Extensions): with the feature off the tab is not offered. */
@@ -112,6 +115,9 @@ class Settings extends Module
      */
     protected function fields(string $tab): array
     {
+        if ($tab === 'messages') {
+            return MessageSettings::fields($this->app->settings());
+        }
         $field = self::FIELDS[$tab];
         if ($tab === 'general') {
             foreach (\Talea\Core\Language::additional($this->app->settings()) as $language) {
@@ -139,7 +145,9 @@ class Settings extends Module
     private function rejectInvalid(string $tab, array $errors, array $given): Response
     {
         $template = (string) @file_get_contents(TALEA_SYSTEM . '/views/admin/settings/' . $tab . '.php');
-        $names = array_map(fn (string $key): string => preg_match('/\$field\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
+        $names = array_map(fn (string $key): string => ($parsed = Messages::parseKey($key)) !== null
+            ? MessageSettings::invalid($parsed, $given[$key] ?? '')
+            : (preg_match('/\$field\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key), $errors);
         $this->app->session->set('settings_invalid', ['tab' => $tab, 'fields' => $errors, 'values' => $given]);
 
         return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', $this->tabParams($tab), 'error');
@@ -154,6 +162,9 @@ class Settings extends Module
     {
         if (static::IDENT !== 'settings') {
             return [];
+        }
+        if ($tab === 'messages') {
+            return MessageSettings::tabParams($this->request); // the same group and language again
         }
         $service = $tab === 'analytics' ? \Talea\Admin\AnalyticsServices::resolve($this->request->post('service')) : '';
 
@@ -210,6 +221,7 @@ class Settings extends Module
             'enabledExtensions' => Extensions::enabled($settings),
             'pages' => $tab === 'general' ? $this->db->pairs("SELECT public_id, title FROM {pages} WHERE visible = TRUE AND language = '' ORDER BY sort_order, title") : [],
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
+            'messageGroups' => $tab === 'messages' ? Messages::groups($this->db, $settings) : [],
             'screenUrl' => $tab === 'general' ? \Talea\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' && \Talea\Core\Owners::isFirst($this->db) ? Backup::listAll() : [], // the files of the whole install: the first owner's
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
@@ -265,6 +277,7 @@ class Settings extends Module
             // Plausible or Umami at the provider: the address of an own installation goes
             $override += array_fill_keys(array_intersect(['plausible_url', 'umami_url'], array_keys($_POST)), '');
         }
+        $override += $tab === 'messages' ? MessageSettings::reset($this->request) : []; // "Back to the template" empties the own text
         foreach ($this->fields($tab) as $key => $type) {
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
@@ -296,7 +309,8 @@ class Settings extends Module
             if ($key === 'home_page') {
                 $value = (string) $this->db->internalId('pages', $value); // the form carries the public id of the page (0 = news listing)
             }
-            $clean = self::sanitize($type, $value, $this->request->postBool($key));
+            $value = str_starts_with($type, 'message:') && Messages::isTemplate($settings, $key, $value) ? '' : $value; // still the template: no own text
+            $clean = SettingValues::sanitize($type, $value, $this->request->postBool($key));
             if ($clean !== null && $key === 'news_slug' && \Talea\Core\Routes::slugError($clean, $this->db) !== null) {
                 $clean = null; // the hint under the field lists what is not allowed
             }
@@ -663,6 +677,14 @@ class Settings extends Module
         );
     }
 
+    /** "Send me a test" on the Messages tab: the saved text of one e-mail, with bracketed example values, to the signed-in person. */
+    protected function actionMessageTest(): Response
+    {
+        [$text, $type, $params] = MessageSettings::test($this->app, $this->request);
+
+        return $this->back($text, '', $params, $type);
+    }
+
     /** The previous month's report as the e-mail shows it, in a new tab (2.9, Core\MonthlyReport) – the owner sees what the recipients get. */
     protected function actionReportPreview(): Response
     {
@@ -823,13 +845,13 @@ class Settings extends Module
 
     protected function tab(string $tab): string
     {
-        return isset(self::TABS[$tab]) && self::tabAvailable($tab, $this->app->settings()) ? $tab : 'general';
+        return isset(self::TABS[$tab]) && self::tabAvailable($tab, $this->app->settings(), $this->db) ? $tab : 'general';
     }
 
     /** Is the tab offered: a tab of a feature only while the feature is on. */
-    public static function tabAvailable(string $tab, \Talea\Core\Settings $settings): bool
+    public static function tabAvailable(string $tab, \Talea\Core\Settings $settings, ?\Talea\Core\Db $db = null): bool
     {
-        return !isset(self::TAB_EXTENSIONS[$tab]) || Extensions::isEnabled($settings, self::TAB_EXTENSIONS[$tab]);
+        return $tab === 'messages' ? $db === null || Messages::groups($db, $settings) !== [] : !isset(self::TAB_EXTENSIONS[$tab]) || Extensions::isEnabled($settings, self::TAB_EXTENSIONS[$tab]);
     }
 
     /**
@@ -849,6 +871,9 @@ class Settings extends Module
      */
     public static function fieldType(string $key): ?string
     {
+        if (($message = Messages::parseKey($key)) !== null) {
+            return 'message:' . $message['id'];
+        }
         foreach (self::FIELDS as $field) {
             if (isset($field[$key])) {
                 return $field[$key];
@@ -872,38 +897,6 @@ class Settings extends Module
             return null;
         }
 
-        return self::sanitize($type, trim($value), in_array(strtolower(trim($value)), ['1', 'true', 'flag'], true));
-    }
-
-    private static function sanitize(string $type, string $value, bool $checked): ?string
-    {
-        [$kind, $parameter] = explode(':', $type, 2) + [1 => ''];
-
-        return match ($kind) {
-            'flag' => $checked ? '1' : '0',
-            'text' => mb_substr(str_replace(["\r", "\n"], ' ', $value), 0, 500),
-            'lines' => mb_substr($value, 0, 5000),
-            'code' => mb_substr($value, 0, 20000),
-            'email' => $value === '' || filter_var($value, FILTER_VALIDATE_EMAIL) ? $value : null,
-            'emails' => (function () use ($value): ?string {
-                $list = array_values(array_filter(preg_split('/[\s,;]+/', $value) ?: [], static fn (string $e): bool => $e !== ''));
-                if (count($list) > \Talea\Core\MonthlyReport::MAX_RECIPIENTS || array_filter($list, static fn (string $e): bool => filter_var($e, FILTER_VALIDATE_EMAIL) === false) !== []) {
-                    return null; // one bad address rejects the field, so the owner sees it instead of a silently dropped recipient
-                }
-
-                return implode("\n", $list);
-            })(),
-            'url' => $value === '' || (preg_match('#^https?://#i', $value) && filter_var($value, FILTER_VALIDATE_URL)) ? rtrim($value) : null,
-            'number' => (function () use ($value, $parameter): string {
-                [$min, $max] = array_map(intval(...), explode(':', $parameter));
-
-                return (string) max($min, min($max, (int) $value));
-            })(),
-            'choice' => in_array($value, explode('|', $parameter), true) ? $value : null,
-            'timezone' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
-            'pattern' => preg_match($parameter, $value) ? $value : null,
-            'hours' => \Talea\Front\Company::parseOpeningHours($value) !== null ? mb_substr(trim($value), 0, 1000) : null,
-            default => null,
-        };
+        return SettingValues::sanitize($type, trim($value), in_array(strtolower(trim($value)), ['1', 'true', 'flag'], true));
     }
 }

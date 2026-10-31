@@ -58,6 +58,9 @@ $pageLink = $p['page'] !== '' ? '<a href="' . e($p['page']) . '" target="_blank"
 	<form class="inline" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= e($p['public_id']) ?>"><input type="hidden" name="status" value="<?= $resolved ? 1 : 2 ?>"><button class="navigation" type="submit"><?= $icon($resolved ? 'restore' : 'check') ?><?= e(t($resolved ? 'Reopen' : 'Mark as resolved')) ?></button></form>
 	<span class="enquiry-bar-end">
 		<span class="status <?= $p['category'] === 'spam' ? 'status-error' : ($resolved ? 'status-live' : 'status-draft') ?>"><?= e($p['category'] === 'spam' ? ($kinds['spam'] ?? t('Spam')) : t(Enquiries::STATUSES[(int) $p['status']])) ?></span>
+<?php if ((string) ($p['seat_state'] ?? '') !== ''): [$stateKind, $stateLabel] = Talea\Core\Registrations::stateBadge((string) $p['seat_state']); ?>
+		<span class="status status-<?= e($stateKind) ?>"><?= e($stateLabel) ?></span>
+<?php endif ?>
 <?php if ($position !== false): ?>
 		<span class="enquiry-step">
 			<?php if ($newer !== null): ?><a class="icon-btn" href="<?= e($module->url('detail', ['id' => $newer])) ?>" aria-label="<?= e(t('Newer enquiry')) ?>" title="<?= e(t('Newer enquiry')) ?>"><?= $icon('prev') ?></a><?php else: ?><span class="icon-btn" aria-hidden="true"><?= $icon('prev') ?></span><?php endif ?>

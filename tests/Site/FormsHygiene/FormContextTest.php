@@ -47,7 +47,7 @@ final class FormContextTest extends SiteTestCase
         sleep(4); // the antispam does not accept a form sent sooner than four seconds
 
         $registration = $visitor->post('/form', self::$eventForm + ['back' => '/events-test/yoga', 'p0' => 'Eva', 'p1' => 'eva@example.com', 'p4' => '1']);
-        $this->assertStringContainsString('result=ok', $registration->redirect, 'the registration was accepted');
+        $this->assertStringContainsString('result=registered', $registration->redirect, 'the registration was accepted (a single event takes seats like a course)');
         $this->assertSame('Events test – Yoga, for beginners', (string) $this->site()->value('SELECT topic FROM tl_enquiries WHERE source = ? ORDER BY enquiry_id LIMIT 1', ['collection:' . self::$eventsCollection]),
             "topic: a registration from an event's page records the calendar and the event");
     }

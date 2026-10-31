@@ -332,6 +332,14 @@
         "methods": [
             "ANY"
         ],
+        "pattern": "/_course/{token:[a-f0-9]{64}}/{n:[1-3]}",
+        "when": "",
+        "handler": "Endpoints::courseSeat"
+    },
+    {
+        "methods": [
+            "ANY"
+        ],
         "pattern": "/health",
         "when": "",
         "handler": "Endpoints::health"

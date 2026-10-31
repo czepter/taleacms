@@ -85,6 +85,22 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
         $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM tl_notebook WHERE title = 'Zprava z behu'"), '3.2: a drafts-only connection writes a notebook note');
     }
 
+    public function testSpamOnAHeldCourseRegistrationIsRefused(): void
+    {
+        $token = $this->draftsToken();
+        $this->site()->mcp('create_collection', ['name' => 'Courses guard', 'preset' => 'courses']);
+        $start = date('Y-m-d', strtotime('+30 days'));
+        $this->site()->mcp('save_collection_item', ['collection' => 'courses-guard', 'name' => 'Salsa', 'slug' => 'salsa', 'values' => ['start' => "$start 18:00", 'capacity' => '1'], 'visible' => true]);
+        $item = (int) $this->sq("SELECT item_id FROM tl_collection_items WHERE slug = 'salsa' AND name = 'Salsa' ORDER BY item_id DESC LIMIT 1");
+        $this->site()->exec("INSERT INTO tl_enquiries (created_at, form, email, data, item_id, seats, seat_state, state_changed_at) VALUES (NOW(), 'Registration', 'held@example.com', '[]', ?, 1, 'confirmed', NOW())", [$item]);
+        $enquiry = (int) $this->sq("SELECT enquiry_id FROM tl_enquiries WHERE email = 'held@example.com'");
+
+        $this->assertStringContainsString('A person decides on a course registration.', $this->mcpRawText('update_enquiry', ['id' => $this->site()->publicId('enquiries', $enquiry), 'category' => 'spam'], $token));
+        $this->assertSame('|confirmed', $this->sq("SELECT CONCAT(category, '|', seat_state) FROM tl_enquiries WHERE enquiry_id = ?", [$enquiry]), 'nothing changed, the seat stays');
+        $this->site()->mcp('update_enquiry', ['id' => $this->site()->publicId('enquiries', $enquiry), 'category' => 'sales'], $token);
+        $this->assertSame('sales', $this->sq('SELECT category FROM tl_enquiries WHERE enquiry_id = ?', [$enquiry]), 'other categories are fine');
+    }
+
     public function testOpeningHoursExceptionsAreOnlyProposed(): void
     {
         $token = $this->draftsToken();

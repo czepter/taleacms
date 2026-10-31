@@ -15,7 +15,7 @@ final class FormMail
     /** Answers an e-mail to the visitor may repeat: their value is one of the form's own options or has a fixed shape. */
     public const array SAFE_TYPES = ['select', 'radio', 'checkboxes', 'date', 'number', 'timerange'];
 
-    private const string TOKEN = '/\{([^{}|\r\n]{1,200})(?:\|([^{}\r\n]{0,200}))?\}/u';
+    public const string TOKEN = '/\{([^{}|\r\n]{1,200})(?:\|([^{}\r\n]{0,200}))?\}/u';
 
     /**
      * @param list<array{0: string, 1: string}> $data   the answers as the enquiry stores them: [label, value]

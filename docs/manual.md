@@ -236,6 +236,15 @@ the main menu under the heading **Collections** – at most 8, by name – so it
 the others are in Content → Collections. Ctrl/⌘ K finds every collection by its name. The list of items filters by
 language version and by each choice field.
 
+**Courses and registrations.** The **Courses** collection (and **Events** without repetition) takes registrations with seats.
+Per course you set the capacity, whether a registration takes the seat at once or is a request you confirm first, how many
+seats one registration may take and whether a full course offers a waiting list. A course card shows the start (or "running
+since"), the places left and the price. Open **Registrations** on a course to confirm, decline or cancel a registration, move
+someone up from the waiting list, print the list or cancel the whole course: you can offer up to three other courses, and each
+person gets a personal link that takes a seat there with the same number of people. A freed seat moves the first person on
+the waiting list up. Registrations are enquiries, so the retention period of enquiries applies to them, and Claude can do
+all of it over the connection.
+
 ## 7. Forms and enquiries
 
 The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields (text,
@@ -292,6 +301,12 @@ and `X-Talea-Signature` (`sha256=` HMAC-SHA256 of `timestamp.body` with the sign
 receiver check that the call came from your site. The **delivery log** shows every call; a failed one is retried after 1,
 5 and 30 minutes and 2 and 12 hours, and a given-up call can be sent again with one click. **Send a test call** checks the
 connection. Webhook addresses and the secret are never available over the Claude connection.
+
+**Texts visitors read.** Under **Settings → Messages** every e-mail and confirmation text of courses and appointment bookings
+starts from a template; change the wording, the subject or both, per language. Placeholders such as `{name}`, `{course}` or
+`{appointment}` are filled in when the text is sent; a placeholder that does not exist is refused when you save, and a link
+whose placeholder is missing is added at the end. **Back to the template** removes your change, and **Send me a test** mails the
+saved text to your own address with example values. Texts that were set on the Bookings screen moved here unchanged.
 
 Submitted messages are in **Enquiries → Inbox**: status (new, read, resolved), reply by email, CSV export. A deleted enquiry
 goes to the **Trash** tab of the inbox and can be restored for 30 days; then it is deleted for good with its attachments. **Enquiries → Forms**

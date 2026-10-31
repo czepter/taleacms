@@ -490,7 +490,7 @@ final class Collections
      * Values for the placeholders: key => [value, type].
      *
      * @param callable(string): string $url url within the site
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{0: string, 1: string}|array{0: string, 1: string, 2: int, 3: bool, 4: bool}>
      */
     public static function values(array $collection, array $item, callable $url, ?Db $db = null): array
     {
@@ -532,6 +532,7 @@ final class Collections
                 // for a link, a data attribute or a calculation
                 $h[$p['key']] = [self::displayNumber($value), 'text'];
                 $h[$p['key'] . '_raw'] ??= [$value, 'text'];
+                $h[$p['key'] . '_line'] ??= [$value !== '' ? $p['label'] . ': ' . self::displayNumber($value) : '', 'text']; // {{price_line}} = "Price: 1,490", empty without a value
                 continue;
             }
             if ($p['type'] === 'gallery') {
@@ -547,7 +548,11 @@ final class Collections
             $h[$p['key']] = [$value, $p['type']];
         }
         if ($db !== null && ($collection['preset'] ?? '') !== '') {
-            $h += \Talea\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
+            $calendar = \Talea\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
+            $h += $calendar;
+            if (isset($calendar['waiting_list'])) {
+                $h['waiting_list'] = $calendar['waiting_list']; // the placeholder says whether the list is open, not the field's on/off
+            }
             $h += Products::values($collection, $item); // a product for the enquiry basket and comparison (2.11)
         }
         foreach (\Talea\Core\Notices::placeholders($collection, $item) as $key => $value) {

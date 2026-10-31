@@ -7,7 +7,9 @@ namespace Talea\Admin\Modules;
 use Talea\Admin\Module;
 use Talea\Admin\BuilderActions;
 use Talea\Core\Language;
+use Talea\Core\Calendar;
 use Talea\Core\Notices;
+use Talea\Core\Registrations;
 use Talea\Core\Response;
 use Talea\Builder\Collections as KolekceObsahu;
 use Talea\Builder\Publisher;
@@ -22,6 +24,9 @@ final class Collections extends Module
     use BuilderActions {
         actionBuilder as protected openBuilder;
     }
+
+    /** Confirmed registrations the screen lists before "Show all". */
+    private const int CONFIRMED_SHOWN = 10;
 
     public const string IDENT = 'collections';
     public const string NAME = 'Collections';
@@ -135,6 +140,9 @@ final class Collections extends Module
         }
         // the key of an existing field does not change (item values are stored under it); new fields get it from the label
         $field = KolekceObsahu::sanitizeFields(array_values($rows));
+        if ($previous !== null && ($refused = \Talea\Core\Calendar::refuseProtected($previous, $field)) !== null) {
+            return $this->back($refused, 'edit', ['id' => $this->publicId($id)], 'error');
+        }
         $redirect = KolekceObsahu::cleanRedirect($r->post('hidden_redirect'));
         if ($redirect === null) {
             return $this->back('The redirect of hidden items must be an address on the site (/team) or https://…', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $this->publicId($id)] : [], 'error');
@@ -202,13 +210,186 @@ final class Collections extends Module
             }
         }
 
+        $items = $this->db->all('SELECT item_id, public_id, name, slug, sort_order, visible, language, created_at, deleted_at, valid_until, review_by, data, image FROM {collection_items} WHERE ' . $where
+            . ' ORDER BY ' . ($trash ? 'deleted_at DESC' : 'language, sort_order, name'), $params);
+        // a calendar collection shows the seats of each course (null = not a calendar, no column)
+        $seats = null;
+        if (!$trash && Calendar::fields($k) !== null) {
+            $seats = [];
+            foreach ($items as $p) {
+                $p['data'] = json_decode((string) $p['data'], true) ?: [];
+                if (($course = Registrations::course($k, $p)) !== null) {
+                    $seats[(int) $p['item_id']] = ['course' => $course] + Registrations::counts($this->db, (int) $p['item_id']);
+                }
+            }
+        }
+
         return $this->view('items', $k['name'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
             'choiceFields' => $choiceFields, 'fieldFilter' => $fieldFilter,
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NOT NULL', [$k['collection_id']]),
             // a document library (2.11): how often each document was downloaded, and its stable address
             'downloads' => \Talea\Core\Documents::fileField($k) !== null ? \Talea\Core\Documents::counts($this->db, (int) $k['collection_id']) : null,
-            'items' => $this->db->all('SELECT item_id, public_id, name, slug, sort_order, visible, language, created_at, deleted_at, valid_until, review_by, data, image FROM {collection_items} WHERE ' . $where
-                . ' ORDER BY ' . ($trash ? 'deleted_at DESC' : 'language, sort_order, name'), $params)]);
+            'items' => $items, 'seats' => $seats]);
+    }
+
+    /** The registration screen of a course: seats, then the registrations by state with the actions that apply. */
+    protected function actionRegistrations(): Response
+    {
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            return $this->error('You do not have access to the registrations.', 403); // personal data: the same right as Enquiries
+        }
+        [$k, $item, $course] = $this->courseOfRequest();
+        if ($course === null) {
+            return $this->error('This is not a course with seats.', 404);
+        }
+        $itemId = (int) $item['item_id'];
+        $counts = Registrations::counts($this->db, $itemId);
+        $rows = Registrations::list($this->db, $itemId);
+        $forms = [];
+        $names = [];
+        foreach ($rows as $group) {
+            foreach ($group as $row) {
+                $key = $row['source'] . "\0" . $row['element'];
+                $forms[$key] ??= \Talea\Front\Forms::findElement($this->db, (string) $row['source'], (string) $row['element'], 'form');
+                $names[(int) $row['enquiry_id']] = Registrations::nameOf($forms[$key], (string) $row['data']);
+            }
+        }
+        $free = $course['capacity'] > 0 ? max(0, $course['capacity'] - $counts['taken']) : PHP_INT_MAX;
+        $confirmed = $rows['confirmed'];
+        $all = $this->request->get('all') === '1';
+
+        return $this->view('registrations', t('Registrations: %s', $item['name']), ['k' => $k, 'item' => $item, 'course' => $course, 'counts' => $counts, 'rows' => $rows, 'names' => $names, 'free' => $free,
+            'confirmedShown' => $all ? $confirmed : array_slice($confirmed, 0, self::CONFIRMED_SHOWN), 'confirmedCount' => count($confirmed), 'all' => $all,
+            // ponytail: the form's own e-mail field is not cheap to reach from here; a registration without an address is the same problem seen from the data
+            'noEmail' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND email = '' AND item_id IN (" . implode(',', Registrations::group($this->db, $itemId)) . ') AND seat_state IS NOT NULL AND seat_state <> \'\'')]);
+    }
+
+    /**
+     * The confirmed participants as a standalone printable page (like Settings::actionReportView); same right as the screen.
+     * Phone: ponytail: the form's fields tell which label is a phone (type tel), the stored answers carry labels only; a form edited since then may miss.
+     */
+    protected function actionRegistrationsPrint(): Response
+    {
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            return $this->error('You do not have access to the registrations.', 403);
+        }
+        [$k, $item, $course] = $this->courseOfRequest();
+        if ($course === null) {
+            return $this->error('This is not a course with seats.', 404);
+        }
+        $forms = [];
+        $people = [];
+        foreach (array_reverse(Registrations::list($this->db, (int) $item['item_id'])['confirmed']) as $row) { // first to register first
+            $key = $row['source'] . "\0" . $row['element'];
+            $forms[$key] ??= \Talea\Front\Forms::findElement($this->db, (string) $row['source'], (string) $row['element'], 'form');
+            $labels = [];
+            foreach ((array) ($forms[$key]['content']['fields'] ?? []) as $field) {
+                if (($field['type'] ?? '') === 'tel') {
+                    $labels[] = (string) $field['label'];
+                }
+            }
+            $name = Registrations::nameOf($forms[$key], (string) $row['data']);
+            $phone = '';
+            foreach ((json_decode((string) $row['data'], true) ?: []) as $answer) {
+                $phone = $phone === '' && in_array((string) ($answer[0] ?? ''), $labels, true) ? (string) ($answer[1] ?? '') : $phone;
+            }
+            $people[] = ['name' => $name !== '' ? $name : (string) $row['email'], 'email' => (string) $row['email'], 'phone' => $phone, 'seats' => (int) $row['seats']];
+        }
+        $meta = Registrations::mailValues($k, $item, '', 0);
+
+        // its own inline styles and the Print button script, nothing else may run – like the report
+        return new Response($this->app->view->render('admin/collections/registrations_print', ['title' => (string) $item['name'], 'meta' => $meta, 'people' => $people,
+            'phones' => array_filter(array_column($people, 'phone')) !== [], 'printed' => \Talea\Core\Calendar::when(date('Y-m-d'), ''), 'script' => $this->app->url('image/print.js') . '?v=' . TALEA_VERSION]),
+            200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store, private',
+                'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; script-src 'self'; frame-ancestors 'self'; base-uri 'none'"]);
+    }
+
+    /** Cancels the whole course: GET asks who is told and which other courses to offer, POST does it (cannot be undone). */
+    protected function actionCancelCourse(): Response
+    {
+        $post = $this->request->isPost();
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            return $post ? $this->back('You do not have access to the registrations.', '', [], 'error') : $this->error('You do not have access to the registrations.', 403);
+        }
+        [$k, $item, $course] = $this->courseOfRequest();
+        if ($course === null) {
+            return $post ? $this->back('This is not a course with seats.', '', [], 'error') : $this->error('This is not a course with seats.', 404);
+        }
+        $back = ['id' => $k['public_id'], 'item' => $item['public_id']];
+        $offers = Registrations::offerable($this->db, $k, $item);
+        if ($post) {
+            $picked = array_map(fn (mixed $pid): int => $this->db->internalId('collection_items', (string) $pid), $this->request->postList('offer'));
+            try {
+                $mails = Registrations::cancelCourse($this->app, $k, $item, $picked, mb_substr(trim($this->request->post('message')), 0, 2000));
+            } catch (\DomainException $e) {
+                return $this->back($e->getMessage(), 'cancel_course', $back, 'error');
+            }
+
+            return $this->back(t('The course was cancelled and %d e-mails were sent.', $mails), 'items', ['id' => $k['public_id']]);
+        }
+        $counts = Registrations::counts($this->db, (int) $item['item_id']);
+        $ids = Registrations::group($this->db, (int) $item['item_id']);
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $held = fn (string $state): int => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state = ? AND item_id IN ($in)", [$state, ...$ids]);
+        $affected = ['confirmed' => $held('confirmed'), 'waiting' => $held('waiting'), 'waitlisted' => $counts['waitlisted'],
+            'mails' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state IN ('confirmed', 'waiting', 'waitlisted') AND email <> '' AND item_id IN ($in)", $ids)];
+        $fields = \Talea\Core\Calendar::fields($k);
+        $list = array_map(function (array $o) use ($k, $fields): array {
+            $data = (array) $o['data'];
+            $start = trim((string) ($data[$fields['start']] ?? ''));
+            $c = Registrations::course($k, $o);
+            $free = $c['capacity'] > 0 ? max(0, $c['capacity'] - Registrations::taken($this->db, (int) $o['item_id'])) : null;
+
+            return ['id' => $o['public_id'], 'name' => (string) $o['name'], 'info' => implode(' · ', array_filter([trim((string) ($data['schedule'] ?? '')), $start !== '' ? t('from %s', \Talea\Builder\Collections::formatDateTime($start)) : '',
+                $free === null ? '' : ($free > 0 ? t('%d seats free', $free) : ($c['waiting_list'] ? t('full, waiting list') : t('full, waiting list off')))]))];
+        }, $offers);
+
+        return $this->view('cancel_course', t('Cancel the course: %s', $item['name']), ['k' => $k, 'item' => $item, 'affected' => $affected, 'offers' => $list]);
+    }
+
+    /** The holder's decision on one registration (confirm | decline | cancel | promote); the visitor is told by e-mail. */
+    protected function actionRegistration(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            return $this->back('You do not have access to the registrations.', '', [], 'error');
+        }
+        [$k, $item, $course] = $this->courseOfRequest();
+        if ($course === null) {
+            return $this->back('This is not a course with seats.', '', [], 'error');
+        }
+        $back = ['id' => $k['public_id'], 'item' => $item['public_id']];
+        $enquiryId = $this->db->internalId('enquiries', $this->request->post('registration'));
+        $row = $enquiryId > 0 ? $this->db->one('SELECT item_id FROM {enquiries} WHERE enquiry_id = ?', [$enquiryId]) : null;
+        if ($row === null || !in_array((int) $row['item_id'], Registrations::group($this->db, (int) $item['item_id']), true)) {
+            return $this->back('The registration does not exist.', 'registrations', $back, 'error');
+        }
+        $do = $this->request->post('do');
+        if (!in_array($do, ['confirm', 'decline', 'cancel', 'promote'], true)) {
+            return $this->back('Unknown action.', 'registrations', $back, 'error');
+        }
+        try {
+            Registrations::transition($this->app, $enquiryId, $do, mb_substr(trim($this->request->post('message')), 0, 2000));
+        } catch (\DomainException $e) {
+            return $this->back($e->getMessage(), 'registrations', $back, 'error');
+        }
+
+        return $this->back('The registration was updated.', 'registrations', $back);
+    }
+
+    /** The collection, the item and its registration rules named by ?id= and ?item= (also in a POST). @return array{0: array, 1: array, 2: ?array} */
+    private function courseOfRequest(): array
+    {
+        $k = KolekceObsahu::byId($this->db, $this->idParam());
+        $item = $k !== null ? $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$this->idParam('item', 'collection_items'), $k['collection_id']]) : null;
+        if ($item === null) {
+            return [[], [], null];
+        }
+        $item['data'] = json_decode((string) $item['data'], true) ?: [];
+
+        return [$k, $item, Registrations::course($k, $item)];
     }
 
     protected function actionItem(): Response
@@ -241,6 +422,7 @@ final class Collections extends Module
                 'serpDescription' => (string) $p['description'], 'serpAddress' => $host . '/' . $address,
                 'dir' => Language::dirAttribute(Language::ofContent($settings, (string) $p['language']))],
             'seoCheck' => $k['detail'] && $p['item_id'] > 0 && \Talea\Core\ContentCheck::enabled($this->app->settings()) ? \Talea\Core\SeoScore::panel($this->app, 'item', $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ?', [(int) $p['item_id']])) : null,
+            'seats' => $p['item_id'] > 0 && ($course = Registrations::course($k, $p)) !== null ? ['course' => $course] + Registrations::counts($this->db, (int) $p['item_id']) : null,
             'versions' => $p['item_id'] > 0 ? \Talea\Builder\Publisher::listAll($this->db, ['part' => 'item:' . (int) $p['item_id']]) : [],
             // the audit trail of a notice (2.11, Core\Notices), newest first
             'noticeLog' => $p['item_id'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['collection_id'], (int) $p['item_id'])) : []]);
@@ -290,6 +472,9 @@ final class Collections extends Module
         \Talea\Core\Members::saveFromForm($this->app, 'item', $idp);
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
         \Talea\Core\SeoScore::refresh($this->app, 'item', $idp);
+        if (Calendar::fields($k) !== null) {
+            Registrations::refill($this->app, [$idp]); // a raised capacity frees seats for the waiting list
+        }
         \Talea\Front\Cache::clear();
         if ($errors !== []) {
             return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')], 'error');

@@ -84,7 +84,7 @@ trait EnquiryAndPopupTools
         $need($auth->hasModule('enquiries'), 'Enquiries can be changed only by users with the Enquiries section.');
         $enquiry = $db->one('SELECT enquiry_id, data FROM {enquiries} WHERE enquiry_id = ? AND deleted_at IS NULL', [$id]) ?? throw new \InvalidArgumentException('The enquiry does not exist or is in the trash. Use list_enquiries (list_trash and restore_from_trash for the trash).');
         if ($name === 'delete_enquiry') {
-            \Talea\Admin\Modules\Enquiries::trash($db, [$id]);
+            \Talea\Admin\Modules\Enquiries::trashAndSync($this->app, [$id]);
 
             return ['trashed' => $id, 'restore' => 'restore_from_trash with type enquiry within 30 days'];
         }
@@ -110,8 +110,14 @@ trait EnquiryAndPopupTools
             if (isset($a['category']) && $triage['category'] === null) {
                 throw new \InvalidArgumentException('category must be one of: ' . implode(', ', $kinds) . '.');
             }
+            if ($triage['category'] === 'spam' && $this->app->auth()->draftsOnly()
+                && in_array((string) $db->value('SELECT seat_state FROM {enquiries} WHERE enquiry_id = ?', [$id]), ['confirmed', 'waiting', 'waitlisted'], true)) {
+                throw new \DomainException('A person decides on a course registration.');
+            }
+            $before = \Talea\Core\Triage::categories($db, [$id]);
             if (\Talea\Core\Triage::save($db, $id, $triage, 'claude')) {
                 $changes['triage'] = true;
+                \Talea\Core\Triage::afterCategories($this->app, $before);
             } else {
                 return ['id' => $id, 'changed' => array_keys($changes), 'note' => 'A person sorted this enquiry already – their triage stays.'];
             }

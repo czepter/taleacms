@@ -131,7 +131,15 @@ trait SettingsTools
                 $stored[$key] = $on ? '1' : '0';
                 continue;
             }
+            if (($message = \Talea\Core\Messages::parseKey($key)) !== null && $message['language'] !== '' && !in_array($message['language'], \Talea\Core\Language::additional($siteSettings), true)) {
+                $languages = \Talea\Core\Language::additional($siteSettings);
+                $errors[$key] = 'The site has no language version "' . $message['language'] . '". The key without a language suffix is the default language' . ($languages !== [] ? '; further languages: ' . implode(', ', $languages) . '.' : ' (the site has no further languages).');
+                continue;
+            }
             $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Talea\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
+            if ($clean !== null && $message !== null && \Talea\Core\Messages::isTemplate($siteSettings, $key, $clean)) {
+                $clean = ''; // the template itself is no own text
+            }
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
                 && $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND visible = TRUE AND deleted_at IS NULL', [(int) $clean]) === null) {
                 $errors[$key] = 'Only a visible page can be the home page.';
@@ -153,7 +161,8 @@ trait SettingsTools
             if ($clean === null) {
                 $type = (string) \Talea\Admin\Modules\Settings::fieldType($key);
                 $errors[$key] = !preg_match(self::MCP_SETTINGS, $key) ? 'This setting cannot be changed through MCP (only in the administration).'
-                    : (str_starts_with($type, 'choice:') ? 'Invalid value. Allowed: ' . implode(', ', array_map(fn (string $v): string => $v === '' ? '"" (empty)' : $v, explode('|', substr($type, 7)))) : 'Invalid value.');
+                    : (str_starts_with($type, 'message:') ? (\Talea\Core\Messages::check(substr($type, 8), is_scalar($value) ? (string) $value : '') ?? 'Too long: at most ' . \Talea\Core\Messages::MAX . ' characters.')
+                    : (str_starts_with($type, 'choice:') ? 'Invalid value. Allowed: ' . implode(', ', array_map(fn (string $v): string => $v === '' ? '"" (empty)' : $v, explode('|', substr($type, 7)))) : 'Invalid value.'));
                 continue;
             }
             $siteSettings->set($key, $clean);
@@ -179,6 +188,7 @@ trait SettingsTools
         $current['stats'] = \Talea\Front\Stats::enabled($siteSettings) ? '1' : '0'; // the Statistics feature (3.2)
         $current += ['extensions' => \Talea\Core\Extensions::enabled($siteSettings), 'additional_languages' => \Talea\Core\Language::additional($siteSettings),
             'claude_instructions' => $siteSettings->get('claude_instructions'),
+            'messages' => \Talea\Core\Messages::overrides($siteSettings) ?: new \stdClass(), // the e-mail and page texts of courses and bookings that differ from their template (key => text)
             'screen' => \Talea\Front\Screen::settings($siteSettings)]; // on, seconds, collections, news, hours, clock – never the secret address
 
         return ['saved' => $stored ?: new \stdClass(), 'errors' => $errors ?: new \stdClass(), 'settings' => $current];

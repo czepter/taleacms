@@ -287,6 +287,9 @@ final class Server
                 // enquiries hold personal data: every read by Claude is in the change log, with how many it saw
                 ChangeLog::write($this->app, 'claude', 'list_enquiries', t('%d enquiries read', is_array($result) ? count($result) : 0));
             }
+            if ($name === 'list_registrations') {
+                ChangeLog::write($this->app, 'claude', 'list_registrations', t('%d registrations read', is_array($result) ? count((array) ($result['registrations'] ?? [])) : 0));
+            }
             if ($this->siteId !== null && is_array($result) && !array_is_list($result)) {
                 $result['on_site'] = $this->siteId; // the result names the site the tool ran on (site_info has a `site` of its own)
             }

@@ -115,7 +115,7 @@ final class Booking extends Element
             return '<div' . Text::withClass($a, 'tl-booking-done') . $id . ' role="status" data-sent="' . e(t('Booking')) . '"><p>' . e(Bookings::pendingThanks($k->app->settings())) . '</p></div>';
         }
         if ($result === 'ok') {
-            return '<div' . Text::withClass($a, 'tl-booking-done') . $id . ' role="status" data-sent="' . e(t('Booking')) . '"><p>' . e($o['thank_you']) . '</p></div>';
+            return '<div' . Text::withClass($a, 'tl-booking-done') . $id . ' role="status" data-sent="' . e(t('Booking')) . '"><p>' . e($o['thank_you'] === \Talea\Core\Messages::template('booking_thanks', 'body') ? \Talea\Core\Messages::text($k->app->settings(), 'booking_thanks', 'body', \Talea\Core\Language::siteColumn()) : $o['thank_you']) . '</p></div>';
         }
         $services = Bookings::services($db);
         $staff = Bookings::staff($db);
