@@ -34,6 +34,29 @@ final class MediaFolders
     }
 
     /**
+     * The three newest thumbnails of the files directly in each of the folders, in one query (the mosaic of a folder card).
+     *
+     * @param list<int> $ids
+     * @return array<int, list<string>> folder_id => thumb paths, newest first
+     */
+    public static function thumbnails(Db $db, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        $rows = $db->all(
+            'SELECT folder_id, thumb_path FROM (SELECT folder_id, thumb_path, ROW_NUMBER() OVER (PARTITION BY folder_id ORDER BY media_id DESC) AS place
+                 FROM {media} WHERE thumb_path <> \'\' AND staged_at IS NULL AND folder_id IN (' . implode(',', array_map(intval(...), $ids)) . ')) newest WHERE place <= 3 ORDER BY folder_id, place',
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(int) $row['folder_id']][] = (string) $row['thumb_path'];
+        }
+
+        return $out;
+    }
+
+    /**
      * @param list<array<string, mixed>> $all
      * @return list<array<string, mixed>> the folders directly under $parentId (null = top level), in the order of $all
      */

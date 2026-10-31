@@ -279,7 +279,7 @@
 		}
 		// filter: "" = all, "clanek" = images of this news item, number = folder (0 = unfiled)
 		function load(filter) {
-			var query = filter === 'article' ? '&article=' + encodeURIComponent(NEWS_ID) : (filter !== '' ? '&section=' + filter : '');
+			var query = filter === 'article' ? '&article=' + encodeURIComponent(NEWS_ID) : (filter !== '' ? '&folder=' + filter : '');
 			var search = modal.querySelector('input[type=search]').value.trim();
 			if (search !== '') { query += '&search=' + encodeURIComponent(search); }
 			grid.textContent = T('Loading…');

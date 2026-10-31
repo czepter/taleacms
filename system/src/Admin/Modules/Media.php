@@ -25,25 +25,76 @@ final class Media extends Module
     /** Everyone who writes news must be able to upload; but only the administrator changes and deletes other people's images. */
     public const bool FOR_ALL_USERS = true;
 
-    private const int PER_PAGE = 40;
+    /** The files shown at first and added by every "Show more" (parameter `show`, at most MAX_SHOW). */
+    public const int SHOW_STEP = 40;
+    public const int MAX_SHOW = 1000;
+    /** Days that count as "Recently uploaded". */
+    public const int RECENT_DAYS = 7;
+    /** The type chips: key from the URL => label (translated on output). */
+    public const array TYPES = ['image' => 'Images', 'document' => 'Documents', 'video' => 'Video', 'audio' => 'Audio'];
+
+    /** @var array<int, list<string>>|null the places outside the news usage table, computed once per request (it reads the whole site) */
+    private ?array $elsewhere = null;
+
+    /** @return array<int, list<string>> */
+    private function elsewhere(): array
+    {
+        return $this->elsewhere ??= self::findUsagesElsewhere($this->db);
+    }
 
     protected function actionList(): Response
     {
-        $pageNumber = max(1, $this->request->getInt('page', 1));
-        [$where, $params, $filter] = $this->filter();
+        [$where, $params, $filter] = $this->filter(true);
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {media} o WHERE {$where}", $params);
+        $show = max(self::SHOW_STEP, min(self::MAX_SHOW, $this->request->getInt('show', self::SHOW_STEP)));
+        $all = \Talea\Core\MediaFolders::all($this->db);
+        $current = null;
+        foreach ($all as $folder) {
+            $current = $folder['folder_id'] === $filter['folder'] && $filter['level'] ? $folder : $current;
+        }
+        $cards = $filter['level'] ? \Talea\Core\MediaFolders::children($all, $current['folder_id'] ?? null) : [];
+        $item = $this->idParam('item') ?: null;
 
         return $this->view('list', 'Media', [
-            'images' => $this->load($where, $params, $pageNumber, self::PER_PAGE),
-            'pageNumber' => $pageNumber,
-            'pageCount' => max(1, (int) ceil($total / self::PER_PAGE)),
+            'images' => $this->load($where, $params, 0, $show),
             'total' => $total,
+            'show' => $show,
             'limit' => \Talea\Core\Files::limitText(),
             'filter' => $filter,
-            'folders' => $this->folders(),
+            'folders' => $all,
+            'current' => $current,
+            'path' => $current === null ? [] : \Talea\Core\MediaFolders::path($all, $current['folder_id']),
+            'cards' => $cards,
+            'subfolders' => array_count_values(array_filter(array_column($all, 'parent_id'), fn ($v): bool => $v !== null)),
+            'thumbnails' => \Talea\Core\MediaFolders::thumbnails($this->db, array_column($cards, 'folder_id')),
+            'counts' => $this->counts(),
             'newsItem' => $filter['article'] > 0 ? $this->db->value('SELECT title FROM {news} WHERE news_id = ?', [$filter['article']]) : null,
-            'waitingCount' => \Talea\Core\MediaStaging::count($this->db),
+            'item' => $item === null ? null : $this->db->one('SELECT o.* FROM {media} o WHERE o.media_id = ?', [$item]),
         ]);
+    }
+
+    /** @return array{total: int, recent: int, missing: int, waiting: int, unused: int} the numbers of the left menu */
+    private function counts(): array
+    {
+        $row = $this->db->one(
+            'SELECT COUNT(*) AS total, SUM(CASE WHEN created_at >= NOW() - INTERVAL ' . self::RECENT_DAYS . ' DAY THEN 1 ELSE 0 END) AS recent,
+                    SUM(CASE WHEN thumb_path <> \'\' AND name = \'\' THEN 1 ELSE 0 END) AS missing, SUM(CASE WHEN staged_at IS NOT NULL THEN 1 ELSE 0 END) AS waiting
+             FROM {media}',
+        ) ?? [];
+
+        return [
+            'total' => (int) ($row['total'] ?? 0), 'recent' => (int) ($row['recent'] ?? 0), 'missing' => (int) ($row['missing'] ?? 0), 'waiting' => (int) ($row['waiting'] ?? 0),
+            'unused' => (int) $this->db->value('SELECT COUNT(*) FROM {media} o WHERE ' . $this->unusedCondition()),
+        ];
+    }
+
+    /** Not used by a news item and not by any place the usage finder knows. */
+    private function unusedCondition(): string
+    {
+        $elsewhere = array_keys($this->elsewhere());
+
+        return 'NOT EXISTS (SELECT 1 FROM {media_usage} p WHERE p.media_id = o.media_id)'
+            . ($elsewhere === [] ? '' : ' AND o.media_id NOT IN (' . implode(',', array_map(intval(...), $elsewhere)) . ')');
     }
 
     /**
@@ -67,11 +118,11 @@ final class Media extends Module
     /** JSON list for the image picker dialog in the editor; the same filters as in the list. */
     protected function actionListing(): Response
     {
-        [$where, $params] = $this->filter();
+        [$where, $params] = $this->filter(false);
 
         return Response::json([
-            'images' => array_map($this->toJson(...), $this->load($where, $params, max(1, $this->request->getInt('page', 1)), 60)),
-            'folders' => array_map(fn (array $s): array => ['id' => $s['public_id'], 'name' => $s['name']], $this->folders()),
+            'images' => array_map($this->toJson(...), $this->load($where, $params, (max(1, $this->request->getInt('page', 1)) - 1) * 60, 60)),
+            'folders' => array_map(fn (array $s): array => ['id' => $s['public_id'], 'name' => $s['name']], \Talea\Core\MediaFolders::all($this->db)),
         ]);
     }
 
@@ -89,7 +140,7 @@ final class Media extends Module
             $ids = $this->db->insert('media_folders', ['name' => $name, 'parent_id' => $this->idParam('parent', 'media_folders') ?: null]);
         }
 
-        return $this->back('Folder saved.', '', ['section' => $this->publicId($ids, 'media_folders')]);
+        return $this->back('Folder saved.', '', ['folder' => $this->publicId($ids, 'media_folders')]);
     }
 
     /** Moving a folder into another one (`parent`; empty = top level). Editors and administrators; refuses a cycle. */
@@ -108,7 +159,7 @@ final class Media extends Module
             return $this->back(t('The folder cannot be moved there.'), '', [], 'error');
         }
 
-        return $this->back('Folder moved.', '', ['section' => $this->publicId($id, 'media_folders')]);
+        return $this->back('Folder moved.', '', ['folder' => $this->publicId($id, 'media_folders')]);
     }
 
     /** Deleting a folder; its files and subfolders move up one level. */
@@ -240,7 +291,7 @@ final class Media extends Module
 
         $message = $uploaded === [] ? '' : t('Files uploaded: %d.', count($uploaded)) . ($imageCount > 0 ? ' ' . t('Add a description for blind visitors (alt text) to the images: what the image shows.') : '');
 
-        return $this->back($message, '', $section !== null ? ['section' => $this->publicId($section, 'media_folders')] : []);
+        return $this->back($message, '', $section !== null ? ['folder' => $this->publicId($section, 'media_folders')] : []);
     }
 
     /**
@@ -325,12 +376,12 @@ final class Media extends Module
         try {
             $new = Images::replace($image['image_path'], $file);
         } catch (\RuntimeException $e) {
-            return $this->back(t($e->getMessage()), 'list', ['edit' => $image['public_id']], 'error');
+            return $this->back(t($e->getMessage()), 'list', ['item' => $image['public_id']], 'error');
         }
         $this->db->update('media', $new + ['color' => ''], ['media_id' => $ido]);
         \Talea\Front\Cache::clear();
 
-        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['edit' => $image['public_id']]);
+        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['item' => $image['public_id']]);
     }
 
     protected function actionSave(): Response
@@ -465,7 +516,7 @@ final class Media extends Module
             \Talea\Admin\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
         }
 
-        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['section' => $this->publicId($target, 'media_folders')] : []);
+        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['folder' => $this->publicId($target, 'media_folders')] : []);
     }
 
     private function canEdit(int $ido): bool
@@ -476,70 +527,103 @@ final class Media extends Module
     }
 
     /**
-     * List filter from the URL: section (folder number, 0 = unsorted), article (idc), unused=1, waiting=1 (waiting for approval,
-     * Core\MediaStaging), search (name, label or file name).
+     * List filter from the URL: folder (public id, 0 = not in a folder), type (image | document | video | audio), recent=1, missing=1
+     * (images without a description), unused=1, waiting=1 (waiting for approval, Core\MediaStaging), article, search (name,
+     * description or file name), sort.
+     * $levels: the Media screen shows one level of the library (no folder = the top level) unless one of the views that cut across
+     * folders (recent, missing, unused, waiting, article, search) is on; the picker's JSON list shows everything unless a folder is named.
      *
-     * @return array{0: string, 1: list<int|string>, 2: array{section: ?int, section_public: ?string, article: int, article_public: ?string, unused: bool, waiting: bool, search: string, sort: string}}
+     * @return array{0: string, 1: list<int|string>, 2: array{folder: ?int, folder_public: ?string, level: bool, article: int, article_public: ?string, unused: bool, waiting: bool, recent: bool, missing: bool, type: string, search: string, sort: string, view: string}}
      */
-    private function filter(): array
+    private function filter(bool $levels): array
     {
         $where = ['1 = 1'];
         $params = [];
-        // section: the public id of a folder, 0 = unsorted, nothing (or an unknown folder) = all
-        $sectionParam = $this->request->get('section');
-        $section = $sectionParam === '0' ? 0 : ($this->idParam('section', 'media_folders') ?: null);
-        if ($section !== null) {
-            $where[] = $section > 0 ? 'o.folder_id = ?' : 'o.folder_id IS NULL';
-            if ($section > 0) {
-                $params[] = $section;
+        $folderParam = $this->request->get('folder');
+        $folder = $folderParam === '0' ? 0 : ($this->idParam('folder', 'media_folders') ?: null);
+        $newsItem = $this->idParam('article', 'news');
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
+        $unused = $this->request->get('unused') === '1';
+        $waiting = $this->request->get('waiting') === '1';
+        $recent = $this->request->get('recent') === '1';
+        $missing = $this->request->get('missing') === '1';
+        $across = $newsItem > 0 || $search !== '' || $unused || $waiting || $recent || $missing;
+        $level = $levels ? !$across : $folder !== null;
+        if ($level) {
+            $where[] = ($folder ?? 0) > 0 ? 'o.folder_id = ?' : 'o.folder_id IS NULL';
+            if (($folder ?? 0) > 0) {
+                $params[] = $folder;
             }
         }
-        $newsItem = $this->idParam('article', 'news');
         if ($newsItem > 0) {
             $where[] = 'EXISTS (SELECT 1 FROM {media_usage} p WHERE p.media_id = o.media_id AND p.news_id = ?)';
             $params[] = $newsItem;
         }
-        $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
             $where[] = '(' . implode(' OR ', array_map(fn (string $c): string => $this->db->dialect()->likeInsensitive($c), ['o.name', 'o.description', 'o.image_path'])) . ')';
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
             array_push($params, $pattern, $pattern, $pattern);
         }
-        $unused = $this->request->get('unused') === '1';
         if ($unused) {
-            $where[] = 'NOT EXISTS (SELECT 1 FROM {media_usage} p WHERE p.media_id = o.media_id)';
-            $elsewhere = array_keys(self::findUsagesElsewhere($this->db));
-            if ($elsewhere !== []) {
-                $where[] = 'o.media_id NOT IN (' . implode(',', array_map(intval(...), $elsewhere)) . ')';
-            }
+            $where[] = $this->unusedCondition();
         }
-        $waiting = $this->request->get('waiting') === '1';
         if ($waiting) {
             $where[] = 'o.staged_at IS NOT NULL';
         }
-
+        if ($recent) {
+            $where[] = 'o.created_at >= NOW() - INTERVAL ' . self::RECENT_DAYS . ' DAY';
+        }
+        if ($missing) {
+            $where[] = "o.thumb_path <> '' AND o.name = ''";
+        }
+        $type = isset(self::TYPES[$this->request->get('type')]) ? $this->request->get('type') : '';
+        if ($type !== '') {
+            $where[] = $this->typeCondition($type, $params);
+        }
         $sort = isset(self::SORT_ORDERS[$this->request->get('sort')]) ? $this->request->get('sort') : 'newest';
+        // "Missing description" is a to-do list: it opens as a table with the description fields
+        $view = in_array($this->request->get('view'), ['grid', 'table'], true) ? $this->request->get('view') : ($missing ? 'table' : 'grid');
 
-        return [implode(' AND ', $where), $params, ['section' => $section, 'section_public' => $section === null ? null : ($section === 0 ? '0' : $sectionParam), 'article' => $newsItem, 'article_public' => $newsItem > 0 ? $this->publicId($newsItem, 'news') : null, 'unused' => $unused, 'waiting' => $waiting, 'search' => $search, 'sort' => $sort]];
+        return [implode(' AND ', $where), $params, ['folder' => $folder, 'folder_public' => $folder === null ? null : ($folder === 0 ? '0' : $folderParam), 'level' => $level, 'article' => $newsItem,
+            'article_public' => $newsItem > 0 ? $this->publicId($newsItem, 'news') : null, 'unused' => $unused, 'waiting' => $waiting, 'recent' => $recent, 'missing' => $missing,
+            'type' => $type, 'search' => $search, 'sort' => $sort, 'view' => $view]];
     }
 
-    /** @return list<array<string, mixed>> folders with the number of images */
-    private function folders(): array
+    /**
+     * The SQL of a type chip: images have a thumbnail, the other kinds are attachments told apart by their extension.
+     *
+     * @param list<int|string> $params
+     */
+    private function typeCondition(string $type, array &$params): string
     {
-        return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {media} o WHERE o.folder_id = s.folder_id) AS count FROM {media_folders} s ORDER BY s.name');
+        $like = function (array $extensions) use (&$params): string {
+            return '(' . implode(' OR ', array_map(function (string $extension) use (&$params): string {
+                $params[] = '%.' . $extension;
+
+                return $this->db->dialect()->likeInsensitive('o.image_path');
+            }, $extensions)) . ')';
+        };
+        $sound = [...\Talea\Core\Files::VIDEO_EXTENSIONS, ...\Talea\Core\Files::AUDIO_EXTENSIONS];
+
+        return match ($type) {
+            'image' => "o.thumb_path <> ''",
+            'video' => "o.thumb_path = '' AND " . $like(\Talea\Core\Files::VIDEO_EXTENSIONS),
+            'audio' => "o.thumb_path = '' AND " . $like(\Talea\Core\Files::AUDIO_EXTENSIONS),
+            default => "o.thumb_path = '' AND NOT " . $like($sound),
+        };
     }
 
-    /** @return list<array<string, mixed>> */
     /** List sort orders: key from the URL => [label, ORDER BY]. */
     public const array SORT_ORDERS = [
         'newest' => ['newest', 'o.media_id DESC'], 'oldest' => ['oldest', 'o.media_id ASC'], 'name' => ['by name', 'o.name ASC, o.media_id DESC'],
         'size' => ['largest files', 'o.image_size DESC'], 'unused' => ['least used', 'used_at ASC, o.media_id DESC'],
     ];
 
-    private function load(string $where, array $params, int $pageNumber, int $count): array
+    /** @return list<array<string, mixed>> */
+    private function load(string $where, array $params, int $offset, int $count): array
     {
         $order = self::SORT_ORDERS[$this->request->get('sort')][1] ?? self::SORT_ORDERS['newest'][1];
-        $elsewhere = self::findUsagesElsewhere($this->db);
+        $elsewhere = $this->elsewhere();
 
         return array_map(function (array $o) use ($elsewhere): array {
             // where: news by the usage table + places outside news
@@ -550,7 +634,7 @@ final class Media extends Module
         }, $this->db->all(
             "SELECT o.*, (SELECT COUNT(*) FROM {media_usage} p WHERE p.media_id = o.media_id) AS used_at
              FROM {media} o WHERE {$where} ORDER BY {$order} LIMIT ? OFFSET ?",
-            [...$params, $count, ($pageNumber - 1) * $count],
+            [...$params, $count, $offset],
         ));
     }
 

@@ -17,7 +17,7 @@ use PHPUnit\Framework\Attributes\Group;
 final class PublicIdsAdminTest extends SiteTestCase
 {
     /** Integer ids of a public-id table in a link or a form value of a list: `id=12`, `item=12`, `value="12"` of the id fields. */
-    private const string INTEGER_ID = '/(?:[?&;](?:amp;)?(?:id|item|article|parent|page_id|news_id|media_id|category_id|user_id)=\d+(?![\w.-])|[?&;](?:amp;)?section=[1-9]\d*(?![\w.-])|name="(?:page_id|news_id|media_id|category_id|user_id|folder_id|id|selected\[\])" value="\d+")/';
+    private const string INTEGER_ID = '/(?:[?&;](?:amp;)?(?:id|item|article|parent|page_id|news_id|media_id|category_id|user_id)=\d+(?![\w.-])|[?&;](?:amp;)?(?:section|folder)=[1-9]\d*(?![\w.-])|name="(?:page_id|news_id|media_id|category_id|user_id|folder_id|id|selected\[\])" value="\d+")/';
 
     public function testIntegerIdsAreRefusedOnPagesAndNews(): void
     {
