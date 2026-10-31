@@ -4024,6 +4024,7 @@ return [
     'Search news' => 'Hledat novinky',
     'Search notes' => 'Hledat poznámky',
     'Search pages' => 'Hledat stránky',
+    'Search pages, news and items' => 'Hledat stránky, novinky a položky',
     'Search performance' => 'Výkon ve vyhledávání',
     'Search redirects' => 'Hledat přesměrování',
     'Search result' => 'Výsledek hledání',

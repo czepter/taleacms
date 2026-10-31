@@ -29,7 +29,9 @@ $more = $field('utm_term') !== '' || $field('utm_content') !== '';
 	<label class="visually-hidden" for="name"><?= e(t('Name')) ?></label> /<input class="textfield" type="text" id="name" name="name" value="<?= e($field('name')) ?>" maxlength="60" placeholder="<?= e(t('flyer')) ?>">
 	<span class="help"><?= e(t('Lower-case letters, digits and hyphens. A typed capital letter is accepted when the link is followed.')) ?></span></div></div>
 <?php endif ?>
-<div class="row"><label for="target"><?= e(t('Leads to')) ?></label><div><select id="target" name="target">
+<div class="row"><label for="target"><?= e(t('Leads to')) ?></label><div>
+<p hidden><label class="visually-hidden" for="target-search"><?= e(t('Search pages, news and items')) ?></label><input class="textfield wide" type="search" id="target-search" placeholder="<?= e(t('Search pages, news and items')) ?>" data-filter-options="#target"></p>
+<select id="target" name="target">
 	<option value="url"<?= $target === 'url' ? ' selected' : '' ?>><?= e(t('Another address (below)')) ?></option>
 <?php foreach ($options as $group => $items): ?>
 	<optgroup label="<?= e($group) ?>">

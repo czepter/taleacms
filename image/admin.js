@@ -46,6 +46,38 @@
 		if (empty) { empty.hidden = any; }
 	});
 
+	// Search in a select (short link targets): input[data-filter-options="#select"] keeps the options whose label contains every word
+	// typed, with their optgroups; the "url" option and the chosen one stay. Options are rebuilt from a copy taken on first use (hiding
+	// <option> is not reliable); while a filter is typed the select shows up to 10 matches as a list. Rendered hidden, shown here.
+	document.querySelectorAll('[data-filter-options]').forEach(function (i) { i.parentNode.hidden = false; });
+	var optionCopies = new WeakMap();
+	document.addEventListener('input', function (e) {
+		var input = e.target;
+		if (!input.hasAttribute || !input.hasAttribute('data-filter-options')) { return; }
+		var select = document.querySelector(input.getAttribute('data-filter-options'));
+		if (!select) { return; }
+		if (!optionCopies.has(select)) {
+			optionCopies.set(select, Array.prototype.map.call(select.children, function (n) {
+				return n.tagName === 'OPTGROUP' ? { group: n, options: Array.prototype.slice.call(n.children) } : { option: n };
+			}));
+		}
+		var words = input.value.toLocaleLowerCase().split(/\s+/).filter(Boolean), chosen = select.value;
+		var keep = function (o) {
+			return o.value === 'url' || o.value === chosen || words.every(function (w) { return o.textContent.toLocaleLowerCase().indexOf(w) !== -1; });
+		};
+		select.textContent = '';
+		optionCopies.get(select).forEach(function (entry) {
+			if (entry.option) { if (keep(entry.option)) { select.appendChild(entry.option); } return; }
+			var options = entry.options.filter(keep);
+			if (!options.length) { return; }
+			entry.group.textContent = '';
+			options.forEach(function (o) { entry.group.appendChild(o); });
+			select.appendChild(entry.group);
+		});
+		select.value = chosen;
+		if (words.length) { select.size = Math.min(10, Math.max(2, select.querySelectorAll('option').length)); } else { select.removeAttribute('size'); }
+	});
+
 	// Variable buttons (Titles and descriptions): data-insert="%title%" data-insert-into="field id" puts the variable at
 	// the cursor of that field; their group is rendered hidden and appears only with this script.
 	document.querySelectorAll('[data-insert]').forEach(function (b) { b.parentNode.hidden = false; });

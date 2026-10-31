@@ -67,6 +67,11 @@ final class ShortLinksTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertNotNull($site->value('SELECT last_hit_at FROM tl_short_links WHERE path = ?', ['flyer']));
 
         $this->assertNotSame(302, $visitor->post('/flyer', [])->status, 'GET and HEAD only');
+
+        $before = $this->hits('flyer');
+        $r = $visitor->head('/flyer');
+        $this->assertSame([302, $site->base . '/aboutus?utm_source=flyer&utm_medium=print'], [$r->status, $r->redirect], 'HEAD answers like GET');
+        $this->assertSame($before, $this->hits('flyer'), 'HEAD (previews, uptime checks) does not count');
         $this->assertSame(404, $visitor->get('/nothing-here')->status, 'no row: the next route answers');
     }
 

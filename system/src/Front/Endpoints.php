@@ -228,7 +228,10 @@ final class Endpoints
         if ($row === null) {
             return null;
         }
-        $db->run('UPDATE {short_links} SET hits = hits + 1, last_hit_at = ? WHERE short_link_id = ?', [date('Y-m-d H:i:s'), $row['short_link_id']]);
+        // a HEAD request (link previews, uptime checks) is answered the same but is not a visit
+        if ($this->app->request->method() !== 'HEAD') {
+            $db->run('UPDATE {short_links} SET hits = hits + 1, last_hit_at = ? WHERE short_link_id = ?', [date('Y-m-d H:i:s'), $row['short_link_id']]);
+        }
         $target = \Talea\Core\ShortLinks::targetUrl($this->app, $row);
 
         // an unreachable target leads home (the campaign fields are gone with it); a site path may start with '?' (the home page plus campaign fields)

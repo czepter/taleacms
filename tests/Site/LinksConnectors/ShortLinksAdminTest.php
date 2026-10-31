@@ -30,6 +30,18 @@ final class ShortLinksAdminTest extends \Talea\Tests\Site\Support\SiteTestCase
         return $this->site()->publicId('pages', (int) $this->site()->value('SELECT page_id FROM tl_pages WHERE slug = ?', [$slug]));
     }
 
+    public function testTargetPickerHasASearchAndLanguageCodes(): void
+    {
+        $site = $this->site();
+        $site->setting('additional_languages', 'de');
+        $this->page('about');
+        $site->exec("INSERT INTO tl_pages (public_id, slug, title, text, visible, language, updated_at) VALUES (?, 'ueber', 'Ueber uns', '', TRUE, 'de', NOW())", [\Talea\Core\Uuid::v4()]);
+
+        $form = $this->assertPage(self::MODULE . '&new=1', 200, ['data-filter-options="#target"', 'id="target"']);
+        $this->assertMatchesRegularExpression('~<option value="page:[^"]+">About</option>~', $form->body, 'the default language keeps its plain label');
+        $this->assertMatchesRegularExpression('~<option value="page:[^"]+">Ueber uns \(de\)</option>~', $form->body, 'another language version carries its code');
+    }
+
     public function testAdminScreen(): void
     {
         $site = $this->site();

@@ -99,10 +99,9 @@ final class ShortLinks extends Module
     private function options(): array
     {
         $groups = [
-            t('Pages') => array_map(fn (array $p): array => ['page:' . $p['public_id'], (string) $p['title']], $this->db->all('SELECT public_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY title')),
-            t('News') => array_map(fn (array $n): array => ['news:' . $n['public_id'], (string) $n['title']], $this->db->all('SELECT public_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY title')),
+            t('Pages') => array_map(fn (array $p): array => ['page:' . $p['public_id'], (string) $p['title'] . ($p['language'] !== '' ? ' (' . $p['language'] . ')' : '')], $this->db->all('SELECT public_id, title, language FROM {pages} WHERE deleted_at IS NULL ORDER BY title')),
+            t('News') => array_map(fn (array $n): array => ['news:' . $n['public_id'], (string) $n['title'] . ($n['language'] !== '' ? ' (' . $n['language'] . ')' : '')], $this->db->all('SELECT public_id, title, language FROM {news} WHERE deleted_at IS NULL ORDER BY title')),
         ];
-        // ponytail: every item of every collection with item pages in one select; a search box when sites with thousands of items turn up
         foreach ($this->db->all('SELECT c.name AS collection, i.public_id, i.name FROM {collection_items} i JOIN {collections} c ON c.collection_id = i.collection_id WHERE c.detail = TRUE AND i.deleted_at IS NULL ORDER BY c.name, i.name') as $i) {
             $groups[$i['collection']][] = ['item:' . $i['public_id'], (string) $i['name']];
         }

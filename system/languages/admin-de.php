@@ -4031,6 +4031,7 @@ return [
     'Search news' => 'Beiträge durchsuchen',
     'Search notes' => 'Notizen durchsuchen',
     'Search pages' => 'Seiten durchsuchen',
+    'Search pages, news and items' => 'Seiten, News und Einträge durchsuchen',
     'Search performance' => 'Suchleistung',
     'Search redirects' => 'Weiterleitungen durchsuchen',
     'Search result' => 'Suchergebnis',

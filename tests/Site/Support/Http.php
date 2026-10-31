@@ -70,6 +70,12 @@ final class Http
         return $this->request('GET', $path, null, $headers, $userAgent);
     }
 
+    /** @param list<string> $headers */
+    public function head(string $path, array $headers = []): Response
+    {
+        return $this->request('HEAD', $path, null, $headers, 'Mozilla/5.0 test');
+    }
+
     /**
      * @param array<string, mixed>|string|null $data form fields (arrays become name[]=…), a raw body, or null
      * @param list<string> $headers
@@ -122,6 +128,8 @@ final class Http
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, is_array($data) && !$multipart ? $this->encode($data) : ($data ?? ''));
+        } elseif ($method === 'HEAD') {
+            curl_setopt($ch, CURLOPT_NOBODY, true);
         } elseif ($method === 'PUT') {
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
             curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
