@@ -21,7 +21,7 @@ final class ShortLinksMcpTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->site()->clearPageCache();
     }
 
-    private function count(): int
+    private function rowCount(): int
     {
         return (int) $this->site()->value('SELECT COUNT(*) FROM tl_short_links');
     }
@@ -54,7 +54,7 @@ final class ShortLinksMcpTest extends \Talea\Tests\Site\Support\SiteTestCase
 
         $this->assertSame(['deleted' => true], $site->mcpResult('delete_short_link', ['id' => $made['id']]));
         $this->assertNotSame(302, $visitor->get('/spring')->status);
-        $this->assertSame(1, $this->count());
+        $this->assertSame(1, $this->rowCount());
     }
 
     public function testRefusals(): void
@@ -64,7 +64,7 @@ final class ShortLinksMcpTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertTrue($r['result']['isError'] ?? false);
         $r = $site->mcp('save_short_link', ['target' => ['type' => 'page', 'id' => '3f2b8c1e-0000-4000-8000-000000000000']]);
         $this->assertTrue($r['result']['isError'] ?? false, 'an id that names no page');
-        $this->assertSame(0, $this->count());
+        $this->assertSame(0, $this->rowCount());
     }
 
     public function testDraftsOnlyCannotChange(): void
@@ -76,10 +76,10 @@ final class ShortLinksMcpTest extends \Talea\Tests\Site\Support\SiteTestCase
 
         $r = $site->mcp('save_short_link', ['name' => 'nope', 'target' => ['type' => 'url', 'url' => 'https://example.org']], $token);
         $this->assertTrue($r['result']['isError'] ?? false);
-        $this->assertSame(1, $this->count(), 'nothing stored');
+        $this->assertSame(1, $this->rowCount(), 'nothing stored');
         $this->assertCount(1, $site->mcpResult('list_short_links', [], $token)['short_links']);
         $id = $site->mcpResult('list_short_links')['short_links'][0]['id'];
         $this->assertTrue($site->mcp('delete_short_link', ['id' => $id], $token)['result']['isError'] ?? false);
-        $this->assertSame(1, $this->count());
+        $this->assertSame(1, $this->rowCount());
     }
 }
