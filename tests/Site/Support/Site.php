@@ -63,17 +63,18 @@ final class Site
         $this->pdo = TestDatabase::connect($this->database);
 
         $this->copyProject($project);
-        $this->ports = ['captcha' => $this->freePort(), 'fake' => $this->freePort()];
-        $fake = $this->startPhp($project . '/tools', 'fake-services.php', [], $this->ports['fake']);
-        $this->port = $this->freePort();
-        $this->base = 'http://127.0.0.1:' . $this->port;
+        $this->ports = ['captcha' => $this->freePort()];
+        $fake = $this->ports['fake'] = $this->startPhp($project . '/tools', 'fake-services.php');
         if ($template !== null) {
             $this->cloneTemplate($template);
         }
-        $this->startPhp($this->root, 'system/dev-router.php', [
+        // the port is chosen by startPhp() right before it binds (and chosen again when another process was quicker): choosing it
+        // earlier left the time of the table clone for a parallel worker to take it ("Address already in use")
+        $this->port = $this->startPhp($this->root, 'system/dev-router.php', [
             'TALEA_CAPTCHA_VERIFY' => 'http://127.0.0.1:' . $this->ports['captcha'] . '/', 'TALEA_CONNECTORS_FAKE' => 'http://127.0.0.1:' . $fake,
             'TALEA_AI_URL' => 'http://127.0.0.1:' . $fake . '/ai/v1/messages', 'TALEA_ANTISPAM_MIN' => '1', 'TALEA_IMPORT_LOCAL' => '1', 'TALEA_FIREWALL_LOCAL' => '1', 'TALEA_LINKS_LOCAL' => '1', 'TALEA_FLEET_LOCAL' => '1',
-        ] + ($this->options['env'] ?? []), $this->port);
+        ] + ($this->options['env'] ?? []));
+        $this->base = 'http://127.0.0.1:' . $this->port;
 
         if ($template !== null) {
             $this->password = $template['password'];
