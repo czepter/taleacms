@@ -78,7 +78,7 @@ final class MigrationReport
     /** @return list<array<string, mixed>> saved reports, newest first */
     public static function listAll(): array
     {
-        $all = array_values(array_filter(array_map(fn (string $f): ?array => self::load(substr(basename($f, '.json'), 7)), glob(WpFile::folder() . '/parita-*.json') ?: [])));
+        $all = array_values(array_filter(array_map(fn (string $f): ?array => self::load(substr(basename($f, '.json'), 7)), glob(WpFile::folder() . '/parity-*.json') ?: [])));
         usort($all, fn (array $a, array $b): int => strcmp((string) $b['created'], (string) $a['created']));
 
         return $all;
@@ -86,7 +86,7 @@ final class MigrationReport
 
     private static function file(string $id): string
     {
-        return WpFile::folder() . '/parita-' . $id . '.json';
+        return WpFile::folder() . '/parity-' . $id . '.json';
     }
 
     /* ---------- one batch ---------- */
