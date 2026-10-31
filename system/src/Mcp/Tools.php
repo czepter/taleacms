@@ -945,6 +945,7 @@ final class Tools
             if ($received === null) {
                 file_put_contents($temporary, $this->fileContent($a));
             }
+            $sourceHash = sha1_file($temporary) ?: null; // kept for the Media upload's duplicate check; MCP itself still uploads a duplicate
             $data = match (true) {
                 $extension === 'svg' => Media::saveSvgContent((string) file_get_contents($temporary), $displayName, $staged),
                 \Talea\Core\Files::isAttachment($displayName) => \Talea\Core\Files::saveFile($temporary, $displayName, $staged),
@@ -960,7 +961,7 @@ final class Tools
         }
         $data['staged_at'] = $staged ? date('Y-m-d H:i:s') : null;
         $data['folder_id'] = $folder;
-        $data['media_id'] = $this->app->db()->insert('media', $data + ['owner_id' => $this->app->auth()->id(), 'created_at' => date('Y-m-d H:i:s')]);
+        $data['media_id'] = $this->app->db()->insert('media', $data + ['owner_id' => $this->app->auth()->id(), 'created_at' => date('Y-m-d H:i:s'), 'source_sha1' => $sourceHash]);
 
         return $this->medium($data) + ['usage' => match (true) {
             $extension === 'woff2' || $extension === 'woff' => 'update_design_system {"design":{"custom_fonts":[{"name":"…","file":"' . $data['image_path'] . '"}],"font_heading":"custom-1"}}',

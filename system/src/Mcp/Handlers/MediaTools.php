@@ -277,6 +277,7 @@ trait MediaTools
         }
         $temporary = tempnam(sys_get_temp_dir(), 'talea-mcp-');
         file_put_contents($temporary, $this->fileContent($a));
+        $hash = sha1_file($temporary) ?: null; // the duplicate check of the Media upload must know the file that is in Media now
         try {
             $new = \Talea\Core\Images::replace($file['image_path'], $temporary, (string) $file['name']);
         } catch (\RuntimeException $e) {
@@ -284,7 +285,7 @@ trait MediaTools
         } finally {
             @unlink($temporary);
         }
-        $db->update('media', $new + ['color' => ''], ['media_id' => $id]);
+        $db->update('media', $new + ['color' => '', 'source_sha1' => $hash], ['media_id' => $id]);
         \Talea\Front\Cache::clear();
 
         return $this->medium($new + $file);

@@ -25,25 +25,140 @@ final class Media extends Module
     /** Everyone who writes news must be able to upload; but only the administrator changes and deletes other people's images. */
     public const bool FOR_ALL_USERS = true;
 
-    private const int PER_PAGE = 40;
+    /** The files shown at first and added by every "Show more" (parameter `show`, at most MAX_SHOW). */
+    public const int SHOW_STEP = 40;
+    public const int MAX_SHOW = 1000;
+    /** Days that count as "Recently uploaded". */
+    public const int RECENT_DAYS = 7;
+    /** The type chips: key from the URL => label (translated on output). */
+    public const array TYPES = ['image' => 'Images', 'document' => 'Documents', 'video' => 'Video', 'audio' => 'Audio'];
+
+    /** @var array<int, list<string>>|null the places outside the news usage table, computed once per request (it reads the whole site) */
+    private ?array $elsewhere = null;
+
+    /** @return array<int, list<string>> */
+    private function elsewhere(): array
+    {
+        return $this->elsewhere ??= self::findUsagesElsewhere($this->db);
+    }
 
     protected function actionList(): Response
     {
-        $pageNumber = max(1, $this->request->getInt('page', 1));
-        [$where, $params, $filter] = $this->filter();
+        [$where, $params, $filter] = $this->filter(true);
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {media} o WHERE {$where}", $params);
+        $show = max(self::SHOW_STEP, min(self::MAX_SHOW, $this->request->getInt('show', self::SHOW_STEP)));
+        $all = \Talea\Core\MediaFolders::all($this->db);
+        $current = null;
+        foreach ($all as $folder) {
+            $current = $folder['folder_id'] === $filter['folder'] && $filter['level'] ? $folder : $current;
+        }
+        $cards = $filter['level'] ? \Talea\Core\MediaFolders::children($all, $current['folder_id'] ?? null) : [];
+        $item = $this->idParam('item') ?: null;
 
         return $this->view('list', 'Media', [
-            'images' => $this->load($where, $params, $pageNumber, self::PER_PAGE),
-            'pageNumber' => $pageNumber,
-            'pageCount' => max(1, (int) ceil($total / self::PER_PAGE)),
+            'images' => $this->load($where, $params, 0, $show),
             'total' => $total,
+            'show' => $show,
             'limit' => \Talea\Core\Files::limitText(),
             'filter' => $filter,
-            'folders' => $this->folders(),
+            'folders' => $all,
+            'current' => $current,
+            'path' => $current === null ? [] : \Talea\Core\MediaFolders::path($all, $current['folder_id']),
+            'cards' => $cards,
+            'subfolders' => array_count_values(array_filter(array_column($all, 'parent_id'), fn ($v): bool => $v !== null)),
+            'thumbnails' => \Talea\Core\MediaFolders::thumbnails($this->db, array_column($cards, 'folder_id')),
+            'counts' => $this->counts(),
+            'undo' => $this->pendingUndo(),
             'newsItem' => $filter['article'] > 0 ? $this->db->value('SELECT title FROM {news} WHERE news_id = ?', [$filter['article']]) : null,
-            'waitingCount' => \Talea\Core\MediaStaging::count($this->db),
+            'item' => $item === null ? null : $this->db->one('SELECT o.* FROM {media} o WHERE o.media_id = ?', [$item]),
+            'panel' => $item === null ? null : $this->panel($item, $where, $params),
         ]);
+    }
+
+    /**
+     * What the details panel needs besides the row: the neighbours of the file in the list (by the same filter and order, in one
+     * query that returns only the two ids), the places that use it and whether the person may change or delete it.
+     *
+     * @param list<int|string> $params
+     * @return array{prev: ?string, next: ?string, used: list<string>, canEdit: bool}
+     */
+    private function panel(int $id, string $where, array $params): array
+    {
+        $order = str_replace('used_at', '(SELECT COUNT(*) FROM {media_usage} p2 WHERE p2.media_id = o.media_id)', self::SORT_ORDERS[$this->request->get('sort')][1] ?? self::SORT_ORDERS['newest'][1]);
+        $near = $this->db->one(
+            "SELECT prev_id, next_id FROM (SELECT o.media_id AS id, LAG(o.public_id) OVER (ORDER BY {$order}) AS prev_id, LEAD(o.public_id) OVER (ORDER BY {$order}) AS next_id
+                 FROM {media} o WHERE {$where}) neighbours WHERE id = ?",
+            [...$params, $id],
+        );
+        $news = $this->db->all('SELECT n.title FROM {media_usage} u JOIN {news} n ON n.news_id = u.news_id WHERE u.media_id = ? ORDER BY n.title', [$id]);
+
+        return [
+            'prev' => $near['prev_id'] ?? null, 'next' => $near['next_id'] ?? null, 'canEdit' => $this->canEdit($id),
+            'used' => [...array_map(fn (array $n): string => t('news item') . ' ' . $n['title'], $news), ...($this->elsewhere()[$id] ?? [])],
+        ];
+    }
+
+    /**
+     * Where a save returns to: the state of the list the panel was opened from (the hidden field `list`, a query string of the
+     * known list parameters) with the file still open.
+     *
+     * @return array<string, string>
+     */
+    private function listReturn(string $itemId): array
+    {
+        parse_str($this->request->post('list'), $list);
+        $known = array_intersect_key($list, array_flip(['folder', 'type', 'recent', 'missing', 'unused', 'waiting', 'article', 'search', 'sort', 'view', 'show']));
+
+        return array_filter(array_map(fn ($v): string => is_string($v) ? $v : '', $known), fn (string $v): bool => $v !== '') + ['item' => $itemId];
+    }
+
+    /** The level a folder card's Rename or Move came from (hidden field `level`; empty = the top level), or null when the form does not say. */
+    private function levelReturn(): ?array
+    {
+        if (!$this->request->hasPost('level')) {
+            return null;
+        }
+
+        return \Talea\Core\Uuid::valid($this->request->post('level')) ? ['folder' => $this->request->post('level')] : [];
+    }
+
+    /**
+     * The folder a form field names: null = no folder (the field is empty: the top level), false = it names a folder that does not
+     * exist (a stale page, a mistyped id) - which must not pass for the top level.
+     */
+    private function targetFolder(string $name): int|null|false
+    {
+        $id = $this->idParam($name, 'media_folders');
+        if ($id > 0) {
+            return $id;
+        }
+        $given = $this->request->post($name) !== '' ? $this->request->post($name) : $this->request->get($name);
+
+        return $given === '' || $given === '0' ? null : false;
+    }
+
+    /** @return array{total: int, recent: int, missing: int, waiting: int, unused: int} the numbers of the left menu */
+    private function counts(): array
+    {
+        $row = $this->db->one(
+            'SELECT COUNT(*) AS total, SUM(CASE WHEN created_at >= NOW() - INTERVAL ' . self::RECENT_DAYS . ' DAY THEN 1 ELSE 0 END) AS recent,
+                    SUM(CASE WHEN thumb_path <> \'\' AND name = \'\' THEN 1 ELSE 0 END) AS missing, SUM(CASE WHEN staged_at IS NOT NULL THEN 1 ELSE 0 END) AS waiting
+             FROM {media}',
+        ) ?? [];
+
+        return [
+            'total' => (int) ($row['total'] ?? 0), 'recent' => (int) ($row['recent'] ?? 0), 'missing' => (int) ($row['missing'] ?? 0), 'waiting' => (int) ($row['waiting'] ?? 0),
+            'unused' => (int) $this->db->value('SELECT COUNT(*) FROM {media} o WHERE ' . $this->unusedCondition()),
+        ];
+    }
+
+    /** Not used by a news item and not by any place the usage finder knows. */
+    private function unusedCondition(): string
+    {
+        $elsewhere = array_keys($this->elsewhere());
+
+        return 'NOT EXISTS (SELECT 1 FROM {media_usage} p WHERE p.media_id = o.media_id)'
+            . ($elsewhere === [] ? '' : ' AND o.media_id NOT IN (' . implode(',', array_map(intval(...), $elsewhere)) . ')');
     }
 
     /**
@@ -64,14 +179,22 @@ final class Media extends Module
         return $this->back(t('The file is public: %s', $file['image_path']), '', ['waiting' => 1]);
     }
 
-    /** JSON list for the image picker dialog in the editor; the same filters as in the list. */
+    /**
+     * JSON list for the image picker dialog in the editor (image/picker.js): the same filters as in the list (`folder`, `recent`,
+     * `search`, `article`, `page`; 60 files per page) and the folder tree, depth first, with the public id of each folder and of its parent.
+     */
     protected function actionListing(): Response
     {
-        [$where, $params] = $this->filter();
+        [$where, $params] = $this->filter(false);
+        $all = \Talea\Core\MediaFolders::all($this->db);
+        $publicIds = array_column($all, 'public_id', 'folder_id');
 
         return Response::json([
-            'images' => array_map($this->toJson(...), $this->load($where, $params, max(1, $this->request->getInt('page', 1)), 60)),
-            'folders' => array_map(fn (array $s): array => ['id' => $s['public_id'], 'name' => $s['name']], $this->folders()),
+            'images' => array_map($this->toJson(...), $this->load($where, $params, (max(1, $this->request->getInt('page', 1)) - 1) * 60, 60)),
+            'folders' => array_map(fn (array $f): array => [
+                'id' => $f['public_id'], 'name' => $f['name'], 'parent' => $f['parent_id'] === null ? null : ($publicIds[$f['parent_id']] ?? null),
+                'depth' => $f['depth'], 'count' => $f['count'],
+            ], \Talea\Core\MediaFolders::tree($all)),
         ]);
     }
 
@@ -89,26 +212,95 @@ final class Media extends Module
             $ids = $this->db->insert('media_folders', ['name' => $name, 'parent_id' => $this->idParam('parent', 'media_folders') ?: null]);
         }
 
-        return $this->back('Folder saved.', '', ['section' => $this->publicId($ids, 'media_folders')]);
+        return $this->back('Folder saved.', '', $this->levelReturn() ?? ['folder' => $this->publicId($ids, 'media_folders')]);
     }
 
-    /** Moving a folder into another one (`parent`; empty = top level). Editors and administrators; refuses a cycle. */
+    /** Moving a folder into another one (`parent`; empty = top level). Editors and administrators; refuses a cycle. format=json answers drag and drop. */
     protected function actionFolderMove(): Response
     {
+        $json = $this->request->get('format') === 'json';
         if (!$this->request->isPost()) {
-            return $this->back();
+            return $json ? Response::json(['ok' => false], 405) : $this->back();
         }
         if (!$this->app->auth()->canPublish()) { // a folder moves with everything in it: editors and administrators
-            return $this->back(t('Moving a folder is for editors and administrators.'), '', [], 'error');
+            return $json ? Response::json(['ok' => false, 'error' => t('Moving a folder is for editors and administrators.')], 403) : $this->back(t('Moving a folder is for editors and administrators.'), '', [], 'error');
         }
         $id = $this->idParam('folder_id', 'media_folders');
+        $parent = $this->targetFolder('parent');
+        if ($parent === false) {
+            return $json ? Response::json(['ok' => false, 'error' => t('The target folder does not exist.')], 404) : $this->back(t('The target folder does not exist.'), '', [], 'error');
+        }
+        $before = $this->db->value('SELECT parent_id FROM {media_folders} WHERE folder_id = ?', [$id]);
         try {
-            \Talea\Core\MediaFolders::move($this->db, $id, $this->idParam('parent', 'media_folders') ?: null);
+            \Talea\Core\MediaFolders::move($this->db, $id, $parent);
         } catch (\DomainException $e) {
-            return $this->back(t('The folder cannot be moved there.'), '', [], 'error');
+            return $json ? Response::json(['ok' => false, 'error' => t('The folder cannot be moved there.')], 409) : $this->back(t('The folder cannot be moved there.'), '', [], 'error');
+        }
+        $where = $parent === null ? t('All media') : (string) $this->db->value('SELECT name FROM {media_folders} WHERE folder_id = ?', [$parent]);
+        $message = t('Folder moved to %s.', $where);
+        $this->rememberMove(['folders' => [$id => $before === null ? null : (int) $before]], $parent, $message);
+
+        return $json ? Response::json(['ok' => true, 'message' => $message]) : $this->back('', '', $this->levelReturn() ?? ['folder' => $this->publicId($id, 'media_folders')]);
+    }
+
+    /**
+     * What the Undo button of the next list view puts back; only the last move is kept, for an hour. $target is where the move put
+     * the files (folder_id) or the folder (parent_id): Undo touches only what is still there.
+     *
+     * @param array<string, array<int, int|null>> $places the old place of each row, by kind (files, folders)
+     */
+    private function rememberMove(array $places, ?int $target, string $message): void
+    {
+        $this->app->session->set('media_undo', ['places' => $places, 'target' => $target, 'message' => $message, 'at' => time(), 'shown' => false]);
+    }
+
+    /** @return array{places: array<string, array<int, int|null>>, message: string}|null the move the Undo notice offers, shown once */
+    private function pendingUndo(): ?array
+    {
+        $undo = $this->app->session->get('media_undo');
+        if (!is_array($undo) || $undo['shown'] || $undo['at'] < time() - 3600) {
+            return null;
+        }
+        $undo['shown'] = true;
+        $this->app->session->set('media_undo', $undo);
+
+        return $undo;
+    }
+
+    /**
+     * Undo of the last move (once): files go back to the folder they came from if the person may still edit them and they are still
+     * where the move put them, folders to their parent under the same condition - a later change is not overwritten.
+     */
+    protected function actionUndoMove(): Response
+    {
+        $undo = $this->app->session->get('media_undo');
+        $this->app->session->remove('media_undo');
+        if (!$this->request->isPost() || !is_array($undo) || $undo['at'] < time() - 3600) {
+            return $this->back();
+        }
+        $count = 0;
+        $target = $undo['target'] ?? null;
+        $there = $target === null ? ' IS NULL' : ' = ' . (int) $target;
+        foreach ($undo['places']['files'] ?? [] as $id => $folder) {
+            $back = $folder === null || $this->db->value('SELECT 1 FROM {media_folders} WHERE folder_id = ?', [$folder]) !== null;
+            $still = $this->db->value('SELECT 1 FROM {media} WHERE media_id = ? AND folder_id' . $there, [(int) $id]) !== null;
+            if ($back && $still && $this->canEdit((int) $id) && $this->db->update('media', ['folder_id' => $folder], ['media_id' => (int) $id]) >= 0) {
+                $count++;
+            }
+        }
+        foreach ($undo['places']['folders'] ?? [] as $id => $parent) {
+            if ($this->db->value('SELECT 1 FROM {media_folders} WHERE folder_id = ? AND parent_id' . $there, [(int) $id]) === null) {
+                continue; // moved again since: it stays where it is
+            }
+            try {
+                \Talea\Core\MediaFolders::move($this->db, (int) $id, $parent);
+                $count++;
+            } catch (\DomainException) {
+                // the tree changed since: this folder stays where it is
+            }
         }
 
-        return $this->back('Folder moved.', '', ['section' => $this->publicId($id, 'media_folders')]);
+        return $this->back($count > 0 ? t('The move was undone.') : t('Nothing could be moved back.'), '', [], $count > 0 ? 'ok' : 'error');
     }
 
     /** Deleting a folder; its files and subfolders move up one level. */
@@ -211,36 +403,58 @@ final class Media extends Module
         return $used;
     }
 
-    /** Upload of one or more files; with the parameter format=json it answers the editor with JSON. */
+    /**
+     * Upload of one or more files; with the parameter format=json it answers the editor and the upload tray with JSON. A file whose
+     * bytes were uploaded before (`source_sha1`) is not stored again: it is reported under `duplicates` with the existing file.
+     */
     protected function actionUpload(): Response
     {
         $json = $this->request->get('format') === 'json';
         $section = $this->idParam('folder_id', 'media_folders') ?: null;
         $uploaded = [];
+        $duplicates = [];
         $errors = [];
         $imageCount = 0;
         foreach (self::uploadedFiles() as $file) {
+            $name = (string) ($file['name'] ?? t('file'));
+            $hash = self::sourceHash($file);
+            $same = $hash === null ? null : $this->db->one('SELECT * FROM {media} WHERE source_sha1 = ? AND staged_at IS NULL ORDER BY media_id LIMIT 1', [$hash]); // a file waiting for approval is not public: it is no "already in Media"
+            if ($same !== null) {
+                $duplicates[] = ['file' => $name, 'id' => $same['public_id'], 'name' => $same['name'] !== '' ? $same['name'] : basename($same['image_path']), 'image' => $this->toJson($same)];
+                continue;
+            }
             try {
-                $data = self::store($this->app, $file, $section);
+                $data = self::store($this->app, $file, $section, $hash);
                 $imageCount += $data['thumb_path'] !== '' ? 1 : 0;
                 $uploaded[] = $this->toJson($data + ['description' => '']);
             } catch (\RuntimeException $e) {
-                $errors[] = ($file['name'] ?? t('file')) . ': ' . t($e->getMessage());
+                $errors[] = $name . ': ' . t($e->getMessage());
             }
         }
-        if ($uploaded === [] && $errors === []) {
+        if ($uploaded === [] && $duplicates === [] && $errors === []) {
             $errors[] = t('No file was selected.');
         }
         if ($json) {
-            return Response::json(['images' => $uploaded, 'errors' => $errors], $uploaded === [] ? 400 : 200);
+            return Response::json(['images' => $uploaded, 'duplicates' => $duplicates, 'errors' => $errors], $uploaded === [] && $duplicates === [] ? 400 : 200);
         }
         foreach ($errors as $error) {
             $this->app->session->flash('error', $error);
         }
+        foreach ($duplicates as $d) {
+            $this->app->session->flash('info', t('%s was skipped: it is already in Media as %s.', $d['file'], $d['name']));
+        }
 
         $message = $uploaded === [] ? '' : t('Files uploaded: %d.', count($uploaded)) . ($imageCount > 0 ? ' ' . t('Add a description for blind visitors (alt text) to the images: what the image shows.') : '');
 
-        return $this->back($message, '', $section !== null ? ['section' => $this->publicId($section, 'media_folders')] : []);
+        return $this->back($message, '', $section !== null ? ['folder' => $this->publicId($section, 'media_folders')] : []);
+    }
+
+    /** The sha1 of the bytes an upload sent (null when there is no readable file). @param array<string, mixed> $file */
+    private static function sourceHash(array $file): ?string
+    {
+        $tmp = (string) ($file['tmp_name'] ?? '');
+
+        return ($file['error'] ?? UPLOAD_ERR_OK) === UPLOAD_ERR_OK && is_file($tmp) ? (sha1_file($tmp) ?: null) : null;
     }
 
     /**
@@ -249,11 +463,13 @@ final class Media extends Module
      * documents…) as it is. Returns the media row with its new id.
      *
      * @param array<string, mixed> $file item of $_FILES (uploadedFiles)
+     * @param string|null $hash the sha1 of the uploaded bytes when the caller has it already
      * @return array<string, mixed>
      * @throws \RuntimeException with the reason (an admin text to translate with t())
      */
-    public static function store(\Talea\Core\App $app, array $file, ?int $section = null): array
+    public static function store(\Talea\Core\App $app, array $file, ?int $section = null, ?string $hash = null): array
     {
+        $hash ??= self::sourceHash($file); // before anything is saved: a GIF or an attachment is moved out of the temporary folder
         $attachment = \Talea\Core\Files::isAttachment((string) ($file['name'] ?? ''));
         $data = match (true) {
             strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION)) === 'svg' => self::saveSvg($file),
@@ -265,7 +481,7 @@ final class Media extends Module
             // and the checks would take it as filled in – it stays empty and the list and the pre-publish check ask for it
             $data['name'] = '';
         }
-        $data['media_id'] = $app->db()->insert('media', $data + ['owner_id' => $app->auth()->id(), 'folder_id' => $section, 'created_at' => date('Y-m-d H:i:s')]);
+        $data['media_id'] = $app->db()->insert('media', $data + ['owner_id' => $app->auth()->id(), 'folder_id' => $section, 'created_at' => date('Y-m-d H:i:s'), 'source_sha1' => $hash]);
 
         return $data;
     }
@@ -322,20 +538,26 @@ final class Media extends Module
         if ($image === null || !is_array($file)) {
             return $this->back();
         }
+        $hash = self::sourceHash($file); // before the new file is moved: the duplicate check must know the file that is in Media now
         try {
             $new = Images::replace($image['image_path'], $file);
         } catch (\RuntimeException $e) {
-            return $this->back(t($e->getMessage()), 'list', ['edit' => $image['public_id']], 'error');
+            return $this->back(t($e->getMessage()), 'list', $this->listReturn($image['public_id']), 'error');
         }
-        $this->db->update('media', $new + ['color' => ''], ['media_id' => $ido]);
+        $this->db->update('media', $new + ['color' => '', 'source_sha1' => $hash], ['media_id' => $ido]);
         \Talea\Front\Cache::clear();
 
-        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['edit' => $image['public_id']]);
+        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', $this->listReturn($image['public_id']));
     }
 
     protected function actionSave(): Response
     {
-        if ($this->request->isPost() && $this->canEdit($this->idParam('media_id'))) {
+        $id = $this->idParam('media_id');
+        if ($this->request->isPost() && $this->canEdit($id)) {
+            $folder = $this->request->hasPost('folder_id') ? $this->targetFolder('folder_id') : null;
+            if ($folder === false) {
+                return $this->back(t('The target folder does not exist.'), '', $this->listReturn($this->publicId($id)), 'error');
+            }
             $x = max(0, min(100, $this->request->postInt('focus_x', 50)));
             $y = max(0, min(100, $this->request->postInt('focus_y', 50)));
             $this->db->update('media', [
@@ -343,11 +565,11 @@ final class Media extends Module
                 'description' => mb_substr($this->request->post('description'), 0, 500),
                 'author' => mb_substr(trim($this->request->post('author')), 0, 120),
                 'focal_point' => $x === 50 && $y === 50 ? '' : $x . '% ' . $y . '%',
-            ], ['media_id' => $this->idParam('media_id')]);
+            ] + ($this->request->hasPost('folder_id') ? ['folder_id' => $folder] : []), ['media_id' => $id]);
             \Talea\Front\Cache::clear();
         }
 
-        return $this->back('Image description saved.');
+        return $this->back('Image description saved.', '', $id > 0 ? $this->listReturn($this->publicId($id)) : []);
     }
 
     /** Description for the blind (alt = field "nazev", as in the detail and in the editor) directly from the grid – without reloading (image/admin.js). */
@@ -426,21 +648,29 @@ final class Media extends Module
         return $this->back(t('The image is now %s px wide and takes %s.', (string) $new['image_width'], \Talea\Core\Files::size($new['image_size'])), 'cleanup');
     }
 
-    /** Bulk action on the selected images: delete, or move to a folder. From the clean-up (zpet=cleanup) it returns there. */
+    /**
+     * Bulk action on the selected images: delete, or move to a folder (drag and drop asks with format=json). From the clean-up
+     * (back=cleanup) it returns there. A move is remembered for Undo.
+     */
     protected function actionBulk(): Response
     {
+        $json = $this->request->get('format') === 'json';
         if (!$this->request->isPost()) {
-            return $this->back();
+            return $json ? Response::json(['ok' => false], 405) : $this->back();
         }
         $backTo = $this->request->post('back') === 'cleanup' ? 'cleanup' : '';
         $action = $this->request->post('bulk');
         if ($action !== 'move' && $action !== 'delete') {
-            return $this->back(); // an unknown action must never fall through to deleting
+            return $json ? Response::json(['ok' => false], 400) : $this->back(); // an unknown action must never fall through to deleting
         }
         $move = $action === 'move';
-        $target = $this->idParam('to_folder', 'media_folders') ?: null;
+        $target = $move ? $this->targetFolder('to_folder') : null;
+        if ($target === false) {
+            return $json ? Response::json(['ok' => false, 'error' => t('The target folder does not exist.')], 404) : $this->back(t('The target folder does not exist.'), $backTo, [], 'error');
+        }
         $count = 0;
         $skipped = 0;
+        $before = [];
         $elsewhere = $move ? [] : self::findUsagesElsewhere($this->db);
         foreach ($this->request->postList('selected') as $id) {
             $image = $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [$this->db->internalId('media', $id)]);
@@ -449,6 +679,7 @@ final class Media extends Module
             }
             if ($move) {
                 $count += $this->db->update('media', ['folder_id' => $target], ['media_id' => $image['media_id']]) >= 0 ? 1 : 0;
+                $before[(int) $image['media_id']] = $image['folder_id'] === null ? null : (int) $image['folder_id'];
             } elseif (isset($elsewhere[(int) $image['media_id']]) || $this->db->value('SELECT 1 FROM {media_usage} WHERE media_id = ? LIMIT 1', [$image['media_id']]) !== null) {
                 $skipped++; // a used file would disappear from the site – it is deleted once it is not used anywhere
             } else {
@@ -464,8 +695,20 @@ final class Media extends Module
         if (!$move && $count > 0) {
             \Talea\Admin\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
         }
+        if ($move) {
+            $where = $target === null ? t('All media') : (string) $this->db->value('SELECT name FROM {media_folders} WHERE folder_id = ?', [$target]);
+            $message = $count === 0 ? t('Nothing was moved.') : ($count === 1 ? t('1 file moved to %s.', $where) : t('%d files moved to %s.', $count, $where));
+            if ($count > 0) {
+                $this->rememberMove(['files' => $before], $target, $message);
+            }
+            if ($json) {
+                return Response::json(['ok' => $count > 0, 'moved' => $count, 'message' => $message], $count > 0 ? 200 : 400);
+            }
 
-        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['section' => $this->publicId($target, 'media_folders')] : []);
+            return $this->back($count === 0 ? $message : '', $backTo, $target ? ['folder' => $this->publicId($target, 'media_folders')] : [], $count === 0 ? 'error' : 'ok');
+        }
+
+        return $json ? Response::json(['ok' => true, 'deleted' => $count]) : $this->back(t('Images deleted: %d.', $count), $backTo);
     }
 
     private function canEdit(int $ido): bool
@@ -476,70 +719,103 @@ final class Media extends Module
     }
 
     /**
-     * List filter from the URL: section (folder number, 0 = unsorted), article (idc), unused=1, waiting=1 (waiting for approval,
-     * Core\MediaStaging), search (name, label or file name).
+     * List filter from the URL: folder (public id, 0 = not in a folder), type (image | document | video | audio), recent=1, missing=1
+     * (images without a description), unused=1, waiting=1 (waiting for approval, Core\MediaStaging), article, search (name,
+     * description or file name), sort.
+     * $levels: the Media screen shows one level of the library (no folder = the top level) unless one of the views that cut across
+     * folders (recent, missing, unused, waiting, article, search) is on; the picker's JSON list shows everything unless a folder is named.
      *
-     * @return array{0: string, 1: list<int|string>, 2: array{section: ?int, section_public: ?string, article: int, article_public: ?string, unused: bool, waiting: bool, search: string, sort: string}}
+     * @return array{0: string, 1: list<int|string>, 2: array{folder: ?int, folder_public: ?string, level: bool, article: int, article_public: ?string, unused: bool, waiting: bool, recent: bool, missing: bool, type: string, search: string, sort: string, view: string}}
      */
-    private function filter(): array
+    private function filter(bool $levels): array
     {
         $where = ['1 = 1'];
         $params = [];
-        // section: the public id of a folder, 0 = unsorted, nothing (or an unknown folder) = all
-        $sectionParam = $this->request->get('section');
-        $section = $sectionParam === '0' ? 0 : ($this->idParam('section', 'media_folders') ?: null);
-        if ($section !== null) {
-            $where[] = $section > 0 ? 'o.folder_id = ?' : 'o.folder_id IS NULL';
-            if ($section > 0) {
-                $params[] = $section;
+        $folderParam = $this->request->get('folder');
+        $folder = $folderParam === '0' ? 0 : ($this->idParam('folder', 'media_folders') ?: null);
+        $newsItem = $this->idParam('article', 'news');
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
+        $unused = $this->request->get('unused') === '1';
+        $waiting = $this->request->get('waiting') === '1';
+        $recent = $this->request->get('recent') === '1';
+        $missing = $this->request->get('missing') === '1';
+        $across = $newsItem > 0 || $search !== '' || $unused || $waiting || $recent || $missing;
+        $level = $levels ? !$across : $folder !== null;
+        if ($level) {
+            $where[] = ($folder ?? 0) > 0 ? 'o.folder_id = ?' : 'o.folder_id IS NULL';
+            if (($folder ?? 0) > 0) {
+                $params[] = $folder;
             }
         }
-        $newsItem = $this->idParam('article', 'news');
         if ($newsItem > 0) {
             $where[] = 'EXISTS (SELECT 1 FROM {media_usage} p WHERE p.media_id = o.media_id AND p.news_id = ?)';
             $params[] = $newsItem;
         }
-        $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
             $where[] = '(' . implode(' OR ', array_map(fn (string $c): string => $this->db->dialect()->likeInsensitive($c), ['o.name', 'o.description', 'o.image_path'])) . ')';
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
             array_push($params, $pattern, $pattern, $pattern);
         }
-        $unused = $this->request->get('unused') === '1';
         if ($unused) {
-            $where[] = 'NOT EXISTS (SELECT 1 FROM {media_usage} p WHERE p.media_id = o.media_id)';
-            $elsewhere = array_keys(self::findUsagesElsewhere($this->db));
-            if ($elsewhere !== []) {
-                $where[] = 'o.media_id NOT IN (' . implode(',', array_map(intval(...), $elsewhere)) . ')';
-            }
+            $where[] = $this->unusedCondition();
         }
-        $waiting = $this->request->get('waiting') === '1';
         if ($waiting) {
             $where[] = 'o.staged_at IS NOT NULL';
         }
-
+        if ($recent) {
+            $where[] = 'o.created_at >= NOW() - INTERVAL ' . self::RECENT_DAYS . ' DAY';
+        }
+        if ($missing) {
+            $where[] = "o.thumb_path <> '' AND o.name = ''";
+        }
+        $type = isset(self::TYPES[$this->request->get('type')]) ? $this->request->get('type') : '';
+        if ($type !== '') {
+            $where[] = $this->typeCondition($type, $params);
+        }
         $sort = isset(self::SORT_ORDERS[$this->request->get('sort')]) ? $this->request->get('sort') : 'newest';
+        // "Missing description" is a to-do list: it opens as a table with the description fields
+        $view = in_array($this->request->get('view'), ['grid', 'table'], true) ? $this->request->get('view') : ($missing ? 'table' : 'grid');
 
-        return [implode(' AND ', $where), $params, ['section' => $section, 'section_public' => $section === null ? null : ($section === 0 ? '0' : $sectionParam), 'article' => $newsItem, 'article_public' => $newsItem > 0 ? $this->publicId($newsItem, 'news') : null, 'unused' => $unused, 'waiting' => $waiting, 'search' => $search, 'sort' => $sort]];
+        return [implode(' AND ', $where), $params, ['folder' => $folder, 'folder_public' => $folder === null ? null : ($folder === 0 ? '0' : $folderParam), 'level' => $level, 'article' => $newsItem,
+            'article_public' => $newsItem > 0 ? $this->publicId($newsItem, 'news') : null, 'unused' => $unused, 'waiting' => $waiting, 'recent' => $recent, 'missing' => $missing,
+            'type' => $type, 'search' => $search, 'sort' => $sort, 'view' => $view]];
     }
 
-    /** @return list<array<string, mixed>> folders with the number of images */
-    private function folders(): array
+    /**
+     * The SQL of a type chip: images have a thumbnail, the other kinds are attachments told apart by their extension.
+     *
+     * @param list<int|string> $params
+     */
+    private function typeCondition(string $type, array &$params): string
     {
-        return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {media} o WHERE o.folder_id = s.folder_id) AS count FROM {media_folders} s ORDER BY s.name');
+        $like = function (array $extensions) use (&$params): string {
+            return '(' . implode(' OR ', array_map(function (string $extension) use (&$params): string {
+                $params[] = '%.' . $extension;
+
+                return $this->db->dialect()->likeInsensitive('o.image_path');
+            }, $extensions)) . ')';
+        };
+        $sound = [...\Talea\Core\Files::VIDEO_EXTENSIONS, ...\Talea\Core\Files::AUDIO_EXTENSIONS];
+
+        return match ($type) {
+            'image' => "o.thumb_path <> ''",
+            'video' => "o.thumb_path = '' AND " . $like(\Talea\Core\Files::VIDEO_EXTENSIONS),
+            'audio' => "o.thumb_path = '' AND " . $like(\Talea\Core\Files::AUDIO_EXTENSIONS),
+            default => "o.thumb_path = '' AND NOT " . $like($sound),
+        };
     }
 
-    /** @return list<array<string, mixed>> */
-    /** List sort orders: key from the URL => [label, ORDER BY]. */
+    /** List sort orders: key from the URL => [label, ORDER BY]; each ends in the unique media_id so that the details panel's neighbours (LAG/LEAD) match the list. */
     public const array SORT_ORDERS = [
-        'newest' => ['newest', 'o.media_id DESC'], 'oldest' => ['oldest', 'o.media_id ASC'], 'name' => ['by name', 'o.name ASC, o.media_id DESC'],
-        'size' => ['largest files', 'o.image_size DESC'], 'unused' => ['least used', 'used_at ASC, o.media_id DESC'],
+        'newest' => ['Newest first', 'o.media_id DESC'], 'oldest' => ['Oldest first', 'o.media_id ASC'], 'name' => ['By name', 'o.name ASC, o.media_id DESC'],
+        'size' => ['Largest files first', 'o.image_size DESC, o.media_id DESC'], 'unused' => ['Least used first', 'used_at ASC, o.media_id DESC'],
     ];
 
-    private function load(string $where, array $params, int $pageNumber, int $count): array
+    /** @return list<array<string, mixed>> */
+    private function load(string $where, array $params, int $offset, int $count): array
     {
         $order = self::SORT_ORDERS[$this->request->get('sort')][1] ?? self::SORT_ORDERS['newest'][1];
-        $elsewhere = self::findUsagesElsewhere($this->db);
+        $elsewhere = $this->elsewhere();
 
         return array_map(function (array $o) use ($elsewhere): array {
             // where: news by the usage table + places outside news
@@ -550,7 +826,7 @@ final class Media extends Module
         }, $this->db->all(
             "SELECT o.*, (SELECT COUNT(*) FROM {media_usage} p WHERE p.media_id = o.media_id) AS used_at
              FROM {media} o WHERE {$where} ORDER BY {$order} LIMIT ? OFFSET ?",
-            [...$params, $count, ($pageNumber - 1) * $count],
+            [...$params, $count, $offset],
         ));
     }
 
@@ -563,7 +839,10 @@ final class Media extends Module
             'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'],
             // attachment for download (PDF, document, audio…): without a thumbnail, inserted into the text as a link
             'file' => $o['thumb_path'] === '', 'extension' => strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION)), 'size' => \Talea\Core\Files::size((int) ($o['image_size'] ?? 0)),
-        ];
+            'created' => (string) ($o['created_at'] ?? ''),
+            // may the person change this file's description (the owner or an administrator): the picker saves a typed description to Media only then
+            'editable' => $this->app->auth()->isAdmin() || (int) ($o['owner_id'] ?? $this->app->auth()->id()) === $this->app->auth()->id(),
+        ] + (isset($o['used_at']) ? ['used' => (int) $o['used_at']] : []); // used: the places that use the file – only the list knows it
     }
 
     /**

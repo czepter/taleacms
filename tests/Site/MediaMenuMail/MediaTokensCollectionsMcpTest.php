@@ -24,7 +24,7 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
         $ido = (int) $this->site()->value("SELECT media_id FROM tl_media WHERE image_path LIKE '%.jpg' ORDER BY media_id DESC LIMIT 1");
         $this->assertGreaterThan(0, $ido, 'a picture is in the media library');
 
-        $this->assertPage('/admin.php?module=media&search=jpg&sort=size', 200, 'data-description-media=', message: 'media: search and sorting');
+        $this->assertPage('/admin.php?module=media&search=jpg&sort=size&view=table', 200, 'data-description-media=', message: 'media: search and sorting');
 
         $csrf = $this->site()->admin()->get('/admin.php?module=media')->csrf();
         $reply = $this->site()->admin()->post('/admin.php?module=media&action=save_caption', ['_csrf' => $csrf, 'media_id' => $this->site()->publicId('media', $ido), 'name' => 'Dilna zevnitr']);

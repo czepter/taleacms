@@ -268,7 +268,6 @@ return [
     'Craftsmanship' => '匠心工艺',
     'Craftsmanship you can rely on' => '值得信赖的匠心工艺',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => '请先创建一个“分店”集合（集合 → 新建分店），或在“内容”面板中选择一个集合。',
-    'Crop focal point' => '裁剪焦点',
     'Cup' => '杯子',
     'Customer' => '客户',
     'Customer reviews' => '客户评价',

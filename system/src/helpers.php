@@ -70,6 +70,12 @@ function format_number(float|int $number, int $decimals = 1): string
     return number_format((float) $number, $decimals, in_array(Talea\Core\Language::base(Talea\Core\Language::code()), ['en', 'ar'], true) ? '.' : ',', '');
 }
 
+/** "1 file" or "5 files": the singular text for one, otherwise the plural text with the number in %d (both are dictionary keys). */
+function count_text(int $count, string $one, string $many): string
+{
+    return $count === 1 ? t($one) : t($many, $count);
+}
+
 /** Count with a thousands separator in the site language: 12 345 in Czech and Slovak, 12,345 in English and Arabic, 12.345 in German. */
 function format_count(float|int $number, int $decimals = 0): string
 {
