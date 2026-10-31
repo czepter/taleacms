@@ -129,6 +129,10 @@ final class Catalog
         'update_settings' => ['write', ''],
         'list_redirects' => ['read', ''],
         'save_redirect' => ['write', ''],
+        // Short links: no draft state, a change is live at once
+        'list_short_links' => ['read', 'short_links'],
+        'save_short_link' => ['write', 'short_links'],
+        'delete_short_link' => ['destructive', 'short_links'],
         'ignore_not_found' => ['write', 'redirects'],
         'site_audit' => ['read', ''],
         'list_broken_links' => ['read', ''],
