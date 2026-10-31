@@ -61,6 +61,8 @@ final class InstallerWizardTest extends SiteTestCase
         $this->assertStringContainsString('--tl-color-primary', $page->body, 'with the look\'s design tokens');
         $this->assertSame(404, $client->get('/install.php?preview=nope&language=en')->status);
         $this->assertSame(404, $client->get('/install.php?preview=harbor&language=zz')->status);
+        $this->assertSame(404, $client->get('/install.php?preview=harbor&language=en&register=casual')->status, 'an unknown register');
+        $this->assertSame(200, $client->get('/install.php?preview=harbor&language=de&register=formal')->status);
     }
 
     public function testLastStepInstalls(): void
@@ -74,5 +76,49 @@ final class InstallerWizardTest extends SiteTestCase
         $this->assertStringContainsString('Done, your website is running', $this->post(['password2' => $site->password] + $fields), 'the last step installs');
         $this->assertSame('Wizard Ltd', $site->value("SELECT value FROM wz_settings WHERE name = 'site_name'"));
         $this->assertSame(1, (int) $site->value("SELECT COUNT(*) FROM wz_collections WHERE preset = 'menu'"), 'the blueprint made its collections');
+    }
+
+    public function testACraftedLastStepCannotSkipEarlierSteps(): void
+    {
+        $site = $this->site();
+        $fields = ['step' => 'account', 'go' => 'next', 'site_name' => 'Acme', 'site_language' => 'en', 'time_zone' => 'Europe/London', 'blueprint' => '', 'username' => 'wizard', 'password' => $site->password, 'password2' => $site->password,
+            'db_driver' => TestDatabase::driver(), 'db_name' => $site->database . (TestDatabase::isSqlite() ? '.sqlite' : ''), 'db_prefix' => 'cr_'];
+        $body = $this->post(['site_name' => ''] + $fields);
+        $this->assertStringContainsString('name="step" value="website"', $body, 'an empty site name sends the wizard back to the website step');
+        $this->assertStringContainsString('Fill in the site name.', $body);
+        $body = $this->post(['blueprint' => 'nope'] + $fields);
+        $this->assertStringContainsString('name="step" value="business"', $body, 'an unknown business type sends it back to that step');
+        $this->assertStringContainsString('Choose what kind of business it is.', $body);
+        $this->assertStringNotContainsString('Done, your website is running', $body);
+    }
+
+    public function testBackAndTheSidebarNeverJumpAheadAndALanguageSwitchKeepsTheAnswers(): void
+    {
+        $base = ['step' => 'business', 'site_name' => 'Acme', 'site_language' => 'en', 'time_zone' => 'Europe/London', 'blueprint' => 'clinic'];
+        $this->assertStringContainsString('name="step" value="website"', $this->post(['go' => 'prev'] + $base), 'Back goes one step back');
+        $this->assertStringContainsString('name="step" value="business"', $this->post(['go' => 'account'] + $base), 'the sidebar cannot lead ahead');
+        $this->assertStringContainsString('name="step" value="website"', $this->post(['go' => 'website'] + $base), 'but it leads back');
+        $body = $this->post(['switch' => 'de:formal'] + $base);
+        $this->assertStringContainsString('name="step" value="business"', $body, 'a language switch keeps the step');
+        $this->assertStringContainsString('Um welche Art von Unternehmen geht es?', $body, 'in the new language');
+        $this->assertStringContainsString('value="clinic" checked', $body, 'with the answer');
+        $this->assertStringContainsString('name="register" value="formal"', $body);
+    }
+
+    public function testWithoutAPreviewTheLookStepStillWorks(): void
+    {
+        $folder = $this->site()->path('storage/cache/install-preview');
+        is_dir($folder) && rename($folder, $folder . '.away');
+        file_put_contents($folder, 'not a folder'); // the preview cannot be built here
+        try {
+            $body = $this->post(['step' => 'look', 'go' => 'next', 'blueprint' => '', 'look_kept' => '', 'site_name' => 'Acme']);
+            $this->assertStringContainsString('name="step" value="features"', $body, 'the step goes on');
+            $body = $this->post(['step' => 'look', 'blueprint' => '', 'look' => 'noir', 'site_name' => 'Acme']);
+            $this->assertStringNotContainsString('<iframe', $body, 'and shows no frame');
+            $this->assertStringContainsString('aria-pressed="true"', $body);
+        } finally {
+            unlink($folder);
+            is_dir($folder . '.away') && rename($folder . '.away', $folder);
+        }
     }
 }

@@ -32,24 +32,26 @@ final class Preview
     }
 
     /** The address of the preview page (relative to the installation) for the installer's iframe. */
-    public static function url(string $base, string $look, string $language): string
+    public static function url(string $base, string $look, string $language, string $register): string
     {
-        return $base . '/install.php?preview=' . rawurlencode($look) . '&language=' . rawurlencode($language);
+        return $base . '/install.php?preview=' . rawurlencode($look) . '&language=' . rawurlencode($language) . '&register=' . rawurlencode($register);
     }
 
-    /** The answer to install.php?preview=<look>&language=<code>: the home page, or 404 for a look or language that does not exist. */
-    public static function respond(string $look, string $language, Request $request): Response
+    /** The answer to install.php?preview=<look>&language=<code>&register=<formal|informal>: the home page, or 404 for a look, language or register that does not exist. */
+    public static function respond(string $look, string $language, string $register, Request $request): Response
     {
         $definition = Looks::get($look);
         $language = $language === '' ? 'en' : $language;
-        if ($definition === null || !isset(Language::AVAILABLE[$language]) || !self::available()) {
+        $register = $register === '' ? 'informal' : $register;
+        if ($definition === null || !isset(Language::AVAILABLE[$language]) || !in_array($register, Language::REGISTERS, true) || !self::available()) {
             return new Response('Not found', 404, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
-        $cache = self::FOLDER . '/page-' . md5(TALEA_VERSION . '|' . array_key_last(Migrator::files()) . '|' . $request->basePath() . '|' . $look . '|' . $language) . '.html';
+        $cache = self::FOLDER . '/page-' . md5(TALEA_VERSION . '|' . array_key_last(Migrator::files()) . '|' . $request->basePath() . '|' . $look . '|' . $language . '|' . $register) . '.html';
         if (!is_file($cache)) {
             @set_time_limit(300); // the first request migrates the scratch database
-            file_put_contents($cache . '.tmp', self::render($definition, $language, $request), LOCK_EX);
-            rename($cache . '.tmp', $cache);
+            $temporary = $cache . '.' . bin2hex(random_bytes(6)) . '.tmp'; // two requests that miss the cache at once must not write one file
+            file_put_contents($temporary, self::render($definition, $language, $register, $request), LOCK_EX);
+            rename($temporary, $cache);
         }
 
         // no script runs in the frame, and nothing in it can be sent anywhere
@@ -67,7 +69,7 @@ final class Preview
     }
 
     /** @param array<string, mixed> $look */
-    private static function render(array $look, string $language, Request $request): string
+    private static function render(array $look, string $language, string $register, Request $request): string
     {
         $work = self::FOLDER . '/work-' . bin2hex(random_bytes(6)) . '.sqlite';
         copy(self::template(), $work);
@@ -76,7 +78,7 @@ final class Preview
             $db = Db::fromConfig($config['db']);
             $siteName = Language::runWith($language, fn (): string => t('My website'));
             $db->transaction(fn () => Starter::create($db, $siteName, $language, $look, Extensions::fromValue(''), $request->basePath(),
-                ['site_url' => $request->origin(), 'site_email' => '', 'german_register' => 'informal', 'time_zone' => date_default_timezone_get(), 'tasks_token' => '', 'page_cache' => '0']));
+                ['site_url' => $request->origin(), 'site_email' => '', 'german_register' => $register, 'time_zone' => date_default_timezone_get(), 'tasks_token' => '', 'page_cache' => '0']));
             $server = ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => $request->basePath() . '/', 'SCRIPT_NAME' => $request->serverValues()['SCRIPT_NAME'] ?? '/install.php'] + $request->serverValues();
             $answer = (new Kernel(new App($config, new Request([], [], $server))))->handle();
             if ($answer->status !== 200) {
@@ -103,13 +105,19 @@ final class Preview
         flock($lock, LOCK_EX);
         try {
             if (!is_file($template)) {
-                $building = self::FOLDER . '/building-' . bin2hex(random_bytes(4)) . '.sqlite';
-                Migrator::migrate(['driver' => 'sqlite', 'name' => $building, 'prefix' => 'tl_']);
-                gc_collect_cycles(); // Phinx keeps its connection in a reference cycle: close it
-                (new \PDO('sqlite:' . $building))->exec('PRAGMA journal_mode = DELETE'); // one file to copy, no -wal beside it
-                rename($building, $template);
-                array_map('unlink', glob(self::FOLDER . '/building-*') ?: []); // the lock file of the connection
-                foreach (glob(self::FOLDER . '/template-*') ?: [] as $old) {
+                $id = bin2hex(random_bytes(4));
+                $building = self::FOLDER . '/building-' . $id . '.sqlite';
+                try {
+                    Migrator::migrate(['driver' => 'sqlite', 'name' => $building, 'prefix' => 'tl_']);
+                    // one plain file whatever connections (and WAL) the migration left behind: VACUUM INTO reads a consistent snapshot
+                    (new \PDO('sqlite:' . $building))->exec("VACUUM INTO '" . $template . '.' . $id . ".tmp'");
+                    rename($template . '.' . $id . '.tmp', $template);
+                } finally {
+                    foreach (glob(self::FOLDER . '/*' . $id . '*') ?: [] as $leftover) {
+                        @unlink($leftover); // the building database, its -wal, -shm and lock files, a failed copy
+                    }
+                }
+                foreach (glob(self::FOLDER . '/template-*.sqlite') ?: [] as $old) {
                     $old === $template || @unlink($old); // the template of an earlier set of migrations
                 }
             }

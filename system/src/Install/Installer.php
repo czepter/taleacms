@@ -92,7 +92,7 @@ final class Installer
             return $this->page('done', ['alreadyInstalled' => true, 'deleted' => $this->deleteSelf(), 'fromExport' => false]);
         }
         if (isset($_GET['preview'])) {
-            return Preview::respond((string) $_GET['preview'], (string) ($_GET['language'] ?? ''), $this->request);
+            return Preview::respond((string) $_GET['preview'], (string) ($_GET['language'] ?? ''), (string) ($_GET['register'] ?? ''), $this->request);
         }
 
         $this->language = $this->chooseLanguage();
@@ -137,9 +137,12 @@ final class Installer
                 $step = (int) array_search($go, self::STEPS, true) <= $position ? $go : $step; // the sidebar leads back, never ahead
             } else {
                 $password = (string) ($_POST['password'] ?? '');
-                $errors = $this->validate($step, $data, $password, (string) ($_POST['password2'] ?? ''), $envDb !== null);
-                if ($errors !== []) {
-                    $step = $this->firstFailed($data, $password, (string) ($_POST['password2'] ?? ''), $envDb !== null, $step) ?? $step;
+                $password2 = (string) ($_POST['password2'] ?? '');
+                // every step up to this one is checked again (a crafted POST can skip a step): the first that fails is shown with its errors
+                $failedStep = $this->firstFailed($data, $password, $password2, $envDb !== null, $step);
+                if ($failedStep !== null) {
+                    $step = $failedStep;
+                    $errors = $this->validate($step, $data, $password, $password2, $envDb !== null);
                 } elseif ($step !== 'account') {
                     $step = self::STEPS[$position + 1];
                 } else {
@@ -162,7 +165,7 @@ final class Installer
         return $this->page('form', [
             'failed' => $failed, 'step' => $step, 'steps' => self::STEPS, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions, 'envDb' => $envDb !== null,
             'blueprints' => $blueprints, 'groups' => self::BUSINESS_GROUPS, 'looks' => $looks, 'topics' => $topics, 'chosenLook' => $chosen,
-            'preview' => $chosen !== '' && $data['blueprint'] !== 'export' && Preview::available() ? Preview::url($this->request->basePath(), $chosen, $data['site_language']) : '',
+            'preview' => $chosen !== '' && $data['blueprint'] !== 'export' && Preview::available() ? Preview::url($this->request->basePath(), $chosen, $data['site_language'], $this->register) : '',
         ]);
     }
 
@@ -311,7 +314,7 @@ final class Installer
         try {
             Migrator::migrate($config['db']);
             $this->createDefaultData($db, $d, $password, $extensions);
-            if ($d['blueprint'] !== '' && $d['blueprint'] !== 'export') {
+            if (isset(Blueprint::available()[$d['blueprint']])) {
                 // its collections (with their hidden list pages) and facts, in the language of the site
                 \Talea\Core\Language::runWith($d['site_language'], fn () => Blueprint::apply(new App($config), Blueprint::available()[$d['blueprint']]));
             }

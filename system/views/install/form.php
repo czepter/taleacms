@@ -78,6 +78,9 @@ $carried = array_diff_key(['site_name' => 1, 'site_language' => 1, 'time_zone' =
 <?php if ($errors !== []): ?>
 <p class="notice notice-error" role="alert"><?= e(t('Check the highlighted fields before you can continue.')) ?></p>
 <?php endif ?>
+<?php if ($envDb): foreach ($errors as $field => $message): if (str_starts_with($field, 'db_')): ?>
+<p class="notice notice-error" role="alert"><?= e($message) ?></p>
+<?php endif; endforeach; endif ?>
 <div class="wizard-card<?= $step === 'features' ? ' flush' : '' ?>">
 <?php require TALEA_SYSTEM . '/views/install/step-' . $step . '.php'; ?>
 <div class="buttons wizard-nav">
