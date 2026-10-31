@@ -374,6 +374,15 @@
             "GET",
             "HEAD"
         ],
+        "pattern": "/S/{code:[A-Za-z0-9]{6}}",
+        "when": "extension:short_links",
+        "handler": "Endpoints::shortLinkCode"
+    },
+    {
+        "methods": [
+            "GET",
+            "HEAD"
+        ],
         "pattern": "/{name:[A-Za-z0-9][A-Za-z0-9-]{1,59}}",
         "when": "extension:short_links",
         "handler": "Endpoints::shortLink"
