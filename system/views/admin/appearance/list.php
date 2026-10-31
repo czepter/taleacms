@@ -3,7 +3,7 @@
  * Site appearance: styles (ready-made sets of colours, fonts and corner rounding – DesignSystem::PRESETS) and the design system
  * in tabs (colours, dark mode, font and sizes, shapes, brand, import and export) with a live preview of the real home page.
  * Tabs are switched by image/admin.js (data-tabs); without the script the whole form is visible at once.
- * The preview is handled by image/admin.js (data-appearance): after every change it requests the token CSS (action nahled) and puts it into the iframe.
+ * The preview is handled by image/appearance.js (data-appearance): after every change it requests the token CSS (action nahled) and puts it into the iframe.
  *
  * @var Talea\Core\App $app
  * @var Talea\Admin\Modules\Appearance $module
@@ -301,3 +301,4 @@ $pairings = array_filter(DesignSystem::PAIRINGS, fn (array $p): bool => isset($l
 	<div class="appearance-frame" data-frame><iframe src="<?= e($app->url('') . '?preview=vzhled') ?>" title="<?= e(t('Home page preview')) ?>" data-preview></iframe></div>
 </aside>
 </div>
+<script src="<?= e($app->url('image/appearance.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
