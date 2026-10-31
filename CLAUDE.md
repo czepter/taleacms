@@ -92,11 +92,9 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   (`pt-BR`) for `<html lang>`, `hreflang`, feeds and structured data; `Language::base()` is the language (`pt`): a regional version uses the
   dictionary, number format and German register of its base; its own file (`pt-br.php`) holds only what differs and goes over the base one. Imports fold a regional code into the base language the
   site already has (`Language::forSite()`, `Language::column()`); `Language::fromForeign()` maps locales and foreign tags (`pt_BR`, `zh-TW`).
-- **Shared slugs** (setting `slugs_per_language`, off by default, Settings → General): a page, news item or category may share its address with the version in
-  another language (`/contact`, `/de/contact`). Language columns are `VARCHAR(35)`; pages, news and categories have a per-language unique key
-  `(language, slug)` next to the global one. `Core\Slug::switchPerLanguage` is the only writer of the setting (drops/restores the global keys; refuses to go
-  off while an address is shared; undoes the keys it already put back when a later table fails). Every "slug taken?" check asks `Slug::taken()` / `Slug::scope()`;
-  redirects of a version carry its prefix (`Slug::redirectPath`) while it is on.
+- **Slugs are unique per language version**: a page, news item or category may share its address with the version in another language (`/contact`, `/de/contact`).
+  Language columns are `VARCHAR(35)`; pages, news and categories have only the unique key `(language, slug)`. Every "slug taken?" check asks `Slug::taken()` / `Slug::scope()`;
+  redirects of a version carry its prefix (`Slug::redirectPath`).
 - Page cache (`Front\Cache`): anonymous visitors only; every admin POST calls `Cache::clear()`; `Auth::user()` must not start a session
   for an anonymous visitor.
 - The site address is the setting `site_url`, not the Host header; absolute addresses come from `$app->request->origin()`.

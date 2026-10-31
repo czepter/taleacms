@@ -556,7 +556,7 @@ final class Registrations
                     foreach ($db->all("SELECT slug, language FROM {collection_items} WHERE item_id IN ($in)", $group) as $version) {
                         $first = $offers !== [] ? self::counterpart($db, $offers[0], (string) $version['language']) : null; // the first offer in the language of this version
                         $to = $first !== null ? [$collection['slug'] . '/' . $first['slug'], (string) $first['language']] : [(string) $collection['slug'], (string) $version['language']];
-                        \Talea\Admin\Modules\Redirects::add($db, Slug::redirectPath($db, $collection['slug'] . '/' . $version['slug'], (string) $version['language']), Slug::redirectPath($db, $to[0], $to[1]));
+                        \Talea\Admin\Modules\Redirects::add($db, Slug::redirectPath($collection['slug'] . '/' . $version['slug'], (string) $version['language']), Slug::redirectPath($to[0], $to[1]));
                     }
                 }
             };

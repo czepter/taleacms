@@ -66,8 +66,8 @@ final class Redirects extends Module
         // as Front\Kernel::redirectRule matches: `about.html` also answers /about, `de/about` answers /de/about
         [$language, $path] = RedirectRules::address(new \Talea\Core\Settings($db), $path);
         // a prefixed path is looked up in its language version; the default language stays unscoped as before
-        [$sameLanguage, $languageParams] = $language === '' ? ['', []] : \Talea\Core\Slug::scope($db, $language);
-        [$sameItemLanguage] = $language === '' ? [''] : \Talea\Core\Slug::scope($db, $language, 'p.language');
+        [$sameLanguage, $languageParams] = $language === '' ? ['', []] : \Talea\Core\Slug::scope($language);
+        [$sameItemLanguage] = $language === '' ? [''] : \Talea\Core\Slug::scope($language, 'p.language');
         $s = explode('/', $path);
         $s[0] = $s[0] === \Talea\Core\Routes::newsSlug($db) ? 'news' : $s[0];
         if (in_array($s[0], \Talea\Front\Kernel::reservedSlugs(), true) && $s[0] !== 'news') {

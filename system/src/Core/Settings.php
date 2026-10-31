@@ -123,7 +123,6 @@ final class Settings
         'claude_instructions_seen' => '', // sha256 of the instructions an administrator last checked (#149, Core\ClaudeInstructions); never over MCP or in an export
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = news (Core\Routes)
-        'slugs_per_language' => '0', // a page, news item or category may share its slug with another language version (/contact, /en/contact); changed only by Core\Slug::switchPerLanguage
         'markdown_versions' => '1', // <page>.md, /news/<slug>.md, /<collection>/<item>.md
         'indexnow' => '0',            // after a news item is published, announce its URL to search engines (Bing, Seznam, Yandex)
         'indexnow_key' => '',
@@ -283,9 +282,6 @@ final class Settings
         }
         if ($key === 'news_slug') {
             Routes::setNewsSlug($value);
-        }
-        if ($key === 'slugs_per_language') {
-            Slug::setPerLanguage(null);
         }
     }
 }

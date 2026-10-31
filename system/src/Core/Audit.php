@@ -642,12 +642,12 @@ final class Audit
         if ($segments !== [] && in_array($segments[0], Language::additional($this->app->settings()), true)) {
             $language = array_shift($segments);
         }
-        // with slugs per language /en/contact and /contact may be two pages: the lookup stays in the link's version, and a
-        // redirect may be stored with the prefix (en/old) or, from before, without it (Front\Kernel looks up both)
-        [$sameLanguage, $languageParams] = Slug::scope($db, $language);
-        [$sameItemLanguage] = Slug::scope($db, $language, 'p.language');
+        // /en/contact and /contact may be two pages: the lookup stays in the link's version, and a redirect may be stored
+        // with the prefix (en/old) or, from before, without it (Front\Kernel looks up both)
+        [$sameLanguage, $languageParams] = Slug::scope($language);
+        [$sameItemLanguage] = Slug::scope($language, 'p.language');
         $rest = '/' . implode('/', $segments);
-        $redirects = array_values(array_unique([trim($path, '/'), ...(Slug::perLanguage($db) ? [trim($rest, '/')] : [])]));
+        $redirects = array_values(array_unique([trim($path, '/'), trim($rest, '/')]));
         [$internal] = Routes::internalPath($rest, $db);
         $s = $internal === '/' ? [] : explode('/', ltrim($internal, '/'));
         $ok = match (true) {
@@ -676,8 +676,8 @@ final class Audit
         $db = $this->app->db();
         // `about.html` is matched by a redirect for /about too (Front\Kernel::redirectRule), so it is the address of /about
         [$language, $rest] = RedirectRules::address($this->app->settings(), $path);
-        [$sameLanguage, $languageParams] = Slug::scope($db, $language);
-        [$sameItemLanguage] = Slug::scope($db, $language, 'p.language');
+        [$sameLanguage, $languageParams] = Slug::scope($language);
+        [$sameItemLanguage] = Slug::scope($language, 'p.language');
         [$internal] = Routes::internalPath('/' . $rest, $db);
         $s = $internal === '/' ? [] : explode('/', ltrim($internal, '/'));
 
