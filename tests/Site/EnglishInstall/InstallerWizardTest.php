@@ -68,14 +68,30 @@ final class InstallerWizardTest extends SiteTestCase
     public function testLastStepInstalls(): void
     {
         $site = $this->site();
-        $fields = ['step' => 'account', 'go' => 'next', 'site_name' => 'Wizard Ltd', 'site_language' => 'en', 'time_zone' => 'Europe/London', 'blueprint' => 'restaurant', 'look' => 'brasserie',
-            'username' => 'wizard', 'name' => 'Wiz', 'email' => '', 'password' => $site->password, 'password2' => 'other-password', 'extensions' => ['news'],
-            'db_driver' => TestDatabase::driver(), 'db_host' => TestDatabase::server()['host'], 'db_port' => TestDatabase::server()['port'], 'db_name' => $site->database . (TestDatabase::isSqlite() ? '.sqlite' : ''),
-            'db_user' => TestDatabase::server()['username'], 'db_password' => TestDatabase::server()['password'], 'db_prefix' => 'wz_'];
-        $this->assertStringContainsString('The passwords do not match.', $this->post($fields), 'the account step reports mismatching passwords');
-        $this->assertStringContainsString('Done, your website is running', $this->post(['password2' => $site->password] + $fields), 'the last step installs');
-        $this->assertSame('Wizard Ltd', $site->value("SELECT value FROM wz_settings WHERE name = 'site_name'"));
-        $this->assertSame(1, (int) $site->value("SELECT COUNT(*) FROM wz_collections WHERE preset = 'menu'"), 'the blueprint made its collections');
+        // a database of its own: index names are not prefixed on PostgreSQL and SQLite, so a second set of tables in the site's database collides
+        $database = $site->database . '_wz';
+        $sqliteFile = $site->path('storage/database/' . $database . '.sqlite'); // the installer creates an SQLite file there itself
+        $admin = TestDatabase::isSqlite() ? null : TestDatabase::admin();
+        if ($admin !== null) {
+            TestDatabase::create($admin, $database);
+        }
+        try {
+            $fields = ['step' => 'account', 'go' => 'next', 'site_name' => 'Wizard Ltd', 'site_language' => 'en', 'time_zone' => 'Europe/London', 'blueprint' => 'restaurant', 'look' => 'brasserie',
+                'username' => 'wizard', 'name' => 'Wiz', 'email' => '', 'password' => $site->password, 'password2' => 'other-password', 'extensions' => ['news'],
+                'db_driver' => TestDatabase::driver(), 'db_host' => TestDatabase::server()['host'], 'db_port' => TestDatabase::server()['port'], 'db_name' => $database . (TestDatabase::isSqlite() ? '.sqlite' : ''),
+                'db_user' => TestDatabase::server()['username'], 'db_password' => TestDatabase::server()['password'], 'db_prefix' => 'wz_'];
+            $this->assertStringContainsString('The passwords do not match.', $this->post($fields), 'the account step reports mismatching passwords');
+            $this->assertStringContainsString('Done, your website is running', $this->post(['password2' => $site->password] + $fields), 'the last step installs');
+            $pdo = $admin === null ? new \PDO('sqlite:' . $sqliteFile) : TestDatabase::connect($database);
+            $this->assertSame('Wizard Ltd', $pdo->query("SELECT value FROM wz_settings WHERE name = 'site_name'")->fetchColumn());
+            $this->assertSame(1, (int) $pdo->query("SELECT COUNT(*) FROM wz_collections WHERE preset = 'menu'")->fetchColumn(), 'the blueprint made its collections');
+        } finally {
+            unset($pdo);
+            if ($admin !== null) {
+                TestDatabase::drop($admin, $database);
+            }
+            array_map('unlink', glob($sqliteFile . '*') ?: []);
+        }
     }
 
     public function testACraftedLastStepCannotSkipEarlierSteps(): void
