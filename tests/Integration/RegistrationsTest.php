@@ -11,6 +11,13 @@ use Talea\Tests\Support\DatabaseTestCase;
 
 final class RegistrationsTest extends DatabaseTestCase
 {
+    /** Course mails build their links only on the site address (never on the Host header): the test site has one. */
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->app()->settings()->set('site_url', 'http://localhost');
+    }
+
     private function collection(string $preset, string $slug): array
     {
         $fields = Presets::fields($this->db(), Presets::all()[$preset]);
