@@ -67,11 +67,26 @@ final class ShortLinksAdminTest extends \Talea\Tests\Site\Support\SiteTestCase
 
     public function testEntryLinksOnEditScreens(): void
     {
-        $offer = $this->page('offer');
-        $this->assertPage('/admin.php?module=pages&action=edit&id=' . $offer, 200, 'module=short_links&amp;new=1&amp;target=page:' . $offer);
+        $offer = $this->page('deal');
+        $this->assertPage('/admin.php?module=pages&action=edit&id=' . $offer, 200, 'short_links?new=1&amp;target=page%3A' . $offer);
 
         $this->adminPost(self::MODULE . '&action=save', ['kind' => 'name', 'name' => 'flyer', 'target' => 'page:' . $offer], self::MODULE . '&new=1');
-        $this->assertPage('/admin.php?module=pages&action=edit&id=' . $offer, 200, 'module=short_links&amp;target=page:' . $offer);
+        $this->assertPage('/admin.php?module=pages&action=edit&id=' . $offer, 200, 'short_links?target=page%3A' . $offer);
         $this->assertPage(self::MODULE . '&new=1&target=page:' . $offer, 200, 'value="page:' . $offer . '" selected');
+    }
+
+    public function testNewsAndItemEditScreensOfferTheLink(): void
+    {
+        $site = $this->site();
+        $this->assertStringContainsString('"id"', $site->mcpText('create_news', ['title' => 'Spring sale', 'slug' => 'spring-sale', 'category' => 'News', 'content' => '<p>Hello</p>']));
+        $news = $site->publicId('news', (int) $site->value("SELECT news_id FROM tl_news WHERE slug = 'spring-sale'"));
+        $this->assertPage('/admin.php?module=news&action=edit&id=' . $news, 200, 'short_links?new=1&amp;target=news%3A' . $news);
+
+        $site->mcpText('create_collection', ['name' => 'Crew', 'item_pages' => true]);
+        $site->mcpText('save_collection_item', ['collection' => 'crew', 'name' => 'Jane Doe', 'slug' => 'jane', 'visible' => true]);
+        $item = $site->publicId('collection_items', (int) $site->value("SELECT item_id FROM tl_collection_items WHERE slug = 'jane'"));
+        $collection = $site->publicId('collections', (int) $site->value("SELECT collection_id FROM tl_collections WHERE slug = 'crew'"));
+        $this->assertPage('/admin.php?module=collections&action=item&id=' . $collection . '&item=' . $item, 200, 'short_links?new=1&amp;target=item%3A' . $item);
+        $this->assertPage(self::MODULE . '&new=1', 200, ['<optgroup label="News">', 'Spring sale', '<optgroup label="Crew">', 'Jane Doe']);
     }
 }

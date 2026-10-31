@@ -51,6 +51,7 @@ if ($detail && $p['item_id'] > 0 && $p['visible']) {
 	<span class="status <?= $p['visible'] ? 'status-live' : 'status-hidden' ?>"><?= e($p['visible'] ? t('Published') : t('hidden')) ?></span>
 <?php if ($detail): ?>
 	<span class="item-address"><?= e('/' . $address) ?></span>
+	<?= Talea\Admin\Modules\ShortLinks::entryLinks($app, 'item', $p['public_id']) ?>
 <?php endif ?>
 <?php if (!empty($p['updated_at'])): ?>
 	<span><?= e(t('edited %s', format_ago((string) $p['updated_at']))) ?></span>
