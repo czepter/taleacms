@@ -417,6 +417,7 @@ final class Style
             $rows = [];
             $image = null;
             $focal = null;
+            $gradient = null;
             $animations = [];
             if (isset($properties['text_style'])) {
                 // the typography style first: a size or weight set separately fine-tunes it (the later declaration wins)
@@ -453,6 +454,9 @@ final class Style
                     continue;
                 }
                 $rows[] = $property . ': ' . $css;
+                if ($key === 'gradient') {
+                    $gradient = $css; // over a background image of the same state it is a layer on the photo (darken at the bottom), not lost
+                }
                 if ($key === 'focal_point') {
                     $rows[] = '--tl-focal: ' . $css; // read by the file's own point (ImageHtml) and by an image inside a figure or link
                 }
@@ -470,7 +474,7 @@ final class Style
                     $image = $base . '/' . $image;
                 }
                 // the background image always covers the area; an optional overlay (--tl-overlay) goes over it for text legibility
-                $rows[] = 'background-image: linear-gradient(var(--tl-overlay, transparent), var(--tl-overlay, transparent)), url("' . $image . '")';
+                $rows[] = 'background-image: ' . ($gradient !== null ? $gradient . ', ' : '') . 'linear-gradient(var(--tl-overlay, transparent), var(--tl-overlay, transparent)), url("' . $image . '")';
                 $rows[] = 'background-size: cover';
                 $rows[] = 'background-position: ' . ($focal ?? 'center');
             } elseif ($focal !== null) {
