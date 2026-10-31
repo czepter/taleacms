@@ -105,6 +105,7 @@ final class Catalog
         'list_media_folders' => ['read', ''],
         'save_media_folder' => ['write', ''],
         'delete_media_folder' => ['destructive', ''],
+        'move_media_folder' => ['write', ''],
         'move_media' => ['write', ''],
         'list_media_without_alt' => ['read', ''],
         // Enquiries and pop-ups

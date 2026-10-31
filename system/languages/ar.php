@@ -268,7 +268,6 @@ return [
     'Craftsmanship' => 'الحرفية',
     'Craftsmanship you can rely on' => 'حرفية يمكنك الاعتماد عليها',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'أنشئ أولًا مجموعة فروع (المجموعات ← فروع جديدة)، أو اختر مجموعة في لوحة المحتوى.',
-    'Crop focal point' => 'قص نقطة التركيز',
     'Cup' => 'كأس',
     'Customer' => 'العميل',
     'Customer reviews' => 'تقييمات العملاء',

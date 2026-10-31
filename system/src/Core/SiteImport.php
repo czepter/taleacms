@@ -419,6 +419,9 @@ final class SiteImport
             $table = $tables[$state['table']];
             $file = self::workFolder((string) $state['file'], $this->folder) . '/' . $table . '.ndjson';
             if (!is_file($file) || $state['position'] >= (int) ($state['counts'][$table] ?? 0)) {
+                if ($table === 'media_folders' && is_file($file)) {
+                    $this->linkFolders($file); // every folder exists now: a parent may come after its child in the file
+                }
                 $state['table']++;
                 $state['position'] = 0;
                 continue;
@@ -604,6 +607,35 @@ final class SiteImport
         }
 
         return true;
+    }
+
+    /** The second pass over the imported folders: parent_id by the parent's public id; an unknown parent, a cycle or a skipped row leaves the folder at the top level. */
+    private function linkFolders(string $file): void
+    {
+        // streamed and resolved in memory: MediaFolders::move() aggregates every folder per call, far too slow for thousands
+        $parents = [];
+        $exists = array_flip(array_map('intval', array_column($this->db->all('SELECT folder_id FROM {media_folders}'), 'folder_id'))); // a malformed archive may name a row that was skipped: the foreign key would refuse it
+        foreach (new \SplFileObject($file) as $line) {
+            $r = json_decode((string) $line, true);
+            $id = is_array($r) ? $this->ref('media_folders', $r['public_id'] ?? null) : 0;
+            $parent = is_array($r) ? $this->ref('media_folders', $r['parent_id'] ?? null) : 0;
+            if (isset($exists[$id], $exists[$parent]) && $id !== $parent) {
+                $parents[$id] = $parent;
+            }
+        }
+        foreach (array_keys($parents) as $id) {
+            $seen = [];
+            for ($at = $parents[$id]; $at > 0 && !isset($seen[$at]); $at = $parents[$at] ?? 0) {
+                if ($at === $id) {
+                    unset($parents[$id]); // closes a cycle: this folder stays on the top level
+                    break;
+                }
+                $seen[$at] = true;
+            }
+        }
+        foreach ($parents as $id => $parent) {
+            $this->db->update('media_folders', ['parent_id' => $parent], ['folder_id' => $id]);
+        }
     }
 
     /** Remembers a person the archive names (the author of a news item, a person who takes bookings), once. */

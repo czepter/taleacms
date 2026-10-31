@@ -48,14 +48,21 @@ trait MediaTools
         return array_map(fn (array $o): array => $this->medium($o), $db->all('SELECT * FROM {media} WHERE ' . implode(' AND ', $where) . ' ORDER BY media_id DESC LIMIT ?', $params));
     }
 
-    /** list_media_folders: the same list as the folders in the admin Media */
+    /** list_media_folders: the folders of Media with their place in the tree (parent, path = names from the top level down) */
     private function toolListMediaFolders(string $name, array $a): mixed
     {
-        return array_map(fn (array $f): array => ['id' => (int) $f['folder_id'], 'name' => $f['name'], 'files' => (int) $f['count']],
-            $this->app->db()->all('SELECT f.folder_id, f.name, (SELECT COUNT(*) FROM {media} m WHERE m.folder_id = f.folder_id) AS count FROM {media_folders} f ORDER BY f.name'));
+        $all = \Talea\Core\MediaFolders::all($this->app->db());
+
+        return array_map(fn (array $f): array => [
+            'id' => $f['folder_id'], 'name' => $f['name'], 'parent' => $f['parent_id'],
+            'path' => array_column(\Talea\Core\MediaFolders::path($all, $f['folder_id']), 'name'), 'files' => $f['count'],
+        ], \Talea\Core\MediaFolders::tree($all));
     }
 
-    /** save_media_folder: create, or rename with id (as Admin\Modules\Media::actionFolder) */
+    /**
+     * save_media_folder: create (optionally inside `parent`), or rename with id (as Admin\Modules\Media::actionFolder). With id, a `parent`
+     * that is given (empty = top level; null = leave) moves the folder too – first, in one step with the rename.
+     */
     private function toolSaveMediaFolder(string $name, array $a): mixed
     {
         $db = $this->app->db();
@@ -64,23 +71,48 @@ trait MediaTools
             throw new \InvalidArgumentException('The folder needs a name.');
         }
         $id = (int) ($a['id'] ?? 0);
-        if ($id > 0) {
+        $parent = (int) ($a['parent'] ?? 0) ?: null;
+        if ($id > 0 && ($a['parent'] ?? null) !== null) {
+            $this->needToMoveFolders();
+            \Talea\Core\MediaFolders::move($db, $id, $parent, $folderName);
+        } elseif ($id > 0) {
             $db->update('media_folders', ['name' => $folderName], ['folder_id' => $id]);
+            $parent = $db->value('SELECT parent_id FROM {media_folders} WHERE folder_id = ?', [$id]);
+            $parent = $parent === null ? null : (int) $parent;
         } else {
-            $id = $db->insert('media_folders', ['name' => $folderName]);
+            $id = $db->insert('media_folders', ['name' => $folderName, 'parent_id' => $parent]);
         }
 
-        return ['id' => $id, 'name' => $folderName];
+        return ['id' => $id, 'name' => $folderName, 'parent' => $parent];
     }
 
-    /** delete_media_folder: the files stay, in no folder (the foreign key sets NULL) */
+    /** A folder moves with everything in it: editors and administrators, not a news author or a drafts-only connection. */
+    private function needToMoveFolders(): void
+    {
+        if (!$this->app->auth()->canPublish()) {
+            throw new \DomainException('Moving a folder is for editors and administrators.');
+        }
+    }
+
+    /** move_media_folder: into another folder, or to the top level; a cycle is refused */
+    private function toolMoveMediaFolder(string $name, array $a): mixed
+    {
+        $this->needToMoveFolders();
+        $id = (int) ($a['id'] ?? 0);
+        $parent = (int) ($a['parent'] ?? 0) ?: null;
+        \Talea\Core\MediaFolders::move($this->app->db(), $id, $parent);
+
+        return ['id' => $id, 'parent' => $parent];
+    }
+
+    /** delete_media_folder: its files and subfolders move up to its parent */
     private function toolDeleteMediaFolder(string $name, array $a): mixed
     {
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('A folder is deleted by an administrator.');
         }
         $id = (int) ($a['id'] ?? 0);
-        $this->app->db()->delete('media_folders', ['folder_id' => $id]);
+        \Talea\Core\MediaFolders::delete($this->app->db(), $id);
 
         return ['deleted' => $id];
     }
@@ -245,6 +277,7 @@ trait MediaTools
         }
         $temporary = tempnam(sys_get_temp_dir(), 'talea-mcp-');
         file_put_contents($temporary, $this->fileContent($a));
+        $hash = sha1_file($temporary) ?: null; // the duplicate check of the Media upload must know the file that is in Media now
         try {
             $new = \Talea\Core\Images::replace($file['image_path'], $temporary, (string) $file['name']);
         } catch (\RuntimeException $e) {
@@ -252,7 +285,7 @@ trait MediaTools
         } finally {
             @unlink($temporary);
         }
-        $db->update('media', $new + ['color' => ''], ['media_id' => $id]);
+        $db->update('media', $new + ['color' => '', 'source_sha1' => $hash], ['media_id' => $id]);
         \Talea\Front\Cache::clear();
 
         return $this->medium($new + $file);

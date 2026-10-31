@@ -719,7 +719,7 @@ await step('background (mouse): colour, uploaded and picked image, "darken at th
   expect((await undoDepth(page)) === ++depth && /bgup/.test((await bgStyle(page, 'cs1')).background_image), `upload: ${JSON.stringify(await bgStyle(page, 'cs1'))}`);
   // choose from Media replaces it
   await handle(page, 'bg-pick').click();
-  await page.locator('dialog.gallery-window[open] .gallery-item', { hasText: 'Pick gt-b' }).click({ timeout: 8000 }).catch(async (e) => { throw new Error(e.message.split('\n')[0] + ' ' + (await page.evaluate(() => { const d = document.querySelector('dialog.gallery-window'); return d ? d.open + ' ' + d.innerText.slice(0, 300) : typeof window.taleaPickImage + ' no dialog'; }))); });
+  await page.locator('dialog.gallery-window[open] .gallery-item', { hasText: 'Pick gt-b' }).dblclick({ timeout: 8000 }).catch(async (e) => { throw new Error(e.message.split('\n')[0] + ' ' + (await page.evaluate(() => { const d = document.querySelector('dialog.gallery-window'); return d ? d.open + ' ' + d.innerText.slice(0, 300) : typeof window.taleaPickImage + ' no dialog'; }))); });
   await until(page, () => /gt-b/.test(window.taleaBuilder.find('cs1').p.style.base.background_image || ''), null, 'the picked background image is set');
   await popoverAfterSave(page);
   expect((await undoDepth(page)) === ++depth, 'choosing from Media is not exactly one undo step');
@@ -850,7 +850,7 @@ await step('replace (toolbar): a file picked from Media brings its description a
   await pick(page, 'cimg');
   const oldSrc = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cimg').content.src;
   await handle(page, 'replace').click();
-  await page.locator('dialog.gallery-window[open] .gallery-item', { hasText: 'Pick gt-b' }).click({ timeout: 8000 });
+  await page.locator('dialog.gallery-window[open] .gallery-item', { hasText: 'Pick gt-b' }).dblclick({ timeout: 8000 });
   await until(page, (old) => window.taleaBuilder.find('cimg').p.content.src !== old, oldSrc, 'the picked file replaced the image');
   const alt = find((await page.evaluate(() => window.taleaBuilder.state.build)).children, 'cimg').content.alt;
   expect(alt === 'Pick gt-b', `the alt after Replace is ${JSON.stringify(alt)}`);

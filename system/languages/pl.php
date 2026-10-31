@@ -261,7 +261,6 @@ return [
     'Craftsmanship' => 'Rzemiosło',
     'Craftsmanship you can rely on' => 'Solidne rzemiosło, na którym można polegać',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Najpierw utwórz kolekcję Oddziały (Kolekcje → Nowe oddziały) albo wybierz kolekcję w panelu Treść.',
-    'Crop focal point' => 'Punkt centralny kadrowania',
     'Cup' => 'Filiżanka',
     'Customer' => 'Klient',
     'Customer reviews' => 'Opinie klientów',
