@@ -462,15 +462,16 @@ export function ungroup() {
 	applyChange(() => { const kids = n.p.children; n.siblings.splice(n.i, 1, ...kids); state.selected = kids[0].id; state.multi = kids.slice(1).map((k) => k.id); });
 	setState(T('Container removed, its elements stay.'));
 }
-/** Properties of the style for the current breakpoint (desktop, tablet, phone) – one history step. list = [[id, {property: value | ''}], …]. */
+/** Properties of the style for the current breakpoint (desktop, tablet, phone) – one history step. list = [[id, {property: value | ''}, breakpoint?], …];
+ * a breakpoint in an entry is the one the write was meant for (a file that finished uploading after the device switcher moved), several entries may name several. */
 export function writeStyle(list, key) {
 	applyChange(() => {
-		list.forEach(([id, props]) => {
+		list.forEach(([id, props, bp]) => {
 			const n = find(id);
 			if (!n) { return; }
 			const p = n.p;
 			p.style = p.style && !Array.isArray(p.style) ? p.style : {};
-			const st = state.bp;
+			const st = bp || state.bp;
 			p.style[st] = p.style[st] || {};
 			for (const [k, v] of Object.entries(props)) { if (v === '' || v === null || v === undefined) { delete p.style[st][k]; } else { p.style[st][k] = String(v); } }
 			if (!Object.keys(p.style[st]).length) { delete p.style[st]; }

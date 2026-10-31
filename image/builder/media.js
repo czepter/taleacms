@@ -6,15 +6,18 @@
  * ratio strip (Original, 1:1 … 3:4) with Reset, Cancel and Done; arrows, Home, 1–7, Enter and Esc do the same from the keyboard.
  *
  * The canvas follows live through temporary inline values on the node; Done writes ONE history step with focal_point, aspect_ratio (and object_fit
- * cover when a ratio crops) to the style of the CURRENT screen size. Cancel writes nothing. The object-position maths (frame W×H, photo w×h,
+ * cover when a ratio crops) to the style of the CURRENT screen size. Cancel writes nothing.
+ * The same mode places the photo BEHIND a section or container (phase C2, the Background popover of background.js): the frame is the element's box, the
+ * photo is its background image at cover scale, there is no ratio strip and Done writes background_focal.
+ * Also here: replacing a photo or a background by dropping a file on it (phase C3) and the one way a picked file replaces an image (C.replaceImage). The object-position maths (frame W×H, photo w×h,
  * scale s = max(W/w, H/h), at rest the photo's left is (W − dispW) · fx) is the maths of the browser itself; nothing is recomputed on the server. */
-import { T, state, on, find, selection, selectedIds, writeStyle, setState, ownValue, inheritedValue } from './core.js';
+import { T, TYPY, state, on, find, selection, selectedIds, writeStyle, applyChange, setState, ownValue, inheritedValue, effectiveValue } from './core.js';
 import { previewDoc, endGesture } from './canvas.js';
 import { C } from './overlay.js';
 
 const mk = C.mk;
 
-const KEYS = ['focal_point', 'aspect_ratio', 'object_fit'];
+const KEYS = { image: ['focal_point', 'aspect_ratio', 'object_fit'], background: ['background_focal'] };
 /** key (the choices of Style aspect_ratio), button text, title */
 const RATIOS = [['', T('Original'), T('Original shape (1)')], ['1', '1:1', T('Square (2)')], ['4/3', '4:3', '4 : 3 (3)'], ['3/2', '3:2', '3 : 2 (4)'],
 	['16/9', '16:9', '16 : 9 (5)'], ['21/9', '21:9', '21 : 9 (6)'], ['3/4', '3:4', T('Portrait, 3 : 4 (7)')]];
@@ -54,7 +57,22 @@ function target(doc, id) {
 	const src = n && n.p.content.src;
 	if (!n || n.p.type !== 'image' || !src || isSvg(src) || n.p.locked || !node || node.closest('[data-tl-lock]')) { return null; }
 	const img = node.tagName === 'IMG' ? node : node.querySelector('img');
-	return img ? { p: n.p, node, img } : null;
+	return img ? { kind: 'image', p: n.p, node, img } : null;
+}
+/** The address of the photo behind an element as the canvas resolves it ('' = none). */
+export function backgroundUrl(node) {
+	const urls = Array.from(node.ownerDocument.defaultView.getComputedStyle(node).backgroundImage.matchAll(/url\(["']?([^"')]+)["']?\)/g));
+	return urls.length ? urls[urls.length - 1][1] : '';
+}
+/** A section or a container: the elements a photo, a colour or a video can lie behind. */
+export const isSectionOrContainer = (p) => p.type === 'section' || !!(TYPY[p.type] && TYPY[p.type].container);
+/** The element a photo lies behind (a section or container with a background image in the current screen size) and that photo's address as the canvas resolves it. */
+function backgroundTarget(doc, id) {
+	const n = id && find(id);
+	const node = n && C.nodeOf(doc, id);
+	if (!n || n.p.locked || !node || node.closest('[data-tl-lock]') || !effectiveValue(n.p, 'background_image')) { return null; }
+	const url = backgroundUrl(node);
+	return url ? { kind: 'background', p: n.p, node, url, fixed: doc.defaultView.getComputedStyle(node).backgroundAttachment === 'fixed' } : null;
 }
 /** object-fit: contain shows the whole photo, so there is nothing to crop. */
 const contained = (p) => (ownValue(p, state.bp, 'object_fit') || inheritedValue(p, 'object_fit')) === 'contain';
@@ -66,19 +84,20 @@ let crop = null;
 const idle = () => !crop && !state.gesture && !state.placing && !state.editingCanvas;
 
 const current = (key) => (crop.work[key] !== undefined ? crop.work[key] : crop.inherited[key]);
-const focal = () => parseFocal(current('focal_point')) || [50, 50];
+const focal = () => parseFocal(current(crop.focalKey)) || [50, 50];
 const label = () => { const [x, y] = focal(); return T('Focal point %s %, %s %').replace('%s', String(x)).replace('%s', String(y)); };
 
 /** The node shows the state of crop mode live; the temporary values go away with the canvas that the saved draft brings (or with restore). */
 function apply() {
 	const [x, y] = focal();
 	const s = crop.node.style;
+	if (crop.kind === 'background') { s.backgroundPosition = x + '% ' + y + '%'; return; }
 	s.aspectRatio = current('aspect_ratio') || 'auto';
 	s.objectFit = 'cover';
 	s.setProperty('--tl-focal', x + '% ' + y + '%');
 	s.objectPosition = x + '% ' + y + '%';
 }
-const measure = () => { crop.frame = C.page(crop.img); };
+const measure = () => { crop.frame = C.page(crop.kind === 'background' ? crop.node : crop.img); };
 
 function place(e, left, top, width, height) {
 	e.style.left = C.round(left) + 'px';
@@ -118,7 +137,8 @@ function placeToolbar() {
 	const m = C.factor();
 	const b = c.tb.getBoundingClientRect();
 	let top = c.frame.top - b.height - 6 * m;
-	if (top < c.view.scrollY + 4 * m) { top = c.frame.bottom + 6 * m; } // the frame touches the top of the view: the toolbar goes below it
+	// the frame touches the top of the view: the toolbar goes below it (below a tall section it would be out of view: it stays at the top of the view)
+	if (top < c.view.scrollY + 4 * m) { top = c.kind === 'background' ? c.view.scrollY + 4 * m : c.frame.bottom + 6 * m; }
 	place(c.tb, Math.max(4 * m, Math.min(c.frame.left, c.doc.documentElement.clientWidth + c.view.scrollX - b.width - 4 * m)), Math.max(0, top));
 }
 
@@ -134,7 +154,7 @@ function sync() {
 }
 
 function setFocal(x, y, announce) {
-	crop.work.focal_point = clamp(Math.round(x), 0, 100) + '% ' + clamp(Math.round(y), 0, 100) + '%';
+	crop.work[crop.focalKey] = clamp(Math.round(x), 0, 100) + '% ' + clamp(Math.round(y), 0, 100) + '%';
 	apply();
 	draw();
 	if (announce) { C.announce(label()); }
@@ -151,7 +171,7 @@ function pickRatio(key) {
 	C.announce(crop.tb.querySelector('[data-ratio="' + key + '"]').getAttribute('data-title'));
 }
 function reset() {
-	crop.work.focal_point = undefined;
+	crop.work[crop.focalKey] = undefined;
 	crop.work.aspect_ratio = undefined;
 	apply();
 	measure();
@@ -171,9 +191,11 @@ function close(commit) {
 	if (commit && state.bp === c.bp) {
 		// a shape crops only with cover; Original again leaves the fit alone when this step was the one that added it
 		const ratio = c.work.aspect_ratio || c.inherited.aspect_ratio;
-		if (ratio && !c.work.object_fit && !c.inherited.object_fit) { c.work.object_fit = 'cover'; } else if (!ratio && c.work.object_fit === 'cover' && c.orig.object_fit === undefined) { c.work.object_fit = undefined; }
+		if (c.kind === 'image') {
+			if (ratio && !c.work.object_fit && !c.inherited.object_fit) { c.work.object_fit = 'cover'; } else if (!ratio && c.work.object_fit === 'cover' && c.orig.object_fit === undefined) { c.work.object_fit = undefined; }
+		}
 		const props = {};
-		KEYS.forEach((k) => { if (c.work[k] !== c.orig[k]) { props[k] = c.work[k] === undefined ? '' : c.work[k]; } });
+		KEYS[c.kind].forEach((k) => { if (c.work[k] !== c.orig[k]) { props[k] = c.work[k] === undefined ? '' : c.work[k]; } });
 		if (Object.keys(props).length) { writeStyle([[c.id, props]]); wrote = true; } // the temporary values stay until the saved draft swaps the canvas (as in phase A)
 	}
 	if (!wrote) { if (c.saved === null) { c.node.removeAttribute('style'); } else { c.node.setAttribute('style', c.saved); } }
@@ -195,7 +217,7 @@ function onKey(e) {
 	if (e.key === 'Escape') { close(false); } else if (e.key === 'Enter' && !onButton && !mod) { close(true); } else if (e.key in STEP && !mod && !e.altKey) {
 		const step = e.shiftKey ? 1 : 5;
 		setFocal(x + STEP[e.key][0] * step, y + STEP[e.key][1] * step, true);
-	} else if (e.key === 'Home' && !mod) { setFocal(50, 50, true); } else if (/^[1-7]$/.test(e.key) && !mod && !e.altKey) { pickRatio(RATIOS[+e.key - 1][0]); } else { handled = false; }
+	} else if (e.key === 'Home' && !mod) { setFocal(50, 50, true); } else if (/^[1-7]$/.test(e.key) && !mod && !e.altKey && crop.kind === 'image') { pickRatio(RATIOS[+e.key - 1][0]); } else { handled = false; }
 	if (handled) { e.preventDefault(); e.stopPropagation(); } else if (mod) { e.stopPropagation(); } // undo, copy, delete … wait until the crop is closed
 }
 
@@ -231,22 +253,24 @@ function pointer(photo) {
 
 function open(t) {
 	const doc = t.node.ownerDocument;
-	const [w, h] = t.size || [t.img.naturalWidth, t.img.naturalHeight];
+	const background = t.kind === 'background';
+	const [w, h] = t.size || (background ? [0, 0] : [t.img.naturalWidth, t.img.naturalHeight]);
 	if (!w || !h) {
 		// a lazy image below the fold has not been fetched: the same file is loaded once more (from the cache afterwards) just to learn its size
 		const probe = new doc.defaultView.Image();
 		probe.onload = () => { if (!crop && probe.naturalWidth) { open(Object.assign({}, t, { size: [probe.naturalWidth, probe.naturalHeight] })); } };
 		probe.onerror = () => setState(T('The image could not be loaded.'), true);
-		probe.src = t.img.currentSrc || t.img.src;
+		probe.src = background ? t.url : t.img.currentSrc || t.img.src;
 		return true;
 	}
 	const p = t.p;
 	const orig = {};
 	const inherited = {};
-	KEYS.forEach((k) => { orig[k] = ownValue(p, state.bp, k); inherited[k] = inheritedValue(p, k); });
-	// the file's own point is what the image shows without a placement (ImageHtml writes it as object-position:var(--tl-focal, x% y%))
-	const file = parseFocal(t.img.getAttribute('style'), /object-position:\s*var\(--tl-focal,\s*(\d+)%\s+(\d+)%\)/);
-	inherited.focal_point = inherited.focal_point || (file ? file[0] + '% ' + file[1] + '%' : '50% 50%');
+	const focalKey = background ? 'background_focal' : 'focal_point';
+	KEYS[t.kind].forEach((k) => { orig[k] = ownValue(p, state.bp, k); inherited[k] = inheritedValue(p, k); });
+	// the file's own point is what the image shows without a placement (ImageHtml writes it as object-position:var(--tl-focal, x% y%)); a background has none: the centre
+	const file = background ? null : parseFocal(t.img.getAttribute('style'), /object-position:\s*var\(--tl-focal,\s*(\d+)%\s+(\d+)%\)/);
+	inherited[focalKey] = inherited[focalKey] || (file ? file[0] + '% ' + file[1] + '%' : '50% 50%');
 	const root = C.ensure(doc);
 	root.replaceChildren(); // the handles and the toolbar of the element step aside
 	C.items = [];
@@ -257,7 +281,7 @@ function open(t) {
 	const box = mk(doc, 'div', { class: 'bdc bdc-settle' });
 	const catcher = mk(doc, 'div', { class: 'bdc-catch' });
 	catcher.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); }); // a press beside the photo neither selects nor drags
-	const photo = mk(doc, 'img', { class: 'bdc-photo', src: t.img.currentSrc || t.img.src, alt: '', draggable: 'false' });
+	const photo = mk(doc, 'img', { class: 'bdc-photo', src: background ? t.url : t.img.currentSrc || t.img.src, alt: '', draggable: 'false' });
 	const win = mk(doc, 'div', { class: 'bdc-win' });
 	const cross = mk(doc, 'div', { class: 'bdc-cross', tabindex: '0', role: 'slider', 'aria-label': T('Focal point'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'data-bdo': 'crop-focal' });
 	const text = mk(doc, 'div', { class: 'bdc-label', 'aria-hidden': 'true' });
@@ -272,19 +296,19 @@ function open(t) {
 		return b;
 	};
 	const words = (s) => { const x = mk(doc, 'span'); x.textContent = s; return x; };
-	RATIOS.forEach(([key, name, title]) => {
+	(background ? [] : RATIOS).forEach(([key, name, title]) => {
 		const b = button('crop-ratio-' + (key || 'original').replace('/', '-'), words(name), title, () => pickRatio(key));
 		b.setAttribute('data-ratio', key);
 		b.setAttribute('data-title', title);
 		b.setAttribute('aria-label', name === T('Original') ? title : name);
 	});
-	tb.append(mk(doc, 'span', { class: 'bdo-sep', role: 'separator' }));
-	button('crop-reset', words(T('Reset')), T('Remove the focal point and the shape of this screen size'), reset);
+	if (!background) { tb.append(mk(doc, 'span', { class: 'bdo-sep', role: 'separator' })); }
+	button('crop-reset', words(T('Reset')), background ? T('Remove the focal point of this screen size') : T('Remove the focal point and the shape of this screen size'), reset);
 	button('crop-cancel', words(T('Cancel')), T('Cancel (Esc)'), () => close(false));
 	button('crop-done', words(T('Done')), T('Done (Enter)'), () => close(true), 'bdc-done');
 	root.append(box, tb);
 
-	crop = { id: p.id, p, doc, view: doc.defaultView, node: t.node, img: t.img, w, h, bp: state.bp, saved: t.node.getAttribute('style'), orig, inherited, work: Object.assign({}, orig),
+	crop = { id: p.id, p, kind: t.kind, focalKey, doc, view: doc.defaultView, node: t.node, img: t.img, w, h, bp: state.bp, saved: t.node.getAttribute('style'), orig, inherited, work: Object.assign({}, orig),
 		box, photo, win, cross, label: text, tb, drag: null, frame: null, size: null };
 	pointer(photo);
 	apply();
@@ -305,6 +329,83 @@ C.crop = () => {
 	const doc = previewDoc();
 	const t = doc && idle() && selectedIds().length === 1 ? target(doc, state.selected) : null;
 	return !!t && !contained(t.p) && open(t);
+};
+
+/** The Background popover asks for the focal point of a background: true when crop mode opened (false: no photo, a fixed one, or something else is going on). */
+C.cropBackground = (id) => {
+	const doc = previewDoc();
+	const t = doc && idle() ? backgroundTarget(doc, id) : null;
+	return !!t && !t.fixed && open(t);
+};
+C.cropBackgroundPossible = (id) => { const doc = previewDoc(); const t = doc && backgroundTarget(doc, id); return t ? (t.fixed ? 'fixed' : true) : false; };
+
+/* ---------- replacing a photo (compose phase C3) ---------- */
+
+const NARROWER = { base: ['tablet', 'mobile'], tablet: ['mobile'], mobile: [] };
+/**
+ * The style writes that put a new photo behind an element at screen size bp. The focal point was for the old photo: it goes from bp and from every narrower size
+ * that takes the photo from it (up to the first one with a photo of its own).
+ */
+export function backgroundWrites(p, bp, url) {
+	const writes = [[p.id, { background_image: url, background_focal: '' }, bp]];
+	for (const size of NARROWER[bp] || []) {
+		if (ownValue(p, size, 'background_image')) { break; }
+		if (ownValue(p, size, 'background_focal')) { writes.push([p.id, { background_focal: '' }, size]); }
+	}
+	return writes;
+}
+
+/**
+ * A new file for an image element: the address changes, the placement points (focal_point, for the OLD photo) go in every screen size, the shape stays.
+ * Media keeps the alt of an image in its name (the description is a caption). A file picked from Media (source 'media') brings its alt when it has one;
+ * a file just uploaded or dropped (source 'upload') has only its file name: the old alt stays and the status line says to check it, an empty alt takes the name.
+ * The Replace button of the toolbar (picked file) and a file dropped on the image (uploaded file) end here; one history step.
+ */
+C.replaceImage = (target, o, source) => {
+	const n = find(target.id);
+	if (!n || n.p.type !== 'image') { return; }
+	const p = n.p;
+	const brings = source === 'media' && !!o.name;
+	const keep = !!p.content.alt && !brings;
+	applyChange(() => {
+		p.content.src = o.url;
+		if (brings || (!p.content.alt && o.name)) { p.content.alt = o.name; }
+		if (p.style && !Array.isArray(p.style)) {
+			Object.keys(p.style).forEach((bp) => { if (p.style[bp] && typeof p.style[bp] === 'object') { delete p.style[bp].focal_point; if (!Object.keys(p.style[bp]).length) { delete p.style[bp]; } } });
+		}
+	});
+	setState(keep ? T('Image replaced. Check that the description still fits.') : T('Image replaced.'));
+};
+
+/** What a lone file dropped at the pointer replaces instead of being inserted (overlay.js asks while dragging and when dropped); null = today's insertion. */
+C.replaceTarget = (doc, e, types) => {
+	if (e.shiftKey || types.length !== 1 || !idle()) { return null; }
+	const image = /^image\//.test(types[0]);
+	if (!image && !/^video\/(mp4|webm)$/.test(types[0])) { return null; }
+	const found = (kind, id, node, label) => ({ kind, id, node, label });
+	for (let node = e.target.closest && e.target.closest('[data-tl-id]'); node; node = node.parentElement && node.parentElement.closest('[data-tl-id]')) {
+		if (node.closest('[data-tl-lock]')) { return null; } // locked elements and components: the file is inserted, as before
+		const n = find(node.getAttribute('data-tl-id'));
+		if (!n || n.p.locked) { continue; }
+		const p = n.p;
+		if (image && p.type === 'image' && p.content.src) { return found('image', p.id, node, T('Replace image · Shift: insert')); }
+		if (image && isSectionOrContainer(p) && effectiveValue(p, 'background_image')) { return found('background', p.id, node, T('Replace background · Shift: insert')); }
+		if (!image && p.type === 'section' && p.content.background_video) { return found('video', p.id, node, T('Replace background · Shift: insert')); }
+	}
+	return null;
+};
+/** The uploaded file takes the place; one history step. bp is the screen size at the moment of the drop: the upload takes its time, the switcher may have moved on. */
+C.replaceWith = (hit, o, bp) => {
+	const n = find(hit.id);
+	if (!n) { return; }
+	if (hit.kind === 'image') { C.replaceImage(n.p, o, 'upload'); return; }
+	if (hit.kind === 'video') {
+		applyChange(() => { n.p.content.background_video = o.url; });
+		setState(T('Background replaced.'));
+		return;
+	}
+	writeStyle(backgroundWrites(n.p, bp, o.url));
+	setState(T('Background replaced.'));
 };
 
 C.extras.push(({ doc, many, p, add, separator, icon }) => {

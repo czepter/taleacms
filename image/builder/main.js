@@ -6,7 +6,7 @@
  *   canvas.js     the canvas (the real page in an iframe), dropping on it, the clipboard
  *   panels.js     the top bar (with the tour) and the left panel (Add, Structure)
  *   inspector.js  the right panel: content, style, advanced, shared classes
- *   overlay.js, handles.js, keys.js, compose.js, media.js   direct manipulation on the canvas (docs/specs/visual-compose.md)
+ *   overlay.js, handles.js, keys.js, compose.js, media.js, background.js   direct manipulation on the canvas (docs/specs/visual-compose.md)
  *   structured.js the control of the schema.org element's data
  *   form-logic.js the rules and results of a form (its logic overlay)
  *
@@ -24,6 +24,7 @@ import './handles.js';
 import './keys.js';
 import './compose.js';
 import './media.js';
+import './background.js';
 
 Object.assign(ui, { redrawBar, redrawLeft, redrawTree, hint, redrawRight, refreshPreview, markInPreview, showSpot, endPlacing, copy, pasteFromClipboard });
 

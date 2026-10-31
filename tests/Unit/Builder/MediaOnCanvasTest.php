@@ -34,6 +34,14 @@ final class MediaOnCanvasTest extends TestCase
         $this->assertStringContainsString('background-position: center;', Style::css('#x', ['mobile' => ['background_image' => 'media/b.jpg']]), 'no point: the centre, as before');
     }
 
+    public function testGradientIsALayerOverABackgroundImage(): void
+    {
+        $darken = 'linear-gradient(180deg, transparent, rgb(0 0 0 / 0.55))';
+        $css = Style::css('#x', ['base' => ['background_image' => 'media/a.jpg', 'gradient' => $darken]]);
+        $this->assertStringContainsString('background-image: ' . $darken . ', linear-gradient(var(--tl-overlay, transparent), var(--tl-overlay, transparent)), url("/media/a.jpg");', $css, 'the last background-image declaration keeps the gradient');
+        $this->assertStringContainsString('background-image: ' . $darken . ';', Style::css('#x', ['base' => ['gradient' => $darken]]), 'without an image it stays what it was');
+    }
+
     public function testNothingLeaksIntoPagesThatDoNotUseIt(): void
     {
         $plain = ['base' => ['background_image' => 'media/a.jpg', 'width' => '100%', 'aspect_ratio' => '16/9']];
