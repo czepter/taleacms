@@ -68,6 +68,7 @@ final class Media extends Module
             'subfolders' => array_count_values(array_filter(array_column($all, 'parent_id'), fn ($v): bool => $v !== null)),
             'thumbnails' => \Talea\Core\MediaFolders::thumbnails($this->db, array_column($cards, 'folder_id')),
             'counts' => $this->counts(),
+            'undo' => $this->pendingUndo(),
             'newsItem' => $filter['article'] > 0 ? $this->db->value('SELECT title FROM {news} WHERE news_id = ?', [$filter['article']]) : null,
             'item' => $item === null ? null : $this->db->one('SELECT o.* FROM {media} o WHERE o.media_id = ?', [$item]),
             'panel' => $item === null ? null : $this->panel($item, $where, $params),
@@ -206,23 +207,92 @@ final class Media extends Module
         return $this->back('Folder saved.', '', $this->levelReturn() ?? ['folder' => $this->publicId($ids, 'media_folders')]);
     }
 
-    /** Moving a folder into another one (`parent`; empty = top level). Editors and administrators; refuses a cycle. */
+    /** Moving a folder into another one (`parent`; empty = top level). Editors and administrators; refuses a cycle. format=json answers drag and drop. */
     protected function actionFolderMove(): Response
     {
+        $json = $this->request->get('format') === 'json';
         if (!$this->request->isPost()) {
-            return $this->back();
+            return $json ? Response::json(['ok' => false], 405) : $this->back();
         }
         if (!$this->app->auth()->canPublish()) { // a folder moves with everything in it: editors and administrators
-            return $this->back(t('Moving a folder is for editors and administrators.'), '', [], 'error');
+            return $json ? Response::json(['ok' => false, 'error' => t('Moving a folder is for editors and administrators.')], 403) : $this->back(t('Moving a folder is for editors and administrators.'), '', [], 'error');
         }
         $id = $this->idParam('folder_id', 'media_folders');
+        $parent = $this->targetFolder('parent');
+        if ($parent === false) {
+            return $json ? Response::json(['ok' => false, 'error' => t('The target folder does not exist.')], 404) : $this->back(t('The target folder does not exist.'), '', [], 'error');
+        }
+        $before = $this->db->value('SELECT parent_id FROM {media_folders} WHERE folder_id = ?', [$id]);
         try {
-            \Talea\Core\MediaFolders::move($this->db, $id, $this->idParam('parent', 'media_folders') ?: null);
+            \Talea\Core\MediaFolders::move($this->db, $id, $parent);
         } catch (\DomainException $e) {
-            return $this->back(t('The folder cannot be moved there.'), '', [], 'error');
+            return $json ? Response::json(['ok' => false, 'error' => t('The folder cannot be moved there.')], 409) : $this->back(t('The folder cannot be moved there.'), '', [], 'error');
+        }
+        $where = $parent === null ? t('All media') : (string) $this->db->value('SELECT name FROM {media_folders} WHERE folder_id = ?', [$parent]);
+        $message = t('Folder moved to %s.', $where);
+        $this->rememberMove(['folders' => [$id => $before === null ? null : (int) $before]], $parent, $message);
+
+        return $json ? Response::json(['ok' => true, 'message' => $message]) : $this->back('', '', $this->levelReturn() ?? ['folder' => $this->publicId($id, 'media_folders')]);
+    }
+
+    /**
+     * What the Undo button of the next list view puts back; only the last move is kept, for an hour. $target is where the move put
+     * the files (folder_id) or the folder (parent_id): Undo touches only what is still there.
+     *
+     * @param array<string, array<int, int|null>> $places the old place of each row, by kind (files, folders)
+     */
+    private function rememberMove(array $places, ?int $target, string $message): void
+    {
+        $this->app->session->set('media_undo', ['places' => $places, 'target' => $target, 'message' => $message, 'at' => time(), 'shown' => false]);
+    }
+
+    /** @return array{places: array<string, array<int, int|null>>, message: string}|null the move the Undo notice offers, shown once */
+    private function pendingUndo(): ?array
+    {
+        $undo = $this->app->session->get('media_undo');
+        if (!is_array($undo) || $undo['shown'] || $undo['at'] < time() - 3600) {
+            return null;
+        }
+        $undo['shown'] = true;
+        $this->app->session->set('media_undo', $undo);
+
+        return $undo;
+    }
+
+    /**
+     * Undo of the last move (once): files go back to the folder they came from if the person may still edit them and they are still
+     * where the move put them, folders to their parent under the same condition - a later change is not overwritten.
+     */
+    protected function actionUndoMove(): Response
+    {
+        $undo = $this->app->session->get('media_undo');
+        $this->app->session->remove('media_undo');
+        if (!$this->request->isPost() || !is_array($undo) || $undo['at'] < time() - 3600) {
+            return $this->back();
+        }
+        $count = 0;
+        $target = $undo['target'] ?? null;
+        $there = $target === null ? ' IS NULL' : ' = ' . (int) $target;
+        foreach ($undo['places']['files'] ?? [] as $id => $folder) {
+            $back = $folder === null || $this->db->value('SELECT 1 FROM {media_folders} WHERE folder_id = ?', [$folder]) !== null;
+            $still = $this->db->value('SELECT 1 FROM {media} WHERE media_id = ? AND folder_id' . $there, [(int) $id]) !== null;
+            if ($back && $still && $this->canEdit((int) $id) && $this->db->update('media', ['folder_id' => $folder], ['media_id' => (int) $id]) >= 0) {
+                $count++;
+            }
+        }
+        foreach ($undo['places']['folders'] ?? [] as $id => $parent) {
+            if ($this->db->value('SELECT 1 FROM {media_folders} WHERE folder_id = ? AND parent_id' . $there, [(int) $id]) === null) {
+                continue; // moved again since: it stays where it is
+            }
+            try {
+                \Talea\Core\MediaFolders::move($this->db, (int) $id, $parent);
+                $count++;
+            } catch (\DomainException) {
+                // the tree changed since: this folder stays where it is
+            }
         }
 
-        return $this->back('Folder moved.', '', $this->levelReturn() ?? ['folder' => $this->publicId($id, 'media_folders')]);
+        return $this->back($count > 0 ? t('The move was undone.') : t('Nothing could be moved back.'), '', [], $count > 0 ? 'ok' : 'error');
     }
 
     /** Deleting a folder; its files and subfolders move up one level. */
@@ -325,36 +395,58 @@ final class Media extends Module
         return $used;
     }
 
-    /** Upload of one or more files; with the parameter format=json it answers the editor with JSON. */
+    /**
+     * Upload of one or more files; with the parameter format=json it answers the editor and the upload tray with JSON. A file whose
+     * bytes were uploaded before (`source_sha1`) is not stored again: it is reported under `duplicates` with the existing file.
+     */
     protected function actionUpload(): Response
     {
         $json = $this->request->get('format') === 'json';
         $section = $this->idParam('folder_id', 'media_folders') ?: null;
         $uploaded = [];
+        $duplicates = [];
         $errors = [];
         $imageCount = 0;
         foreach (self::uploadedFiles() as $file) {
+            $name = (string) ($file['name'] ?? t('file'));
+            $hash = self::sourceHash($file);
+            $same = $hash === null ? null : $this->db->one('SELECT * FROM {media} WHERE source_sha1 = ? AND staged_at IS NULL ORDER BY media_id LIMIT 1', [$hash]); // a file waiting for approval is not public: it is no "already in Media"
+            if ($same !== null) {
+                $duplicates[] = ['file' => $name, 'id' => $same['public_id'], 'name' => $same['name'] !== '' ? $same['name'] : basename($same['image_path']), 'image' => $this->toJson($same)];
+                continue;
+            }
             try {
-                $data = self::store($this->app, $file, $section);
+                $data = self::store($this->app, $file, $section, $hash);
                 $imageCount += $data['thumb_path'] !== '' ? 1 : 0;
                 $uploaded[] = $this->toJson($data + ['description' => '']);
             } catch (\RuntimeException $e) {
-                $errors[] = ($file['name'] ?? t('file')) . ': ' . t($e->getMessage());
+                $errors[] = $name . ': ' . t($e->getMessage());
             }
         }
-        if ($uploaded === [] && $errors === []) {
+        if ($uploaded === [] && $duplicates === [] && $errors === []) {
             $errors[] = t('No file was selected.');
         }
         if ($json) {
-            return Response::json(['images' => $uploaded, 'errors' => $errors], $uploaded === [] ? 400 : 200);
+            return Response::json(['images' => $uploaded, 'duplicates' => $duplicates, 'errors' => $errors], $uploaded === [] && $duplicates === [] ? 400 : 200);
         }
         foreach ($errors as $error) {
             $this->app->session->flash('error', $error);
+        }
+        foreach ($duplicates as $d) {
+            $this->app->session->flash('info', t('%s was skipped: it is already in Media as %s.', $d['file'], $d['name']));
         }
 
         $message = $uploaded === [] ? '' : t('Files uploaded: %d.', count($uploaded)) . ($imageCount > 0 ? ' ' . t('Add a description for blind visitors (alt text) to the images: what the image shows.') : '');
 
         return $this->back($message, '', $section !== null ? ['folder' => $this->publicId($section, 'media_folders')] : []);
+    }
+
+    /** The sha1 of the bytes an upload sent (null when there is no readable file). @param array<string, mixed> $file */
+    private static function sourceHash(array $file): ?string
+    {
+        $tmp = (string) ($file['tmp_name'] ?? '');
+
+        return ($file['error'] ?? UPLOAD_ERR_OK) === UPLOAD_ERR_OK && is_file($tmp) ? (sha1_file($tmp) ?: null) : null;
     }
 
     /**
@@ -363,11 +455,13 @@ final class Media extends Module
      * documents…) as it is. Returns the media row with its new id.
      *
      * @param array<string, mixed> $file item of $_FILES (uploadedFiles)
+     * @param string|null $hash the sha1 of the uploaded bytes when the caller has it already
      * @return array<string, mixed>
      * @throws \RuntimeException with the reason (an admin text to translate with t())
      */
-    public static function store(\Talea\Core\App $app, array $file, ?int $section = null): array
+    public static function store(\Talea\Core\App $app, array $file, ?int $section = null, ?string $hash = null): array
     {
+        $hash ??= self::sourceHash($file); // before anything is saved: a GIF or an attachment is moved out of the temporary folder
         $attachment = \Talea\Core\Files::isAttachment((string) ($file['name'] ?? ''));
         $data = match (true) {
             strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION)) === 'svg' => self::saveSvg($file),
@@ -379,7 +473,7 @@ final class Media extends Module
             // and the checks would take it as filled in – it stays empty and the list and the pre-publish check ask for it
             $data['name'] = '';
         }
-        $data['media_id'] = $app->db()->insert('media', $data + ['owner_id' => $app->auth()->id(), 'folder_id' => $section, 'created_at' => date('Y-m-d H:i:s')]);
+        $data['media_id'] = $app->db()->insert('media', $data + ['owner_id' => $app->auth()->id(), 'folder_id' => $section, 'created_at' => date('Y-m-d H:i:s'), 'source_sha1' => $hash]);
 
         return $data;
     }
@@ -436,12 +530,13 @@ final class Media extends Module
         if ($image === null || !is_array($file)) {
             return $this->back();
         }
+        $hash = self::sourceHash($file); // before the new file is moved: the duplicate check must know the file that is in Media now
         try {
             $new = Images::replace($image['image_path'], $file);
         } catch (\RuntimeException $e) {
             return $this->back(t($e->getMessage()), 'list', $this->listReturn($image['public_id']), 'error');
         }
-        $this->db->update('media', $new + ['color' => ''], ['media_id' => $ido]);
+        $this->db->update('media', $new + ['color' => '', 'source_sha1' => $hash], ['media_id' => $ido]);
         \Talea\Front\Cache::clear();
 
         return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', $this->listReturn($image['public_id']));
@@ -545,21 +640,29 @@ final class Media extends Module
         return $this->back(t('The image is now %s px wide and takes %s.', (string) $new['image_width'], \Talea\Core\Files::size($new['image_size'])), 'cleanup');
     }
 
-    /** Bulk action on the selected images: delete, or move to a folder. From the clean-up (zpet=cleanup) it returns there. */
+    /**
+     * Bulk action on the selected images: delete, or move to a folder (drag and drop asks with format=json). From the clean-up
+     * (back=cleanup) it returns there. A move is remembered for Undo.
+     */
     protected function actionBulk(): Response
     {
+        $json = $this->request->get('format') === 'json';
         if (!$this->request->isPost()) {
-            return $this->back();
+            return $json ? Response::json(['ok' => false], 405) : $this->back();
         }
         $backTo = $this->request->post('back') === 'cleanup' ? 'cleanup' : '';
         $action = $this->request->post('bulk');
         if ($action !== 'move' && $action !== 'delete') {
-            return $this->back(); // an unknown action must never fall through to deleting
+            return $json ? Response::json(['ok' => false], 400) : $this->back(); // an unknown action must never fall through to deleting
         }
         $move = $action === 'move';
-        $target = $this->idParam('to_folder', 'media_folders') ?: null;
+        $target = $move ? $this->targetFolder('to_folder') : null;
+        if ($target === false) {
+            return $json ? Response::json(['ok' => false, 'error' => t('The target folder does not exist.')], 404) : $this->back(t('The target folder does not exist.'), $backTo, [], 'error');
+        }
         $count = 0;
         $skipped = 0;
+        $before = [];
         $elsewhere = $move ? [] : self::findUsagesElsewhere($this->db);
         foreach ($this->request->postList('selected') as $id) {
             $image = $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [$this->db->internalId('media', $id)]);
@@ -568,6 +671,7 @@ final class Media extends Module
             }
             if ($move) {
                 $count += $this->db->update('media', ['folder_id' => $target], ['media_id' => $image['media_id']]) >= 0 ? 1 : 0;
+                $before[(int) $image['media_id']] = $image['folder_id'] === null ? null : (int) $image['folder_id'];
             } elseif (isset($elsewhere[(int) $image['media_id']]) || $this->db->value('SELECT 1 FROM {media_usage} WHERE media_id = ? LIMIT 1', [$image['media_id']]) !== null) {
                 $skipped++; // a used file would disappear from the site – it is deleted once it is not used anywhere
             } else {
@@ -583,8 +687,20 @@ final class Media extends Module
         if (!$move && $count > 0) {
             \Talea\Admin\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
         }
+        if ($move) {
+            $where = $target === null ? t('All media') : (string) $this->db->value('SELECT name FROM {media_folders} WHERE folder_id = ?', [$target]);
+            $message = $count === 0 ? t('Nothing was moved.') : ($count === 1 ? t('1 file moved to %s.', $where) : t('%d files moved to %s.', $count, $where));
+            if ($count > 0) {
+                $this->rememberMove(['files' => $before], $target, $message);
+            }
+            if ($json) {
+                return Response::json(['ok' => $count > 0, 'moved' => $count, 'message' => $message], $count > 0 ? 200 : 400);
+            }
 
-        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['folder' => $this->publicId($target, 'media_folders')] : []);
+            return $this->back($count === 0 ? $message : '', $backTo, $target ? ['folder' => $this->publicId($target, 'media_folders')] : [], $count === 0 ? 'error' : 'ok');
+        }
+
+        return $json ? Response::json(['ok' => true, 'deleted' => $count]) : $this->back(t('Images deleted: %d.', $count), $backTo);
     }
 
     private function canEdit(int $ido): bool

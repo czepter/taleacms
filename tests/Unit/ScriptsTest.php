@@ -29,7 +29,7 @@ final class ScriptsTest extends TestCase
     public function testSearchedDataAttributesAreRendered(): void
     {
         $whereCreated = [
-            'image/editor.js' => ['system/views/admin'], 'image/admin.js' => ['system/views/admin', 'system/src/Admin'], 'image/helper.js' => ['system/views/admin'],
+            'image/editor.js' => ['system/views/admin'], 'image/admin.js' => ['system/views/admin', 'system/src/Admin'], 'image/helper.js' => ['system/views/admin'], 'image/media.js' => ['system/views/admin'],
             'image/web.js' => ['system/views/front', 'system/src/Front', 'system/src/Builder/Elements'],
             'image/vitals.js' => ['system/src/Front'],
             'image/forms.js' => ['system/src/Builder/Elements'],

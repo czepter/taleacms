@@ -555,7 +555,9 @@ C.upload = async (files) => {
 	const uploaded = [];
 	for (const file of files) {
 		const j = await query(D.urls.admin + '/media/upload?format=json', { 'files[]': file, folder_id: '0' });
-		if (j.images && j.images.length) { uploaded.push(...j.images); } else { setState((j.errors && j.errors[0]) || j.error || T('Upload failed. Check your connection and try again.'), true); }
+		// a file that is already in Media comes back as a duplicate with the existing file: it is used as it is
+		const found = [...(j.images || []), ...(j.duplicates || []).map((d) => d.image)];
+		if (found.length) { uploaded.push(...found); } else { setState((j.errors && j.errors[0]) || j.error || T('Upload failed. Check your connection and try again.'), true); }
 	}
 	return uploaded;
 };

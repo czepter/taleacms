@@ -63,14 +63,14 @@ final class MediaLibraryScreenTest extends SiteTestCase
         $this->assertStringContainsString('Folders in Weddings F18', $inside);
         $this->assertStringContainsString('Files in Weddings F18', $inside);
         $this->assertStringContainsString('id="folder-menu-' . $castle . '"', $inside);
-        $this->assertStringContainsString('/admin/media">All media</a>', $inside, 'the breadcrumb links back to All media');
+        $this->assertMatchesRegularExpression('#/admin/media" data-media-drop data-id="" data-name="All media">All media</a>#', $inside, 'the breadcrumb links back to All media (and takes a drop)');
         $this->assertMatchesRegularExpression('#<span aria-current="page"><bdi>Weddings F18</bdi></span>#', $inside, 'the last part of the breadcrumb is not a link');
         $this->assertStringContainsString($f['in-weddings'], $inside);
         $this->assertStringNotContainsString($f['in-castle'], $inside, 'files of a subfolder are not counted into the level');
         $this->assertStringNotContainsString($f['top-named'], $inside);
 
         // the left menu: the tree opens the branch of the current folder and marks the current one
-        $this->assertMatchesRegularExpression('#<a class="media-rail-link" href="[^"]*folder=' . $weddings . '" aria-current="page">#', $inside, 'the rail marks the current folder');
+        $this->assertMatchesRegularExpression('#<a class="media-rail-link" href="[^"]*folder=' . $weddings . '"[^>]*aria-current="page">#', $inside, 'the rail marks the current folder');
         $this->assertStringContainsString('<ul class="media-tree-sub"><li>', $inside, 'the branch of the current folder is open');
         $this->assertStringContainsString('<ul class="media-tree-sub closed">', $root, 'on the top level a folder with subfolders is closed');
 
