@@ -76,7 +76,7 @@ The walk fails on any script error in the admin, builder or public site.
 
 ## 3. Lighthouse
 
-`tools/test-lighthouse.sh` installs a sample site (starter site `business`, five pages from the sitemap: `/`, `/about-us`,
+`tools/test-lighthouse.sh` installs a sample site (the "Something else" business, five pages from the sitemap: `/`, `/about-us`,
 `/services`, `/contact`, `/news`), applies and publishes every look in `system/looks` over MCP (`apply_look`, `publish_look`) and
 runs Lighthouse 12 (mobile preset, headless Chrome) on each page. `LOOKS=all MIN_PERF=99 MIN_OTHER=99` makes the bar 99-100 in all
 four categories.
@@ -123,7 +123,7 @@ brasserie, classic-blog, harbor, journal, launch, meadow, monograph, noir, pulse
 
 Caveats (measured numbers are real; what they do not show):
 
-- The sample site is the starter site `business` with placeholder text and no photographs. Looks are therefore compared on type,
+- The sample site is the the "Something else" business with placeholder text and no photographs. Looks are therefore compared on type,
   colour and layout; the numbers say nothing about pages with large photos until the demo-images pack exists (1.1).
 - The run was against the PHP built-in server without compression or HTTP caching headers from a front server; a real host should
   score the same or higher. The 99s on `/contact` are within the noise of one run on one machine; they were not repeated.

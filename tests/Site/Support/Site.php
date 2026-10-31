@@ -35,7 +35,7 @@ final class Site
     private bool $closed = false;
     private bool $keepDatabase = false;
 
-    /** @param array<string, mixed> $options web (starter site), extensions (installer checkboxes), prefix, siteName, language (installer language), installerFields (extra/replaced installer POST fields), doneText (text of the finished screen in that language) */
+    /** @param array<string, mixed> $options web ('export' = the empty site for a move), blueprint (installer's business type), extensions (installer checkboxes), prefix, siteName, language (installer language), installerFields (extra/replaced installer POST fields), doneText (text of the finished screen in that language) */
     public static function boot(array $options = []): self
     {
         return new self($options);
@@ -118,7 +118,7 @@ final class Site
             $fingerprint .= $file . @filemtime($project . '/' . $file) . @filesize($project . '/' . $file);
         }
         $code = substr(md5($fingerprint . md5_file(__FILE__) . TestDatabase::driver()), 0, 8); // the engine too: the marker file is shared by both servers // the installer defaults of this harness are part of what a template is
-        $key = substr(md5((string) json_encode(array_intersect_key($options, array_flip(['web', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])))), 0, 8);
+        $key = substr(md5((string) json_encode(array_intersect_key($options, array_flip(['web', 'blueprint', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])))), 0, 8);
         $name = "talea_tpl_{$code}_{$key}";
         $marker = sys_get_temp_dir() . "/$name.json";
         $lock = fopen(sys_get_temp_dir() . "/$name.lock", 'c');
@@ -141,7 +141,7 @@ final class Site
                     }
                 }
                 TestDatabase::drop($admin, $name);
-                $built = new self(array_intersect_key($options, array_flip(['web', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])) + ['_templateBuild' => $name]);
+                $built = new self(array_intersect_key($options, array_flip(['web', 'blueprint', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])) + ['_templateBuild' => $name]);
                 $config = require $built->root . '/config.php';
                 $ddl = [];
                 foreach (TestDatabase::isMySql() ? $built->pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) : [] as $table) { // PostgreSQL and SQLite clone the whole database instead
@@ -547,7 +547,7 @@ final class Site
         $visitor->timeout = 300;
         $fields = [
             'db_driver' => $server['driver'], 'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database . (TestDatabase::isSqlite() ? '.sqlite' : ''), 'db_user' => $server['username'], 'db_password' => $server['password'],
-            'db_prefix' => $this->options['prefix'] ?? 'tl_', 'site_name' => $this->options['siteName'] ?? 'Test Company', 'starter' => $this->options['web'] ?? 'business',
+            'db_prefix' => $this->options['prefix'] ?? 'tl_', 'site_name' => $this->options['siteName'] ?? 'Test Company', 'blueprint' => $this->options['blueprint'] ?? (($this->options['web'] ?? '') === 'export' ? 'export' : ''),
             'username' => 'admin', 'name' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
             'extensions' => $this->options['extensions'] ?? ['news', 'enquiries', 'stats', 'redirects', 'page_check'],
         ];

@@ -36,7 +36,7 @@ final class InstallerScreensTest extends SiteTestCase
     public function testGermanInstallerForm(): void
     {
         $page = $this->assertCzechFree('/install.php?language=de', 200, german: true, label: 'German installer');
-        $this->assertStringContainsString('Datenbank', $page->body, 'German installer: not in German');
+        $this->assertStringContainsString('Zeitzone', $page->body, 'German installer: not in German');
     }
 
     public function testWrongDatabaseUserIsReportedInPlainWords(): void
@@ -45,7 +45,7 @@ final class InstallerScreensTest extends SiteTestCase
         if (\Talea\Tests\Support\TestDatabase::isSqlite()) {
             // SQLite has no user: what can be wrong is the file name, and a path or a .php name is refused
             $page = $site->client('installer')->post('/install.php', [
-                'language' => 'en', 'db_driver' => 'sqlite', 'db_name' => '../site.php', 'db_prefix' => 'tl_', 'site_name' => 'Acme', 'starter' => 'business', 'username' => 'admin', 'email' => '', 'password' => $site->password, 'password2' => $site->password,
+                'language' => 'en', 'db_driver' => 'sqlite', 'db_name' => '../site.php', 'db_prefix' => 'tl_', 'site_name' => 'Acme', 'username' => 'admin', 'email' => '', 'password' => $site->password, 'password2' => $site->password,
             ]);
             $field = HTMLDocument::createFromString($page->body, LIBXML_NOERROR)->querySelector('#db_name')?->parentNode?->textContent ?? '';
             $this->assertStringContainsString('the file name may hold letters', $field, 'a wrong SQLite file name is reported at the database name field');
@@ -55,7 +55,7 @@ final class InstallerScreensTest extends SiteTestCase
         }
         $page = $site->client('installer')->post('/install.php', [
             'language' => 'en', 'db_driver' => \Talea\Tests\Support\TestDatabase::driver(), 'db_host' => \Talea\Tests\Support\TestDatabase::server()['host'], 'db_port' => \Talea\Tests\Support\TestDatabase::server()['port'], 'db_name' => $site->database, 'db_user' => 'nosuchuser',
-            'db_password' => 'wrong', 'db_prefix' => 'tl_', 'site_name' => 'Acme', 'starter' => 'business', 'username' => 'admin', 'email' => '', 'password' => $site->password, 'password2' => $site->password,
+            'db_password' => 'wrong', 'db_prefix' => 'tl_', 'site_name' => 'Acme', 'username' => 'admin', 'email' => '', 'password' => $site->password, 'password2' => $site->password,
         ]);
         $this->assertNoCzech($page->body, 'installer: wrong database user');
         $field = HTMLDocument::createFromString($page->body, LIBXML_NOERROR)->querySelector('#db_user')?->parentNode?->textContent ?? '';

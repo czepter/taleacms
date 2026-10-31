@@ -17,7 +17,7 @@ final class ConsultingStarterTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['freshInstall' => true, 'web' => 'consulting', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => self::ALL, 'enabledExtensions' => implode(',', self::ALL)];
+        return ['freshInstall' => true, 'blueprint' => 'professional_services', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => self::ALL, 'enabledExtensions' => implode(',', self::ALL)];
     }
 
     public function testInstallerFinishedScreenHasNoCzechAndTheClaudeAddress(): void

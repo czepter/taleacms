@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Talea – output budget: installs each starter site and runs Lighthouse (mobile) on its pages. Fails when a page drops
+# Talea – output budget: installs each kind of business (blueprint) and runs Lighthouse (mobile) on its pages. Fails when a page drops
 # below the budget: performance MIN_PERF (default 90 – the PHP built-in server compresses nothing, a real host scores
 # higher), accessibility, best practices and SEO MIN_OTHER (default 100).
 # Needs PHP, MySQL, Node and Google Chrome (or CHROME=/path/to/chrome).
-#   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (talea_test_lighthouse) DB_USER (root) DB_PASS () PORT (8099) SITES (all)
-#   LOOKS: "all" or a list of look keys (system/looks): installs ONE sample site (SITES, default business), applies and publishes each look
+#   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (talea_test_lighthouse) DB_USER (root) DB_PASS () PORT (8099) SITES (general)
+#   LOOKS: "all" or a list of look keys (system/looks): installs ONE sample site (SITES, default general), applies and publishes each look
 #   and measures the pages with it; MIN_PERF/MIN_OTHER still apply (the launch bar, docs/LAUNCH.md, uses LOOKS=all MIN_PERF=99 MIN_OTHER=99).
 #   PAGES (5): how many pages of the sitemap are measured.
-# The database DB_NAME is DROPPED and recreated for every starter site. No mysql client is needed (PDO does the work).
+# The database DB_NAME is DROPPED and recreated for every kind of business. No mysql client is needed (PDO does the work).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-talea_test_lighthouse}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 MIN_PERF="${MIN_PERF:-90}"; MIN_OTHER="${MIN_OTHER:-100}"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
-SITES="${SITES:-$(cd "$ROOT" && php -r 'require "system/bootstrap.php"; echo implode(" ", array_keys(Talea\Builder\Library::SITES));')}"
+SITES="${SITES:-general craftsman professional_services}" # blueprint keys; "general" = "Something else"
 WORK="$(mktemp -d)"; ERRORS=0
 LOOKS="${LOOKS:-}"; PAGES_MAX="${PAGES:-5}"
 # runs one SQL statement through PDO: sql "<statement>" (the host, port and user come from the environment)
@@ -25,7 +25,7 @@ trap cleanup EXIT
 
 npm i --silent --prefix "$WORK/lh" lighthouse@12 > /dev/null 2>&1
 for SITE in $SITES; do
-  echo "== starter site $SITE"
+  echo "== business $SITE"
   stop_server
   SITE_PORT=$PORT; PORT=$((PORT + 1)); B="http://127.0.0.1:$SITE_PORT" # workers of the built-in server may linger on the previous port
   rm -rf "$WORK/web" && mkdir "$WORK/web"
@@ -37,7 +37,7 @@ for SITE in $SITES; do
   for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
   PASSWORD="Lighthouse-$(openssl rand -hex 8)"
   curl -s -o "$WORK/response" -X POST "$B/install.php" -d language=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
-    --data-urlencode "db_password=$DB_PASS" -d db_prefix=tl_ --data-urlencode "site_name=Lighthouse Test Ltd" -d "starter=$SITE" -d username=admin -d "name=Tester" -d email= \
+    --data-urlencode "db_password=$DB_PASS" -d db_prefix=tl_ --data-urlencode "site_name=Lighthouse Test Ltd" -d "blueprint=$([ "$SITE" = general ] || echo "$SITE")" -d username=admin -d "name=Tester" -d email= \
     --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
     -d 'extensions[]=news' -d 'extensions[]=enquiries' -d 'extensions[]=stats' -d 'extensions[]=redirects'
   [ ! -f "$WORK/web/install.php" ] || { echo "  FAIL   install of $SITE failed"; grep -o 'role="alert">[^<]*' "$WORK/response" | sed 's/role="alert">//'; exit 1; }
