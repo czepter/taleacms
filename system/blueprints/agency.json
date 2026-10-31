@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "agency",
     "group": "tech",
+    "topics": ["marketing", "design"],
     "name": "Marketing, web or design agency",
     "description": "An agency or studio: services, case studies, the team, clients' questions and job openings, with facts about the focus, team size, where and in which languages you work, the usual budget and awards.",
     "presets": ["services", "references", "people", "faq", "jobs"],

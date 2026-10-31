@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "driving_school",
     "group": "health",
+    "topics": ["education"],
     "name": "Driving school",
     "description": "A driving school: upcoming course dates, a price list, the instructors and students' questions, with facts about licence categories, prices, vehicles and exams.",
     "presets": ["courses", "price_list", "people", "faq"],

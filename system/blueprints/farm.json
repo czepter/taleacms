@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "farm",
     "group": "food",
+    "topics": ["restaurant", "health"],
     "name": "Farm with a shop",
     "description": "A farm that sells its produce: the products with an enquiry basket, a price list and events such as harvest days or markets, with facts about the land, the produce, certification and deliveries.",
     "presets": ["products", "events", "price_list"],

@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "it_services",
     "group": "tech",
+    "topics": ["tech", "consulting"],
     "name": "IT services and support",
     "description": "Managed IT for businesses: services, support packages, references and clients' questions, with facts about the area served, support hours, response times, the emergency line, remote support and the systems you look after.",
     "presets": ["services", "plans", "references", "faq"],

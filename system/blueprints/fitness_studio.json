@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "fitness_studio",
     "group": "health",
+    "topics": ["health", "music"],
     "name": "Gym, fitness, yoga or dance studio",
     "description": "A gym, fitness, yoga, pilates, martial arts or dance studio: the class timetable with repeating classes, memberships and passes, the instructors and members' questions, with facts about a trial class, booking, what to bring, facilities and age limits.",
     "presets": ["events", "plans", "people", "faq"],

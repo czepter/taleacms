@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "nonprofit",
     "group": "public",
+    "topics": ["other", "education"],
     "name": "Non-profit, association or club",
     "description": "A charity, association, foundation or sports or hobby club: events, documents such as the statutes and annual reports, the board and contacts and members' questions, with facts about the legal form, registration, donations, the membership fee and volunteering.",
     "presets": ["events", "documents", "people", "faq"],

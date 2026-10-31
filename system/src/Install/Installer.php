@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Talea\Install;
 
+use Talea\Core\App;
 use Talea\Core\Auth;
+use Talea\Core\Blueprint;
 use Talea\Core\Config;
 use Talea\Core\Db;
 use Talea\Core\Dialect\Dialect;
@@ -14,13 +16,16 @@ use Talea\Core\Request;
 use Talea\Core\Response;
 use Talea\Core\Extensions;
 use Talea\Core\View;
-use Talea\Builder\Library;
-use Talea\Builder\Build;
-use Talea\Builder\ElementSchema;
+use Talea\Builder\Looks;
+
 
 /**
- * Web installer: checks the server, creates the tables and the first administrator and writes config.php. Talea is
- * installed by upload – upload the files, create a database, open install.php (2.6: no Docker, no command line).
+ * Web installer, a wizard of five steps (website, business, look, features, account): every step is its own POST to install.php with a
+ * `step` field, the earlier answers travel in hidden fields (the password is asked last, so it is never carried), a step is checked when it
+ * is sent, and the site is installed by the last one. The database comes from the environment in the container; without it
+ * (a development copy, the test harness) the last step also asks for the database. A POST without a `step` is the last step, with everything
+ * in it. The look step works without JavaScript: a look card is a submit button that shows the step again with that look and its preview
+ * (Preview). Talea is installed by its container: the image, the database in TALEA_DB_*, then open the site.
  */
 final class Installer
 {
@@ -33,21 +38,30 @@ final class Installer
         $this->view = new View([TALEA_SYSTEM . '/views']);
     }
 
+    /** The steps in order. */
+    public const array STEPS = ['website', 'business', 'look', 'features', 'account'];
+
     /** Installation languages (= admin languages) and the default time zone we offer for them. */
     private const array TIME_ZONES = ['cs' => 'Europe/Prague', 'en' => 'Europe/London', 'de' => 'Europe/Berlin'];
+
+    /** The fields of the database (asked on the last step without an environment configuration). */
+    private const array DATABASE_FIELDS = ['db_driver', 'db_host', 'db_port', 'db_name', 'db_user', 'db_password', 'db_prefix'];
+
+    /** Where the blueprints are listed: group => position (the Blueprint::GROUPS labels). */
+    public const array BUSINESS_GROUPS = ['food', 'services', 'health', 'tech', 'products', 'public'];
+
+    /** Looks topics of "Something else": a general business site. */
+    private const array GENERAL_TOPICS = ['consulting'];
 
     private string $language = 'en';
 
     /** Form of address of German (formal | informal): the installer's texts, the first account and the site texts for visitors. */
     private string $register = 'informal';
 
-    /** The secret part of the cron address (/tasks?token=), shown on the last screen so the owner can add it to the hosting right away (2.8). */
-    private string $tasksToken = '';
-
-    /** Installation language: an explicit choice (?language=, hidden form field), otherwise the first known language from the browser header. */
+    /** Installation language: a button of the language switcher, an explicit choice (?language=, hidden form field), otherwise the first known language from the browser header. */
     private function chooseLanguage(): string
     {
-        $choice = (string) ($_POST['language'] ?? $_GET['language'] ?? '');
+        $choice = explode(':', $this->request->post('switch'))[0] ?: (string) ($_POST['language'] ?? $_GET['language'] ?? '');
         if (isset(self::TIME_ZONES[$choice])) {
             return $choice;
         }
@@ -61,10 +75,12 @@ final class Installer
         return 'en';
     }
 
-    /** Form of address: informal (du) unless Sie is chosen explicitly (?register=, hidden form field); only German has one. */
+    /** Form of address: informal (du) unless Sie is chosen explicitly (a switcher button, ?register=, hidden form field); only German has one. */
     private function chooseRegister(string $language): string
     {
-        return $language === 'de' && ($_POST['register'] ?? $_GET['register'] ?? '') === 'formal' ? 'formal' : 'informal';
+        $choice = explode(':', $this->request->post('switch'))[1] ?? (string) ($_POST['register'] ?? $_GET['register'] ?? '');
+
+        return $language === 'de' && $choice === 'formal' ? 'formal' : 'informal';
     }
 
     public function handle(): Response
@@ -75,30 +91,31 @@ final class Installer
 
             return $this->page('done', ['alreadyInstalled' => true, 'deleted' => $this->deleteSelf(), 'fromExport' => false]);
         }
+        if (isset($_GET['preview'])) {
+            return Preview::respond((string) $_GET['preview'], (string) ($_GET['language'] ?? ''), (string) ($_GET['register'] ?? ''), $this->request);
+        }
 
         $this->language = $this->chooseLanguage();
         $this->register = $this->chooseRegister($this->language);
         \Talea\Core\Language::setSiteRegister($this->register); // the sample content for visitors is written in the chosen form of address
         \Talea\Core\Language::set($this->language, 'install-', $this->register);
-        $requirements = $this->requirements();
-        $data = [
-            'db_driver' => 'mysql', 'db_host' => 'localhost', 'db_port' => '', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'tl_',
-            'site_name' => t('My website'), 'username' => 'admin', 'name' => '', 'email' => '',
-            'time_zone' => self::TIME_ZONES[$this->language], 'starter' => 'business', 'look' => '', 'site_language' => $this->language,
-        ];
-        $errors = [];
         $envDb = Config::fromEnv() ? Config::fromEnvironment()['db'] : null;
-        if ($envDb !== null) {
-            $data = ['db_driver' => $envDb['driver'], 'db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
-                'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
-        }
+        $failed = $this->requirements();
+        $data = [
+            'site_name' => t('My website'), 'site_language' => $this->language, 'time_zone' => self::TIME_ZONES[$this->language], 'blueprint' => '', 'look' => '',
+            'username' => 'admin', 'name' => '', 'email' => '',
+            'db_driver' => 'mysql', 'db_host' => 'localhost', 'db_port' => '', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'tl_',
+        ];
         // extensions enabled after installation: the default set, after the form is submitted the user's choice
-        $extensions = array_keys(array_filter(Extensions::CATALOG, fn (array $r): bool => $r[2]));
-
-        if ($this->request->isPost() && !in_array(false, array_column($requirements, 'ok'), true)) {
-            foreach (array_keys($data) as $key) {
-                // the database password is not trimmed - it can contain spaces
-                $data[$key] = $key === 'db_password' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
+        $extensions = Extensions::fromValue('');
+        $step = 'website';
+        $errors = [];
+        if ($this->request->isPost() && $failed === []) {
+            foreach (array_diff(array_keys($data), self::DATABASE_FIELDS) as $key) {
+                $data[$key] = $key === 'look' ? $this->request->post('look', $this->request->post('look_kept')) : $this->request->post($key);
+            }
+            foreach (self::DATABASE_FIELDS as $key) {
+                $data[$key] = $key === 'db_password' ? (string) ($_POST[$key] ?? '') : $this->request->post($key, $data[$key]); // the database password is not trimmed - it can contain spaces
             }
             if ($envDb !== null) { // the database is not a form field here
                 $data = ['db_driver' => $envDb['driver'], 'db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
@@ -106,54 +123,149 @@ final class Installer
             }
             $data['db_driver'] = in_array($data['db_driver'], ['mysql', 'pgsql', 'sqlite'], true) ? $data['db_driver'] : 'mysql';
             $data['site_language'] = isset(\Talea\Core\Language::AVAILABLE[$data['site_language']]) ? $data['site_language'] : $this->language;
+            $data['time_zone'] = in_array($data['time_zone'], \DateTimeZone::listIdentifiers(), true) ? $data['time_zone'] : self::TIME_ZONES[$this->language];
             $extensions = array_values(array_intersect($this->request->postList('extensions'), array_keys(Extensions::CATALOG)));
-            $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
-            if ($errors === []) {
-                return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['starter'] === 'export',
-                    'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null,
-                    // a container runs the jobs itself (docker/entrypoint.sh)
-                    'cron' => Config::fromEnv() ? null : '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/tasks?token=' . $this->tasksToken . '" > /dev/null']);
+            // a POST without a step is the last one with everything in it
+            $step = in_array($this->request->post('step'), self::STEPS, true) ? $this->request->post('step') : 'account';
+            $go = $this->request->post('go');
+            $position = (int) array_search($step, self::STEPS, true);
+            if ($this->request->post('switch') !== '' || ($step === 'look' && $go === '' && $this->request->hasPost('look'))) {
+                // only the language changed, or a look card was pressed: the same step again
+            } elseif ($go === 'prev') {
+                $step = self::STEPS[max(0, $position - 1)];
+            } elseif (in_array($go, self::STEPS, true)) {
+                $step = (int) array_search($go, self::STEPS, true) <= $position ? $go : $step; // the sidebar leads back, never ahead
+            } else {
+                $password = (string) ($_POST['password'] ?? '');
+                $password2 = (string) ($_POST['password2'] ?? '');
+                // every step up to this one is checked again (a crafted POST can skip a step): the first that fails is shown with its errors
+                $failedStep = $this->firstFailed($data, $password, $password2, $envDb !== null, $step);
+                if ($failedStep !== null) {
+                    $step = $failedStep;
+                    $errors = $this->validate($step, $data, $password, $password2, $envDb !== null);
+                } elseif ($step !== 'account') {
+                    $step = self::STEPS[$position + 1];
+                } else {
+                    $errors = $this->install($data, $password, $extensions);
+                    if ($errors === []) {
+                        Preview::forget();
+
+                        return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['blueprint'] === 'export',
+                            'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null]);
+                    }
+                }
             }
         }
+        $blueprints = Blueprint::available();
+        $topics = self::topicsOf($data['blueprint']);
+        $looks = Looks::ranked($topics);
+        $data['look'] = isset($looks[$data['look']]) ? $data['look'] : '';
+        $chosen = $data['look'] !== '' ? $data['look'] : (string) array_key_first($looks);
 
-        return $this->page('form', ['envDb' => $envDb !== null, 'requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions]);
+        return $this->page('form', [
+            'failed' => $failed, 'step' => $step, 'steps' => self::STEPS, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions, 'envDb' => $envDb !== null,
+            'blueprints' => $blueprints, 'groups' => self::BUSINESS_GROUPS, 'looks' => $looks, 'topics' => $topics, 'chosenLook' => $chosen,
+            'preview' => $chosen !== '' && $data['blueprint'] !== 'export' && Preview::available() ? Preview::url($this->request->basePath(), $chosen, $data['site_language'], $this->register) : '',
+        ]);
     }
 
     /**
-     * After installation the installer deletes itself, so the administrator does not have to use FTP. When the hosting does
-     * not allow it (file permissions), a prompt to delete it remains and the system health page keeps warning about the file.
-     * In a development copy (a .git folder) it is not deleted. In a container it belongs to the image and stays (null: nothing to say),
-     * the installer refuses to run once installed.
+     * What the steps up to $last need before the site can be installed: the first step with an error, or null.
+     *
+     * @param array<string, string> $d
      */
-    private function deleteSelf(): ?bool
+    private function firstFailed(array $d, string $password, string $password2, bool $env, string $last): ?string
     {
-        if (Config::fromEnv()) {
-            return null;
-        }
-        if (is_dir(TALEA_ROOT . '/.git')) {
-            return false;
+        foreach (self::STEPS as $step) {
+            if ($this->validate($step, $d, $password, $password2, $env) !== []) {
+                return $step;
+            }
+            if ($step === $last) {
+                break;
+            }
         }
 
-        return !is_file(TALEA_ROOT . '/install.php') || @unlink(TALEA_ROOT . '/install.php');
+        return null;
     }
 
-    /** @return list<array{nazev:string, ok:bool, info:string}> */
-    private function requirements(): array
+    /**
+     * The errors of one step, by field. A look and the extensions cannot be wrong: an unknown look becomes the best fit of the business.
+     *
+     * @param array<string, string> $d
+     * @return array<string, string>
+     */
+    private function validate(string $step, array $d, string $password, string $password2, bool $env): array
     {
-        $write = fn (string $path): bool => is_writable(TALEA_ROOT . $path);
-
-        $requirements = [
-            ['name' => t('PHP 8.5 or newer'), 'ok' => PHP_VERSION_ID >= 80500, 'info' => t('running') . ' ' . PHP_VERSION],
-            ['name' => t('pdo_mysql, pdo_pgsql or pdo_sqlite extension'), 'ok' => extension_loaded('pdo_mysql') || extension_loaded('pdo_pgsql') || extension_loaded('pdo_sqlite'), 'info' => t('connection to a MySQL / MariaDB or PostgreSQL database, or an SQLite file')],
-            ['name' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
-            ['name' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],
-            ['name' => t('Write access to the storage/ folder'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logs and cache')],
-        ];
-        if (Config::fromEnv()) { // no config.php to write
-            unset($requirements[3]);
+        $errors = [];
+        switch ($step) {
+            case 'website':
+                if ($d['site_name'] === '') {
+                    $errors['site_name'] = t('Fill in the site name.');
+                }
+                break;
+            case 'business':
+                if ($d['blueprint'] !== '' && $d['blueprint'] !== 'export' && !isset(Blueprint::available()[$d['blueprint']])) {
+                    $errors['blueprint'] = t('Choose what kind of business it is.');
+                }
+                break;
+            case 'account':
+                if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $d['username'])) {
+                    $errors['username'] = t('Username: 2–40 characters, letters without accents, digits, dot, hyphen, underscore.');
+                }
+                if (mb_strlen($password) < 10) {
+                    $errors['password'] = t('The password must be at least 10 characters long.');
+                } elseif ($password !== $password2) {
+                    $errors['password'] = t('The passwords do not match.');
+                }
+                if ($d['email'] !== '' && filter_var($d['email'], FILTER_VALIDATE_EMAIL) === false) {
+                    $errors['email'] = t('The e-mail address is not valid.');
+                }
+                if (!$env) {
+                    $errors += $this->validateDatabase($d);
+                }
+                break;
         }
 
-        return array_values($requirements);
+        return $errors;
+    }
+
+    /**
+     * @param array<string, string> $d
+     * @return array<string, string>
+     */
+    private function validateDatabase(array $d): array
+    {
+        $errors = [];
+        if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
+            $errors['db_prefix'] = t('Prefix: lowercase letters, digits and underscore, at most 16 characters (e.g. tl_).');
+        }
+        if ($d['db_driver'] === 'sqlite') {
+            if ($d['db_name'] !== '' && preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(\.(?:sqlite3?|db))?$/', $d['db_name']) !== 1) {
+                $errors['db_name'] = t('SQLite: the file name may hold letters, digits, hyphens and underscores and end in .sqlite or .db; the file is kept in storage/database/.');
+            }
+        } elseif ($d['db_name'] === '' || $d['db_user'] === '') {
+            $errors['db_name'] = t('Fill in the database name and user.');
+        }
+
+        return $errors;
+    }
+
+    /** What the server lacks (nothing in the container): the names of the requirements that are not met. @return list<string> */
+    private function requirements(): array
+    {
+        $failed = [];
+        foreach ([
+            t('PHP 8.5 or newer') => PHP_VERSION_ID >= 80500,
+            t('pdo_mysql, pdo_pgsql or pdo_sqlite extension') => extension_loaded('pdo_mysql') || extension_loaded('pdo_pgsql') || extension_loaded('pdo_sqlite'),
+            t('mbstring extension') => extension_loaded('mbstring'),
+            t('Write access to the storage/ folder') => is_writable(TALEA_ROOT . '/storage/log') && is_writable(TALEA_ROOT . '/storage/cache'),
+        ] + (Config::fromEnv() ? [] : [t('Write access to the root folder') => is_writable(TALEA_ROOT)]) as $name => $ok) {
+            if (!$ok) {
+                $failed[] = $name;
+            }
+        }
+
+        return $failed;
     }
 
     /**
@@ -161,40 +273,13 @@ final class Installer
      * @param list<string> $extensions enabled extensions
      * @return array<string, string> errors; empty array = installed
      */
-    private function install(array $d, string $password, string $password2, array $extensions): array
+    private function install(array $d, string $password, array $extensions): array
     {
-        $errors = [];
-        if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
-            $errors['db_prefix'] = t('Prefix: lowercase letters, digits and underscore, at most 16 characters (e.g. tl_).');
-        }
         $sqlite = $d['db_driver'] === 'sqlite';
         if ($sqlite && !Config::fromEnv()) {
             // a file name only, kept in storage/database/ (not reachable from the web) and never ending in .php; an empty name is the default file
-            if (preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(\.(?:sqlite3?|db))?$/', $d['db_name'], $m) === 1) {
-                $d['db_name'] = dirname(Sqlite::DEFAULT_FILE) . '/' . $d['db_name'] . (isset($m[1]) ? '' : '.sqlite');
-            } elseif ($d['db_name'] === '') {
-                $d['db_name'] = Sqlite::DEFAULT_FILE;
-            } else {
-                $errors['db_name'] = t('SQLite: the file name may hold letters, digits, hyphens and underscores and end in .sqlite or .db; the file is kept in storage/database/.');
-            }
-        } elseif (!$sqlite && ($d['db_name'] === '' || $d['db_user'] === '')) {
-            $errors['db_name'] = t('Fill in the database name and user.');
+            $d['db_name'] = $d['db_name'] === '' ? Sqlite::DEFAULT_FILE : dirname(Sqlite::DEFAULT_FILE) . '/' . $d['db_name'] . (preg_match('/\.(?:sqlite3?|db)$/', $d['db_name']) === 1 ? '' : '.sqlite');
         }
-        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $d['username'])) {
-            $errors['username'] = t('Username: 2–40 characters, letters without accents, digits, dot, hyphen, underscore.');
-        }
-        if (mb_strlen($password) < 10) {
-            $errors['password'] = t('The password must be at least 10 characters long.');
-        } elseif ($password !== $password2) {
-            $errors['password'] = t('The passwords do not match.');
-        }
-        if ($d['email'] !== '' && filter_var($d['email'], FILTER_VALIDATE_EMAIL) === false) {
-            $errors['email'] = t('The e-mail address is not valid.');
-        }
-        if ($errors !== []) {
-            return $errors;
-        }
-
         if (!extension_loaded('pdo_' . $d['db_driver'])) {
             return ['db_driver' => t('The PHP extension for this database type is missing (pdo_mysql, pdo_pgsql or pdo_sqlite).')];
         }
@@ -229,6 +314,10 @@ final class Installer
         try {
             Migrator::migrate($config['db']);
             $this->createDefaultData($db, $d, $password, $extensions);
+            if (isset(Blueprint::available()[$d['blueprint']])) {
+                // its collections (with their hidden list pages) and facts, in the language of the site
+                \Talea\Core\Language::runWith($d['site_language'], fn () => Blueprint::apply(new App($config), Blueprint::available()[$d['blueprint']]));
+            }
         } catch (\Throwable $e) {
             return ['db_name' => t('Creating the tables failed:') . ' ' . $e->getMessage()];
         }
@@ -275,18 +364,34 @@ final class Installer
     }
 
     /**
+     * After installation the installer deletes itself, so the administrator does not have to use FTP. When the hosting does
+     * not allow it (file permissions), a prompt to delete it remains and the system health page keeps warning about the file.
+     * In a development copy (a .git folder) it is not deleted. In a container it belongs to the image and stays (null: nothing to say),
+     * the installer refuses to run once installed.
+     */
+    private function deleteSelf(): ?bool
+    {
+        if (Config::fromEnv()) {
+            return null;
+        }
+        if (is_dir(TALEA_ROOT . '/.git')) {
+            return false;
+        }
+
+        return !is_file(TALEA_ROOT . '/install.php') || @unlink(TALEA_ROOT . '/install.php');
+    }
+
+    /**
      * @param array<string, string> $d
      * @param list<string> $extensions
      */
     private function createDefaultData(Db $db, array $d, string $password, array $extensions): void
     {
         // the chosen time zone already applies to the initial content: otherwise the welcome news item could have a date "in the future" and the site would not show it
-        $timeZone = in_array($d['time_zone'], \DateTimeZone::listIdentifiers(), true) ? $d['time_zone'] : self::TIME_ZONES[$this->language];
-        date_default_timezone_set($timeZone);
+        date_default_timezone_set($d['time_zone']);
         $db->dialect()->setTimeZone($db->pdo(), date('P'));
-        $d['time_zone'] = $timeZone;
-        $this->tasksToken = bin2hex(random_bytes(16));
-        $db->transaction(function (Db $db) use ($d, $password, $extensions): void {
+        $tasksToken = bin2hex(random_bytes(16));
+        $db->transaction(function (Db $db) use ($d, $password, $extensions, $tasksToken): void {
             $admin = $db->insert('users', [
                 'username' => $d['username'],
                 'password' => password_hash($password, PASSWORD_DEFAULT),
@@ -300,65 +405,23 @@ final class Installer
 
             // the site content is created in the site language (the site dictionary), the admin of the first account stays in the installation language
             $siteLanguage = $d['site_language'];
-            if ($d['starter'] === 'export') {
-                // "Start from an export" (1.8): an empty site – the content, look and settings come with the import (Import and export)
-                $settings = ['site_name' => $d['site_name'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
-                    'time_zone' => $d['time_zone'], 'tasks_token' => $this->tasksToken, 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
+            $settings = ['site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'german_register' => $this->register, 'time_zone' => $d['time_zone'], 'tasks_token' => $tasksToken];
+            if ($d['blueprint'] === 'export') {
+                // "Move a Talea site here": an empty site – the content, look and settings come with the import (Import and export)
+                $settings += ['site_name' => $d['site_name'], 'site_language' => $siteLanguage, 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
                 foreach ($settings as $key => $value) {
                     $db->insert('settings', ['name' => $key, 'value' => $value]);
                 }
 
                 return;
             }
-            $x = fn (string $text): string => \Talea\Core\Language::runWith($siteLanguage, fn (): string => t($text));
-            // skeleton of a typical company site: home, about us, services, contact – the texts are only a guide to what belongs on the page
-            $pages = [
-                [$x('Home'), slugify($x('Home')), 0, '<h1>' . e($d['site_name']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
-                [$x('About us'), slugify($x('About us')), 1, '<p>' . e($x('Who you are, how long you have been doing it and why customers trust you.')) . '</p>'],
-                [$x('Services'), slugify($x('Services')), 1, '<p>' . e($x('What you offer – each service briefly and clearly.')) . '</p>'],
-                [$x('Contact'), slugify($x('Contact')), 1, '<p>' . e($x('Address, phone, e-mail and opening hours.')) . '</p>'],
-            ];
-            // pages straight from builder sections according to the chosen sample site – a new site looks like a site, not like an empty template
-            $siteSettings = Library::SITES[$d['starter']] ?? Library::SITES['business'];
-            $home = 0;
-            foreach ($pages as $i => [$title, $url, $inMenu, $text]) {
-                $row = ['title' => $title, 'slug' => $url, 'text' => $text, 'in_menu' => $inMenu, 'sort_order' => ($i + 1) * 10];
-                if (($siteSettings['pages'][$i] ?? []) !== []) {
-                    // sections with elements of disabled extensions (news list, form) are not put on the initial pages, neither are empty images
-                    $build = Library::page($db, $siteSettings['pages'][$i], $title, $siteLanguage, ElementSchema::disabledTypes($extensions), true);
-                    $row['build'] = Build::toJson($build);
-                    $row['text'] = Build::asText($build);
-                }
-                $id = $db->insert('pages', $row);
-                $home = $home ?: $id;
-            }
-
-            // privacy policy: a skeleton to fill in, in the site language (the site dictionary, not the installer's), hidden until the
-            // administrator fills it in and publishes it (First steps remind of it); outside the main menu, linked from the footer,
-            // the cookie bar and the consent in the form
-            [$privacyPolicy, $privacyPolicyText] = \Talea\Core\Language::runWith($siteLanguage, fn (): array => [t('Privacy policy'), Library::privacyPolicyText()]);
-            $privacyPolicyId = $db->insert('pages', ['title' => $privacyPolicy, 'slug' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'visible' => 0, 'in_menu' => 0, 'sort_order' => 90]);
-            \Talea\Core\Menu::save($db, 'footer', '', [['type' => 'page', 'page_id' => $privacyPolicyId, 'text' => '']]);
-
-            \Talea\Core\Search::complete($db);
-            // a look from the gallery (Builder\Looks) replaces the starter site's own style and brings its header and footer
-            $look = \Talea\Builder\Looks::get($d['look']);
-            foreach (['header', 'footer'] as $type) {
-                if ($look !== null && ($build = \Talea\Builder\PartTemplates::build($type, $look[$type], $siteLanguage, $extensions)) !== null) {
-                    $db->insert('site_parts', ['type' => $type, 'language' => '', 'build' => Build::toJson($build), 'updated_at' => date('Y-m-d H:i:s')]);
-                }
-            }
-            $settings = ['site_name' => $d['site_name'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
-                'design_system' => (string) json_encode($look['design_system'] ?? \Talea\Builder\DesignSystem::preset($siteSettings['preset']), JSON_UNESCAPED_SLASHES),
-                'time_zone' => $d['time_zone'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home,
-                'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
-            foreach ($settings as $key => $value) {
-                $db->insert('settings', ['name' => $key, 'value' => $value]);
-            }
+            $looks = Looks::ranked(self::topicsOf($d['blueprint']));
+            Starter::create($db, $d['site_name'], $siteLanguage, $looks[$d['look']] ?? reset($looks), $extensions, $this->request->basePath(), $settings);
 
             if (!in_array('news', $extensions, true)) {
                 return; // without news and without the welcome news item
             }
+            $x = fn (string $text): string => \Talea\Core\Language::runWith($siteLanguage, fn (): string => t($text));
             $category = $db->insert('categories', ['name' => $x('News'), 'slug' => slugify($x('News')), 'description' => '']);
             $db->insert('news', [
                 'slug' => slugify($x('Our new website is live')),
@@ -371,6 +434,12 @@ final class Installer
                 'visible' => 1,
             ]);
         });
+    }
+
+    /** The looks topics a business fits: its blueprint's, or a general business site's. @return list<string> */
+    public static function topicsOf(string $blueprint): array
+    {
+        return $blueprint === '' ? self::GENERAL_TOPICS : (Blueprint::available()[$blueprint]['topics'] ?? []);
     }
 
     private function siteUrl(): string

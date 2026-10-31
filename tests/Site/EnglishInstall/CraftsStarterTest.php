@@ -17,7 +17,7 @@ final class CraftsStarterTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['freshInstall' => true, 'web' => 'crafts', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => ['news', 'stats', 'redirects'], 'enabledExtensions' => 'news,stats,redirects'];
+        return ['freshInstall' => true, 'blueprint' => 'craftsman', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => ['news', 'stats', 'redirects'], 'enabledExtensions' => 'news,stats,redirects'];
     }
 
     public function testInstallerFinishedScreenHasNoCzech(): void

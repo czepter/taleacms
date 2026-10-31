@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "restaurant",
     "group": "food",
+    "topics": ["restaurant"],
     "name": "Restaurant, café or bar",
     "description": "A restaurant, café, bistro or bar: the food and drink menu, events such as tastings or live music and guests' questions, with facts about table reservations, the cuisine, the price range, outdoor seating, takeaway and dietary options.",
     "presets": ["menu", "events", "faq"],

@@ -13,6 +13,7 @@ use Talea\Builder\Presets;
  *
  *  - key, name, description – texts are a string or {"en": "…", "cs": "…"} (the admin language, else English);
  *  - group – where the Blueprints screen lists it (GROUPS, 3.3); optional, another site's manifest without one is "other";
+ *  - topics – the looks topics it fits (Builder\Looks::TOPICS), best first: the installer ranks the looks by them; optional;
  *  - presets – ready-made collections it needs (Builder\Presets keys), created when it is applied;
  *  - facts – facts to define, never their values: [{key, label, type, schema?}];
  *  - questions – what to ask the owner, each answered into one of its facts: [{key, question, fact, help?}];
@@ -147,8 +148,9 @@ final class Blueprint
         $claude = is_string($input['claude'] ?? null) ? mb_substr(trim(strip_tags($input['claude'])), 0, 4000) : '';
 
         $group = is_string($input['group'] ?? null) && isset(self::GROUPS[$input['group']]) ? $input['group'] : 'other';
+        $topics = array_values(array_unique(array_filter((array) ($input['topics'] ?? []), fn (mixed $t): bool => is_string($t) && isset(\Talea\Builder\Looks::TOPICS[$t]))));
 
-        return $errors !== [] ? [null, $errors] : [['talea_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => $group, 'description' => $text($input['description'] ?? null, 500) ?? '',
+        return $errors !== [] ? [null, $errors] : [['talea_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => $group, 'topics' => $topics, 'description' => $text($input['description'] ?? null, 500) ?? '',
             'presets' => array_values(array_unique($presets)), 'facts' => array_values($facts), 'questions' => $questions, 'audit' => $audit, 'claude' => $claude], []];
     }
 

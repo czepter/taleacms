@@ -25,11 +25,12 @@ final class LooksGalleryTest extends SiteTestCase
         $this->assertStringContainsString('The look does not exist', $this->raw('apply_look', ['look' => 'nothing']), 'MCP: an unknown look is refused');
 
         $published = $this->sql(self::DS);
+        $header = (string) $this->sql("SELECT build FROM tl_site_parts WHERE type = 'header' AND language = '' AND variant = ''");
         $answer = $this->call('apply_look', ['look' => 'atelier']);
         $this->assertSame($published, $this->sql(self::DS), 'the public design system did not change');
         $this->assertStringContainsString('lib:cormorant-garamond', $this->sql(self::DRAFT), 'the design system is in the draft look');
         $this->assertSame('1', $this->sql("SELECT build_draft LIKE '%\"navigation\"%' FROM tl_site_parts WHERE type = 'header' AND language = '' AND variant = ''"), 'the header template is a part draft');
-        $this->assertSame('', (string) $this->sql("SELECT build FROM tl_site_parts WHERE type = 'header' AND language = '' AND variant = ''"), 'the published header did not change');
+        $this->assertSame($header, (string) $this->sql("SELECT build FROM tl_site_parts WHERE type = 'header' AND language = '' AND variant = ''"), 'the published header did not change');
         $this->assertStringContainsString('tl-color-primary: #1a1a1a', $this->site()->client('preview')->get($this->pick($answer, 'preview'))->body, 'the whole-site preview shows the look');
         $this->site()->clearPageCache();
         $this->assertStringNotContainsString('tl-color-primary: #1a1a1a', $this->site()->client()->get('/')->body, 'visitors do not see it');

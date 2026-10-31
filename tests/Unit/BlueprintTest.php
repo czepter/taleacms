@@ -61,6 +61,8 @@ final class BlueprintTest extends TestCase
         $this->assertSame([], array_values(array_filter(array_map(fn (array $m): string => array_filter($m['facts'],
             fn (array $f): bool => isset(\Talea\Core\Facts::BUILT_IN[$f['key']]) || isset($f['value'])) === [] ? '' : $m['key'], $shippedBlueprints))), '2.11 Blueprint: shipped blueprints define no built-in fact and give no fact a value');
         $this->assertSame([], array_values(array_filter(array_map(fn (array $m): string => in_array($m['group'], ['', 'other'], true) || !isset(Blueprint::GROUPS[$m['group']]) ? $m['key'] : '', $shippedBlueprints))), '3.3 Blueprint: every shipped blueprint sits in a group of the Blueprints screen (not "other")');
+        $this->assertSame([], array_values(array_filter(array_map(fn (array $m): string => $m['topics'] === [] ? $m['key'] : '', $shippedBlueprints))), 'Blueprint: every shipped blueprint names the looks topics it fits (the installer ranks the looks by them)');
+        $this->assertSame([['tech', 'art'], []], [Blueprint::sanitize(['topics' => ['tech', 'spaceships', 'art', 'tech', 5]] + $blueprintInput)[0]['topics'] ?? null, Blueprint::sanitize($blueprintInput)[0]['topics'] ?? null], 'Blueprint::sanitize – topics are kept when they are Looks::TOPICS keys');
         $this->assertSame(['tech', 'other', 'other'], [
             Blueprint::sanitize(['group' => 'tech'] + $blueprintInput)[0]['group'] ?? null, Blueprint::sanitize(['group' => 'spaceships'] + $blueprintInput)[0]['group'] ?? null, Blueprint::sanitize($blueprintInput)[0]['group'] ?? null], '3.3 Blueprint::sanitize – the group is kept when known, "other" otherwise (a manifest from before 3.3 has none)');
         $this->assertSame([true, true, true], [

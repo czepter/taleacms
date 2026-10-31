@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "beauty_wellness",
     "group": "services",
+    "topics": ["beauty", "health"],
     "name": "Hair, beauty or wellness salon",
     "description": "A hairdresser, barber, beauty, nail, massage or wellness salon: the services, a price list, the team and clients' questions, with facts about booking, the products used, gift vouchers and cancellations.",
     "presets": ["services", "price_list", "people", "faq"],

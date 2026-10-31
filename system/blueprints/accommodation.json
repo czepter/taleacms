@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "accommodation",
     "group": "food",
+    "topics": ["travel", "real-estate"],
     "name": "Hotel, guesthouse or holiday rental",
     "description": "A hotel, guesthouse, holiday flat or cottage: a page for each room, extra services such as breakfast, wellness or transfers, events and guests' questions, with facts about check-in and check-out, booking, pets, parking, breakfast, the city tax and cancellation.",
     "presets": ["rooms", "services", "events", "faq"],

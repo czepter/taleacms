@@ -92,17 +92,13 @@ final class LibraryTest extends TestCase
     {
         $siteErrors = [];
         $siteSections = array_column(\Talea\Builder\Library::listAll(), 'key');
-        foreach (\Talea\Builder\Library::SITES as $siteKey => $networks) {
-            if (!isset(\Talea\Builder\DesignSystem::PRESETS[$networks['preset']])) {
-                $siteErrors[] = $siteKey . ': preset ' . $networks['preset'];
-            }
-            foreach ($networks['pages'] as $pageSections) {
-                foreach (array_diff($pageSections, $siteSections) as $missing) {
-                    $siteErrors[] = $siteKey . ': section ' . $missing;
-                }
+        $starterPages = [...\Talea\Builder\Library::STARTER_PAGES, ...array_column(\Talea\Builder\Looks::all(), 'sections')]; // the other pages and the looks' home pages
+        foreach ($starterPages as $pageSections) {
+            foreach (array_diff($pageSections, $siteSections) as $missing) {
+                $siteErrors[] = 'section ' . $missing;
             }
         }
-        $this->assertSame([], $siteErrors, 'Library::SITES: the presets and sections of the sample sites exist');
+        $this->assertSame([], $siteErrors, 'Library::STARTER_PAGES: the sections of the starter pages exist');
 
         // pages of the sample sites pass the builder's pre-publish check (image/builder/panels.js, check()): buttons with a link,
         // no empty image, a single h1 and an outline without a skipped level – in Czech and English, with all extensions and without them
@@ -137,23 +133,21 @@ final class LibraryTest extends TestCase
             return $findings;
         };
         $sitesCheck = [];
-        foreach (\Talea\Builder\Library::SITES as $siteKey => $networks) {
+        foreach ($starterPages as $i => $pageSections) {
             foreach (['cs', 'en'] as $language) {
                 foreach (['all extensions' => array_keys(\Talea\Core\Extensions::CATALOG), 'no extensions' => []] as $variant => $enabled) {
-                    foreach ($networks['pages'] as $i => $pageSections) {
-                        if ($pageSections === []) {
-                            continue; // text page: the layout provides the h1 heading
-                        }
-                        [$build] = \Talea\Builder\Library::assemble($pageSections, 'Stránka', $language, \Talea\Builder\ElementSchema::disabledTypes($enabled), true); // check-english: allow
-                        foreach ($pageCheck($build) as $finding) {
-                            $sitesCheck[] = "$siteKey/$language/$variant/page $i: $finding";
-                        }
+                    if ($pageSections === []) {
+                        continue; // text page: the layout provides the h1 heading
+                    }
+                    [$build] = \Talea\Builder\Library::assemble($pageSections, 'Stránka', $language, \Talea\Builder\ElementSchema::disabledTypes($enabled), true); // check-english: allow
+                    foreach ($pageCheck($build) as $finding) {
+                        $sitesCheck[] = "page $i/$language/$variant: $finding";
                     }
                 }
             }
         }
-        $this->assertSame([], array_values(array_unique($sitesCheck)), 'Library::SITES: the pages of the sample sites pass the pre-publish check');
-        $contactWithoutForm = \Talea\Builder\Library::assemble(\Talea\Builder\Library::SITES['crafts']['pages'][3], 'Kontakt', 'cs', \Talea\Builder\ElementSchema::disabledTypes([]), true)[0]; // check-english: allow
+        $this->assertSame([], array_values(array_unique($sitesCheck)), 'Library::STARTER_PAGES and the looks\' home pages pass the pre-publish check');
+        $contactWithoutForm = \Talea\Builder\Library::assemble(['page-title', 'contact-form'], 'Kontakt', 'cs', \Talea\Builder\ElementSchema::disabledTypes([]), true)[0]; // check-english: allow
         $this->assertTrue(str_contains((string) json_encode($contactWithoutForm), '"detail":"address"'), 'Library: a contact without the Forms extension has the company details');
     }
 }
