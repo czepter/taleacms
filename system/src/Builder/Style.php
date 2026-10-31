@@ -35,7 +35,7 @@ final class Style
 
     /**
      * key => [CSS property, type, group, label, enumeration options]
-     * Types: column_line | row_line | space | length | color | step | radius | shadow | border | choice | number | image | columns | rows | areas | area | text
+     * Types: focal | column_line | row_line | space | length | color | step | radius | shadow | border | choice | number | image | columns | rows | areas | area | text
      */
     public const array PROPERTIES = [
         // layout
@@ -67,6 +67,7 @@ final class Style
         'min_height' => ['min-height', 'length', 'dimensions', 'Min height', null],
         'aspect_ratio' => ['aspect-ratio', 'choice', 'dimensions', 'Aspect ratio', ['1' => '1 : 1', '4/3' => '4 : 3', '3/2' => '3 : 2', '16/9' => '16 : 9', '21/9' => '21 : 9', '3/4' => '3 : 4']],
         'object_fit' => ['object-fit', 'choice', 'dimensions', 'Image fit', ['cover' => 'cover (crop)', 'contain' => 'whole image']],
+        'focal_point' => ['object-position', 'focal', 'dimensions', 'Focal point', null],
         'center' => ['margin-inline', 'choice', 'dimensions', 'Centre', ['auto' => 'yes']],
         // spacing
         'padding_y' => ['padding-block', 'space', 'spacing', 'Padding top and bottom', null],
@@ -99,6 +100,7 @@ final class Style
             'radial-gradient(circle at 25% 15%, var(--tl-color-primary-soft), transparent 60%)' => 'glow in the corner',
             'linear-gradient(180deg, transparent, rgb(0 0 0 / 0.55))' => 'darken at the bottom (over a photo)',
         ]],
+        'background_focal' => ['background-position', 'focal', 'background', 'Background focal point', null],
         'background_attachment' => ['background-attachment', 'choice', 'background', 'Background image on scroll', ['fixed' => 'stays fixed (parallax)', 'scroll' => 'scrolls with content']],
         'overlay' => ['--tl-overlay', 'color', 'background', 'Image overlay (colour)', null],
         'border' => ['border', 'border', 'background', 'Border', ['none' => 'none', '1px solid var(--tl-color-line)' => 'thin', '2px solid currentColor' => 'strong', '2px solid var(--tl-color-primary)' => 'in the primary colour']],
@@ -158,6 +160,9 @@ final class Style
     /** Properties that only mean something on a direct child of a Compose section; Build::sanitize drops them elsewhere. */
     public const array COMPOSE_ONLY = ['grid_column_start', 'grid_column_end', 'grid_row_start', 'grid_row_end', 'layer'];
 
+    /** The states where a focal point may be set (Build::sanitize drops the others): the image does not change on hover. */
+    public const array FOCAL_STATES = ['base', 'tablet', 'mobile'];
+
     /** The layer scale of a Compose section: name => z-index. */
     public const array LAYERS = ['below' => -1, 'base' => 0, 'above' => 1, 'top' => 2];
 
@@ -201,6 +206,12 @@ final class Style
         return $clean;
     }
 
+    /** A focal point “x% y%” with whole numbers 0–100 (the one definition: the style types, MCP update_media); null = invalid. */
+    public static function focal(string $value): ?string
+    {
+        return preg_match('/^(\d{1,2}|100)% (\d{1,2}|100)%$/', $value) ? $value : null;
+    }
+
     /** CSS value for a stored property value; null = invalid. */
     public static function value(string $key, string $value): ?string
     {
@@ -218,6 +229,7 @@ final class Style
             'rows' => preg_match('/^([1-9]|1[0-2])$/', $value) ? 'repeat(' . $value . ', auto)' : (preg_match('/^((\d{1,2}(\.\d)?fr|auto|min-content|max-content|\d{1,4}(px|rem))\s?){1,8}$/', $value) ? trim($value) : null),
             'areas' => self::areas($value),
             'area' => preg_match('/^[a-z][a-z0-9-]{0,20}$/', $value) ? $value : null,
+            'focal' => self::focal($value),
             'column_line' => preg_match('/^([1-9]|1[0-3])$/', $value) ? $value : null,
             'row_line' => preg_match('/^([1-9]|[1-3]\d|40)$/', $value) ? $value : null,
             'number' => preg_match('/^-?\d{1,3}$/', $value) ? $value : null,
@@ -404,6 +416,8 @@ final class Style
         $declarations = function (array $properties) use ($base): string {
             $rows = [];
             $image = null;
+            $focal = null;
+            $gradient = null;
             $animations = [];
             if (isset($properties['text_style'])) {
                 // the typography style first: a size or weight set separately fine-tunes it (the later declaration wins)
@@ -435,7 +449,17 @@ final class Style
                     $image = $css;
                     continue;
                 }
+                if ($key === 'background_focal') {
+                    $focal = $css; // written below: it replaces the centre of the background image, or stands alone in a state without one
+                    continue;
+                }
                 $rows[] = $property . ': ' . $css;
+                if ($key === 'gradient') {
+                    $gradient = $css; // over a background image of the same state it is a layer on the photo (darken at the bottom), not lost
+                }
+                if ($key === 'focal_point') {
+                    $rows[] = '--tl-focal: ' . $css; // read by the file's own point (ImageHtml) and by an image inside a figure or link
+                }
                 if ($key === 'background' && ($value === 'white' || $value === 'black') && !isset($properties['color'])) {
                     // white and black do not change in dark mode: the text and derived shades inside adapt to them (otherwise light text on white)
                     $text = $value === 'white' ? 'var(--tl-color-text-light)' : 'var(--tl-color-text-dark)';
@@ -450,9 +474,14 @@ final class Style
                     $image = $base . '/' . $image;
                 }
                 // the background image always covers the area; an optional overlay (--tl-overlay) goes over it for text legibility
-                $rows[] = 'background-image: linear-gradient(var(--tl-overlay, transparent), var(--tl-overlay, transparent)), url("' . $image . '")';
+                $rows[] = 'background-image: ' . ($gradient !== null ? $gradient . ', ' : '') . 'linear-gradient(var(--tl-overlay, transparent), var(--tl-overlay, transparent)), url("' . $image . '")';
                 $rows[] = 'background-size: cover';
-                $rows[] = 'background-position: center';
+                $rows[] = 'background-position: ' . ($focal ?? 'center');
+            } elseif ($focal !== null) {
+                $rows[] = 'background-position: ' . $focal;
+            }
+            if ($focal !== null) {
+                $rows[] = '--tl-bg-focal: ' . $focal; // a section's background video follows the same point
             }
 
             if ($animations !== []) {

@@ -268,7 +268,7 @@ trait PageTools
             $ok = $db->run('UPDATE {collection_items} SET deleted_at = NULL WHERE item_id = ? AND deleted_at IS NOT NULL', [$id])->rowCount() > 0;
         } elseif ($type === 'enquiry') {
             $need($auth->hasModule('enquiries'), 'Enquiries can be restored only by users with the Enquiries section.');
-            if (\Talea\Admin\Modules\Enquiries::restore($db, [$id]) === 0) {
+            if (\Talea\Admin\Modules\Enquiries::restoreAndSync($this->app, [$id]) === 0) {
                 throw new \InvalidArgumentException('It is not in the trash. Use list_trash.');
             }
 

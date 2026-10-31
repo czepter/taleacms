@@ -92,11 +92,9 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   (`pt-BR`) for `<html lang>`, `hreflang`, feeds and structured data; `Language::base()` is the language (`pt`): a regional version uses the
   dictionary, number format and German register of its base; its own file (`pt-br.php`) holds only what differs and goes over the base one. Imports fold a regional code into the base language the
   site already has (`Language::forSite()`, `Language::column()`); `Language::fromForeign()` maps locales and foreign tags (`pt_BR`, `zh-TW`).
-- **Shared slugs** (setting `slugs_per_language`, off by default, Settings → General): a page, news item or category may share its address with the version in
-  another language (`/contact`, `/de/contact`). Language columns are `VARCHAR(35)`; pages, news and categories have a per-language unique key
-  `(language, slug)` next to the global one. `Core\Slug::switchPerLanguage` is the only writer of the setting (drops/restores the global keys; refuses to go
-  off while an address is shared; undoes the keys it already put back when a later table fails). Every "slug taken?" check asks `Slug::taken()` / `Slug::scope()`;
-  redirects of a version carry its prefix (`Slug::redirectPath`) while it is on.
+- **Slugs are unique per language version**: a page, news item or category may share its address with the version in another language (`/contact`, `/de/contact`).
+  Language columns are `VARCHAR(35)`; pages, news and categories have only the unique key `(language, slug)`. Every "slug taken?" check asks `Slug::taken()` / `Slug::scope()`;
+  redirects of a version carry its prefix (`Slug::redirectPath`).
 - Page cache (`Front\Cache`): anonymous visitors only; every admin POST calls `Cache::clear()`; `Auth::user()` must not start a session
   for an anonymous visitor.
 - The site address is the setting `site_url`, not the Host header; absolute addresses come from `$app->request->origin()`.
@@ -167,6 +165,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - Stats without cookies (`Front\Stats`, `Core\Report`); web vitals histogram (`Core\WebVitals`, `image/vitals.js`).
 - Audit (`Core\Audit`, MCP `site_audit`), company data (`Front\Company`, structured data from it in `Front\Seo`), site backups to FTPS/S3
   (`Core\RemoteBackup`), uploads (`Core\Images`, `Core\Files`).
+- **Course registrations** are enquiries with a `seat_state` (confirmed|waiting|waitlisted|declined|cancelled); `Core\Registrations` is the only writer of seat states (lock with `Registrations::lockFor`, never mail under the lock) and sends the mails after it. Cancelling a course offers other courses through a take-over link `/_course/<token>/<n>`. Visitor texts of courses and bookings go through `Core\Messages` (templates composed from `t()` sentences; overrides are settings `message_<id>_<part>[_<lang>]`, edited in Settings → Messages, over MCP through `update_settings`).
 - AI assistant (`Core\Assistant`): providers anthropic | openai | google | mistral; the key is a `secret` setting; model output is untrusted input.
 - **In-admin AI flow** (#31, the owner's own key only): the first-run wizard (`Modules\Wizard`, `Core\SiteWizard`: questions → plan to review → blueprint + draft look + hidden draft pages) and the builder's Ask box (`BuilderActions::actionBuildAsk`, `Builder\AskBox`: a request becomes `Builder\Edits` operations on the draft). Nothing is sent before a click, nothing publishes, model output goes through `Build::sanitize` (no code), `Guardrails::assistantRefusal` applies, every run is one `AgentJournal` session (undo in Change log → Claude sessions) and a `change_log` row `assistant`/`ask|wizard`. Tests use `tools/fake/ai.php` (`TALEA_AI_URL`).
 - **MCP** (`Mcp\Server`, `Mcp\Tools`, `/mcp`) is the main way sites are built by AI: whatever the editor can do must be possible there

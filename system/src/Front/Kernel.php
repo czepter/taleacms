@@ -284,6 +284,7 @@ final class Kernel
             ->add('ANY', '/_booking/cancel/' . $token, [Endpoints::class, 'bookingCancel'])
             ->add('ANY', '/_booking/choose/' . $token, [Endpoints::class, 'bookingChoose'])
             ->add('ANY', '/_booking/ics/' . $token, [Endpoints::class, 'bookingIcs'])
+            ->add('ANY', '/_course/{token:[a-f0-9]{64}}/{n:[1-3]}', [Endpoints::class, 'courseSeat']) // a seat in another course after one was cancelled (Core\Registrations)
             ->add('ANY', '/health', [Endpoints::class, 'health'])
             ->add('ANY', '/tasks', [Endpoints::class, 'tasks'])
             ->add('ANY', '/screen/{secret:[a-f0-9]{32}}', [Endpoints::class, 'screen'])
@@ -642,6 +643,12 @@ final class Kernel
         }
 
         return null;
+    }
+
+    /** Does a redirect rule of its own (a cancelled course, a changed address) lead away from this address? It wins over the collection's default for hidden items. */
+    public function hasExactRedirect(): bool
+    {
+        return $this->redirectRule($this->app->request->path(), true) !== null;
     }
 
     public function notFound(): Response

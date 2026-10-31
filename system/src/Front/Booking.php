@@ -141,7 +141,7 @@ final class Booking
             Bookings::cancel($this->app, $booking, 'customer');
             Cache::clear();
 
-            return [t('Appointment cancelled'), $details . '<p>' . e(t('Your appointment is cancelled. You are welcome to book another time.')) . '</p>', 200];
+            return [t('Appointment cancelled'), $details . '<p>' . e(\Talea\Core\Messages::text($s, 'booking_cancel_page', 'body', \Talea\Core\Language::siteColumn())) . '</p>', 200];
         }
 
         return [t('Cancel the appointment?'), $details . '<form method="post" action="' . e($this->app->url('_booking/cancel/' . $token)) . '"><input type="hidden" name="zrusit" value="1">'

@@ -324,26 +324,6 @@ final class Db
         return $this->keyRows($table, false);
     }
 
-    /** Drops a unique key of a table (name without prefix) and forgets what uniqueKeys() knew. */
-    public function dropUniqueKey(string $table, string $key): void
-    {
-        unset($this->keyMemo[$table]);
-        $this->run($this->dialect()->dropUniqueKeySql($table, $this->keyName($table, $key)));
-    }
-
-    /** Adds a unique key; throws a PDOException when rows already break it. @param list<string> $columns */
-    public function addUniqueKey(string $table, string $key, array $columns): void
-    {
-        unset($this->keyMemo[$table]);
-        $this->run($this->dialect()->addUniqueKeySql($table, $this->keyName($table, $key), $columns));
-    }
-
-    /** Stored name of an index: every table outside the install's own prefix carries its prefix in front (MigrationSupport::indexName()). */
-    private function keyName(string $table, string $key): string
-    {
-        return $this->keyPrefix($table) . $key;
-    }
-
     /** '' for the install's own tables (owner 1, site 1), else the prefix of the table. */
     private function keyPrefix(string $table): string
     {

@@ -106,7 +106,7 @@ final class Categories extends Module
             $this->db->update('categories', $data, ['category_id' => $id]);
             if ($previous !== null && $previous !== $data['slug']) {
                 // the category changed its slug: the old one is redirected, neither links nor search engines lose the page
-                Redirects::add($this->db, \Talea\Core\Slug::redirectPath($this->db, 'news/category/' . $previous, (string) $before['language']), \Talea\Core\Slug::redirectPath($this->db, 'news/category/' . $data['slug'], $data['language']));
+                Redirects::add($this->db, \Talea\Core\Slug::redirectPath('news/category/' . $previous, (string) $before['language']), \Talea\Core\Slug::redirectPath('news/category/' . $data['slug'], $data['language']));
             }
             $this->db->run('UPDATE {news} SET language = ? WHERE category_id = ?', [$data['language'], $id]); // news items have the language of their category
         } else {

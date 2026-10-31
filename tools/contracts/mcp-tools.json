@@ -131,6 +131,21 @@
             "openWorldHint": false
         }
     },
+    "cancel_course": {
+        "parameters": {
+            "item": "string",
+            "message": "string",
+            "offer": "array"
+        },
+        "required": [
+            "item"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "check_site_domain": {
         "parameters": {
             "host": "string",
@@ -1334,6 +1349,19 @@
             "openWorldHint": false
         }
     },
+    "list_registrations": {
+        "parameters": {
+            "item": "string"
+        },
+        "required": [
+            "item"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_requests": {
         "parameters": {
             "id": "string",
@@ -2326,6 +2354,7 @@
             "alt": "string",
             "author": "string",
             "caption": "string",
+            "focal_point": "string",
             "id": "string"
         },
         "required": [
@@ -2402,6 +2431,22 @@
         },
         "required": [
             "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_registration": {
+        "parameters": {
+            "action": "string",
+            "message": "string",
+            "registration": "string"
+        },
+        "required": [
+            "registration",
+            "action"
         ],
         "annotations": {
             "readOnlyHint": false,

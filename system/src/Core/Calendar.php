@@ -36,6 +36,7 @@ final class Calendar
     private const array ROLES = [
         'start' => ['datetime', 'date'], 'end' => ['datetime', 'date'], 'place' => ['text'], 'address' => ['text'], 'summary' => ['lines', 'text'],
         'online' => ['link'], 'repeat' => ['radio', 'text'], 'repeat_until' => ['date', 'datetime'], 'capacity' => ['number'], 'registration_until' => ['datetime', 'date'],
+        'registration' => ['radio', 'text'], 'waiting_list' => ['radio', 'text'], 'seats_per_registration' => ['number'],
     ];
 
     /**
@@ -58,6 +59,53 @@ final class Calendar
         }
 
         return $out['start'] !== '' ? $out : null;
+    }
+
+    /**
+     * The fields registration relies on: key => type of every field of the collection that the preset's calendar maps to a role
+     * (and that is still there). Empty for a collection without a calendar preset.
+     *
+     * @return array<string, string>
+     */
+    public static function protectedKeys(array $collection): array
+    {
+        $map = Presets::of($collection)['calendar'] ?? null;
+        if (!is_array($map)) {
+            return [];
+        }
+        $mapped = array_filter(array_map('strval', array_intersect_key($map, self::ROLES)), fn (string $key): bool => $key !== '');
+        $out = [];
+        foreach ((array) ($collection['fields'] ?? []) as $f) {
+            if (in_array($f['key'] ?? '', $mapped, true)) {
+                $out[(string) $f['key']] = (string) ($f['type'] ?? '');
+            }
+        }
+
+        return $out;
+    }
+
+    /** An error naming the first protected field that $newFields drop (or whose key changed) or give another type; null when fine. */
+    public static function refuseProtected(array $collection, array $newFields): ?string
+    {
+        $new = [];
+        foreach ($newFields as $f) {
+            $new[(string) ($f['key'] ?? '')] = (string) ($f['type'] ?? '');
+        }
+        $protected = self::protectedKeys($collection);
+        foreach ((array) ($collection['fields'] ?? []) as $f) {
+            $key = (string) ($f['key'] ?? '');
+            if (!isset($protected[$key])) {
+                continue;
+            }
+            if (!isset($new[$key])) {
+                return t('The field “%s” is used by registration and cannot be removed.', (string) $f['label']);
+            }
+            if ($new[$key] !== $protected[$key]) {
+                return t('The type of the field “%s” is used by registration and cannot be changed.', (string) $f['label']);
+            }
+        }
+
+        return null;
     }
 
     /** When an occurrence ends: its end, or its start without one; a whole day lasts until 23:59 ("Y-m-d H:i"). */
@@ -144,7 +192,11 @@ final class Calendar
             $since = $previous->format(strlen($start) === 10 ? 'Y-m-d 23:59:59' : 'Y-m-d H:i:s');
         }
 
-        return (int) $db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND source = ? AND (page LIKE ? OR page LIKE ?) AND created_at > ?",
+        if (!isset(self::REPEATS[$repeat]) && isset($item['item_id']) && Registrations::course($collection, $item) !== null) {
+            return Registrations::taken($db, (int) $item['item_id']);
+        }
+
+        return (int) $db->value("SELECT COUNT(*) FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND source = ? AND (page LIKE ? OR page LIKE ?) AND created_at > ?",
             ['collection:' . (int) $collection['collection_id'], '%/' . $collection['slug'] . '/' . $item['slug'], '%/' . $collection['slug'] . '/' . $item['slug'] . '?%', $since]);
     }
 
@@ -154,7 +206,7 @@ final class Calendar
      * element reads (a key outside the placeholder pattern, so no text can use it).
      *
      * @param callable(string): string $url
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{0: string, 1: string}|array{0: string, 1: string, 2: int, 3: bool, 4: bool}> [value, type]; _registration is [state, 'text', seats per registration, is a course, has a waiting list]
      */
     public static function values(Db $db, array $collection, array $item, callable $url, string $now): array
     {
@@ -171,15 +223,35 @@ final class Calendar
         $state = self::registrationState($capacity, $registered, $get('registration_until'), $endsAt, $now);
 
         $place = implode(', ', array_filter([$get('place'), $get('address')]));
+        // a course (not repeating): how many people one registration may bring, the waiting list and where the course stands
+        $course = isset($item['item_id']) ? Registrations::course($collection, $item) : null;
+        $maxSeats = $course === null ? 1 : ($course['capacity'] > 0 ? min($course['max_seats'], $course['capacity']) : $course['max_seats']);
+        $standing = $course !== null ? self::courseStatus($start, $get('end'), $now) : '';
+        // full with the waiting list open: the next registration would be waitlisted
+        $waiting = $course !== null && isset($item['item_id']) && Registrations::decide($course, Registrations::taken($db, (int) $item['item_id']), 1, $now) === 'waitlisted'
+            ? t('Full · waiting list open') : '';
 
         return [
             'when' => [self::when($start, $get('end')), 'text'],
             'where' => [$place !== '' ? $place : ($get('online') !== '' ? t('Online') : ''), 'text'],
-            'event_status' => [$endsAt < $now ? t('This event has ended.') : ($state === 'full' ? t('This event is fully booked.') : ''), 'text'],
+            'event_status' => [$endsAt < $now ? t('This event has ended.') : ($state === 'full' && $waiting === '' ? t('This event is fully booked.') : ''), 'text'],
             'ical' => [$collection['detail'] && ($item['slug'] ?? '') !== '' ? $url($collection['slug'] . '/' . $item['slug'] . '.ics') : '', 'link'],
+            'places_left_line' => [$capacity > 0 ? t('%d places left', max(0, $capacity - $registered)) : '', 'text'],
             'places_left' => [$capacity > 0 ? (string) max(0, $capacity - $registered) : '', 'text'],
-            '_registration' => [$state, 'text'],
+            'course_status' => [$standing, 'text'],
+            'waiting_list' => [$waiting, 'text'],
+            '_registration' => [$state, 'text', $maxSeats, $course !== null, $course !== null && $course['waiting_list']],
         ];
+    }
+
+    /** Where a course stands: "Starts 4 November" before the first session, "Running since 7 October" after it, empty once it ended or without a start. */
+    public static function courseStatus(string $start, string $end, string $now): string
+    {
+        if ($start === '' || self::endsAt($start, $end) < $now) {
+            return '';
+        }
+
+        return $start > $now ? t('Starts %s', format_date(substr($start, 0, 10))) : t('Running since %s', format_date(substr($start, 0, 10)));
     }
 
     /**
@@ -208,18 +280,26 @@ final class Calendar
      */
     public static function stateForSubmission(Db $db, int $idk, string $back): ?string
     {
+        $found = self::itemForSubmission($db, $idk, $back);
+
+        return $found === null ? null : self::values($db, $found[0], $found[1], fn (string $p): string => $p, date('Y-m-d H:i'))['_registration'][0];
+    }
+
+    /** The calendar collection and its visible item that the page a form was sent from shows (data decoded), or null. @return array{0: array, 1: array}|null */
+    public static function itemForSubmission(Db $db, int $idk, string $back): ?array
+    {
         $collection = Collections::byId($db, $idk);
         if ($collection === null || ($fields = self::fields($collection)) === null
             || preg_match('#/' . preg_quote((string) $collection['slug'], '#') . '/([a-z0-9-]{1,160})/?(?:\?.*)?$#', $back, $m) !== 1) {
             return null;
         }
-        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = TRUE AND deleted_at IS NULL LIMIT 1', [$idk, $m[1]]);
+        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = TRUE AND deleted_at IS NULL ORDER BY CASE WHEN language = ? THEN 0 ELSE 1 END, item_id LIMIT 1', [$idk, $m[1], Language::siteColumn()]); // the version of the page's language first
         if ($item === null) {
             return null;
         }
         $item['data'] = json_decode((string) $item['data'], true) ?: [];
 
-        return self::values($db, $collection, $item, fn (string $p): string => $p, date('Y-m-d H:i'))['_registration'][0];
+        return [$collection, $item];
     }
 
     /**

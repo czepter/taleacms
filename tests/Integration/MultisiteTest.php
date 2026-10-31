@@ -97,15 +97,9 @@ final class MultisiteTest extends DatabaseTestCase
     {
         $this->db()->pdo()->rollBack(); // DDL ends a transaction on MySQL
         $site = $this->db()->forSite('tl2_');
-        $this->assertArrayHasKey('uq_pages_slug', $site->uniqueKeys('pages'));
         $this->assertArrayHasKey('uq_pages_language_slug', $site->uniqueKeys('pages'));
-
-        // Slug::switchPerLanguage() drops and restores the global key by its migration name
-        $site->dropUniqueKey('pages', 'uq_pages_slug');
-        $this->assertArrayNotHasKey('uq_pages_slug', $site->uniqueKeys('pages'));
-        $this->assertArrayHasKey('uq_pages_slug', $this->db()->uniqueKeys('pages'), 'site 1 keeps its key');
-        $site->addUniqueKey('pages', 'uq_pages_slug', ['slug']);
-        $this->assertArrayHasKey('uq_pages_slug', $site->uniqueKeys('pages'));
+        $this->assertArrayNotHasKey('uq_pages_slug', $site->uniqueKeys('pages'), 'the global slug key is gone on every site');
+        $this->assertArrayNotHasKey('uq_pages_slug', $this->db()->uniqueKeys('pages'));
     }
 
     public function testARestoreRefusesTablesOfAnUnregisteredPrefix(): void

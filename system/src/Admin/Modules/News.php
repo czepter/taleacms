@@ -291,7 +291,7 @@ final class News extends Module
             $this->db->update('news', $data, ['news_id' => $id]);
             if ($previous['slug'] !== $data['slug'] && $previous['visible']) {
                 // a published news item changed its slug: the old one is redirected so that links and search engines do not lose the page
-                Redirects::add($this->db, \Talea\Core\Slug::redirectPath($this->db, 'news/' . $previous['slug'], (string) $previous['language']), \Talea\Core\Slug::redirectPath($this->db, 'news/' . $data['slug'], $data['language']));
+                Redirects::add($this->db, \Talea\Core\Slug::redirectPath('news/' . $previous['slug'], (string) $previous['language']), \Talea\Core\Slug::redirectPath('news/' . $data['slug'], $data['language']));
             }
         } else {
             $id = $this->db->insert('news', $data);

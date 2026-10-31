@@ -1,0 +1,66 @@
+<?php
+
+declare(strict_types=1);
+
+use Phinx\Migration\AbstractMigration;
+
+/**
+ * The three own texts of the bookings screen become messages of Settings → Messages (Core\Messages), so nothing changes for
+ * the owner: a text that was set is copied to the new setting (unless that one is already set) in the default language and in
+ * every further language of the site (the old text applied to all), and the old row is deleted. The old acknowledgement and decline
+ * texts were only the opening of the e-mail, with the details (and the decline's personal message) after it, so those are appended
+ * as placeholders. A bare {name} gets the fallback word the course templates use in that language ("there", "zusammen" …), so a name that is not
+ * safe to print leaves a natural greeting.
+ */
+final class MoveBookingTextsToMessages extends AbstractMigration
+{
+    /** old setting => [new setting, what the old code added after the text] */
+    private const array MOVED = [
+        'booking_pending_thanks' => ['message_booking_pending_thanks_body', ''],
+        'booking_pending_mail' => ['message_booking_pending_body', "\n\n{appointment}"],
+        'booking_declined_mail' => ['message_booking_declined_body', "\n\n{message}\n\n{appointment}"],
+    ];
+
+    public function up(): void
+    {
+        self::move($this->getAdapter()->getConnection(), (string) $this->getAdapter()->getOption('table_prefix'));
+    }
+
+    public function down(): void
+    {
+    }
+
+    /** Copies the set texts to their messages and deletes the old rows; safe to run again. */
+    public static function move(\PDO $pdo, string $prefix): void
+    {
+        $read = $pdo->prepare("SELECT value FROM {$prefix}settings WHERE name = ?");
+        $insert = $pdo->prepare("INSERT INTO {$prefix}settings (name, value) VALUES (?, ?)");
+        $delete = $pdo->prepare("DELETE FROM {$prefix}settings WHERE name = ?");
+        $read->execute(['additional_languages']);
+        $suffixes = ['', ...array_map(fn (string $code): string => '_' . $code, array_filter(explode(',', (string) $read->fetchColumn())))];
+        $read->execute(['site_language']);
+        $siteLanguage = (string) $read->fetchColumn();
+        foreach (self::MOVED as $old => [$new, $after]) {
+            $read->execute([$old]);
+            $text = trim((string) $read->fetchColumn());
+            foreach ($suffixes as $suffix) {
+                $read->execute([$new . $suffix]);
+                if ($text !== '' && $read->fetchColumn() === false) {
+                    $insert->execute([$new . $suffix, str_replace('{name}', '{name|' . self::fallbackWord($suffix === '' ? $siteLanguage : substr($suffix, 1)) . '}', $text) . $after]);
+                }
+            }
+            $delete->execute([$old]);
+        }
+    }
+
+    /** The word after the bar in the language's "Hello {name|there}," (the default text when the dictionary cannot be read). */
+    private static function fallbackWord(string $language): string
+    {
+        if ($language === '' || !class_exists(\Talea\Core\Language::class) || !function_exists('t')) {
+            return 'there';
+        }
+        $hello = \Talea\Core\Language::runWith($language, fn (): string => t('Hello {name|there},'));
+
+        return preg_match('/\{name\|([^}]*)\}/', $hello, $m) === 1 && $m[1] !== '' ? $m[1] : 'there';
+    }
+}

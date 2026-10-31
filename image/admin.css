@@ -824,6 +824,8 @@ table.listing tr.seo-edit-row td { padding: 12px 16px 16px; background: color-mi
 @media (max-width: 900px) { .seo-edit-grid { grid-template-columns: minmax(0, 1fr); } }
 .status-note-error { color: var(--error); }
 .status-note-neutral { color: var(--text-weak); }
+.registration-message { display: block; margin-block-end: 6px; }
+.registration-message textarea { display: block; inline-size: 100%; min-inline-size: 14rem; margin-block-start: 4px; }
 .row-actions {
 	display: flex;
 	justify-content: flex-end;

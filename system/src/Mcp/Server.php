@@ -287,6 +287,9 @@ final class Server
                 // enquiries hold personal data: every read by Claude is in the change log, with how many it saw
                 ChangeLog::write($this->app, 'claude', 'list_enquiries', t('%d enquiries read', is_array($result) ? count($result) : 0));
             }
+            if ($name === 'list_registrations') {
+                ChangeLog::write($this->app, 'claude', 'list_registrations', t('%d registrations read', is_array($result) ? count((array) ($result['registrations'] ?? [])) : 0));
+            }
             if ($this->siteId !== null && is_array($result) && !array_is_list($result)) {
                 $result['on_site'] = $this->siteId; // the result names the site the tool ran on (site_info has a `site` of its own)
             }
@@ -367,7 +370,6 @@ final class Server
         $before = [\Talea\Front\Cache::site(), \Talea\Core\Language::code(), date_default_timezone_get()];
         $owner = (string) $row['prefix'] === $db->installPrefix; // the install's own site 1 keeps the plain cache folder
         \Talea\Front\Cache::useSite($owner ? null : (string) $row['prefix']);
-        \Talea\Core\Slug::setPerLanguage(null);
         \Talea\Core\Routes::setNewsSlug(null);
         try {
             $app->applyTimezone();
@@ -380,7 +382,6 @@ final class Server
         } finally {
             \Talea\Front\Cache::useSite($before[0]);
             date_default_timezone_set($before[2]);
-            \Talea\Core\Slug::setPerLanguage(null);
             \Talea\Core\Routes::setNewsSlug(null);
             \Talea\Core\Language::setSite($this->app->settings(), $before[1]);
         }

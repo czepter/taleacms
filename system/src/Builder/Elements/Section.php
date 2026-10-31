@@ -49,7 +49,7 @@ final class Section extends Element
 :where(.build) a:focus-visible { outline: 3px solid var(--tl-color-secondary); outline-offset: 2px; }
 .tl-wrap > * + * { margin-block-start: var(--tl-space-m); }
 .tl-with-video { position: relative; isolation: isolate; overflow: hidden; }
-.tl-video-background { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; }
+.tl-video-background { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; object-position: var(--tl-bg-focal, center); }
 @media (prefers-reduced-motion: reduce) { .tl-video-background { display: none; } }';
     }
 

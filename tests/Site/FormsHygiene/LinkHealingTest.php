@@ -26,8 +26,8 @@ final class LinkHealingTest extends SiteTestCase
 
         $this->mcpText('update_page', ['id' => $this->site()->publicId('pages', $target), 'slug' => 'lh-nove']);
 
-        $this->assertSame('11111', (string) $this->site()->value("SELECT CONCAT(build LIKE '%/lh-nove#cast%', build LIKE '%/en/lh-nove%', build LIKE '%/lh-stare-jina%', build NOT LIKE '%/lh-stare\"%', text LIKE '%/lh-nove%') FROM tl_pages WHERE page_id = ?", [$source]),
-            'link healing: a renamed page – button, text and the language form point to the new address, a longer address is left alone');
+        $this->assertSame('10111', (string) $this->site()->value("SELECT CONCAT(build LIKE '%/lh-nove#cast%', build LIKE '%/en/lh-nove%', build LIKE '%/lh-stare-jina%', build NOT LIKE '%/lh-stare\"%', text LIKE '%/lh-nove%') FROM tl_pages WHERE page_id = ?", [$source]),
+            'link healing: a renamed page – button and text point to the new address, the other language version and a longer address are left alone');
         $this->assertSame('1', (string) $this->site()->value("SELECT items LIKE '%/lh-nove%' FROM tl_menus WHERE location = 'lhtest'"), 'link healing: the menu points to the new address');
         $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM tl_events WHERE type = 'links.healed' AND data LIKE '%lh-nove%'"), 'link healing: the change is an event with the count');
 

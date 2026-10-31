@@ -105,16 +105,6 @@ trait SettingsTools
                 $stored[$key] = $path;
                 continue;
             }
-            if ($key === 'slugs_per_language' && is_scalar($value)) {
-                // changes the database keys; refused while two language versions share an address (Core\Slug)
-                $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes'], true);
-                if (($refusal = \Talea\Core\Slug::switchPerLanguage($db, $siteSettings, $on)) !== null) {
-                    $errors[$key] = sprintf($refusal[0], $refusal[1]);
-                    continue;
-                }
-                $stored[$key] = $on ? '1' : '0';
-                continue;
-            }
             if ($key === 'site_url') {
                 // the address password-reset and member sign-in links are built from: an administrator's connection with full
                 // access only, and never while the server sets it (TALEA_SITE_URL, Core\SiteUrl)
@@ -141,7 +131,15 @@ trait SettingsTools
                 $stored[$key] = $on ? '1' : '0';
                 continue;
             }
+            if (($message = \Talea\Core\Messages::parseKey($key)) !== null && $message['language'] !== '' && !in_array($message['language'], \Talea\Core\Language::additional($siteSettings), true)) {
+                $languages = \Talea\Core\Language::additional($siteSettings);
+                $errors[$key] = 'The site has no language version "' . $message['language'] . '". The key without a language suffix is the default language' . ($languages !== [] ? '; further languages: ' . implode(', ', $languages) . '.' : ' (the site has no further languages).');
+                continue;
+            }
             $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Talea\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
+            if ($clean !== null && $message !== null && \Talea\Core\Messages::isTemplate($siteSettings, $key, $clean)) {
+                $clean = ''; // the template itself is no own text
+            }
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
                 && $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND visible = TRUE AND deleted_at IS NULL', [(int) $clean]) === null) {
                 $errors[$key] = 'Only a visible page can be the home page.';
@@ -163,7 +161,8 @@ trait SettingsTools
             if ($clean === null) {
                 $type = (string) \Talea\Admin\Modules\Settings::fieldType($key);
                 $errors[$key] = !preg_match(self::MCP_SETTINGS, $key) ? 'This setting cannot be changed through MCP (only in the administration).'
-                    : (str_starts_with($type, 'choice:') ? 'Invalid value. Allowed: ' . implode(', ', array_map(fn (string $v): string => $v === '' ? '"" (empty)' : $v, explode('|', substr($type, 7)))) : 'Invalid value.');
+                    : (str_starts_with($type, 'message:') ? (\Talea\Core\Messages::check(substr($type, 8), is_scalar($value) ? (string) $value : '') ?? 'Too long: at most ' . \Talea\Core\Messages::MAX . ' characters.')
+                    : (str_starts_with($type, 'choice:') ? 'Invalid value. Allowed: ' . implode(', ', array_map(fn (string $v): string => $v === '' ? '"" (empty)' : $v, explode('|', substr($type, 7)))) : 'Invalid value.'));
                 continue;
             }
             $siteSettings->set($key, $clean);
@@ -183,12 +182,13 @@ trait SettingsTools
         $current = [];
         foreach (['site_name', 'site_url', 'redirect_to_site_url', 'site_description', 'footer_text', 'logo', 'favicon', 'home_page', 'news_slug', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin', 'news_per_page',
             'share_image', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_email', 'company_hours', 'company_map', 'company_gps', 'dark_mode', 'theme_switcher',
-            'indexing', 'schema_org', 'llms_txt', 'markdown_versions', 'indexnow', 'ai_crawlers', 'cookies_mode', 'cookies_log', 'stats', 'security_contact', 'slugs_per_language'] as $key) {
+            'indexing', 'schema_org', 'llms_txt', 'markdown_versions', 'indexnow', 'ai_crawlers', 'cookies_mode', 'cookies_log', 'stats', 'security_contact'] as $key) {
             $current[$key] = $siteSettings->get($key);
         }
         $current['stats'] = \Talea\Front\Stats::enabled($siteSettings) ? '1' : '0'; // the Statistics feature (3.2)
         $current += ['extensions' => \Talea\Core\Extensions::enabled($siteSettings), 'additional_languages' => \Talea\Core\Language::additional($siteSettings),
             'claude_instructions' => $siteSettings->get('claude_instructions'),
+            'messages' => \Talea\Core\Messages::overrides($siteSettings) ?: new \stdClass(), // the e-mail and page texts of courses and bookings that differ from their template (key => text)
             'screen' => \Talea\Front\Screen::settings($siteSettings)]; // on, seconds, collections, news, hours, clock – never the secret address
 
         return ['saved' => $stored ?: new \stdClass(), 'errors' => $errors ?: new \stdClass(), 'settings' => $current];
