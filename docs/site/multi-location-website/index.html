@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Website for multiple locations: one installation</title>
+<meta name="description" content="Run a website for each location from one Talea installation: own domain, pages, hours and people per site, one shared look, one list for bookings.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://czepter.github.io/taleacms/multi-location-website/">
+<link rel="icon" href="../img/talea-mark.svg" type="image/svg+xml">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Website for multiple locations: one installation">
+<meta property="og:description" content="Run a website for each location from one Talea installation: own domain, pages, hours and people per site, one shared look, one list for bookings.">
+<meta property="og:url" content="https://czepter.github.io/taleacms/multi-location-website/">
+<meta property="og:image" content="https://czepter.github.io/taleacms/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "A website for multiple locations from one installation",
+      "description": "Run a website for each location from one Talea installation: own domain, pages, hours and people per site, one shared look, one list for bookings.",
+      "datePublished": "2026-10-31",
+      "dateModified": "2026-10-31",
+      "author": {
+        "@type": "Person",
+        "name": "Christian Zepter",
+        "url": "https://github.com/czepter"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Christian Zepter",
+        "url": "https://github.com/czepter"
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://czepter.github.io/taleacms/multi-location-website/"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Talea",
+          "item": "https://czepter.github.io/taleacms/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Website for multiple locations",
+          "item": "https://czepter.github.io/taleacms/multi-location-website/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Should each location have its own domain?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "In Talea each location's site answers to its own domain. Whether separate domains suit your business depends on how customers find you and how separate the brands are. The main site can link to every location."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can location managers edit only their own site?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. People can be limited to their own site, so a manager edits the pages, hours and bookings of one location."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I see bookings from all locations in one list?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Enquiries and bookings from every location arrive in one list, which you can narrow down to a single site."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can a location change the design?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The main site hands the look down when you publish, and the locations cannot change it on their own."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does each location need its own server?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. One installation runs all the sites. You switch this on with the setting TALEA_MULTISITE=1 when Talea is installed."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+
+<header class="top">
+	<div class="bar">
+		<a class="logo" href="../">
+			<picture>
+				<source media="(prefers-color-scheme: dark)" srcset="../img/talea-logo-dark.svg">
+				<img src="../img/talea-logo.svg" alt="Talea" width="85" height="26">
+			</picture>
+		</a>
+		<nav class="nav" aria-label="Main">
+			<a href="../#locations">Locations</a>
+			<a href="../#looks">Looks</a>
+			<a href="../#editing">Editing</a>
+			<a href="../#questions">Questions</a>
+			<a href="https://github.com/czepter/taleacms">GitHub</a>
+		</nav>
+		<a class="btn" href="../#install">Install Talea</a>
+	</div>
+</header>
+
+<main id="top">
+	<article class="sec prose">
+		<nav class="crumbs" aria-label="Breadcrumb"><a href="../">Talea</a> / <span aria-current="page">Website for multiple locations</span></nav>
+		<h1>A website for multiple locations from one installation</h1>
+		<p class="lead intro">A business with several locations can run one website per location from a single Talea installation. Each location has its own domain, pages, opening hours, bookings and people, while the look, the media library and the list of enquiries and bookings are shared. This guide explains how to plan it and what it cannot do.</p>
+		<p class="caption">Last checked 31 October 2026</p>
+<h2>Plan the locations first</h2>
+<p>Give every location what is true only there: its address, opening hours, the people who work there, the services it offers and its own photos. Pages that repeat the same text with a different city name tell a visitor very little.</p>
+<p>Then decide how the sites relate. In Talea each location's site answers to its own domain, and the main site can link to all of them. Whether separate domains suit you depends on how customers find you and how separate the brands are.</p>
+<h2>One installation, one site per location</h2>
+<p>Several sites are switched on with one setting, <code>TALEA_MULTISITE=1</code>, when Talea is installed. After that you add a site for each location. What is shared and what is separate:</p>
+<div class="tab-wrap mt"><table class="listing compare guide"><thead><tr><th scope="col">Shared by all locations</th><th scope="col">Separate for each location</th></tr></thead><tbody>
+<tr><td class="key">One look. The main site hands it down when you publish, and the locations cannot change it.</td><td>Its own domain</td></tr>
+<tr><td class="key">One media library. What you upload once is available on every site.</td><td>Its own pages and opening hours</td></tr>
+<tr><td class="key">One list of enquiries and bookings, which you can narrow down to a single site.</td><td>Its own bookings and people. People can be limited to their own site.</td></tr>
+</tbody></table></div>
+<h2>How a new design reaches every location</h2>
+<p>You publish the look on the main site and every location takes it over. A location manager can edit the pages of their site but cannot restyle it. This keeps the brand consistent without anyone copying settings from site to site.</p>
+<h2>Bookings and enquiries across locations</h2>
+<p>Customers book on the site of the location they choose: they pick a service, a person or anyone, a day and a free time, and receive a confirmation by e-mail with a cancel link. The business can list enquiries and bookings from every location in one place, or narrow the list to one site.</p>
+<h2>Who looks after what</h2>
+<p>One person or agency runs the installation: the server, the backups to FTPS or S3, and updates. Because all locations are one installation, one new container image updates every site at once. Location managers work inside their own site and do not touch the server.</p>
+<p>Each location keeps its own opening hours, so a visitor sees the hours of the place they are looking at and not those of the whole company.</p>
+<h2>Compared with WordPress Multisite</h2>
+<p>WordPress describes Multisite as a feature that runs several sites from one installation, with its own tables for each site and a shared user table. Talea has the same aim and adds a shared look and media library, with people who can be limited to a site.</p>
+<p>WordPress offers a very large choice of plugins and themes for each site, which Talea does not. Choose by what the sites need.</p>
+<h2>When to choose something else</h2>
+<ul>
+<li>Locations need different designs. Talea shares one look that the locations cannot change, so separate installations suit that case.</li>
+<li>Each location needs online checkout. Talea has no checkout and no payments.</li>
+<li>Your host cannot run Docker, which Talea needs.</li>
+<li>You want one domain with every location under it. Talea gives each site its own domain.</li>
+</ul>
+		<h2>Questions people ask</h2>
+		<div class="card mt">
+<details open><summary>Should each location have its own domain?<span class="plus" aria-hidden="true">+</span></summary><p>In Talea each location's site answers to its own domain. Whether separate domains suit your business depends on how customers find you and how separate the brands are. The main site can link to every location.</p></details>
+<details><summary>Can location managers edit only their own site?<span class="plus" aria-hidden="true">+</span></summary><p>Yes. People can be limited to their own site, so a manager edits the pages, hours and bookings of one location.</p></details>
+<details><summary>Can I see bookings from all locations in one list?<span class="plus" aria-hidden="true">+</span></summary><p>Yes. Enquiries and bookings from every location arrive in one list, which you can narrow down to a single site.</p></details>
+<details><summary>Can a location change the design?<span class="plus" aria-hidden="true">+</span></summary><p>No. The main site hands the look down when you publish, and the locations cannot change it on their own.</p></details>
+<details><summary>Does each location need its own server?<span class="plus" aria-hidden="true">+</span></summary><p>No. One installation runs all the sites. You switch this on with the setting TALEA_MULTISITE=1 when Talea is installed.</p></details>
+		</div>
+		<h2>Sources</h2>
+		<ul class="sources">
+<li><a href="https://developer.wordpress.org/advanced-administration/multisite/">WordPress: Multisite</a>, read 31 October 2026</li>
+		</ul>
+		<h2>More guides</h2>
+		<ul>
+<li><a href="../best-cms-small-business-2027/">How to choose a CMS for a small business</a>. A decision guide with the questions that matter and a table of the options.</li>
+<li><a href="../wordpress-alternative/">A self-hosted WordPress alternative</a>. What is built in, who updates what, and when to stay on WordPress.</li>
+<li><a href="../squarespace-wix-alternative/">Leaving Squarespace or Wix for your own server</a>. What you can take with you and how the website import brings the pages over.</li>
+<li><a href="../self-hosted-booking-website/">A booking website on your own server</a>. Bookings with confirmation and a cancel link, without payments.</li>
+		</ul>
+		<div class="navigation-row hero-buttons">
+			<a class="btn big" href="../#install">Install Talea</a>
+		</div>
+	</article>
+</main>
+
+<footer class="foot">
+	<div class="bar">
+		<p>Talea is made by <a href="https://github.com/czepter">Christian Zepter</a> and contributors. It is a hard fork of <a href="https://github.com/phprs-cms/kaletacms">Kaleta</a> by Miroslav Kaleta and contributors, who built the page builder, the design system, the AI connection and much more.</p>
+		<p>GPL-2.0-or-later · <a href="https://github.com/czepter/taleacms">GitHub</a> · <a href="https://github.com/czepter/taleacms/blob/main/NOTICE">Credits</a></p>
+		<p>Guides: <a href="../best-cms-small-business-2027/">How to choose a CMS for a small business</a> · <a href="../wordpress-alternative/">A self-hosted WordPress alternative</a> · <a href="../squarespace-wix-alternative/">Leaving Squarespace or Wix for your own server</a> · <a href="../multi-location-website/">One website per location from one installation</a> · <a href="../self-hosted-booking-website/">A booking website on your own server</a></p>
+	</div>
+</footer>
+</body>
+</html>
