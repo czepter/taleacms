@@ -107,7 +107,7 @@ function check() {
  * Text contrast on the canvas (WCAG AA: 4.5 : 1, large text 3 : 1): the text color against the first opaque surface below it.
  * The browser converts colors (oklch and color-mix too) via a drawing canvas; an element on a background image is not evaluated.
  */
-function contrastCheck() {
+export function contrastCheck() {
 	const doc = dom.preview && dom.preview.contentDocument;
 	if (!doc) { return []; }
 	const c = document.createElement('canvas').getContext('2d', { willReadFrequently: true });

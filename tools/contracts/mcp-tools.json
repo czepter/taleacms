@@ -2354,6 +2354,7 @@
             "alt": "string",
             "author": "string",
             "caption": "string",
+            "focal_point": "string",
             "id": "string"
         },
         "required": [

@@ -89,6 +89,18 @@ export const state = {
 	changed: !!D.changed, saving: false, hidden: {}, timer: null, version: D.version || '', saved: '', retries: 0, signed_in: false, conflict: false, cleaned: null, errors: {}, collapsed: {}, openItems: {}, editedClass: null, draggedNode: null, dragging: null, editingCanvas: false, placing: null, zoom: '', pasteTimer: null, multi: [], gesture: false, keepEditing: false, refreshAfterGesture: false,
 };
 
+/** The screen sizes a style value can come from, the current one first: a smaller size takes what a wider one sets. */
+export const CHAIN = { base: ['base'], tablet: ['tablet', 'base'], mobile: ['mobile', 'tablet', 'base'] };
+/** A style value that one screen size sets itself (undefined where it does not). */
+export const ownValue = (p, bp, key) => (p.style && !Array.isArray(p.style) && p.style[bp] && p.style[bp][key]) || undefined;
+/** The value a wider screen size passes on to the current one ('' when none does; the current size itself is not asked). */
+export function inheritedValue(p, key) {
+	for (const bp of (CHAIN[state.bp] || ['base']).slice(1)) { const v = ownValue(p, bp, key); if (v) { return v; } }
+	return '';
+}
+/** What the current screen size shows of a style value: its own, or the one a wider size passes on. */
+export const effectiveValue = (p, key) => ownValue(p, state.bp, key) || inheritedValue(p, key);
+
 /** What core calls in the modules that import it; main.js fills it (panels.js: redrawBar, redrawLeft, redrawTree, hint; inspector.js: redrawRight; canvas.js: refreshPreview, markInPreview, showSpot, endPlacing, copy, pasteFromClipboard). */
 export const ui = {};
 /** The parts of the editor that several modules reach: the canvas iframe (preview, swapped by canvas.js), the elements main.js and panels.js create. */
@@ -450,15 +462,16 @@ export function ungroup() {
 	applyChange(() => { const kids = n.p.children; n.siblings.splice(n.i, 1, ...kids); state.selected = kids[0].id; state.multi = kids.slice(1).map((k) => k.id); });
 	setState(T('Container removed, its elements stay.'));
 }
-/** Properties of the style for the current breakpoint (desktop, tablet, phone) – one history step. list = [[id, {property: value | ''}], …]. */
+/** Properties of the style for the current breakpoint (desktop, tablet, phone) – one history step. list = [[id, {property: value | ''}, breakpoint?], …];
+ * a breakpoint in an entry is the one the write was meant for (a file that finished uploading after the device switcher moved), several entries may name several. */
 export function writeStyle(list, key) {
 	applyChange(() => {
-		list.forEach(([id, props]) => {
+		list.forEach(([id, props, bp]) => {
 			const n = find(id);
 			if (!n) { return; }
 			const p = n.p;
 			p.style = p.style && !Array.isArray(p.style) ? p.style : {};
-			const st = state.bp;
+			const st = bp || state.bp;
 			p.style[st] = p.style[st] || {};
 			for (const [k, v] of Object.entries(props)) { if (v === '' || v === null || v === undefined) { delete p.style[st][k]; } else { p.style[st][k] = String(v); } }
 			if (!Object.keys(p.style[st]).length) { delete p.style[st]; }

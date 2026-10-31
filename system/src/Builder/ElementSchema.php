@@ -70,6 +70,7 @@ final class ElementSchema
                 'color' => 'token (' . implode('|', $colors) . ') or #hex', 'radius' => 'token ' . implode('|', array_map('strval', $tokens['radii'])) . ' or a length',
                 'shadow' => 'token s|m|l, none or “x y blur colour”', 'border' => 'an option or “2px solid colour”', 'length' => 'px, rem, %, vw, fr, auto, min()/max()/clamp()/calc()',
                 'columns' => 'a number 1–12, “auto:16rem” (as many as fit) or “2fr 1fr”', 'rows' => 'a number or “auto 1fr”', 'areas' => 'rows separated by /, e.g. “a a / b c”',
+                'focal' => 'a point in the picture, “x% y%” with whole numbers 0–100 (e.g. “62% 38%”); focal_point on an image, background_focal where the element has a background image or video',
                 'column_line' => 'a grid line 1–13 (Compose section children)', 'row_line' => 'a grid line 1–40 (Compose section children)',
             ],
             'node' => '{"id":"(optional, keep it when editing)","type":"…","tag":"(one of the tags; the first is the default)","content":{…},"style":{"base":{…},"tablet":{…},"mobile":{…},"hover":{…}},"classes":["…"],"anchor":"id-for-links","children":[…]}; leave out empty fields and default values',
