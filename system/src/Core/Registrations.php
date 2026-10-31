@@ -579,12 +579,21 @@ final class Registrations
         return count($mails);
     }
 
+    /** The site address from Settings; '' when it is not set. Links in mails never fall back to the Host header. */
+    private static function siteOrigin(App $app): string
+    {
+        return rtrim($app->settings()->get('site_url'), '/');
+    }
+
     /** The {take-over links} of the cancellation mail: per offered course its name, schedule and start, then the personal link. '' without offers. @param list<array<string, mixed>> $offers */
     private static function offerLines(App $app, array $collection, array $offers, string $token, string $language): string
     {
         $fields = Calendar::fields($collection);
         $s = $app->settings();
-        $site = rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/');
+        $site = self::siteOrigin($app);
+        if ($site === '') {
+            return ''; // a take-over link carries a secret token: never built on the Host header
+        }
         $lines = [];
         $prefix = $language !== '' && $language !== Language::defaults($s) ? $language . '/' : ''; // the registrant's language version of the site
         foreach ($offers as $n => $offer) {
@@ -791,11 +800,12 @@ final class Registrations
                 continue;
             }
             [$to, $bcc] = $recipients;
-            $url = rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/') . $app->url('admin.php?module=collections&action=registrations&id='
+            $site = self::siteOrigin($app);
+            $url = $site === '' ? '' : $site . $app->url('admin.php?module=collections&action=registrations&id='
                 . $db->publicId('collections', (int) $collection['collection_id']) . '&item=' . $db->publicId('collection_items', $itemId));
             Language::runWith(Language::defaults($s), function () use ($s, $item, $waiting, $to, $bcc, $url): void {
                 $text = t('%d requests for this course have not been answered for 3 days. Please confirm or decline them in the administration.', count($waiting))
-                    . "\n\n" . $item['name'] . "\n\n—\n" . t('Registrations in the administration: %s', $url);
+                    . "\n\n" . $item['name'] . ($url !== '' ? "\n\n—\n" . t('Registrations in the administration: %s', $url) : '');
                 Mail::send($s, implode(', ', $to), FormMail::subject(t('Unanswered requests: %s', (string) $item['name'])), $text, '', $bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
             });
             $sent++;
