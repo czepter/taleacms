@@ -44,4 +44,55 @@ final class CalendarTest extends TestCase
             str_contains($ics, 'LOCATION:Sál\\, Hlavní 1\\, Brno'), str_contains($ics, "DTSTART;VALUE=DATE:20261102\r\nDTEND;VALUE=DATE:20261103\r\n"), substr_count($ics, 'BEGIN:VEVENT'), str_ends_with($ics, "END:VCALENDAR\r\n")], '2.11 Calendar::ics – a timed series with RRULE in UTC, a whole day as DATE, an event without a date left out'); // check-english: allow
         $this->assertSame(['repeat', null, null], [Calendar::fields($icsCollection)['repeat'] ?? null, Calendar::fields(['preset' => 'events', 'fields' => []]), Calendar::fields(['preset' => 'people', 'fields' => $icsCollection['fields']])], '2.11 Calendar::fields – only a collection made from the events preset with its start field');
     }
+
+    /** @return array<string, mixed> a collection made from the courses preset */
+    private function courses(): array
+    {
+        return ['collection_id' => 1, 'slug' => 'courses', 'preset' => 'courses', 'fields' => \Talea\Builder\Collections::sanitizeFields(array_map(
+            fn (array $f): array => ['key' => $f[0], 'label' => $f[1], 'type' => $f[2], 'options' => $f[3]['options'] ?? []], (array) (\Talea\Builder\Presets::get('courses')['fields'] ?? [])))];
+    }
+
+    public function testRemovingMappedFieldIsRefused(): void
+    {
+        $k = $this->courses();
+        $this->assertArrayHasKey('capacity', Calendar::protectedKeys($k));
+        $without = array_values(array_filter($k['fields'], fn (array $f): bool => $f['key'] !== 'capacity'));
+        $this->assertStringContainsString('cannot be removed', (string) Calendar::refuseProtected($k, $without));
+        $renamedKey = array_map(fn (array $f): array => $f['key'] === 'capacity' ? ['key' => 'seats'] + $f : $f, $k['fields']);
+        $this->assertNotNull(Calendar::refuseProtected($k, $renamedKey), 'a changed key counts as removed');
+    }
+
+    public function testChangingMappedTypeIsRefused(): void
+    {
+        $k = $this->courses();
+        $changed = array_map(fn (array $f): array => $f['key'] === 'capacity' ? ['type' => 'text'] + $f : $f, $k['fields']);
+        $this->assertStringContainsString('type of the field', (string) Calendar::refuseProtected($k, $changed));
+    }
+
+    public function testRenamingMappedFieldIsAllowed(): void
+    {
+        $k = $this->courses();
+        $renamed = array_map(fn (array $f): array => $f['key'] === 'capacity' ? ['label' => 'Places', 'help' => 'x'] + $f : $f, $k['fields']);
+        $this->assertNull(Calendar::refuseProtected($k, array_reverse($renamed)));
+    }
+
+    public function testUnmappedFieldCanBeRemoved(): void
+    {
+        $k = $this->courses();
+        $unmapped = array_values(array_diff(array_column($k['fields'], 'key'), array_keys(Calendar::protectedKeys($k))));
+        $this->assertNotSame([], $unmapped, 'the preset has a field registration does not use');
+        $without = array_values(array_filter($k['fields'], fn (array $f): bool => $f['key'] !== $unmapped[0]));
+        $this->assertNull(Calendar::refuseProtected($k, $without));
+        $this->assertSame([], Calendar::protectedKeys(['preset' => '', 'fields' => $k['fields']]));
+    }
+
+    public function testCourseStatusStartsAndRunning(): void
+    {
+        $this->assertSame([t('Starts %s', format_date('2026-11-04')), t('Running since %s', format_date('2026-10-07')), '', ''], [
+            Calendar::courseStatus('2026-11-04 18:00', '2026-12-16', '2026-10-30 12:00'),
+            Calendar::courseStatus('2026-10-07 18:00', '2026-12-16', '2026-10-30 12:00'),
+            Calendar::courseStatus('2026-10-07 18:00', '2026-12-16', '2026-12-17 00:00'),
+            Calendar::courseStatus('', '', '2026-10-30 12:00'),
+        ]);
+    }
 }

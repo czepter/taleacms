@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "craftsman",
     "group": "services",
+    "topics": ["construction"],
     "name": "Trades business",
     "description": "A plumber, electrician, joiner, roofer or other tradesperson: the services, finished jobs as references, a price list and customers' questions, with facts about the area served, rates and the emergency line.",
     "presets": ["services", "references", "price_list", "faq"],

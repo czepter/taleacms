@@ -107,7 +107,10 @@ echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Enquiry status'
 	<td class="cell-select"><?php if ($siteOf($p) === null): ?><input type="checkbox" name="selected[]" value="<?= e($p['public_id']) ?>" form="bulk" aria-label="<?= e(t('Select %s', $who)) ?>"><?php endif ?></td>
 	<td><div class="cell-row"><?php if ($status === 0): ?><span class="unread-dot"><span class="visually-hidden"><?= e(t('New')) ?></span></span><?php endif ?><div class="cell-text"><?= $siteTag($p) ?><?= $siteOf($p) !== null ? '<span class="cell-title">' . bdi($who) . '</span>' : '<a class="cell-title" href="' . e($detail) . '">' . bdi($who) . '</a>' ?><span class="cell-sub"><?= implode(' · ', $sub) ?></span></div></div></td>
 	<td class="cell-main"><div class="cell-row"><?= $p['category'] !== '' ? '<span class="tag">' . e($kindNames[$p['category']] ?? $p['category']) . '</span>' : '' ?><?= (int) $p['priority'] === 3 ? '<span class="tag tag-warning">' . e(t('urgent')) . '</span>' : '' ?><a class="cell-sub cell-preview" href="<?= e($detail) ?>"><?= bdi($preview((string) $p['data'])) ?></a></div></td>
-	<td><?= $app->view->render('admin/list/status', ['kind' => [0 => 'hidden', 1 => 'draft', 2 => 'live'][$status] ?? 'draft', 'label' => t(Enquiries::STATUSES[$status] ?? '')]) ?></td>
+	<td><?= $app->view->render('admin/list/status', ['kind' => [0 => 'hidden', 1 => 'draft', 2 => 'live'][$status] ?? 'draft', 'label' => t(Enquiries::STATUSES[$status] ?? '')]) ?>
+<?php if ((string) $p['seat_state'] !== ''): [$stateKind, $stateLabel] = Talea\Core\Registrations::stateBadge((string) $p['seat_state']); ?>
+		<?= $app->view->render('admin/list/status', ['kind' => $stateKind, 'label' => $stateLabel]) ?>
+<?php endif ?></td>
 	<td class="cell-weak"><?= e(format_ago($p['created_at'])) ?></td>
 	<td class="cell-actions"><?php if (($s = $siteOf($p)) !== null): ?><?= $open($s, 'module=enquiries&action=detail&id=' . $p['public_id']) ?><?php else: ?><?= $app->view->render('admin/list/actions', ['id' => $p['public_id'], 'name' => $who, 'edit' => null, 'csrf' => $csrf,
         'quick' => $status !== 2 ? ['action' => $module->url('bulk'), 'fields' => $one + ['bulk' => 'vyridit'], 'label' => t('Mark as resolved'), 'icon' => 'check'] : null,

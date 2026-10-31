@@ -4,7 +4,7 @@
  *   Ctrl/Cmd+Shift+arrow  move the selected elements one place; at the end of a container the element hops into the next container
  *   Alt+arrow             resize the selected element by one step (width in twelfths or a column, height by 1 rem or a row)
  *   Ctrl/Cmd+G, +Shift+G  group / ungroup
- *   Enter                 move the focus to the handles of the selected element (Tab walks them, arrows change a value, Esc leaves)
+ *   Enter                 on an image: crop mode (media.js); otherwise move the focus to the handles of the selected element (Tab walks them, arrows change a value, Esc leaves)
  * Esc cancels a gesture in progress (overlay.js). The handles' own arrow keys are in handles.js. */
 import { state, on, find, selection, group, ungroup, nudge, setState, labelText } from './core.js';
 import { previewDoc } from './canvas.js';
@@ -43,7 +43,7 @@ function onKey(e) {
 	if (ARROWS.includes(e.key)) {
 		if (mod && e.shiftKey) { e.preventDefault(); nudge(e.key === 'ArrowUp' || e.key === (isRtl(previewDoc()) ? 'ArrowRight' : 'ArrowLeft') ? -1 : 1); } else if (e.altKey && !mod) { e.preventDefault(); C.keyResize(e.key, e.shiftKey); } else if (!mod && !e.shiftKey && !e.altKey) { e.preventDefault(); selectSibling(e.key); }
 	} else if (e.key === 'Enter' && !mod && !e.altKey && !e.shiftKey && !state.placing && target.tagName !== 'A' && target.tagName !== 'BUTTON') {
-		if (C.focusHandles()) { e.preventDefault(); }
+		if (C.crop()) { e.preventDefault(); } else if (C.focusHandles()) { e.preventDefault(); }
 	}
 }
 

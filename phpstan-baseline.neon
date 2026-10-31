@@ -300,17 +300,7 @@ parameters:
 			count: 1
 			path: system/src/Front/PageFrame.php
 
-		-
-			message: '#^Method Talea\\Install\\Installer\:\:requirements\(\) should return list\<array\{nazev\: string, ok\: bool, info\: string\}\> but returns array\{0\: array\{name\: string, ok\: bool, info\: non\-falsy\-string\}, 1\: array\{name\: string, ok\: bool, info\: string\}, 2\: array\{name\: string, ok\: bool, info\: string\}, 3\: array\{name\: string, ok\: bool, info\: string\}, 4\?\: array\{name\: string, ok\: bool, info\: string\}\}\.$#'
-			identifier: return.type
-			count: 1
-			path: system/src/Install/Installer.php
 
-		-
-			message: '#^Offset 0\|1\|2\|3 on array\{array\{''hero'', ''benefits'', ''numbers'', ''testimonials'', ''news'', ''call\-to\-action''\}, array\{\}, array\{''page\-title'', ''services'', ''faq'', ''call\-to\-action''\}, array\{''page\-title'', ''contact'', ''enquiry''\}\}\|array\{array\{''hero\-centered'', ''logos'', ''benefits\-list'', ''numbers\-light'', ''quote'', ''call\-to\-action''\}, array\{''page\-title'', ''story'', ''team'', ''history'', ''careers''\}, array\{''page\-title'', ''services'', ''pricing'', ''faq\-columns''\}, array\{''page\-title'', ''contact\-form'', ''branches''\}\}\|array\{array\{''hero\-image'', ''guarantees'', ''process'', ''portfolio'', ''testimonials'', ''call\-to\-action''\}, array\{''page\-title'', ''story'', ''values'', ''team''\}, array\{''page\-title'', ''alternating'', ''services\-list'', ''faq'', ''cta\-bar''\}, array\{''page\-title'', ''contact\-form''\}\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: system/src/Install/Installer.php
 
 		-
 			message: '#^Offset ''revision'' does not exist on array\{kind\: string, row\: array\<string, mixed\>, build\: string\|null, draft\: string\|null, language\: string\}\.$#'

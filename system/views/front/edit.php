@@ -41,3 +41,4 @@ $recordId = $app->db()->publicId($type === 'news' ? 'news' : 'pages', (int) ($re
 <script src="<?= e($app->url($dictionary)) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <?php endforeach ?>
 <script src="<?= e($app->url('image/editor.js')) ?>?v=<?= e(TALEA_VERSION) ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" defer></script>
+<script src="<?= e($app->url('image/picker.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>

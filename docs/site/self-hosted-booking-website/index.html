@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Self-hosted booking website for a small business</title>
+<meta name="description" content="A booking website on your own server: visitors pick a service, a person and a free time, then get an e-mail confirmation with a cancel link. No payments.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://czepter.github.io/taleacms/self-hosted-booking-website/">
+<link rel="icon" href="../img/talea-mark.svg" type="image/svg+xml">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Self-hosted booking website for a small business">
+<meta property="og:description" content="A booking website on your own server: visitors pick a service, a person and a free time, then get an e-mail confirmation with a cancel link. No payments.">
+<meta property="og:url" content="https://czepter.github.io/taleacms/self-hosted-booking-website/">
+<meta property="og:image" content="https://czepter.github.io/taleacms/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "A self-hosted booking website for a small business",
+      "description": "A booking website on your own server: visitors pick a service, a person and a free time, then get an e-mail confirmation with a cancel link. No payments.",
+      "datePublished": "2026-10-31",
+      "dateModified": "2026-10-31",
+      "author": {
+        "@type": "Person",
+        "name": "Christian Zepter",
+        "url": "https://github.com/czepter"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Christian Zepter",
+        "url": "https://github.com/czepter"
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://czepter.github.io/taleacms/self-hosted-booking-website/"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Talea",
+          "item": "https://czepter.github.io/taleacms/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Self-hosted booking website",
+          "item": "https://czepter.github.io/taleacms/self-hosted-booking-website/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Can customers pay when they book?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Talea's bookings have no payments or deposits. The booking reserves a time and the business settles payment in its usual way."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do customers get a confirmation?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Visitors receive a confirmation by e-mail after they book, and it contains a link to cancel."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I approve each booking myself?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, for services that need it. A service can require the provider's confirmation first, and the booking then has the status waiting for confirmation."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need a plugin for bookings?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Bookings are part of Talea, together with forms and a newsletter, so there is no plugin to choose or to update."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can customers choose a person?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Visitors pick a person, or anyone, and then a day and a free time."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+
+<header class="top">
+	<div class="bar">
+		<a class="logo" href="../">
+			<picture>
+				<source media="(prefers-color-scheme: dark)" srcset="../img/talea-logo-dark.svg">
+				<img src="../img/talea-logo.svg" alt="Talea" width="85" height="26">
+			</picture>
+		</a>
+		<nav class="nav" aria-label="Main">
+			<a href="../#locations">Locations</a>
+			<a href="../#looks">Looks</a>
+			<a href="../#editing">Editing</a>
+			<a href="../#questions">Questions</a>
+			<a href="https://github.com/czepter/taleacms">GitHub</a>
+		</nav>
+		<a class="btn" href="../#install">Install Talea</a>
+	</div>
+</header>
+
+<main id="top">
+	<article class="sec prose">
+		<nav class="crumbs" aria-label="Breadcrumb"><a href="../">Talea</a> / <span aria-current="page">Self-hosted booking website</span></nav>
+		<h1>A self-hosted booking website for a small business</h1>
+		<p class="lead intro">Talea has bookings built in, so a small business can offer appointments on a website that runs on its own server. Visitors pick a service, a person or anyone, a day and a free time, and receive a confirmation by e-mail with a link to cancel. Payments and deposits are not included.</p>
+		<p class="caption">Last checked 31 October 2026</p>
+<h2>How a booking works for the visitor</h2>
+<ol>
+<li>The visitor picks a service.</li>
+<li>The visitor picks a person, or chooses anyone.</li>
+<li>The visitor picks a day and one of the free times.</li>
+<li>The visitor leaves a name, an e-mail address and a phone number.</li>
+<li>A confirmation arrives by e-mail with a link to cancel the booking.</li>
+</ol>
+<h2>What the business controls</h2>
+<ul>
+<li><b>Services and people.</b> You define what can be booked and who offers it.</li>
+<li><b>Confirmation by the provider.</b> A service can require the provider to confirm first. Until then the booking has the status &ldquo;waiting for confirmation&rdquo;.</li>
+<li><b>Several locations.</b> Each location has its own bookings and opening hours, and you can list bookings across all sites or narrow the list to one.</li>
+<li><b>The data.</b> Bookings live in the database of your own installation, next to the rest of the site. Backups go to FTPS or S3 on a schedule.</li>
+</ul>
+<h2>Booking on your own server compared with other routes</h2>
+<p>The facts about the other options come from their own pages, read on 31 October 2026.</p>
+<div class="tab-wrap mt"><table class="listing compare guide"><thead><tr><th scope="col">Option</th><th scope="col">How booking is offered</th><th scope="col">What the vendor's page says</th></tr></thead><tbody>
+<tr><td class="key">Talea</td><td>Built into the site</td><td>Not applicable. Visitors book on your site, and you confirm requests where a service requires it.</td></tr>
+<tr><td class="key">Wix</td><td>Part of a Wix site</td><td>Core scheduling features work out of the box. The plans page lists scheduling and services from the Core plan up.</td></tr>
+<tr><td class="key">Squarespace</td><td>A separate product, Acuity Scheduling</td><td>Core features are on every plan. Plans differ by the number of calendars (1, up to 6, up to 36). The page states no price.</td></tr>
+<tr><td class="key">WordPress</td><td>Through plugins</td><td>The plugin directory lists restaurant reservation plugins among its examples. Whether booking is part of the core is not stated there.</td></tr>
+</tbody></table></div>
+<h2>Bookings as part of a whole website</h2>
+<p>The booking pages sit on the same site as everything else. Enquiry forms, a newsletter, news and members-only pages are built in, and the owner edits texts right on the page. This suits a salon, a practice, a workshop or a tutor who wants one website instead of a site plus a separate booking tool.</p>
+<p>Talea runs as one container next to a database. The <a href="../#install">install section</a> on the home page shows the three commands, and the setup in the browser asks for the site name and the first administrator.</p>
+<h2>What Talea's bookings do not do</h2>
+<ul>
+<li>No payments and no deposits. A booking reserves a time and nothing is charged.</li>
+<li>No hosted option. Talea runs on a server of your own with Docker, and someone has to run that server.</li>
+<li>No online checkout elsewhere on the site either. Products can be shown, and order enquiries are collected in a basket.</li>
+</ul>
+<h2>When to choose something else</h2>
+<ul>
+<li>Customers must pay or leave a deposit when they book. Choose a tool that takes payments.</li>
+<li>Nobody can run a server. A hosted builder with booking, such as Wix, leaves the upkeep to the vendor.</li>
+<li>You need only a booking widget on an existing site. A single-purpose scheduling product may be enough.</li>
+</ul>
+		<h2>Questions people ask</h2>
+		<div class="card mt">
+<details open><summary>Can customers pay when they book?<span class="plus" aria-hidden="true">+</span></summary><p>No. Talea's bookings have no payments or deposits. The booking reserves a time and the business settles payment in its usual way.</p></details>
+<details><summary>Do customers get a confirmation?<span class="plus" aria-hidden="true">+</span></summary><p>Yes. Visitors receive a confirmation by e-mail after they book, and it contains a link to cancel.</p></details>
+<details><summary>Can I approve each booking myself?<span class="plus" aria-hidden="true">+</span></summary><p>Yes, for services that need it. A service can require the provider's confirmation first, and the booking then has the status waiting for confirmation.</p></details>
+<details><summary>Do I need a plugin for bookings?<span class="plus" aria-hidden="true">+</span></summary><p>No. Bookings are part of Talea, together with forms and a newsletter, so there is no plugin to choose or to update.</p></details>
+<details><summary>Can customers choose a person?<span class="plus" aria-hidden="true">+</span></summary><p>Yes. Visitors pick a person, or anyone, and then a day and a free time.</p></details>
+		</div>
+		<h2>Sources</h2>
+		<ul class="sources">
+<li><a href="https://www.wix.com/bookings">Wix: bookings</a>, read 31 October 2026</li>
+<li><a href="https://www.wix.com/plans">Wix: plans</a>, read 31 October 2026</li>
+<li><a href="https://www.squarespace.com/scheduling">Squarespace: scheduling</a>, read 31 October 2026</li>
+<li><a href="https://wordpress.org/plugins/">WordPress: plugin directory</a>, read 31 October 2026</li>
+		</ul>
+		<h2>More guides</h2>
+		<ul>
+<li><a href="../best-cms-small-business-2027/">How to choose a CMS for a small business</a>. A decision guide with the questions that matter and a table of the options.</li>
+<li><a href="../wordpress-alternative/">A self-hosted WordPress alternative</a>. What is built in, who updates what, and when to stay on WordPress.</li>
+<li><a href="../squarespace-wix-alternative/">Leaving Squarespace or Wix for your own server</a>. What you can take with you and how the website import brings the pages over.</li>
+<li><a href="../multi-location-website/">One website per location from one installation</a>. A site per location with one shared look and one list for bookings.</li>
+		</ul>
+		<div class="navigation-row hero-buttons">
+			<a class="btn big" href="../#install">Install Talea</a>
+		</div>
+	</article>
+</main>
+
+<footer class="foot">
+	<div class="bar">
+		<p>Talea is made by <a href="https://github.com/czepter">Christian Zepter</a> and contributors. It is a hard fork of <a href="https://github.com/phprs-cms/kaletacms">Kaleta</a> by Miroslav Kaleta and contributors, who built the page builder, the design system, the AI connection and much more.</p>
+		<p>GPL-2.0-or-later · <a href="https://github.com/czepter/taleacms">GitHub</a> · <a href="https://github.com/czepter/taleacms/blob/main/NOTICE">Credits</a></p>
+		<p>Guides: <a href="../best-cms-small-business-2027/">How to choose a CMS for a small business</a> · <a href="../wordpress-alternative/">A self-hosted WordPress alternative</a> · <a href="../squarespace-wix-alternative/">Leaving Squarespace or Wix for your own server</a> · <a href="../multi-location-website/">One website per location from one installation</a> · <a href="../self-hosted-booking-website/">A booking website on your own server</a></p>
+	</div>
+</footer>
+</body>
+</html>

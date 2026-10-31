@@ -51,7 +51,7 @@ final class Context
     /** Light and dark color scheme switcher for visitors (empty when disabled); the Navigation element adds it after the menu. */
     public string $colorScheme = '';
 
-    /** @var array<string, array{0: string, 1: string}>|null values of the collection item for {{tags}} (inside a Collection list and on the item page) */
+    /** @var array<string, array{0: string, 1: string}|array{0: string, 1: string, 2: int, 3: bool, 4: bool}>|null values of the collection item for {{tags}} (inside a Collection list and on the item page) */
     public ?array $item = null;
 
     /** Collection list depth: the elements inside repeat, so they get their style through a class, not through the id. */

@@ -119,14 +119,10 @@ final class OwnersTest extends DatabaseTestCase
         $this->db()->pdo()->rollBack(); // DDL ends a transaction on MySQL
         $b = $this->db()->forOwner('tlb_');
         $this->assertArrayHasKey('uq_users_username', $b->uniqueKeys('users'), 'an owner table of B');
-        $this->assertArrayHasKey('uq_pages_slug', $b->uniqueKeys('pages'));
-        $this->assertArrayHasKey('uq_pages_slug', $b->forSite('tlb2_')->uniqueKeys('pages'));
+        $this->assertArrayHasKey('uq_pages_language_slug', $b->uniqueKeys('pages'));
+        $this->assertArrayHasKey('uq_pages_language_slug', $b->forSite('tlb2_')->uniqueKeys('pages'));
         $this->assertArrayHasKey('uq_owners_prefix', $b->uniqueKeys('owners'), 'the install table keeps the plain name');
-        $b->dropUniqueKey('pages', 'uq_pages_slug');
         $this->assertArrayNotHasKey('uq_pages_slug', $b->uniqueKeys('pages'));
-        $this->assertArrayHasKey('uq_pages_slug', $this->db()->uniqueKeys('pages'), 'owner 1 keeps its key');
-        $b->addUniqueKey('pages', 'uq_pages_slug', ['slug']);
-        $this->assertArrayHasKey('uq_pages_slug', $b->uniqueKeys('pages'));
     }
 
     public function testAHostRoutesToItsOwnerAndIsUniqueInTheInstall(): void

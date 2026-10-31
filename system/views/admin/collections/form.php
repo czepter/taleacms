@@ -20,6 +20,9 @@ $icon = fn (string $paths, int $size = 18): string => '<svg class="icon" viewBox
 // the saved fields, then an empty one: giving it a label adds a field
 $fields = array_merge($k['fields'], [['key' => '', 'label' => '', 'type' => 'text']]);
 $new = count($fields) - 1;
+// the fields registration relies on (Core\Calendar): they cannot be removed and their type stays fixed (the server refuses it too)
+$locked = \Talea\Core\Calendar::protectedKeys($k);
+$lock = $icon('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', 16);
 $widths = ['full' => 'Full width', 'half' => 'Half', 'third' => 'Third'];
 // what a tile shows in its input: the placeholder, else what the field holds
 $sample = fn (array $f): string => (string) ($f['placeholder'] ?? '') !== '' ? (string) $f['placeholder'] : match ($f['type']) {
@@ -69,11 +72,14 @@ if ($k['collection_id'] > 0) {
 			<span class="field-tile-row"><?= $icon('<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>', 16) ?><span class="field-tile-label"><span data-tile="label"><?= e($f['label']) ?></span><span class="item-required" data-tile="required"<?= empty($f['required']) ? ' hidden' : '' ?>> *</span></span><code class="field-tile-key">{{<?= e($f['key']) ?>}}</code></span>
 			<span class="field-tile-input<?= in_array($f['type'], ['lines', 'html', 'gallery', 'parameters', 'variants'], true) ? ' tall' : '' ?>" data-tile="input" data-sample="<?= e($sample(['placeholder' => ''] + $f)) ?>"><?= e($sample($f)) ?></span>
 			<span class="field-tile-help" data-tile="help"<?= ($f['help'] ?? '') === '' ? ' hidden' : '' ?>><?= e((string) ($f['help'] ?? '')) ?></span>
-			<span class="field-tile-meta"><span><?= e(t(Collections::FIELD_TYPES[$f['type']] ?? $f['type'])) ?></span><span data-tile="width"><?= e(t($widths[$width] ?? 'Full width')) ?></span></span>
+			<span class="field-tile-meta"><span><?= e(t(Collections::FIELD_TYPES[$f['type']] ?? $f['type'])) ?></span><span data-tile="width"><?= e(t($widths[$width] ?? 'Full width')) ?></span><?php if (isset($locked[$f['key']])): ?><span class="status status-planned"><?= e(t('Used by registration')) ?></span><?php endif ?></span>
 		</button>
 <?php endif ?>
 <?php endforeach ?>
 	</div>
+<?php if ($locked !== []): ?>
+	<p class="help field-grid-help"><?= e(t('Fields marked “Used by registration” decide seats, dates and the waiting list. You can rename them and change their help and order; they cannot be removed and their type stays fixed.')) ?></p>
+<?php endif ?>
 <?php if ($k['fields'] !== []): ?>
 	<p class="help field-grid-help"><?= e(t('Drag a field to change the order. Its width, description and placeholder are set beside.')) ?></p>
 <?php endif ?>
@@ -95,7 +101,7 @@ if ($k['collection_id'] > 0) {
 					<input type="hidden" name="<?= $p ?>[key]" value="<?= e($f['key']) ?>">
 					<input type="hidden" name="<?= $p ?>[position]" value="<?= $i ?>" data-field-position>
 					<div class="website-field"><label for="field-<?= $i ?>-label"><?= e(t('Label')) ?></label><input class="textfield" type="text" id="field-<?= $i ?>-label" name="<?= $p ?>[label]" value="<?= e($f['label']) ?>" maxlength="80" data-field-prop="label"></div>
-					<div class="website-field"><label for="field-<?= $i ?>-type"><?= e(t('Type')) ?></label><select id="field-<?= $i ?>-type" name="<?= $p ?>[type]">
+					<div class="website-field"><label for="field-<?= $i ?>-type"><?= e(t('Type')) ?></label><?php if (isset($locked[$f['key']])): ?><input type="hidden" name="<?= $p ?>[type]" value="<?= e($f['type']) ?>"><?php endif ?><select id="field-<?= $i ?>-type"<?= isset($locked[$f['key']]) ? ' disabled' : ' name="' . $p . '[type]"' ?>>
 <?php foreach (Collections::FIELD_TYPES as $type => $name): ?>
 						<option value="<?= e($type) ?>"<?= $f['type'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
@@ -136,7 +142,11 @@ if ($k['collection_id'] > 0) {
 						<button class="navigation" type="submit" name="move" value="<?= $i ?>:-1" data-field-move="-1"><?= $icon('<path d="m6 15 6-6 6 6"/>', 16) ?><?= e(t('Earlier')) ?></button>
 						<button class="navigation" type="submit" name="move" value="<?= $i ?>:1" data-field-move="1"><?= $icon('<path d="m6 9 6 6 6-6"/>', 16) ?><?= e(t('Later')) ?></button>
 					</div>
+<?php if (isset($locked[$f['key']])): ?>
+					<p class="website-option"><?= $lock ?> <?= e(t('Used by registration')) ?></p>
+<?php else: ?>
 					<label class="website-option"><input type="checkbox" name="<?= $p ?>[remove]" value="1"> <?= e(t('Remove this field when saving')) ?></label>
+<?php endif ?>
 				</section>
 <?php else: ?>
 				<section class="website-settings-section"><p class="help"><?= e(t('created from the label')) ?>: <code>{{…}}</code></p></section>

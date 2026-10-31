@@ -37,7 +37,7 @@ final class CollectionPages
             return $this->kernel->notFound();
         }
         $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND deleted_at IS NULL' . ($draft ? '' : ' AND visible = TRUE'), [$collection['collection_id'], $seo, Language::siteColumn()]);
-        if ($item === null && !$draft && ($collection['hidden_redirect'] ?? '') !== ''
+        if ($item === null && !$draft && ($collection['hidden_redirect'] ?? '') !== '' && !$this->kernel->hasExactRedirect()
             && $db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND slug = ?', [$collection['collection_id'], $seo]) !== null) {
             // a hidden or deleted item (a person who left, 2.10): its old address leads to the chosen page instead of a 404
             $to = (string) $collection['hidden_redirect'];

@@ -86,13 +86,14 @@ final class McpBuilderTest extends SiteTestCase
 
     public function testDesignSystemEditedThroughMcp(): void
     {
+        $surface = strtolower((string) json_decode((string) $this->site()->value("SELECT value FROM tl_settings WHERE name = 'design_system'"), true)['colors']['surface']);
         $text = $this->rawText('update_design_system', ['design' => ['colors' => ['primary' => '#0f766e'], 'radius' => 'l']]);
         $this->site()->mcp('publish_look');
         $this->site()->clearPageCache();
 
         $this->assertStringContainsString('readability', $text, 'the answer reports readability');
         $this->assertPage('/', 200, 'tl-color-primary: #0f766e', message: 'design system from MCP is on the site');
-        $this->assertPage('/', 200, 'tl-color-surface: #f5f6f8', message: 'design system from MCP kept the other colours');
+        $this->assertPage('/', 200, 'tl-color-surface: ' . $surface, message: 'design system from MCP kept the other colours');
     }
 
     public function testDarkModeAndThemeSwitcherThroughMcp(): void

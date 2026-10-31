@@ -12,6 +12,7 @@
  * @var array<string, mixed> $p
  * @var ?array<string, mixed> $seoCheck  the SEO score panel of a saved item (Core\SeoScore::panel)
  * @var array{serpTitle: string, serpDescription: string, serpAddress: string, dir: string} $serp  the search result preview
+ * @var ?array{course: array<string, mixed>, taken: int, requested: int, waitlisted: int} $seats  the seats of a course with registration (Core\Registrations), null for any other item
  * @var string $host  the site's host, for the sharing preview
  * @var string $address  the item's address on the site, '' for a collection without item pages
  * @var list<array{idr: int, datum: string, kdo: ?string}> $versions  earlier versions of the item (1.9)
@@ -41,8 +42,16 @@ $meter = function (string $value, int $max): string {
 $shareImage = (string) $p['image'];
 $shareTitle = (string) ($p['share_title'] ?? '') !== '' ? (string) $p['share_title'] : ($p['seo_title'] !== '' ? (string) $p['seo_title'] : (string) $p['name']);
 $shareDescription = (string) ($p['share_description'] ?? '') !== '' ? (string) $p['share_description'] : (string) $p['description'];
+$actions = '';
+if ($seats !== null && $app->auth()->hasModule('enquiries')) {
+    $actions .= '<a class="navigation" href="' . e($module->url('registrations', ['id' => $k['public_id'], 'item' => $p['public_id']])) . '">' . e(t('Registrations')) . ' · '
+        . e($seats['course']['capacity'] > 0 ? t('%d of %d', $seats['taken'], $seats['course']['capacity']) : (string) $seats['taken']) . '</a>';
+}
 if ($detail && $p['item_id'] > 0 && $p['visible']) {
-    $app->view->slot('actions', '<a class="navigation" href="' . e($app->url($address)) . '" target="_blank" rel="noopener">' . $icon('<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>') . e(t('View on the site')) . '</a>');
+    $actions .= '<a class="navigation" href="' . e($app->url($address)) . '" target="_blank" rel="noopener">' . $icon('<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>') . e(t('View on the site')) . '</a>';
+}
+if ($actions !== '') {
+    $app->view->slot('actions', $actions);
 }
 ?>
 <p class="item-meta">

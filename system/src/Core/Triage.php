@@ -176,6 +176,22 @@ final class Triage
         return true;
     }
 
+    /** The kinds of enquiries before a change, to hand to afterCategories(). @param list<int> $ids @return array<int, string> */
+    public static function categories(Db $db, array $ids): array
+    {
+        $ids = array_map('intval', $ids);
+        $rows = $ids === [] ? [] : $db->all('SELECT enquiry_id, category FROM {enquiries} WHERE enquiry_id IN (' . implode(',', $ids) . ')');
+
+        return array_column($rows, 'category', 'enquiry_id');
+    }
+
+    /** Course registrations whose spam mark changed since $before (categories()) free or take their seat. @param array<int, string> $before */
+    public static function afterCategories(App $app, array $before): void
+    {
+        $now = self::categories($app->db(), array_keys($before));
+        Registrations::sync($app, array_values(array_filter(array_keys($before), fn (int $id): bool => ($before[$id] === 'spam') !== (($now[$id] ?? '') === 'spam'))));
+    }
+
     /** The rule for what is certain: an application sent from a job opening is a job application. @param list<string> $jobSources */
     public static function rule(array $enquiry, array $jobSources): ?array
     {
@@ -213,7 +229,10 @@ final class Triage
             return false;
         }
 
-        return self::save($app->db(), $idp, ['category' => 'spam', 'priority' => 1, 'suggested_reply' => null], 'assistant');
+        $saved = self::save($app->db(), $idp, ['category' => 'spam', 'priority' => 1, 'suggested_reply' => null], 'assistant');
+        $saved && Registrations::sync($app, [$idp]); // a registration that is spam holds no seat; the next one moves up
+
+        return $saved;
     }
 
     /**
@@ -258,8 +277,10 @@ final class Triage
 
                 continue;
             }
+            $before = self::categories($db, [(int) $enquiry['enquiry_id']]);
             if (self::save($db, (int) $enquiry['enquiry_id'], self::clean($result['category'] ?? null, $result['priority'] ?? null, $result['reply'] ?? null, array_keys(self::kinds($settings))), 'assistant')) {
                 $done++;
+                self::afterCategories($app, $before);
             }
         }
 

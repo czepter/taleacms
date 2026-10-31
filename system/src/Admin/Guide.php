@@ -80,6 +80,7 @@ final class Guide
         'ai' => 'ai-assistant',
         'mail' => 'email',
         'reports' => 'email',
+        'messages' => 'email',
         'webhooks' => 'forms#connecting-other-tools',
         'backups' => 'backups-updates',
         'console' => 'fleet-console#pair-a-site',

@@ -123,7 +123,6 @@ final class Settings
         'claude_instructions_seen' => '', // sha256 of the instructions an administrator last checked (#149, Core\ClaudeInstructions); never over MCP or in an export
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = news (Core\Routes)
-        'slugs_per_language' => '0', // a page, news item or category may share its slug with another language version (/contact, /en/contact); changed only by Core\Slug::switchPerLanguage
         'markdown_versions' => '1', // <page>.md, /news/<slug>.md, /<collection>/<item>.md
         'indexnow' => '0',            // after a news item is published, announce its URL to search engines (Bing, Seznam, Yandex)
         'indexnow_key' => '',
@@ -163,9 +162,6 @@ final class Settings
         'booking_cancel_hours' => '24',    // the customer's cancel link works until this many hours before the start
         'booking_reminder_hours' => '24',  // the reminder e-mail goes out this many hours before; 0 = none
         'booking_hold_hours' => '48',      // 3.3: a pending booking (a service that needs confirmation) holds its time this many hours
-        'booking_pending_mail' => '',      // own text of the acknowledgement e-mail; empty = the built-in one (form of address and tone are yours)
-        'booking_declined_mail' => '',     // own text of the decline e-mail; empty = the built-in one
-        'booking_pending_thanks' => '',    // own thank-you message after a request; empty = the built-in one
         'health_token' => '',
         'alerts_enabled' => '1',       // alert e-mails when something breaks (2.8, Core\Alerts)
         'alerts_email' => '',          // where to; empty = the site e-mail
@@ -286,9 +282,6 @@ final class Settings
         }
         if ($key === 'news_slug') {
             Routes::setNewsSlug($value);
-        }
-        if ($key === 'slugs_per_language') {
-            Slug::setPerLanguage(null);
         }
     }
 }

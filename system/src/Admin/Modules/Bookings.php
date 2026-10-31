@@ -65,8 +65,7 @@ final class Bookings extends Module
         $s = $this->app->settings();
 
         return $this->view('list', 'Bookings', ['byDay' => $byDay, 'shown' => $view, 'filter' => $filter, 'services' => Booking::services($this->db, false), 'staff' => Booking::staff($this->db, false),
-            'settings' => ['lead' => $s->int('booking_lead_hours'), 'horizon' => $s->int('booking_horizon_days'), 'cancel' => $s->int('booking_cancel_hours'), 'reminder' => $s->int('booking_reminder_hours'), 'hold' => $s->int('booking_hold_hours'),
-                'pendingThanks' => $s->get('booking_pending_thanks'), 'pendingMail' => $s->get('booking_pending_mail'), 'declinedMail' => $s->get('booking_declined_mail')],
+            'settings' => ['lead' => $s->int('booking_lead_hours'), 'horizon' => $s->int('booking_horizon_days'), 'cancel' => $s->int('booking_cancel_hours'), 'reminder' => $s->int('booking_reminder_hours'), 'hold' => $s->int('booking_hold_hours')],
             'waiting' => (int) $this->db->value("SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW()"),
             // the requests to confirm beside the agenda: the next ones that still lie ahead
             'requests' => Booking::list($this->db, ['from' => date('Y-m-d'), 'status' => 'pending', 'limit' => 8]),
@@ -370,10 +369,6 @@ final class Bookings extends Module
             $s->set('booking_cancel_hours', (string) max(0, min(720, $this->request->postInt('cancel'))));
             $s->set('booking_reminder_hours', (string) max(0, min(168, $this->request->postInt('reminder'))));
             $s->set('booking_hold_hours', (string) max(1, min(720, $this->request->postInt('hold'))));
-            // own texts: empty = the built-in one; {name} is the customer's name (form of address and tone are the site's)
-            $s->set('booking_pending_thanks', mb_substr(trim(strip_tags($this->request->post('pending_thanks'))), 0, 400));
-            $s->set('booking_pending_mail', mb_substr(trim(strip_tags($this->request->post('pending_mail'))), 0, 1000));
-            $s->set('booking_declined_mail', mb_substr(trim(strip_tags($this->request->post('declined_mail'))), 0, 1000));
             \Talea\Admin\ChangeLog::write($this->app, 'bookings', 'settings', '');
         }
 

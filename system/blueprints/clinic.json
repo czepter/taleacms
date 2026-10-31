@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "clinic",
     "group": "health",
+    "topics": ["health"],
     "name": "Healthcare practice",
     "description": "A doctor's, dental or physiotherapy practice: the team, the services, a price list and patients' questions, with facts about insurers, new patients and appointments.",
     "presets": ["people", "services", "price_list", "faq"],

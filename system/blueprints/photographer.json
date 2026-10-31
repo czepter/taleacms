@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "photographer",
     "group": "services",
+    "topics": ["photography", "art"],
     "name": "Photographer or creative freelancer",
     "description": "A photographer, videographer or other creative freelancer: services, a portfolio of projects, packages and clients' questions, with facts about the area served, delivery time, what clients receive, travel fees, the deposit and usage rights.",
     "presets": ["services", "references", "plans", "faq"],

@@ -43,7 +43,7 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->assertSame('machines|1|Product|6|1|model', $this->presetRow('preset-machines') . '|' . $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.fields.sku')) FROM tl_collections WHERE slug = 'preset-machines'"), 'presets: machines – item pages, Product schema with the model as SKU, six fields');
 
         $site->mcp('create_collection', ['name' => 'Preset courses', 'preset' => 'courses']);
-        $this->assertSame('courses|1|Event|7|1', $this->presetRow('preset-courses'), 'presets: courses – item pages, Event schema, seven fields, a hidden list page');
+        $this->assertSame('courses|1|Event|14|1', $this->presetRow('preset-courses'), 'presets: courses – item pages, Event schema, fourteen fields, a hidden list page');
         $this->assertSame('1|1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"period\":\"upcoming\"%', '|', build LIKE '%\"period_start_field\":\"start\"%', '|', build LIKE '%\"sort_field\":\"start\"%', '|', build LIKE '%<p>{{start}}</p>%') FROM tl_pages WHERE slug = 'preset-courses'"), 'presets: the courses page lists the upcoming ones by start and end, sorted by the start');
         $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%<strong>{{when}}</strong>%', '|', build LIKE '%{{capacity}}%', '|', build LIKE '%\"type\":\"form\"%') FROM tl_collections WHERE slug = 'preset-courses'"), 'presets: the course item template comes from the preset (the dates, the place, the registration form)');
     }

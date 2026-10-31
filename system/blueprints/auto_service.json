@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "auto_service",
     "group": "services",
+    "topics": ["construction"],
     "name": "Car repair and service garage",
     "description": "A car repair and service garage: the services, a price list and customers' questions, with facts about the brands serviced, the labour rate, the warranty on work, a courtesy car and the periodic vehicle inspection.",
     "presets": ["services", "price_list", "faq"],

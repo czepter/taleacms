@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WordPress alternative for small business: self-hosted</title>
+<meta name="description" content="Talea is a self-hosted WordPress alternative with forms, bookings and a newsletter built in. See what each needs from you and when to stay on WordPress.">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://czepter.github.io/taleacms/wordpress-alternative/">
+<link rel="icon" href="../img/talea-mark.svg" type="image/svg+xml">
+<meta property="og:type" content="article">
+<meta property="og:title" content="WordPress alternative for small business: self-hosted">
+<meta property="og:description" content="Talea is a self-hosted WordPress alternative with forms, bookings and a newsletter built in. See what each needs from you and when to stay on WordPress.">
+<meta property="og:url" content="https://czepter.github.io/taleacms/wordpress-alternative/">
+<meta property="og:image" content="https://czepter.github.io/taleacms/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "A self-hosted WordPress alternative for small businesses",
+      "description": "Talea is a self-hosted WordPress alternative with forms, bookings and a newsletter built in. See what each needs from you and when to stay on WordPress.",
+      "datePublished": "2026-10-31",
+      "dateModified": "2026-10-31",
+      "author": {
+        "@type": "Person",
+        "name": "Christian Zepter",
+        "url": "https://github.com/czepter"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Christian Zepter",
+        "url": "https://github.com/czepter"
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://czepter.github.io/taleacms/wordpress-alternative/"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Talea",
+          "item": "https://czepter.github.io/taleacms/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "WordPress alternative",
+          "item": "https://czepter.github.io/taleacms/wordpress-alternative/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is Talea a WordPress replacement?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Talea can replace a WordPress site that is mostly pages, news, forms, bookings and a newsletter. It does not replace WordPress where a site depends on particular plugins, a shop with checkout, or hosting without Docker."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I import my WordPress site into Talea?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Talea reads WordPress export files, including Gutenberg blocks, and its website import can also read a WordPress site by its address when you have no export file. Pages arrive hidden and old addresses redirect to the new ones."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need plugins for forms and bookings in Talea?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Forms, bookings and a newsletter are built in, so there are no plugins to choose or to update."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Talea run on the same hosting as WordPress?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not necessarily. WordPress needs PHP 8.3 or newer and MariaDB 10.11 or newer or MySQL 8.0 or newer on Apache or Nginx. Talea runs as a container with Docker, so a host without Docker is not a fit."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is WordPress free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "WordPress is released under GPLv2 or later. As with Talea, you provide the server and the domain."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+
+<header class="top">
+	<div class="bar">
+		<a class="logo" href="../">
+			<picture>
+				<source media="(prefers-color-scheme: dark)" srcset="../img/talea-logo-dark.svg">
+				<img src="../img/talea-logo.svg" alt="Talea" width="85" height="26">
+			</picture>
+		</a>
+		<nav class="nav" aria-label="Main">
+			<a href="../#locations">Locations</a>
+			<a href="../#looks">Looks</a>
+			<a href="../#editing">Editing</a>
+			<a href="../#questions">Questions</a>
+			<a href="https://github.com/czepter/taleacms">GitHub</a>
+		</nav>
+		<a class="btn" href="../#install">Install Talea</a>
+	</div>
+</header>
+
+<main id="top">
+	<article class="sec prose">
+		<nav class="crumbs" aria-label="Breadcrumb"><a href="../">Talea</a> / <span aria-current="page">WordPress alternative</span></nav>
+		<h1>A self-hosted WordPress alternative for small businesses</h1>
+		<p class="lead intro">Talea is a self-hosted alternative to WordPress for a small business that wants forms, bookings and a newsletter without choosing plugins. WordPress remains the better choice if you want its plugin and theme choice, hosting on ordinary PHP hosting, or a developer who already knows it. This guide compares what each one asks of you.</p>
+		<p class="caption">Last checked 31 October 2026</p>
+<h2>What each system needs from you</h2>
+<p>The WordPress column uses WordPress's own pages, read on 31 October 2026. Where those pages do not say, the cell says so.</p>
+<div class="tab-wrap mt"><table class="listing compare guide"><thead><tr><th scope="col">Topic</th><th scope="col">WordPress</th><th scope="col">Talea</th></tr></thead><tbody>
+<tr><td class="key">Licence</td><td>GPLv2 or later</td><td>GPL-2.0-or-later</td></tr>
+<tr><td class="key">Runs on</td><td>PHP 8.3 or newer, MariaDB 10.11 or newer or MySQL 8.0 or newer; Apache or Nginx recommended</td><td>A Docker container next to MySQL 8, MariaDB 11.4 or newer, PostgreSQL 18 or SQLite</td></tr>
+<tr><td class="key">Updates</td><td>Minor core updates are automatic by default; plugins and themes update automatically only in special cases</td><td>A new container image, with database changes applied before the site starts; no updater in the admin</td></tr>
+<tr><td class="key">Contact forms</td><td>The plugin directory lists plugins such as Contact Form 7</td><td>Built in, with steps and conditions</td></tr>
+<tr><td class="key">Bookings</td><td>The plugin directory lists restaurant reservation plugins among its examples</td><td>Built in, with confirmation by e-mail and a cancel link; no payments</td></tr>
+<tr><td class="key">Newsletter</td><td>Not checked</td><td>Built in</td></tr>
+<tr><td class="key">Several sites</td><td>Multisite runs several sites from one installation, with its own tables per site and a shared user table</td><td>One installation with a site per location, switched on with TALEA_MULTISITE=1</td></tr>
+<tr><td class="key">Plugins and themes</td><td>A large directory of plugins; choosing and updating them is part of the work</td><td>No plugin directory; 14 finished looks and 40 ready-made sections</td></tr>
+</tbody></table></div>
+<h2>Who updates what</h2>
+<p>WordPress applies minor core updates automatically by default. Major core updates are automatic on fresh installs from version 5.6, and plugins and themes update automatically only in special cases. Every plugin you add is one more thing to keep current.</p>
+<p>Talea has no plugins with updates of their own. An update is a new container image, and the person who runs the server pulls it. The owner of the business never updates anything. Because there is no updater in the admin, this needs Docker and someone comfortable with it.</p>
+<h2>Moving from WordPress to Talea</h2>
+<p>Talea reads WordPress export files (WXR), including Gutenberg blocks. For a site without an export file, the website import takes the address of the site, finds its pages through the sitemap or by crawling, takes the main content and turns it into builder pages. Images come into Media, and blog-like addresses become news items.</p>
+<p>Imported pages arrive hidden and outside the menu, so nothing goes live before you have checked it. Old addresses redirect to the new ones. The design is not copied. The pages take the design system of your Talea site, and you can try one of the 14 looks on them before you apply it.</p>
+<h2>When to stay on WordPress</h2>
+<ul>
+<li>Your site depends on a particular plugin or theme that Talea has no counterpart for.</li>
+<li>You have a developer or an agency that works in WordPress and you want to keep that relationship.</li>
+<li>You can only use shared PHP hosting, because Talea needs Docker.</li>
+<li>You need checkout and payments on the site, which Talea does not include.</li>
+</ul>
+<h2>What Talea does not do</h2>
+<ul>
+<li>No checkout and no payments. Products can be shown with prices and variants, and order enquiries arrive from a basket.</li>
+<li>No large plugin ecosystem and no marketplace of thousands of templates.</li>
+<li>No updater on shared hosting. Updates mean pulling a new image.</li>
+<li>The admin comes in English, German and Czech.</li>
+</ul>
+		<h2>Questions people ask</h2>
+		<div class="card mt">
+<details open><summary>Is Talea a WordPress replacement?<span class="plus" aria-hidden="true">+</span></summary><p>Talea can replace a WordPress site that is mostly pages, news, forms, bookings and a newsletter. It does not replace WordPress where a site depends on particular plugins, a shop with checkout, or hosting without Docker.</p></details>
+<details><summary>Can I import my WordPress site into Talea?<span class="plus" aria-hidden="true">+</span></summary><p>Yes. Talea reads WordPress export files, including Gutenberg blocks, and its website import can also read a WordPress site by its address when you have no export file. Pages arrive hidden and old addresses redirect to the new ones.</p></details>
+<details><summary>Do I need plugins for forms and bookings in Talea?<span class="plus" aria-hidden="true">+</span></summary><p>No. Forms, bookings and a newsletter are built in, so there are no plugins to choose or to update.</p></details>
+<details><summary>Does Talea run on the same hosting as WordPress?<span class="plus" aria-hidden="true">+</span></summary><p>Not necessarily. WordPress needs PHP 8.3 or newer and MariaDB 10.11 or newer or MySQL 8.0 or newer on Apache or Nginx. Talea runs as a container with Docker, so a host without Docker is not a fit.</p></details>
+<details><summary>Is WordPress free?<span class="plus" aria-hidden="true">+</span></summary><p>WordPress is released under GPLv2 or later. As with Talea, you provide the server and the domain.</p></details>
+		</div>
+		<h2>Sources</h2>
+		<ul class="sources">
+<li><a href="https://wordpress.org/about/license/">WordPress: licence</a>, read 31 October 2026</li>
+<li><a href="https://wordpress.org/about/requirements/">WordPress: requirements</a>, read 31 October 2026</li>
+<li><a href="https://developer.wordpress.org/advanced-administration/upgrade/upgrading/">WordPress: upgrading</a>, read 31 October 2026</li>
+<li><a href="https://developer.wordpress.org/advanced-administration/multisite/">WordPress: Multisite</a>, read 31 October 2026</li>
+<li><a href="https://wordpress.org/plugins/">WordPress: plugin directory</a>, read 31 October 2026</li>
+		</ul>
+		<h2>More guides</h2>
+		<ul>
+<li><a href="../best-cms-small-business-2027/">How to choose a CMS for a small business</a>. A decision guide with the questions that matter and a table of the options.</li>
+<li><a href="../squarespace-wix-alternative/">Leaving Squarespace or Wix for your own server</a>. What you can take with you and how the website import brings the pages over.</li>
+<li><a href="../multi-location-website/">One website per location from one installation</a>. A site per location with one shared look and one list for bookings.</li>
+<li><a href="../self-hosted-booking-website/">A booking website on your own server</a>. Bookings with confirmation and a cancel link, without payments.</li>
+		</ul>
+		<div class="navigation-row hero-buttons">
+			<a class="btn big" href="../#install">Install Talea</a>
+		</div>
+	</article>
+</main>
+
+<footer class="foot">
+	<div class="bar">
+		<p>Talea is made by <a href="https://github.com/czepter">Christian Zepter</a> and contributors. It is a hard fork of <a href="https://github.com/phprs-cms/kaletacms">Kaleta</a> by Miroslav Kaleta and contributors, who built the page builder, the design system, the AI connection and much more.</p>
+		<p>GPL-2.0-or-later · <a href="https://github.com/czepter/taleacms">GitHub</a> · <a href="https://github.com/czepter/taleacms/blob/main/NOTICE">Credits</a></p>
+		<p>Guides: <a href="../best-cms-small-business-2027/">How to choose a CMS for a small business</a> · <a href="../wordpress-alternative/">A self-hosted WordPress alternative</a> · <a href="../squarespace-wix-alternative/">Leaving Squarespace or Wix for your own server</a> · <a href="../multi-location-website/">One website per location from one installation</a> · <a href="../self-hosted-booking-website/">A booking website on your own server</a></p>
+	</div>
+</footer>
+</body>
+</html>

@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "manufacturer",
     "group": "products",
+    "topics": ["construction", "tech"],
     "name": "Manufacturer",
     "description": "A manufacturing company: a product catalogue with an enquiry basket, machines and equipment, references, documents to download and job openings, with facts about capacity, certifications and lead times.",
     "presets": ["products", "machines", "references", "documents", "jobs"],

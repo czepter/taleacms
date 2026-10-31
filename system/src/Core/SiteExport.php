@@ -28,7 +28,7 @@ final class SiteExport
     public const int FORMAT_VERSION = 3;
 
     /** The only settings that are exported: the site's name, description, identity, languages and public texts (SiteImport reads the same list). */
-    public const array SETTINGS = ['slugs_per_language', 'site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'dark_mode',
+    public const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'dark_mode',
         'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
         'time_zone', 'site_language', 'additional_languages', 'home_page', 'news_slug', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image', 'share_image_auto',
         'cookies_policy_url', 'cookies_text', 'schema_org', 'robots_extra', 'llms_txt', 'maintenance_text', 'share_buttons', 'article_outline', 'related_news_auto',
@@ -166,7 +166,7 @@ final class SiteExport
         })());
         // the previous files of documents (2.11) go along – they are content, kept for good; download counts are only this site's statistics
         self::fields($f, 'document_versions', $one('document_versions', 'SELECT id, item_id, file, version, replaced_at, replaced_by FROM {document_versions} WHERE id > ? ORDER BY id LIMIT 1000', 'id', ['item_id' => 'collection_items']));
-        self::fields($f, 'media_folders', $all('media_folders', 'SELECT folder_id, public_id, name FROM {media_folders} ORDER BY folder_id'));
+        self::fields($f, 'media_folders', $all('media_folders', 'SELECT folder_id, public_id, name, parent_id FROM {media_folders} ORDER BY folder_id', ['parent_id' => 'media_folders']));
         // a file waiting for approval (Core\MediaStaging) is not part of the site yet
         self::fields($f, 'media', $one('media', 'SELECT media_id, public_id, folder_id, name, description, author, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, created_at FROM {media} WHERE media_id > ? AND staged_at IS NULL ORDER BY media_id LIMIT 500', 'media_id', ['folder_id' => 'media_folders']));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
@@ -435,7 +435,7 @@ final class SiteExport
             . "collections, collection_templates, collection_items   collections, their templates and items\n"
             . "document_versions  previous files of documents (a document library): item_id (public id of the collection item), file, version, replaced_at, replaced_by\n"
             . "popups           pop-ups with rules and builds\n"
-            . "media_folders    media folders: public_id, name\n"
+            . "media_folders    media folders: public_id, name, parent_id (public id of the folder it is in; null = top level)\n"
             . "media            media library: image_path (path in media/), name (alternative text), description, author, sizes, folder_id\n"
             . "facts            business facts: fact_key ({{fact.<key>}} in texts), language, label, type, value, schema_prop, source\n"
             . "hours_exceptions exceptions to the opening hours still to come: date_from, date_to, closed, hours, note, notice_days\n"

@@ -405,11 +405,6 @@ final class SiteImport
             }
             $state['backup'] = Backup::create($this->db, 'before_import');
             $this->db->emptyTables(self::EMPTIED);
-            // an export that shares addresses between language versions needs the per-language keys before its rows arrive
-            $exported = json_decode((string) @file_get_contents(self::workFolder((string) $state['file'], $this->folder) . '/settings.json'), true);
-            if (is_array($exported) && ($exported['slugs_per_language'] ?? '') === '1') {
-                Slug::switchPerLanguage($this->db, $this->settings, true);
-            }
             $state['emptied'] = true;
 
             return;
@@ -424,6 +419,9 @@ final class SiteImport
             $table = $tables[$state['table']];
             $file = self::workFolder((string) $state['file'], $this->folder) . '/' . $table . '.ndjson';
             if (!is_file($file) || $state['position'] >= (int) ($state['counts'][$table] ?? 0)) {
+                if ($table === 'media_folders' && is_file($file)) {
+                    $this->linkFolders($file); // every folder exists now: a parent may come after its child in the file
+                }
                 $state['table']++;
                 $state['position'] = 0;
                 continue;
@@ -491,10 +489,6 @@ final class SiteImport
     {
         $this->undoOwnerRows($state);
         $this->db->emptyTables(array_values(array_diff(self::EMPTIED, self::OWNER_ROWS, ['fact_history'])));
-        $exported = json_decode((string) @file_get_contents(self::workFolder((string) $state['file'], $this->folder) . '/settings.json'), true);
-        if (is_array($exported) && ($exported['slugs_per_language'] ?? '') === '1') {
-            Slug::switchPerLanguage($this->db, $this->settings, true);
-        }
         // the components first: a component may place another one, which comes later in the file
         $file = self::workFolder((string) $state['file'], $this->folder) . '/components.ndjson';
         foreach (is_file($file) ? (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []) : [] as $n => $line) {
@@ -616,6 +610,35 @@ final class SiteImport
         return true;
     }
 
+    /** The second pass over the imported folders: parent_id by the parent's public id; an unknown parent, a cycle or a skipped row leaves the folder at the top level. */
+    private function linkFolders(string $file): void
+    {
+        // streamed and resolved in memory: MediaFolders::move() aggregates every folder per call, far too slow for thousands
+        $parents = [];
+        $exists = array_flip(array_map('intval', array_column($this->db->all('SELECT folder_id FROM {media_folders}'), 'folder_id'))); // a malformed archive may name a row that was skipped: the foreign key would refuse it
+        foreach (new \SplFileObject($file) as $line) {
+            $r = json_decode((string) $line, true);
+            $id = is_array($r) ? $this->ref('media_folders', $r['public_id'] ?? null) : 0;
+            $parent = is_array($r) ? $this->ref('media_folders', $r['parent_id'] ?? null) : 0;
+            if (isset($exists[$id], $exists[$parent]) && $id !== $parent) {
+                $parents[$id] = $parent;
+            }
+        }
+        foreach (array_keys($parents) as $id) {
+            $seen = [];
+            for ($at = $parents[$id]; $at > 0 && !isset($seen[$at]); $at = $parents[$at] ?? 0) {
+                if ($at === $id) {
+                    unset($parents[$id]); // closes a cycle: this folder stays on the top level
+                    break;
+                }
+                $seen[$at] = true;
+            }
+        }
+        foreach ($parents as $id => $parent) {
+            $this->db->update('media_folders', ['parent_id' => $parent], ['folder_id' => $id]);
+        }
+    }
+
     /** Remembers a person the archive names (the author of a news item, a person who takes bookings), once. */
     private function person(string $name, string $email): void
     {
@@ -661,7 +684,6 @@ final class SiteImport
                 'home_page' => (string) $this->ref('pages', $value),
                 'news_per_page' => (string) max(0, (int) $value),
                 'news_slug' => Routes::systemSlugError($value) === null ? $value : null,
-                'slugs_per_language' => null, // switched before the rows are imported (importData)
                 'time_zone' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
                 // a regional language of the archive keeps the language the new site already has (en-gb into an English site stays English)
                 'site_language' => isset(Language::AVAILABLE[$value]) && Language::forSite($value, [Language::defaults($this->settings)]) === $value ? $value : null,

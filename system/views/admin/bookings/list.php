@@ -10,7 +10,7 @@
  * @var array{from: string, to: string, status: string, staff: int, service: int} $filter
  * @var list<array<string, mixed>> $services
  * @var list<array<string, mixed>> $staff
- * @var array{lead: int, horizon: int, cancel: int, reminder: int, hold: int, pendingThanks: string, pendingMail: string, declinedMail: string} $settings
+ * @var array{lead: int, horizon: int, cancel: int, reminder: int, hold: int} $settings
  * @var int $waiting requests waiting for the provider's answer
  * @var list<array<string, mixed>> $requests the next requests to confirm (beside the agenda, #113)
  * @var int $months
@@ -117,11 +117,7 @@ $kinds = ['confirmed' => 'live', 'pending' => 'hidden', 'done' => 'draft', 'decl
 <div class="row"><label for="reminder"><?= e(t('Reminder e-mail')) ?></label><div><input class="textfield short" type="number" id="reminder" name="reminder" min="0" max="168" value="<?= $settings['reminder'] ?>"> <?= e(t('hours before the start (0 = none)')) ?></div></div>
 <div class="row"><label for="hold"><?= e(t('Hold a request for')) ?></label><div><input class="textfield short" type="number" id="hold" name="hold" min="1" max="720" value="<?= $settings['hold'] ?>"> <?= e(t('hours')) ?>
 <span class="help"><?= e(t('Services that need confirmation: the requested time is held this long. Then it is free again and you get a reminder; the customer hears nothing until you answer.')) ?></span></div></div>
-<div class="row"><label for="pending_thanks"><?= e(t('Thank-you after a request')) ?></label><div><input class="textfield wide" id="pending_thanks" name="pending_thanks" maxlength="400" value="<?= e($settings['pendingThanks']) ?>" placeholder="<?= e(t('empty = the built-in text')) ?>"></div></div>
-<div class="row"><label for="pending_mail"><?= e(t('Acknowledgement e-mail')) ?></label><div><textarea class="textfield wide" id="pending_mail" name="pending_mail" rows="3" maxlength="1000" placeholder="<?= e(t('empty = the built-in text')) ?>"><?= e($settings['pendingMail']) ?></textarea>
-<span class="help"><?= e(t('The opening text of the e-mail; the details follow. Write it in your own tone and form of address; {name} is the customer\'s name.')) ?></span></div></div>
-<div class="row"><label for="declined_mail"><?= e(t('Decline e-mail')) ?></label><div><textarea class="textfield wide" id="declined_mail" name="declined_mail" rows="3" maxlength="1000" placeholder="<?= e(t('empty = the built-in text')) ?>"><?= e($settings['declinedMail']) ?></textarea>
-<span class="help"><?= e(t('The opening text; your personal message from the request follows it.')) ?></span></div></div>
+<p class="small-text"><?= e(t('The e-mails and messages customers read:')) ?> <a href="<?= e($app->url('admin.php?module=settings&tab=messages&group=bookings')) ?>"><?= e(t('Settings → Messages')) ?></a></p>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 </details>

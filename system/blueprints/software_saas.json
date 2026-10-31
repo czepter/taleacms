@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "software_saas",
     "group": "tech",
+    "topics": ["tech"],
     "name": "Software / SaaS company",
     "description": "A software product or online service: pricing plans, features, customer stories, questions, documentation and terms to download and job openings, with facts about the free trial, data hosting, uptime, integrations, support and security.",
     "presets": ["plans", "services", "references", "faq", "documents", "jobs"],

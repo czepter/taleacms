@@ -6,6 +6,7 @@ namespace Talea\Core;
 
 use Talea\Admin\ChangeLog;
 use Talea\Front\Company;
+use Talea\Front\FormMail;
 
 /**
  * Online booking of appointments (3.0): a hairdresser, a physiotherapist, a garage, a consultant. The visitor picks a
@@ -1123,55 +1124,50 @@ final class Booking
         return $lines;
     }
 
-    private static function signature(App $app): string
-    {
-        $s = $app->settings();
-
-        return "\n\n—\n" . $s->get('site_name') . "\n" . rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/');
-    }
-
-    /** The confirmation to the customer, in their language: the details, the .ics link and the cancel link with its deadline. */
-    public static function sendConfirmation(App $app, array $booking): bool
-    {
-        if (($booking['email'] ?? '') === '' || ($booking['token'] ?? '') === '') {
-            return false;
-        }
-
-        return self::inLanguage($app, $booking, function () use ($app, $booking): bool {
-            $s = $app->settings();
-            $text = t('Thank you, your appointment is booked.') . "\n\n" . implode("\n", self::details($app, $booking))
-                . "\n\n" . t('Add it to your calendar: %s', self::absolute($app, '_booking/ics/' . $booking['token']))
-                . "\n\n" . t('If you cannot come, cancel the appointment by %s with this link: %s', format_date(self::cancelDeadline($s, $booking), true), self::absolute($app, '_booking/cancel/' . $booking['token']))
-                . self::signature($app);
-
-            return Mail::send($s, (string) $booking['email'], t('Your appointment on %s – %s', format_date((string) $booking['starts_at'], true), $s->get('site_name')), $text);
-        });
-    }
-
-    /** The customer is told that the business cancelled. */
-    private static function sendCancelled(App $app, array $booking): bool
+    /**
+     * Mails a customer message (Core\Messages) in their language: the details block, the date and the name stand in the placeholders.
+     * Only a name that passed FormMail::isName goes in; the holder's own `$extra` ({message}, links, times) is added by the caller.
+     *
+     * @param array<string, string> $extra
+     */
+    private static function mail(App $app, array $booking, string $id, array $extra = []): bool
     {
         if (($booking['email'] ?? '') === '') {
             return false;
         }
 
-        return self::inLanguage($app, $booking, function () use ($app, $booking): bool {
-            $s = $app->settings();
-            $text = t('We are sorry – we had to cancel your appointment. Please book another time on our site, or contact us.') . "\n\n" . implode("\n", self::details($app, $booking)) . self::signature($app);
-
-            return Mail::send($s, (string) $booking['email'], t('Your appointment on %s was cancelled – %s', format_date((string) $booking['starts_at'], true), $s->get('site_name')), $text);
-        });
+        return self::inLanguage($app, $booking, fn (): bool => Messages::send($app, $id, (string) ($booking['language'] ?? ''), (string) $booking['email'], $extra + [
+            'name' => FormMail::isName(trim((string) $booking['name'])) ? trim((string) $booking['name']) : '',
+            'appointment' => implode("\n", self::details($app, $booking)),
+            'service' => (string) ($booking['service'] ?? ''),
+            'date' => format_date((string) $booking['starts_at'], true),
+        ]));
     }
 
-    /** The reminder before the appointment, in the customer's language; the cancel link only while it still works. */
+    /** The confirmation to the customer, in their language: the details, the .ics link and the cancel link with its deadline. */
+    public static function sendConfirmation(App $app, array $booking): bool
+    {
+        if (($booking['token'] ?? '') === '') {
+            return false;
+        }
+
+        return self::mail($app, $booking, 'booking_confirmation', [
+            'calendar link' => self::absolute($app, '_booking/ics/' . $booking['token']),
+            'cancel link' => self::absolute($app, '_booking/cancel/' . $booking['token']),
+            'cancel deadline' => format_date(self::cancelDeadline($app->settings(), $booking), true),
+        ]);
+    }
+
+    /** The customer is told that the business cancelled. */
+    private static function sendCancelled(App $app, array $booking): bool
+    {
+        return self::mail($app, $booking, 'booking_cancelled');
+    }
+
+    /** The reminder before the appointment, in the customer's language. */
     private static function sendReminder(App $app, array $booking): bool
     {
-        return self::inLanguage($app, $booking, function () use ($app, $booking): bool {
-            $s = $app->settings();
-            $text = t('A reminder of your appointment with us.') . "\n\n" . implode("\n", self::details($app, $booking)) . self::signature($app);
-
-            return Mail::send($s, (string) $booking['email'], t('Reminder: your appointment on %s – %s', format_date((string) $booking['starts_at'], true), $s->get('site_name')), $text);
-        });
+        return self::mail($app, $booking, 'booking_reminder');
     }
 
     /**
@@ -1209,50 +1205,22 @@ final class Booking
         });
     }
 
-    /** An own text of the settings (empty = none); {name} is the customer's name, so the form of address and the tone are the site's own. */
-    private static function ownText(App $app, string $key, array $booking): string
-    {
-        $text = trim($app->settings()->get($key));
-
-        return $text === '' ? '' : str_replace('{name}', (string) $booking['name'], $text);
-    }
-
-    /** The thank-you after a request for a service that needs confirmation (the element shows it; empty setting = the built-in text). */
+    /** The thank-you after a request for a service that needs confirmation (the element shows it). */
     public static function pendingThanks(Settings $s): string
     {
-        return trim($s->get('booking_pending_thanks')) !== '' ? trim($s->get('booking_pending_thanks')) : t('Thank you, we have received your request and will get back to you soon. A note is on its way to your e-mail.');
+        return Messages::text($s, 'booking_pending_thanks', 'body', Language::siteColumn());
     }
 
     /** The acknowledgement to the customer after a request: not a confirmation – the provider still has to say yes. */
     private static function sendPending(App $app, array $booking): bool
     {
-        if (($booking['email'] ?? '') === '') {
-            return false;
-        }
-
-        return self::inLanguage($app, $booking, function () use ($app, $booking): bool {
-            $s = $app->settings();
-            $intro = self::ownText($app, 'booking_pending_mail', $booking) ?: t('Thank you, we have received your request for an appointment. We will check it and get back to you – it is not confirmed yet.');
-            $text = $intro . "\n\n" . implode("\n", self::details($app, $booking)) . self::signature($app);
-
-            return Mail::send($s, (string) $booking['email'], t('We received your request for %s – %s', format_date((string) $booking['starts_at'], true), $s->get('site_name')), $text);
-        });
+        return self::mail($app, $booking, 'booking_pending');
     }
 
     /** The decline to the customer, with the provider's personal message when there is one. */
     private static function sendDeclined(App $app, array $booking, string $message): bool
     {
-        if (($booking['email'] ?? '') === '') {
-            return false;
-        }
-
-        return self::inLanguage($app, $booking, function () use ($app, $booking, $message): bool {
-            $s = $app->settings();
-            $intro = self::ownText($app, 'booking_declined_mail', $booking) ?: t('Unfortunately we cannot offer you the requested time. We are sorry.');
-            $text = $intro . ($message !== '' ? "\n\n" . $message : '') . "\n\n" . implode("\n", self::details($app, $booking)) . self::signature($app);
-
-            return Mail::send($s, (string) $booking['email'], t('Your request for %s – %s', format_date((string) $booking['starts_at'], true), $s->get('site_name')), $text);
-        });
+        return self::mail($app, $booking, 'booking_declined', ['message' => $message]);
     }
 
     /**
@@ -1262,19 +1230,15 @@ final class Booking
      */
     private static function sendProposal(App $app, array $booking, array $proposals, string $message): bool
     {
-        if (($booking['email'] ?? '') === '' || ($booking['token'] ?? '') === '') {
+        if (($booking['token'] ?? '') === '') {
             return false;
         }
 
-        return self::inLanguage($app, $booking, function () use ($app, $booking, $proposals, $message): bool {
-            $s = $app->settings();
-            $times = implode("\n", array_map(fn (array $p): string => '– ' . self::when($p['starts_at'], $p['ends_at']), $proposals));
-            $text = t('Unfortunately we cannot offer you the requested time, but these times are free:') . "\n\n" . $times . ($message !== '' ? "\n\n" . $message : '')
-                . "\n\n" . t('Pick one with this link: %s', self::absolute($app, '_booking/choose/' . $booking['token']))
-                . "\n\n" . t('Your original request:') . "\n" . implode("\n", self::details($app, $booking)) . self::signature($app);
-
-            return Mail::send($s, (string) $booking['email'], t('Other times for your request – %s', $s->get('site_name')), $text);
-        });
+        return self::mail($app, $booking, 'booking_proposal', [
+            'times' => implode("\n", array_map(fn (array $p): string => '– ' . self::when($p['starts_at'], $p['ends_at']), $proposals)),
+            'message' => $message,
+            'choose link' => self::absolute($app, '_booking/choose/' . $booking['token']),
+        ]);
     }
 
     /**

@@ -429,22 +429,10 @@ final class Library
     }
 
     /**
-     * Starter sites for the installation: an appearance preset (DesignSystem::PRESETS) and sections for the pages Home, About us, Services, Contact.
-     * A page without sections stays a text page. The “page-title” section gets the page title.
+     * The pages a new site starts with besides the home page (which the installer builds from the chosen look's sections): sections
+     * for About us, Services and Contact. A page without sections stays a text page. The “page-title” section gets the page title.
      */
-    public const array SITES = [
-        'business' => ['name' => 'Business website', 'description' => 'A versatile services website: benefits, numbers, testimonials, news.', 'preset' => 'business', 'pages' => [
-            ['hero', 'benefits', 'numbers', 'testimonials', 'news', 'call-to-action'], [], ['page-title', 'services', 'faq', 'call-to-action'], ['page-title', 'contact', 'enquiry'],
-        ]],
-        'crafts' => ['name' => 'Crafts and services', 'description' => 'Warm colours, how you work, projects and guarantees.', 'preset' => 'crafts', 'pages' => [
-            ['hero-image', 'guarantees', 'process', 'portfolio', 'testimonials', 'call-to-action'], ['page-title', 'story', 'values', 'team'],
-            ['page-title', 'alternating', 'services-list', 'faq', 'cta-bar'], ['page-title', 'contact-form'],
-        ]],
-        'consulting' => ['name' => 'Consulting and agency', 'description' => 'An elegant look, clients, service packages and the team.', 'preset' => 'elegant', 'pages' => [
-            ['hero-centered', 'logos', 'benefits-list', 'numbers-light', 'quote', 'call-to-action'], ['page-title', 'story', 'team', 'history', 'careers'],
-            ['page-title', 'services', 'pricing', 'faq-columns'], ['page-title', 'contact-form', 'branches'],
-        ]],
-    ];
+    public const array STARTER_PAGES = [[], ['page-title', 'services', 'faq', 'call-to-action'], ['page-title', 'contact', 'enquiry']];
 
     /**
      * Templates of a new page ("New page → Start from a template"): key => [name, sections].

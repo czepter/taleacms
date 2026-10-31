@@ -138,7 +138,11 @@ trait CollectionTools
                 ?? throw new \InvalidArgumentException('redirect_hidden_to must be an address on the site (/team) or https://…');
         }
         if (is_array($a['fields'] ?? null)) {
-            $changes['fields'] = (string) json_encode(Collections::sanitizeFields(self::fieldTypes($a['fields'], true)), JSON_UNESCAPED_UNICODE);
+            $fields = Collections::sanitizeFields(self::fieldTypes($a['fields'], true));
+            if (($refused = \Talea\Core\Calendar::refuseProtected($collection, $fields)) !== null) {
+                throw new \DomainException($refused);
+            }
+            $changes['fields'] = (string) json_encode($fields, JSON_UNESCAPED_UNICODE);
         }
         if (array_key_exists('structured_data', $a)) {
             $changes['schema_org'] = self::collectionSchema($a['structured_data'], json_decode($changes['fields'] ?? '', true) ?: $collection['fields']);
@@ -212,8 +216,14 @@ trait CollectionTools
             $r['data'] = json_decode((string) $r['data'], true) ?: [];
             $v = \Talea\Core\Calendar::values($db, $collection, $r, fn (string $p): string => $p, date('Y-m-d H:i'));
 
+            $course = \Talea\Core\Registrations::course($collection, $r);
+            $counts = $course !== null ? \Talea\Core\Registrations::counts($db, (int) $r['item_id']) : null;
+
             return ['registration' => ['state' => $v['_registration'][0], 'registered' => \Talea\Core\Calendar::registered($db, $collection, $r, (array) \Talea\Core\Calendar::fields($collection)),
-                'places_left' => $v['places_left'][0] !== '' ? (int) $v['places_left'][0] : null]];
+                'places_left' => $v['places_left'][0] !== '' ? (int) $v['places_left'][0] : null]
+                + ($course !== null ? ['mode' => $course['mode'], 'waiting_list' => $course['waiting_list'], 'max_seats' => $course['max_seats'],
+                    'taken' => $counts['taken'], 'waiting' => $counts['requested'], 'waitlisted' => (int) $db->value("SELECT COALESCE(SUM(seats), 0) FROM {enquiries} WHERE deleted_at IS NULL AND category <> 'spam' AND seat_state = 'waitlisted' AND item_id IN ("
+                        . implode(',', array_fill(0, count($ids = \Talea\Core\Registrations::group($db, (int) $r['item_id'])), '?')) . ')', $ids)] : [])];
         };
 
         // a document library (2.11): how often each document was downloaded, and the stable address of its file
@@ -323,6 +333,10 @@ trait CollectionTools
         }
         \Talea\Core\SeoScore::refresh($this->app, 'item', $itemId);
         Notices::recordSave($this->app, $collection, $previous, $row, $itemId); // the audit trail of a notice board (2.11)
+        if (!$draftsOnly && \Talea\Core\Calendar::fields($collection) !== null) {
+            // a raised capacity frees seats for the waiting list (mails people); a drafts-only connection leaves that to the person who saves or publishes
+            \Talea\Core\Registrations::refill($this->app, [$itemId]);
+        }
         \Talea\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
         // a key the collection does not have (a typo, "name" in values instead of the parameter) would otherwise be silently dropped
