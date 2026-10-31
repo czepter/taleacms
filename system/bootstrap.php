@@ -6,7 +6,7 @@
 
 declare(strict_types=1);
 
-const TALEA_VERSION = '4.1.1';
+const TALEA_VERSION = '4.1.2';
 
 define('TALEA_ROOT', dirname(__DIR__));
 define('TALEA_SYSTEM', __DIR__);
