@@ -3,7 +3,6 @@
  *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = shortened toolbar)
  *   <input data-image>              image URL field + "Choose from gallery" button and a preview
  *   <textarea data-gallery>         photos of a collection gallery field as tiles: upload, drop, reorder, describe
- *   <form data-upload>             uploading by dragging files
  *
  * The form always submits the content of the original <textarea> - without JavaScript it stays a plain HTML field.
  */
@@ -183,19 +182,25 @@
 		}).catch(function () { return file; });
 	}
 
-	// Scales images down and sets aside files the server would reject anyway (a whole request over the limit would fail without explanation).
+	// The reason the server would reject a file of this size ('' = fine): a whole request over the limit would fail without explanation.
+	function tooLarge(file) {
+		return MAX_FILE && file.size > MAX_FILE
+			? file.name + ': ' + T('The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit.').replace('%s', SCRIPT.getAttribute('data-max-file-text') || '') : '';
+	}
+
+	// Scales images down and sets aside files the server would reject anyway.
 	function prepareFiles(files) {
 		return Promise.all(Array.prototype.map.call(files, shrink)).then(function (finished) {
-			var errors = [];
-			var ok = finished.filter(function (s) {
-				if (!MAX_FILE || s.size <= MAX_FILE) { return true; }
-				errors.push(s.name + ': ' + T('The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit.').replace('%s', SCRIPT.getAttribute('data-max-file-text') || ''));
-				return false;
-			});
+			var errors = finished.map(tooLarge).filter(Boolean);
 			if (errors.length) { announce(errors.join('\n')); }
-			return ok;
+			return finished.filter(function (s) { return !tooLarge(s); });
 		});
 	}
+
+	// for the upload tray of the Media screen (image/media.js): one file scaled down, with the reason when it is still too large
+	window.taleaPrepareUpload = function (file) {
+		return shrink(file).then(function (s) { return { file: s, error: tooLarge(s).replace(s.name + ': ', '') }; });
+	};
 
 	function upload(selected) {
 		return prepareFiles(selected).then(function (files) { return files.length ? send(files) : []; });
@@ -211,7 +216,8 @@
 			.then(function (r) { return r.json(); })
 			.then(function (j) {
 				if (j.errors && j.errors.length) { announce(j.errors.join('\n')); }
-				return j.images || [];
+				// a file that is already in Media comes back as a duplicate with the existing file
+				return (j.images || []).concat((j.duplicates || []).map(function (d) { return d.image; }));
 			})
 			.catch(function () { announce(T('Upload failed. Check your connection and try again.')); return []; });
 	}
@@ -775,34 +781,6 @@
 		if (help) { help.hidden = true; }
 		field.after(grid, input);
 		draw();
-	});
-
-	/* ---------- uploading by dragging on the gallery page ---------- */
-
-	document.querySelectorAll('[data-upload]').forEach(function (form) {
-		var inputEl = form.querySelector('input[type=file]');
-		form.addEventListener('dragover', function (e) { e.preventDefault(); form.classList.add('upload-active'); });
-		form.addEventListener('dragleave', function () { form.classList.remove('upload-active'); });
-		form.addEventListener('drop', function (e) {
-			e.preventDefault();
-			form.classList.remove('upload-active');
-			if (e.dataTransfer.files.length) { inputEl.files = e.dataTransfer.files; form.requestSubmit(); }
-		});
-		// before submitting, scale photos down and set aside files over the server limit (form.submit() does not trigger this handler again)
-		form.addEventListener('submit', function (e) {
-			if (!window.DataTransfer) { return; }
-			e.preventDefault();
-			var button = form.querySelector('[type=submit]');
-			if (button) { button.disabled = true; }
-			prepareFiles(inputEl.files).then(function (files) {
-				if (button) { button.disabled = false; }
-				if (!files.length) { inputEl.value = ''; return; }
-				var transfer = new DataTransfer();
-				files.forEach(function (s) { transfer.items.add(s); });
-				inputEl.files = transfer.files;
-				form.submit();
-			});
-		});
 	});
 
 	window.taleaCreateEditor = createEditor; // the page builder creates the editor itself over a dynamic field
