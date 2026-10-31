@@ -718,7 +718,7 @@ final class Pages extends Module
         if ($data['title'] === '') {
             $errors['title'] = 'Enter the page title.';
         }
-        $scope = \Talea\Core\Slug::scope($this->db, $data['language']);
+        $scope = \Talea\Core\Slug::scope($data['language']);
         // a kept address is not checked again: the save does not change it
         if (!$keepPlace && $parent === null && (in_array($data['slug'], \Talea\Front\Kernel::reservedSlugs(), true) || isset(\Talea\Core\Language::AVAILABLE[$data['slug']]) || \Talea\Core\Routes::isNewsSlug($data['slug'], $this->db))) {
             $errors['slug'] = 'This URL is used by the system, choose another one.';
@@ -885,11 +885,11 @@ final class Pages extends Module
      */
     public static function move(\Talea\Core\Db $db, string $old, string $newVersion, bool $visible, string $language = ''): void
     {
-        $redirect = fn (string $path): string => \Talea\Core\Slug::redirectPath($db, $path, $language);
+        $redirect = fn (string $path): string => \Talea\Core\Slug::redirectPath($path, $language);
         if ($visible) {
             Redirects::add($db, $redirect($old), $redirect($newVersion));
         }
-        [$sameLanguage, $languageParams] = \Talea\Core\Slug::scope($db, $language);
+        [$sameLanguage, $languageParams] = \Talea\Core\Slug::scope($language);
         foreach ($db->all('SELECT page_id, slug, visible FROM {pages} WHERE slug LIKE ?' . $sameLanguage, [addcslashes($old, '%_\\') . '/%', ...$languageParams]) as $p) {
             $target = $newVersion . substr($p['slug'], strlen($old));
             $db->update('pages', ['slug' => $target], ['page_id' => $p['page_id']]);

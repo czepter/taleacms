@@ -8,48 +8,29 @@ use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 use Talea\Tests\Site\Support\SiteTestCase;
 
-/** The same address in every language version (setting slugs_per_language): pages, news, categories, redirects, the switch over MCP. */
+/** The same address in every language version (slugs are unique per language version): pages, news, categories, redirects. */
 #[Group('site')]
 final class SharedSlugsTest extends SiteTestCase
 {
-    public function testTheSettingIsOffByDefaultAndAnAddressIsNotShared(): void
+    public function testTwoVersionsShareAnAddressButOneLanguageDoesNot(): void
     {
         $site = $this->site();
         $site->setting('additional_languages', 'de');
-        $this->assertNotSame('1', $site->settingValue('slugs_per_language'));
+        $this->assertNull($site->value("SELECT 1 FROM tl_settings WHERE name = 'slugs_per_language'"));
 
         $site->mcp('create_page', ['title' => 'Contact English', 'slug' => 'help', 'content' => '<p>English contact</p>', 'visible' => 1]);
-        $second = $site->mcp('create_page', ['title' => 'Help German', 'slug' => 'help', 'language' => 'de', 'content' => '<p>German help</p>', 'visible' => 1]);
-
-        $this->assertStringContainsString('already exists', json_encode($second, JSON_UNESCAPED_UNICODE), 'the address is global while the setting is off');
-    }
-
-    #[Depends('testTheSettingIsOffByDefaultAndAnAddressIsNotShared')]
-    public function testSwitchedOnTwoVersionsShareAnAddress(): void
-    {
-        $site = $this->site();
-        $result = $site->mcpResult('update_settings', ['settings' => ['slugs_per_language' => true]]);
-        $this->assertSame('1', $result['saved']['slugs_per_language'] ?? null, 'saved over MCP');
-        $this->assertSame('1', $site->settingValue('slugs_per_language'));
-
         $site->mcp('create_page', ['title' => 'Help German', 'slug' => 'help', 'language' => 'de', 'content' => '<p>German help</p>', 'visible' => 1]);
+        $this->assertSame(2, (int) $site->value("SELECT COUNT(*) FROM tl_pages WHERE slug = 'help'"), 'neither got a number');
+        $again = $site->mcp('create_page', ['title' => 'Help again', 'slug' => 'help', 'language' => 'de', 'content' => '<p>Again</p>', 'visible' => 1]);
+        $this->assertStringContainsString('already exists', json_encode($again, JSON_UNESCAPED_UNICODE), 'a clash inside one language is refused');
+
         $site->clearPageCache();
         $this->assertPage('/help', 200, 'Contact English', $site->client('visitor'), 'the default version');
         $this->assertPage('/de/help', 200, 'Help German', $site->client('visitor'), 'the German version at the same address');
         $this->assertPageLacks('/de/help', 'Contact English', $site->client('visitor'));
     }
 
-    #[Depends('testSwitchedOnTwoVersionsShareAnAddress')]
-    public function testSwitchingOffIsRefusedWhileAnAddressIsShared(): void
-    {
-        $site = $this->site();
-        $result = $site->mcpResult('update_settings', ['settings' => ['slugs_per_language' => false]]);
-
-        $this->assertStringContainsString('/help', (string) ($result['errors']['slugs_per_language'] ?? ''), 'the refusal names the shared address');
-        $this->assertSame('1', $site->settingValue('slugs_per_language'));
-    }
-
-    #[Depends('testSwitchingOffIsRefusedWhileAnAddressIsShared')]
+    #[Depends('testTwoVersionsShareAnAddressButOneLanguageDoesNot')]
     public function testARenamedPageRedirectsInItsOwnVersionOnly(): void
     {
         $site = $this->site();
@@ -82,23 +63,5 @@ final class SharedSlugsTest extends SiteTestCase
         $this->assertPage('/de/news/first-post', 200, 'Post de', $visitor, 'the German version of the same address');
         $this->assertPage('/news/category/stories', 200, 'Stories', $visitor);
         $this->assertPage('/de/news/category/stories', 200, 'Geschichten', $visitor);
-    }
-
-    #[Depends('testNewsAndCategoriesShareAddressesToo')]
-    public function testSwitchingOffWorksOnceNoAddressIsShared(): void
-    {
-        $site = $this->site();
-        $site->mcp('update_page', ['id' => $site->publicId('pages', (int) $site->value("SELECT page_id FROM tl_pages WHERE slug = 'hilfe'")), 'slug' => 'help']);
-        $this->assertSame('1', $site->settingValue('slugs_per_language'));
-        $site->exec("DELETE FROM tl_pages WHERE slug = 'help' AND language = 'de'");
-        $site->exec("DELETE FROM tl_news WHERE language = 'de'");
-        $site->exec("DELETE FROM tl_categories WHERE language = 'de'");
-        $site->exec("DELETE FROM tl_news WHERE slug = 'first-post'");
-        $site->exec("DELETE FROM tl_categories WHERE slug = 'stories'");
-
-        $result = $site->mcpResult('update_settings', ['settings' => ['slugs_per_language' => false]]);
-
-        $this->assertSame('0', $result['saved']['slugs_per_language'] ?? null);
-        $this->assertSame('0', $site->settingValue('slugs_per_language'));
     }
 }

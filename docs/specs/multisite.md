@@ -27,7 +27,7 @@ a later spec; the design below leaves room for it.
 so a migration file is written once, as before. Raw SQL in a migration that touches an owner table skips it with
 `MigrationSupport::ownerTableInSiteRun()` (the `table_prefix` option is the site prefix there). Index names of a further site get its prefix
 (`tl2_uq_pages_slug`, `MigrationSupport::indexName()`), because PostgreSQL and SQLite want them unique in the whole database;
-`Db::uniqueKeys()`, `dropUniqueKey()` and `addUniqueKey()` keep using the migration names. Any failure stops the run and the entrypoint refuses to start;
+`Db::uniqueKeys()` keeps using the migration names. Any failure stops the run and the entrypoint refuses to start;
 `bin/migrate --backup` dumps the whole database (every prefix) first.
 
 ## Per-site and owner-wide pieces

@@ -54,7 +54,6 @@ class Settings extends Module
             'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'pattern:/^[+()\d\s\/.-]{0,30}$/',
             'agency_logo' => 'pattern:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
             'time_zone' => 'timezone', 'site_language' => 'choice:' . \Talea\Core\Language::CODES, 'german_register' => 'choice:formal|informal', 'additional_languages' => 'list:' . \Talea\Core\Language::CODES,
-            'slugs_per_language' => 'flag', // switched by Core\Slug::switchPerLanguage (actionSave), never written directly
         ],
         // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
         'vzhled' => ['dark_mode' => 'choice:off|auto|dark', 'theme_switcher' => 'flag'],
@@ -253,7 +252,6 @@ class Settings extends Module
         $given = [];
         $zoneBefore = $settings->get('time_zone');
         $instructionsBefore = $settings->get('claude_instructions'); // a change goes to the change log with both texts (#149)
-        $refused = null;
         $override = []; // values saved instead of what the form sent
         if ($tab === 'analytics' && $this->request->postBool('disconnect')) {
             // "Disconnect" on a service's page empties its fields
@@ -299,13 +297,6 @@ class Settings extends Module
                 $value = (string) $this->db->internalId('pages', $value); // the form carries the public id of the page (0 = news listing)
             }
             $clean = self::sanitize($type, $value, $this->request->postBool($key));
-            if ($key === 'slugs_per_language') {
-                // the database keys change with it; switching off is refused while two language versions share an address
-                if (($refusal = \Talea\Core\Slug::switchPerLanguage($this->db, $settings, $clean === '1')) !== null) {
-                    $refused = t($refusal[0], $refusal[1]);
-                }
-                continue;
-            }
             if ($clean !== null && $key === 'news_slug' && \Talea\Core\Routes::slugError($clean, $this->db) !== null) {
                 $clean = null; // the hint under the field lists what is not allowed
             }
@@ -372,9 +363,6 @@ class Settings extends Module
             \Talea\Front\Screen::ensureSecret($settings, $this->request->postBool('new_screen_token'));
         }
 
-        if ($refused !== null) {
-            return $this->back($refused, '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
-        }
         if ($errors === [] && $settings->get('time_zone') !== $zoneBefore) {
             // stored dates are wall time and are not converted – a scheduled item keeps its clock time
             return $this->back(t('Settings saved. The time zone changed from %s to %s: dates already saved keep their clock time and are not converted, so check scheduled pages and news.', $zoneBefore, $settings->get('time_zone')), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'info');

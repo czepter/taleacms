@@ -48,9 +48,9 @@ final class LinkHealing
             return 0;
         }
         $origin = rtrim((string) ($db->value("SELECT value FROM {settings} WHERE name = 'site_url'") ?? ''), '/');
-        // with slugs per language /en/old may be another page than /old: a link with a language prefix is healed only by a
-        // redirect that names that version (en/old), never by the default version's one
-        $changed = self::replace($db, $old, $new, $origin, !Slug::perLanguage($db));
+        // /en/old may be another page than /old: a link with a language prefix is healed only by a redirect that names
+        // that version (en/old), never by the default version's one
+        $changed = self::replace($db, $old, $new, $origin);
         if ($changed > 0) {
             Events::record($db, 'links.healed', 'info', t('Links to /%s now lead to %s (%d places).', $old, $new, $changed), ['from' => $old, 'to' => $new, 'count' => $changed]);
         }
@@ -59,7 +59,7 @@ final class LinkHealing
     }
 
     /** One old address to a new one in every place; returns how many stored rows changed. */
-    private static function replace(Db $db, string $old, string $new, string $origin, bool $anyVersion = true): int
+    private static function replace(Db $db, string $old, string $new, string $origin): int
     {
         $like = '%' . addcslashes($old, '%_\\') . '%';
         $changed = 0;
@@ -75,7 +75,7 @@ final class LinkHealing
                     if (!is_string($value) || $value === '') {
                         continue;
                     }
-                    $healed = $kind === 'json' ? self::json($value, $old, $new, $origin, $anyVersion) : self::html($value, $old, $new, $origin, $anyVersion);
+                    $healed = $kind === 'json' ? self::json($value, $old, $new, $origin) : self::html($value, $old, $new, $origin);
                     if ($healed !== $value) {
                         $update[$column] = $healed;
                     }
@@ -91,44 +91,40 @@ final class LinkHealing
     }
 
     /**
-     * One link: the new address when it is the old one of this site, otherwise null. Keeps the form of the link – a
-     * language prefix, a trailing slash, a #part and a ?query stay, an absolute own URL stays absolute.
+     * One link: the new address when it is the old one of this site, otherwise null. Keeps the form of the link –
+     * a trailing slash, a #part and a ?query stay, an absolute own URL stays absolute.
      */
-    public static function rewrite(string $url, string $old, string $new, string $origin = '', bool $anyVersion = true): ?string
+    public static function rewrite(string $url, string $old, string $new, string $origin = ''): ?string
     {
         $host = '';
         if ($origin !== '' && (str_starts_with($url, $origin . '/') || $url === $origin)) {
             $host = $origin;
             $url = substr($url, strlen($origin));
         }
-        $pattern = '#^/(?:(' . Language::TAG . ')/)?' . preg_quote($old, '#') . '(/?)([?\#].*)?$#s';
+        $pattern = '#^/' . preg_quote($old, '#') . '(/?)([?\#].*)?$#s';
         if (!str_starts_with($url, '/') || preg_match($pattern, $url, $m) !== 1) {
             return null;
         }
-        $language = $m[1] ?? '';
-        if ($language !== '' && (!isset(Language::AVAILABLE[$language]) || !$anyVersion)) {
-            return null;
-        }
-        $rest = ($m[2] ?? '') . ($m[3] ?? '');
+        $rest = ($m[1] ?? '') . ($m[2] ?? '');
         if (preg_match('#^https?://#i', $new) === 1) {
-            return rtrim($new, '/') . (($m[3] ?? '') !== '' ? $m[3] : '');
+            return rtrim($new, '/') . (($m[2] ?? '') !== '' ? $m[2] : '');
         }
         $target = trim($new, '/');
 
-        return $host . '/' . ($language !== '' ? $language . '/' : '') . $target . ($target === '' ? ltrim($rest, '/') : $rest);
+        return $host . '/' . $target . ($target === '' ? ltrim($rest, '/') : $rest);
     }
 
     /** Links in HTML: href attributes only (an image source is a file, not an address that moves). */
-    public static function html(string $html, string $old, string $new, string $origin = '', bool $anyVersion = true): string
+    public static function html(string $html, string $old, string $new, string $origin = ''): string
     {
         if (!str_contains($html, $old)) {
             return $html;
         }
         $changed = false;
         // on the parsed tree, never over the raw markup: "href='" inside a title or in the text is not an attribute
-        $out = Html::transform($html, function (\Dom\HTMLElement $body) use ($old, $new, $origin, $anyVersion, &$changed): void {
+        $out = Html::transform($html, function (\Dom\HTMLElement $body) use ($old, $new, $origin, &$changed): void {
             foreach ($body->querySelectorAll('[href]') as $el) {
-                $healed = self::rewrite((string) $el->getAttribute('href'), $old, $new, $origin, $anyVersion);
+                $healed = self::rewrite((string) $el->getAttribute('href'), $old, $new, $origin);
                 if ($healed !== null) {
                     $el->setAttribute('href', $healed);
                     $changed = true;
@@ -144,21 +140,21 @@ final class LinkHealing
      * rewritten, every string with HTML has its href attributes rewritten. Keys do not matter, so new elements and
      * fields are covered without a list. Invalid JSON is left as it is.
      */
-    public static function json(string $json, string $old, string $new, string $origin = '', bool $anyVersion = true): string
+    public static function json(string $json, string $old, string $new, string $origin = ''): string
     {
         $data = json_decode($json, true);
         if (!is_array($data)) {
             return $json;
         }
         $changed = false;
-        $walk = function (mixed $value) use (&$walk, &$changed, $old, $new, $origin, $anyVersion): mixed {
+        $walk = function (mixed $value) use (&$walk, &$changed, $old, $new, $origin): mixed {
             if (is_array($value)) {
                 return array_map($walk, $value);
             }
             if (!is_string($value) || !str_contains($value, $old)) {
                 return $value;
             }
-            $healed = str_contains($value, '<') ? self::html($value, $old, $new, $origin, $anyVersion) : (self::rewrite($value, $old, $new, $origin, $anyVersion) ?? $value);
+            $healed = str_contains($value, '<') ? self::html($value, $old, $new, $origin) : (self::rewrite($value, $old, $new, $origin) ?? $value);
             $changed = $changed || $healed !== $value;
 
             return $healed;

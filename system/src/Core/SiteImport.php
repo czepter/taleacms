@@ -405,11 +405,6 @@ final class SiteImport
             }
             $state['backup'] = Backup::create($this->db, 'before_import');
             $this->db->emptyTables(self::EMPTIED);
-            // an export that shares addresses between language versions needs the per-language keys before its rows arrive
-            $exported = json_decode((string) @file_get_contents(self::workFolder((string) $state['file'], $this->folder) . '/settings.json'), true);
-            if (is_array($exported) && ($exported['slugs_per_language'] ?? '') === '1') {
-                Slug::switchPerLanguage($this->db, $this->settings, true);
-            }
             $state['emptied'] = true;
 
             return;
@@ -491,10 +486,6 @@ final class SiteImport
     {
         $this->undoOwnerRows($state);
         $this->db->emptyTables(array_values(array_diff(self::EMPTIED, self::OWNER_ROWS, ['fact_history'])));
-        $exported = json_decode((string) @file_get_contents(self::workFolder((string) $state['file'], $this->folder) . '/settings.json'), true);
-        if (is_array($exported) && ($exported['slugs_per_language'] ?? '') === '1') {
-            Slug::switchPerLanguage($this->db, $this->settings, true);
-        }
         // the components first: a component may place another one, which comes later in the file
         $file = self::workFolder((string) $state['file'], $this->folder) . '/components.ndjson';
         foreach (is_file($file) ? (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []) : [] as $n => $line) {
@@ -660,7 +651,6 @@ final class SiteImport
                 'home_page' => (string) $this->ref('pages', $value),
                 'news_per_page' => (string) max(0, (int) $value),
                 'news_slug' => Routes::systemSlugError($value) === null ? $value : null,
-                'slugs_per_language' => null, // switched before the rows are imported (importData)
                 'time_zone' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
                 // a regional language of the archive keeps the language the new site already has (en-gb into an English site stays English)
                 'site_language' => isset(Language::AVAILABLE[$value]) && Language::forSite($value, [Language::defaults($this->settings)]) === $value ? $value : null,

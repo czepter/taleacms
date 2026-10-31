@@ -367,7 +367,6 @@ final class Server
         $before = [\Talea\Front\Cache::site(), \Talea\Core\Language::code(), date_default_timezone_get()];
         $owner = (string) $row['prefix'] === $db->installPrefix; // the install's own site 1 keeps the plain cache folder
         \Talea\Front\Cache::useSite($owner ? null : (string) $row['prefix']);
-        \Talea\Core\Slug::setPerLanguage(null);
         \Talea\Core\Routes::setNewsSlug(null);
         try {
             $app->applyTimezone();
@@ -380,7 +379,6 @@ final class Server
         } finally {
             \Talea\Front\Cache::useSite($before[0]);
             date_default_timezone_set($before[2]);
-            \Talea\Core\Slug::setPerLanguage(null);
             \Talea\Core\Routes::setNewsSlug(null);
             \Talea\Core\Language::setSite($this->app->settings(), $before[1]);
         }

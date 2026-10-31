@@ -95,9 +95,8 @@ final class Prompts
                   on first – after asking – with `update_settings` (`additional_languages`, and `languages` in `extensions`;
                   the prompt add_language_version describes it), or the administrator lets the import add them in its
                   preview. Regional versions (en-gb, de-at, pt-br) and right-to-left Arabic are supported.
-                - **The same address in every language.** If the old site used the same slug in each language (/contact and
-                  /de/contact), switch on `slugs_per_language` with `update_settings` first, after asking; otherwise a
-                  clashing slug gets a number and the import lists it.
+                - **The same address in every language.** A slug used in each language (/contact and /de/contact) is kept
+                  as it is: a slug is unique only within its language version.
 
                 ## 3. Bring the content over
 
@@ -580,9 +579,8 @@ final class Prompts
                 Ask the user first. Then `update_settings` with `extensions` – the whole list: keep every extension that is on
                 now, including claude, and add languages – and `additional_languages`: the languages already there plus
                 {language}. While the home page has no published translation, the new version stays out of the language
-                switcher, hreflang and the sitemap, so the translation can be prepared in peace. If the original slugs should
-                be kept in every language (/contact and /de/contact), switch on `slugs_per_language` with `update_settings`,
-                after asking.
+                switcher, hreflang and the sitemap, so the translation can be prepared in peace. The original slugs can be
+                kept in every language (/contact and /de/contact).
 
                 The site name and description of the version: `update_settings` with `site_name` and `site_description`
                 followed by an underscore and the code (site_name_<code>). The cookie bar's text and policy link of the
@@ -602,7 +600,7 @@ final class Prompts
 
                 1. `create_page` with `language` {language}, `translation_of` (the original's id), `copy_build` true and the
                    translated `title`; it stays hidden. The language switcher and hreflang link the two. Give a translated
-                   `slug`, or the original's when the same address in every language is on; for Arabic leave it out – a Latin
+                   `slug`, or the original's to keep the same address in every language; for Arabic leave it out – a Latin
                    one is made from the title.
                 2. `get_build` with `texts_only` true, then translate the texts with `edit_build` "update" operations; point
                    internal links to the translated pages where they exist.
