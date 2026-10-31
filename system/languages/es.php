@@ -261,7 +261,6 @@ return [
     'Craftsmanship' => 'Oficio',
     'Craftsmanship you can rely on' => 'Un trabajo artesanal en el que puede confiar',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Cree primero una colección Sedes (Colecciones → Nuevas sedes) o elija una colección en el panel Contenido.',
-    'Crop focal point' => 'Punto focal del recorte',
     'Cup' => 'Taza',
     'Customer' => 'Cliente',
     'Customer reviews' => 'Opiniones de clientes',
