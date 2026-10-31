@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://czepter.github.io/taleacms/sitemap.xml
