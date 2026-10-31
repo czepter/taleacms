@@ -29,6 +29,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
 
     public function testHeaderIsBuiltFromTheTemplateUntilPublished(): void
     {
+        $this->site()->exec("DELETE FROM tl_site_parts WHERE type IN ('header', 'footer')"); // the installer's look brings a header and footer: this test is about the built-in ones
         $this->assertPage('/admin.php?module=parts', 200, 'Header', message: 'site parts');
         $this->assertPage('/admin.php?module=parts&action=builder&type=header&language=', 200, 'id="builder-data"', message: 'the header opens in the builder with a draft from the template');
 

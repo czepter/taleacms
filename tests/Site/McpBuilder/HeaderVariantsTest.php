@@ -15,6 +15,7 @@ final class HeaderVariantsTest extends SiteTestCase
 
     public function testAnEmptyHeaderVariantHidesTheHeaderOnItsPageOnly(): void
     {
+        $this->site()->exec("DELETE FROM tl_site_parts WHERE type IN ('header', 'footer')"); // the installer's look brings a header and footer: this test is about the built-in ones
         $idz = $this->zPage();
         $this->assertPage('/admin.php?module=parts&action=variant&type=header&language=', 200, 'Variant name', message: 'variant form');
 

@@ -16,6 +16,7 @@ final class MenuTest extends SiteTestCase
 
     public function testMenuEditorSavesIntoTheDraftLookAndPublishesToTheSite(): void
     {
+        $this->site()->exec("DELETE FROM tl_site_parts WHERE type IN ('header', 'footer')"); // the installer's look brings a header and footer: this test is about the built-in ones
         $this->assertPage('/admin.php?module=menu', 200, 'data-menu-list', message: 'menu editor');
         $about = (int) $this->site()->value("SELECT page_id FROM tl_pages WHERE slug = 'about-us'");
         // 2.7: an icon (people) and a description on an item, a group inside the submenu with its own items (a column), an unknown icon drops out
