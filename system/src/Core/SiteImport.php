@@ -612,17 +612,29 @@ final class SiteImport
     /** The second pass over the imported folders: parent_id by the parent's public id; an unknown parent, a cycle or a skipped row leaves the folder at the top level. */
     private function linkFolders(string $file): void
     {
-        foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $r = json_decode($line, true);
+        // streamed and resolved in memory: MediaFolders::move() aggregates every folder per call, far too slow for thousands
+        $parents = [];
+        $exists = array_flip(array_map('intval', array_column($this->db->all('SELECT folder_id FROM {media_folders}'), 'folder_id'))); // a malformed archive may name a row that was skipped: the foreign key would refuse it
+        foreach (new \SplFileObject($file) as $line) {
+            $r = json_decode((string) $line, true);
             $id = is_array($r) ? $this->ref('media_folders', $r['public_id'] ?? null) : 0;
             $parent = is_array($r) ? $this->ref('media_folders', $r['parent_id'] ?? null) : 0;
-            if ($id > 0 && $parent > 0) {
-                try {
-                    MediaFolders::move($this->db, $id, $parent);
-                } catch (\DomainException) {
-                    // missing folder or a cycle in the file: stays on the top level
-                }
+            if (isset($exists[$id], $exists[$parent]) && $id !== $parent) {
+                $parents[$id] = $parent;
             }
+        }
+        foreach (array_keys($parents) as $id) {
+            $seen = [];
+            for ($at = $parents[$id] ?? 0; $at > 0 && !isset($seen[$at]); $at = $parents[$at] ?? 0) {
+                if ($at === $id) {
+                    unset($parents[$id]); // closes a cycle: this folder stays on the top level
+                    break;
+                }
+                $seen[$at] = true;
+            }
+        }
+        foreach ($parents as $id => $parent) {
+            $this->db->update('media_folders', ['parent_id' => $parent], ['folder_id' => $id]);
         }
     }
 
