@@ -38,6 +38,7 @@
         { "@type": "Question", "name": "Who keeps it updated?", "acceptedAnswer": { "@type": "Answer", "text": "Whoever installed it pulls a new image. There are no plugins with updates of their own." } },
         { "@type": "Question", "name": "Can I take everything with me?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Talea exports the whole site as an open archive that another Talea installation, or your own code, can read." } },
         { "@type": "Question", "name": "Can I sell online with it?", "acceptedAnswer": { "@type": "Answer", "text": "You can show products with prices and variants and collect order enquiries in a basket. Checkout and payments are not built in." } },
+        { "@type": "Question", "name": "Can I run several locations or stores?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. One installation runs a website for each location, with one shared look, one media library and one list for enquiries and bookings. Each location keeps its own address, pages and people." } },
         { "@type": "Question", "name": "Why self-host at all?", "acceptedAnswer": { "@type": "Answer", "text": "The business keeps its site, its customer data and its costs in its own hands." } }
       ]
     }
@@ -194,6 +195,7 @@ footer p { margin: 0; max-width: 60ch; }
 			<img class="dark" src="img/talea-logo-dark.svg" alt="" width="92" height="28">
 		</a>
 		<nav>
+			<a class="hide-s" href="#locations">Locations</a>
 			<a class="hide-s" href="#looks">Looks</a>
 			<a class="hide-s" href="#editing">Editing</a>
 			<a class="hide-s" href="#questions">Questions</a>
@@ -208,7 +210,7 @@ footer p { margin: 0; max-width: 60ch; }
 		<div class="wrap">
 			<p class="label">Website builder for your own server</p>
 			<h1>The website builder you set up once and hand to the people who run the business.</h1>
-			<p class="lead">Talea comes with finished designs, editing right on the page and bookings, forms and a newsletter built in. It runs on your server, so the site and its data stay with the business.</p>
+			<p class="lead">Talea comes with finished designs, editing right on the page and bookings, forms and a newsletter built in. One installation can run the websites of all your locations or stores, on your own server.</p>
 			<div class="actions">
 				<a class="btn" href="#setup">Install Talea</a>
 				<a class="text-link" href="#looks">See the looks</a>
@@ -219,6 +221,21 @@ footer p { margin: 0; max-width: 60ch; }
 					<img src="img/admin-builder.jpg" alt="Editing a page in Talea: the owner selects the headline on the real page and types a new one" width="1800" height="1125" fetchpriority="high">
 				</picture>
 			</div>
+		</div>
+	</section>
+
+	<section class="block" id="locations">
+		<div class="wrap">
+			<p class="label">Several locations</p>
+			<h2>One installation for every location</h2>
+			<p class="text">A business with several locations, stores or brands runs all their websites from one installation. Each location has its own address, pages, opening hours and people, who can be limited to their own site.</p>
+			<div class="grid">
+				<article class="card"><h3>One look for all</h3><p>Publish a new design on the main site and every location takes it over. The locations cannot change it on their own.</p></article>
+				<article class="card"><h3>One list for enquiries and bookings</h3><p>Enquiries and bookings from every location arrive in one list, which you can narrow down to a single site.</p></article>
+				<article class="card"><h3>Bookings with confirmation</h3><p>Customers pick a time online and get a confirmation by e-mail with a link to cancel. For services that need it, you confirm each request first.</p></article>
+				<article class="card"><h3>Shared photos and files</h3><p>What you upload once is available on every site.</p></article>
+			</div>
+			<p class="text">Several sites are switched on with one setting when Talea is installed.</p>
 		</div>
 	</section>
 
@@ -315,6 +332,7 @@ footer p { margin: 0; max-width: 60ch; }
 				<details><summary>Do I need plugins for a contact form or bookings?</summary><p>No. Forms, bookings and a newsletter are built in.</p></details>
 				<details><summary>Who keeps it updated?</summary><p>Whoever installed it pulls a new image. There are no plugins with updates of their own.</p></details>
 				<details><summary>Can I take everything with me?</summary><p>Yes. Talea exports the whole site as an open archive that another Talea installation, or your own code, can read.</p></details>
+				<details><summary>Can I run several locations or stores?</summary><p>Yes. One installation runs a website for each location, with one shared look, one media library and one list for enquiries and bookings. Each location keeps its own address, pages and people.</p></details>
 				<details><summary>Can I sell online with it?</summary><p>You can show products with prices and variants and collect order enquiries in a basket. Checkout and payments are not built in.</p></details>
 				<details><summary>Why self-host at all?</summary><p>The business keeps its site, its customer data and its costs in its own hands.</p></details>
 			</div>
@@ -327,7 +345,7 @@ footer p { margin: 0; max-width: 60ch; }
 			<h2>Why Talea is a fork of Kaleta</h2>
 			<p class="text">Talea started in October 2026 from Kaleta 3.7.0, a CMS for business websites by Miroslav Kaleta and contributors. The page builder, the design system, bookings, forms, the newsletter, collections and the AI connection came with Kaleta.</p>
 			<p class="text">Kaleta is made for business websites on ordinary PHP hosting, and it leaves some things out on purpose: finished designs, a font library, AI inside the admin, member areas and A/B tests. Those decisions suit Kaleta and its users. A website builder that an owner runs alone needs exactly these things, so Talea became a project of its own. It keeps Kaleta’s history, and security fixes from Kaleta are ported first.</p>
-			<p class="text">For the business this means that one installation runs the websites of several locations, stores or brands. They share one look, which you change once for all of them, and one media library, while each location keeps its own pages, people and appointments. Enquiries and bookings from every site arrive in one list. Customers book a time online and get a confirmation by e-mail with a link to cancel, and for services that need it you confirm each request first.</p>
+			<p class="text">For the business this means the websites of several locations from one installation, with one look and one list for enquiries and bookings, and the other differences in the table below.</p>
 			<table class="compare origin">
 				<thead><tr><th scope="col"></th><th scope="col">Kaleta 3.7.0</th><th scope="col">Talea</th></tr></thead>
 				<tbody>
@@ -364,6 +382,7 @@ docker compose up -d
 					<li>Plain PHP 8.5 without a framework or build step, licensed GPL-2.0-or-later.</li>
 					<li>MySQL 8, MariaDB 11.4+, PostgreSQL 18 or SQLite.</li>
 					<li>Signed images for amd64 and arm64. Migrations run before the site starts.</li>
+					<li>Several sites in one installation with <code>TALEA_MULTISITE=1</code>, each answering to its own domain.</li>
 					<li>An MCP server with 173 tools, covering what the editor can do.</li>
 					<li>No third-party scripts or fonts on the published site.</li>
 				</ul>

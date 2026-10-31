@@ -138,6 +138,7 @@ it has not run). "The all-in-one website builder you host yourself" (Microweber 
 | Usability test (30 minutes) | not run | `docs/LAUNCH.md` |
 | Selling | product catalogue with variants and an enquiry basket; no checkout, no payments | `Builder\Products` |
 | Members | sign-in by e-mail link, groups; no paid memberships | `Extensions::CATALOG` |
+| Several locations | one installation, one site per location with its own domain, pages, hours, bookings and people; shared look (look family), media and people; enquiries and bookings listed across sites; needs `TALEA_MULTISITE=1` | `docs/specs/multisite.md`, `Admin\Modules\Sites::inboxSites` |
 
 ## Copy draft (project page)
 
