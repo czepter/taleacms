@@ -254,7 +254,7 @@ final class Media extends Module
         $this->app->session->set('media_undo', ['places' => $places, 'target' => $target, 'message' => $message, 'at' => time(), 'shown' => false]);
     }
 
-    /** @return array{places: array<string, array<int, int|null>>, message: string}|null the move the Undo notice offers, shown once */
+    /** @return array<mixed>|null the move the Undo notice offers (places, message), shown once */
     private function pendingUndo(): ?array
     {
         $undo = $this->app->session->get('media_undo');

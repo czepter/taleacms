@@ -625,7 +625,7 @@ final class SiteImport
         }
         foreach (array_keys($parents) as $id) {
             $seen = [];
-            for ($at = $parents[$id] ?? 0; $at > 0 && !isset($seen[$at]); $at = $parents[$at] ?? 0) {
+            for ($at = $parents[$id]; $at > 0 && !isset($seen[$at]); $at = $parents[$at] ?? 0) {
                 if ($at === $id) {
                     unset($parents[$id]); // closes a cycle: this folder stays on the top level
                     break;
