@@ -419,6 +419,9 @@ final class SiteImport
             $table = $tables[$state['table']];
             $file = self::workFolder((string) $state['file'], $this->folder) . '/' . $table . '.ndjson';
             if (!is_file($file) || $state['position'] >= (int) ($state['counts'][$table] ?? 0)) {
+                if ($table === 'media_folders' && is_file($file)) {
+                    $this->linkFolders($file); // every folder exists now: a parent may come after its child in the file
+                }
                 $state['table']++;
                 $state['position'] = 0;
                 continue;
@@ -604,6 +607,23 @@ final class SiteImport
         }
 
         return true;
+    }
+
+    /** The second pass over the imported folders: parent_id by the parent's public id; an unknown parent, a cycle or a skipped row leaves the folder at the top level. */
+    private function linkFolders(string $file): void
+    {
+        foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $r = json_decode($line, true);
+            $id = is_array($r) ? $this->ref('media_folders', $r['public_id'] ?? null) : 0;
+            $parent = is_array($r) ? $this->ref('media_folders', $r['parent_id'] ?? null) : 0;
+            if ($id > 0 && $parent > 0) {
+                try {
+                    MediaFolders::move($this->db, $id, $parent);
+                } catch (\DomainException) {
+                    // missing folder or a cycle in the file: stays on the top level
+                }
+            }
+        }
     }
 
     /** Remembers a person the archive names (the author of a news item, a person who takes bookings), once. */

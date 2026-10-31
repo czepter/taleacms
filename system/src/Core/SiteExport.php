@@ -157,7 +157,7 @@ final class SiteExport
         self::fields($f, 'collection_items', $one('collection_items', 'SELECT item_id, public_id, collection_id, name, slug, data, seo_title, description, image, noindex, focus_keywords, key_page, robots, canonical_url, breadcrumb_title, share_title, share_description, sort_order, visible, publish_at, valid_until, review_by, language, created_at FROM {collection_items} WHERE item_id > ? AND deleted_at IS NULL ORDER BY item_id LIMIT 500', 'item_id', ['collection_id' => 'collections']));
         // the previous files of documents (2.11) go along – they are content, kept for good; download counts are only this site's statistics
         self::fields($f, 'document_versions', $one('document_versions', 'SELECT id, item_id, file, version, replaced_at, replaced_by FROM {document_versions} WHERE id > ? ORDER BY id LIMIT 1000', 'id', ['item_id' => 'collection_items']));
-        self::fields($f, 'media_folders', $all('media_folders', 'SELECT folder_id, public_id, name FROM {media_folders} ORDER BY folder_id'));
+        self::fields($f, 'media_folders', $all('media_folders', 'SELECT folder_id, public_id, name, parent_id FROM {media_folders} ORDER BY folder_id', ['parent_id' => 'media_folders']));
         // a file waiting for approval (Core\MediaStaging) is not part of the site yet
         self::fields($f, 'media', $one('media', 'SELECT media_id, public_id, folder_id, name, description, author, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, created_at FROM {media} WHERE media_id > ? AND staged_at IS NULL ORDER BY media_id LIMIT 500', 'media_id', ['folder_id' => 'media_folders']));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
@@ -425,7 +425,7 @@ final class SiteExport
             . "collections, collection_templates, collection_items   collections, their templates and items\n"
             . "document_versions  previous files of documents (a document library): item_id (public id of the collection item), file, version, replaced_at, replaced_by\n"
             . "popups           pop-ups with rules and builds\n"
-            . "media_folders    media folders: public_id, name\n"
+            . "media_folders    media folders: public_id, name, parent_id (public id of the folder it is in; null = top level)\n"
             . "media            media library: image_path (path in media/), name (alternative text), description, author, sizes, folder_id\n"
             . "facts            business facts: fact_key ({{fact.<key>}} in texts), language, label, type, value, schema_prop, source\n"
             . "hours_exceptions exceptions to the opening hours still to come: date_from, date_to, closed, hours, note, notice_days\n"
