@@ -39,8 +39,8 @@
         { "@type": "Question", "name": "Do I need plugins for a contact form or bookings?", "acceptedAnswer": { "@type": "Answer", "text": "No. Forms, bookings and a newsletter are built in." } },
         { "@type": "Question", "name": "Who keeps it updated?", "acceptedAnswer": { "@type": "Answer", "text": "Whoever installed it pulls a new image. There are no plugins with updates of their own." } },
         { "@type": "Question", "name": "Can I take everything with me?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Talea exports the whole site as an open archive that another Talea installation, or your own code, can read." } },
-        { "@type": "Question", "name": "Can I sell online with it?", "acceptedAnswer": { "@type": "Answer", "text": "You can show products with prices and variants and collect order enquiries in a basket. Checkout and payments are not built in." } },
         { "@type": "Question", "name": "Can I run several locations or stores?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. One installation runs a website for each location, with one shared look, one media library and one list for enquiries and bookings. Each location keeps its own address, pages and people." } },
+        { "@type": "Question", "name": "Can I sell online with it?", "acceptedAnswer": { "@type": "Answer", "text": "You can show products with prices and variants and collect order enquiries in a basket. Checkout and payments are not built in." } },
         { "@type": "Question", "name": "Why self-host at all?", "acceptedAnswer": { "@type": "Answer", "text": "The business keeps its site, its customer data and its costs in its own hands." } }
       ]
     }
@@ -49,337 +49,437 @@
 </script>
 <style>
 @font-face { font-family: "Bricolage Grotesque"; src: url("fonts/bricolage-grotesque-latin.woff2") format("woff2"); font-weight: 200 800; font-display: swap; }
-@font-face { font-family: "JetBrains Mono"; src: url("fonts/jetbrains-mono.woff2") format("woff2"); font-weight: 100 800; font-display: swap; }
 
 :root {
-	--ink: #121212;
-	--paper: #f6f4ee;
-	--card: #fffdf8;
-	--muted: #5c5a55;
-	--line: #e3dfd4;
-	--accent: #ff4f2e;
-	--accent-ink: #c2321a;
-	--radius: 18px;
-	--wide: 1180px;
-	--font: "Bricolage Grotesque", system-ui, sans-serif;
-	--mono: "JetBrains Mono", ui-monospace, monospace;
+	color-scheme: light dark;
+	--base: #fdfdfd; --surface: #ffffff; --line: #e5e5e5; --line-field: #d4d4d4;
+	--text: #121212; --text-weak: #5c5c5c;
+	--accent: #121212; --accent-dark: #000000; --accent-light: #f0f0f0; --on-accent: #ffffff;
+	--signal: #ff4f2e;
+	--error: #c4281c; --error-base: #fef3f2;
+	--ok: #067647; --ok-base: #ecfdf3;
+	--warning: #f79009; --handover-text: #6b3fd0; --planned: #1f5fbf;
+	--radius: 10px;
+	--font-ui: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
 	:root {
-		--ink: #f6f4ee;
-		--paper: #121212;
-		--card: #1b1b1a;
-		--muted: #a8a59d;
-		--line: #2c2b29;
-		--accent-ink: #ff7a5e;
+		--base: #121212; --surface: #1c1c1c; --line: #333333; --line-field: #4a4a4a;
+		--text: #f5f5f5; --text-weak: #b5b5b5;
+		--accent: #f5f5f5; --accent-dark: #ffffff; --accent-light: #2a2a2a; --on-accent: #121212;
+		--error: #ff8a80; --error-base: #3a1b19;
+		--ok: #6ce9a6; --ok-base: #10291d;
+		--handover-text: #b69cff; --planned: #8fb8ff;
 	}
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 400 1.0625rem/1.6 var(--font); -webkit-font-smoothing: antialiased; }
-img { max-width: 100%; height: auto; display: block; }
-a { color: inherit; }
-:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+body { margin: 0; min-height: 100vh; background: var(--base); color: var(--text); font: 14px/1.5 var(--font-ui); -webkit-font-smoothing: antialiased; }
+img { max-width: 100%; }
+:where(a) { color: var(--accent); text-decoration: underline; text-decoration-color: color-mix(in oklch, currentColor 30%, transparent); text-underline-offset: 2px; }
+:where(a:hover) { color: var(--accent-dark); }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sprite { position: absolute; width: 0; height: 0; }
+.icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
-.wrap { width: min(100% - 32px, var(--wide)); margin-inline: auto; }
-.label { font: 600 0.75rem/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 1rem; }
-h1, h2, h3 { line-height: 1.06; letter-spacing: -0.03em; margin: 0; font-weight: 750; }
-h1 { font-size: clamp(2.4rem, 1.3rem + 4.6vw, 5.2rem); max-width: 18ch; }
-h2 { font-size: clamp(2rem, 1.2rem + 3vw, 3.4rem); max-width: 20ch; }
-h3 { font-size: 1.2rem; letter-spacing: -0.015em; line-height: 1.25; }
-.lead { font-size: clamp(1.15rem, 1rem + 0.6vw, 1.4rem); color: var(--muted); max-width: 48ch; margin: 1.5rem 0 0; line-height: 1.45; }
-.text { color: var(--muted); max-width: 56ch; margin: 1.25rem 0 0; }
-.text-link { font-weight: 600; text-underline-offset: 4px; }
+/* Buttons */
+.btn, .navigation { display: inline-flex; align-items: center; min-height: 44px; border: 1px solid transparent; border-radius: var(--radius); padding: 10px 18px; font: inherit; font-weight: 600; line-height: 1.25; text-decoration: none; cursor: pointer; transition: background-color .12s, border-color .12s; }
+.btn { background: var(--accent); color: var(--on-accent); }
+.btn:hover { background: var(--accent-dark); color: var(--on-accent); }
+.navigation { background: var(--surface); border-color: var(--line-field); color: var(--text); }
+.navigation:hover { border-color: var(--text-weak); color: var(--text); }
+.navigation.danger { color: var(--error); }
+.navigation.danger:hover { border-color: color-mix(in srgb, var(--error) 45%, transparent); background: var(--error-base); }
+.navigation-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+.big { padding-inline: 22px; font-size: 15px; }
+
+/* Messages */
+.notice { margin: 0 0 16px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); font-weight: 500; }
+.notice:last-child { margin-bottom: 0; }
+.notice-ok { border-color: color-mix(in srgb, var(--ok) 35%, transparent); background: var(--ok-base); color: var(--ok); }
+.notice-actions p { margin: 0; }
+.notice-actions p + p { margin-top: 6px; }
+.notice-actions .navigation-row { margin-top: 10px; }
+.notice-head .status { font-weight: 600; }
+
+/* Status */
+.status { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.status::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--text-weak)); }
+.status-live { --dot: var(--ok); }
+.status-planned { --dot: var(--planned); }
+.status-review { --dot: var(--handover-text); }
+
+/* List tabs */
+.list-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; }
+.list-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.list-tabs a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 8px; color: var(--text-weak); font-size: 14px; font-weight: 500; text-decoration: none; }
+.list-tabs a:hover { color: var(--text); }
+.list-tabs a[aria-current] { background: var(--accent-light); color: var(--text); }
+
+/* Listing table */
+.tab-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+table.listing { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.listing th, table.listing td { padding: 10px 16px; text-align: start; vertical-align: middle; border-bottom: 1px solid var(--line); }
+table.listing tbody tr:last-child td { border-bottom: 0; }
+table.listing th { font-size: 13px; font-weight: 500; color: var(--text-weak); white-space: nowrap; }
+table.listing tbody tr:hover { background: color-mix(in oklch, var(--text) 3%, transparent); }
+table.listing tr.unpublished td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
+table.listing td.cell-main { width: 100%; min-width: 180px; max-width: 0; height: 64px; }
+table.listing td.cell-weak { color: var(--text-weak); white-space: nowrap; }
+table.listing td.cell-actions { width: 1%; white-space: nowrap; }
+table.listing .cell-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cell-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cell-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cell-title, .cell-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.listing .cell-title { color: var(--text); font-size: 15px; font-weight: 600; text-decoration: none; }
+table.listing a.cell-title:hover { text-decoration: underline; }
+.cell-sub { color: var(--text-weak); font-size: 13px; }
+.cell-icon { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent-light); }
+.cell-icon .icon { width: 16px; height: 16px; }
+
+/* Feature switches */
+.form { padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+legend { float: left; width: 100%; margin: 0 0 16px; padding: 0; font-size: 15px; font-weight: 700; }
+legend ~ * { clear: both; }
+.switch { position: relative; flex: none; width: 42px; height: 24px; margin-top: 2px; padding: 0; border: 0; border-radius: 999px; background: var(--line-field); cursor: default; }
+.switch::after { content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); }
+.switch[aria-checked="true"] { background: var(--ok); }
+.switch[aria-checked="true"]::after { inset-inline-start: 21px; }
+.feature { display: flex; gap: 16px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.feature:last-child { padding-bottom: 0; border-bottom: 0; }
+.feature b { display: block; font-size: 15px; font-weight: 600; }
+.feature span { font-size: 13px; color: var(--text-weak); }
+
+/* Page layout */
+.sec { max-width: 1200px; margin: 0 auto; padding: 112px 24px 0; }
+.split { display: flex; flex-wrap: wrap; gap: 48px; align-items: flex-start; }
+.split.mid { align-items: center; }
+.col { flex: 1 1 340px; min-width: 0; }
+.col-wide { flex: 1.3 1 480px; min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.stack > .notice { margin: 0; }
+h1, h2 { margin: 0; letter-spacing: -0.02em; }
+h1 { max-width: 18ch; font-size: clamp(36px, 5.2vw, 68px); line-height: 1.04; font-weight: 800; }
+h1 span { color: var(--signal); }
+h2 { font-size: clamp(28px, 3.2vw, 40px); line-height: 1.15; font-weight: 600; }
+.lead { margin: 16px 0 0; max-width: 64ch; font-size: 17px; color: var(--text-weak); }
+.lead.intro { margin-top: 24px; max-width: 54ch; font-size: 19px; line-height: 1.5; }
+.eyebrow { margin: 0 0 20px; font-size: 14px; color: var(--text-weak); }
+.caption { margin: 12px 0 0; font-size: 13px; color: var(--text-weak); }
+.note { margin: 24px 0 0; max-width: 72ch; color: var(--text-weak); }
+.points { margin: 8px 0 0; padding: 0; list-style: none; font-size: 16px; color: var(--text-weak); }
+.points li { margin-top: 14px; }
+.points b { color: var(--text); font-weight: 600; }
+.card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.mt { margin-top: 32px; }
+.hero-buttons { margin-top: 32px; gap: 12px; }
+.sec.hero { padding-top: 88px; }
+.shot { margin-top: 64px; }
+.shot img { display: block; width: 100%; height: auto; }
 
 /* Header */
-.top { position: sticky; top: 0; z-index: 10; background: color-mix(in oklch, var(--paper) 85%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
-.top .wrap { display: flex; align-items: center; gap: 1.5rem; height: 64px; }
-.top .logo img { height: 28px; width: auto; }
-.top .logo .dark { display: none; }
-@media (prefers-color-scheme: dark) { .top .logo .light { display: none; } .top .logo .dark { display: block; } }
-.top nav { margin-inline-start: auto; display: flex; gap: 1.5rem; align-items: center; font-weight: 500; }
-.top nav a { text-decoration: none; }
-.top nav a:hover { color: var(--accent-ink); }
-@media (max-width: 760px) { .top nav .hide-s { display: none; } }
+.top { border-bottom: 1px solid var(--line); background: var(--base); }
+.bar { max-width: 1200px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 16px 32px; }
+.logo { display: block; line-height: 0; }
+.logo img { display: block; height: 26px; width: auto; }
+.nav { display: flex; gap: 8px 24px; margin-inline-start: auto; }
+.nav a { display: inline-flex; align-items: center; min-height: 44px; color: var(--text); font-size: 16px; font-weight: 450; text-decoration: none; }
+.nav a:hover { text-decoration: underline; text-underline-offset: 6px; }
 
-.btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.8rem 1.4rem; border-radius: 999px; font-weight: 600; text-decoration: none; background: var(--ink); color: var(--paper); border: 1.5px solid var(--ink); transition: transform 0.15s; }
-.btn:hover { transform: translateY(-2px); }
-.btn.small { padding: 0.45rem 1rem; font-size: 0.95rem; }
-.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem; margin-top: 2rem; }
+/* Looks */
+.looks { margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 16px; }
+.looks figure { margin: 0; min-width: 0; }
+.looks img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--line); }
+.looks figcaption { padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--text-weak); }
+.looks b { font-size: 15px; font-weight: 600; color: var(--text); }
 
-/* Hero */
-.hero { padding: clamp(3rem, 7vw, 6rem) 0 0; }
-.hero .shot { margin-top: clamp(3rem, 6vw, 5rem); border-radius: var(--radius) var(--radius) 0 0; overflow: hidden; border: 1px solid var(--line); border-bottom: 0; box-shadow: 0 -20px 80px -40px color-mix(in oklch, var(--accent) 60%, transparent); }
+/* Comparison tables */
+table.compare td { padding: 16px; color: var(--text-weak); vertical-align: top; }
+table.compare td.key { color: var(--text); font-weight: 500; }
+table.compare td.strong { color: var(--text); font-weight: 600; }
+table.origin td { min-width: 200px; }
+table.origin td.key { min-width: 140px; }
 
-/* Sections */
-section.block { padding: clamp(4rem, 9vw, 8rem) 0; }
-section.block + section.block { border-top: 1px solid var(--line); }
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 5vw, 5rem); align-items: center; }
-.split > * { min-width: 0; }
-@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
-.frame { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--card); }
+/* Questions and technical details */
+.card details:not(:last-child) { border-bottom: 1px solid var(--line); }
+.card summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 44px; padding: 18px 24px; font-size: 16px; font-weight: 600; cursor: pointer; list-style: none; }
+.card summary::-webkit-details-marker { display: none; }
+.plus { color: var(--text-weak); font-weight: 400; }
+details[open] .plus { transform: rotate(45deg); }
+.card details p { margin: 0; padding: 0 24px 20px; max-width: 70ch; color: var(--text-weak); }
+.card details ul { margin: 0; padding: 0 24px 20px 44px; max-width: 70ch; color: var(--text-weak); }
 
-/* Looks: carried by the images */
-.looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 3rem; }
-.looks figure { margin: 0; }
-.looks figcaption { font: 500 0.8rem/1 var(--mono); color: var(--muted); margin-top: 0.75rem; }
-@media (max-width: 760px) { .looks { grid-template-columns: 1fr; } }
-.phones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+/* Install */
+#install { padding-bottom: 96px; }
+.code-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 4px 4px 20px; border-bottom: 1px solid var(--line); }
+.code-bar span { font-size: 13px; font-weight: 500; color: var(--text-weak); }
+.code pre { margin: 0; padding: 20px; overflow-x: auto; font: 13px/1.8 var(--font-mono); color: var(--text); }
+.code .c { color: var(--text-weak); }
+.code + .card { margin-top: 16px; }
+.links { margin: 20px 0 0; color: var(--text-weak); }
 
-/* Built in: short cards */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; margin-top: 3rem; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.5rem; }
-.card p { color: var(--muted); margin: 0.5rem 0 0; font-size: 0.98rem; }
+/* Footer */
+.foot { border-top: 1px solid var(--line); }
+.foot .bar { align-items: flex-start; flex-wrap: wrap; justify-content: space-between; gap: 12px 32px; padding-block: 28px 40px; font-size: 13px; color: var(--text-weak); }
+.foot p { margin: 0; max-width: 64ch; }
 
-/* Upkeep: dark band */
-.dark-band { background: var(--ink); color: var(--paper); }
-.dark-band .label { color: var(--accent); }
-.dark-band .text { color: color-mix(in oklch, var(--paper) 72%, var(--ink)); font-size: clamp(1.1rem, 1rem + 0.4vw, 1.3rem); max-width: 60ch; }
-
-/* AI conversation */
-.chat { display: grid; gap: 0.75rem; }
-.chat p { margin: 0; padding: 1rem 1.25rem; border-radius: 20px; max-width: 34rem; line-height: 1.5; }
-.chat .you { background: var(--ink); color: var(--paper); justify-self: end; border-end-end-radius: 6px; }
-.chat .ai { background: var(--card); border: 1px solid var(--line); border-end-start-radius: 6px; }
-.chat .ai strong { color: var(--accent-ink); }
-
-/* Owning: comparison */
-.compare { width: 100%; border-collapse: collapse; margin-top: 3rem; font-size: 1.05rem; }
-.compare th, .compare td { text-align: start; padding: 1.1rem 1rem; border-bottom: 1px solid var(--line); vertical-align: top; }
-.compare th { font: 600 0.75rem/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.compare td:first-child { color: var(--muted); }
-.compare td:last-child { font-weight: 600; }
-.compare th:last-child { color: var(--accent-ink); }
-@media (max-width: 600px) { .compare th, .compare td { padding: 0.9rem 0.5rem; font-size: 0.95rem; } }
-.origin td { font-size: 1rem; }
-.origin td:first-child { color: var(--ink); font-weight: 600; width: 22%; }
-.origin td:nth-child(2) { color: var(--muted); width: 30%; }
-.origin td:last-child { font-weight: 500; }
-@media (max-width: 600px) {
-	.origin thead th:first-child { display: none; }
-	.origin thead tr, .origin tbody tr { display: grid; grid-template-columns: 2fr 3fr; }
-	.origin td:first-child { grid-column: 1 / -1; width: auto; border-bottom: 0; padding-bottom: 0; }
-	.origin td:nth-child(2) { width: auto; }
+@media (max-width: 760px) {
+	.nav { display: none; }
+	table.origin thead th:first-child { display: none; }
+	table.origin thead tr, table.origin tbody tr { display: grid; grid-template-columns: 2fr 3fr; }
+	table.origin td, table.origin td.key { min-width: 0; }
+	table.origin td.key { grid-column: 1 / -1; padding-bottom: 0; border-bottom: 0; }}
+@media (max-width: 480px) {
+	.bar { padding: 12px 16px; justify-content: space-between; }
+	.logo img { height: 22px; }
+	.sec { padding: 72px 16px 0; }
+	.sec.hero { padding-top: 32px; }
+	.eyebrow { margin-bottom: 14px; font-size: 13px; }
+	h1 { font-size: 34px; line-height: 1.06; }
+	.lead.intro { margin-top: 16px; font-size: 16px; }
+	.hero-buttons { margin-top: 20px; }
+	.hero-install { display: none; }
+	.shot { height: 440px; margin-top: 28px; border-bottom: 0; border-radius: 14px 14px 0 0; }
+	.form { padding: 16px; }
+	.card summary { padding-inline: 16px; }
+	.card details p { padding-inline: 16px; }
+	.card details ul { padding-inline: 36px 16px; }
+	.list-tabs a { min-height: 44px; }
+	.foot .bar { padding-inline: 16px; }
 }
-
-/* Questions */
-.questions { margin-top: 3rem; border-top: 1px solid var(--line); }
-.questions details { border-bottom: 1px solid var(--line); }
-.questions summary { cursor: pointer; padding: 1.25rem 0; font-size: clamp(1.1rem, 1rem + 0.4vw, 1.3rem); font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 1rem; }
-.questions summary::-webkit-details-marker { display: none; }
-.questions summary::after { content: "+"; color: var(--accent-ink); font-weight: 400; }
-.questions details[open] summary::after { content: "−"; }
-.questions details p { margin: 0 0 1.5rem; color: var(--muted); max-width: 62ch; }
-
-/* Setup */
-.copy { position: relative; margin-top: 2.5rem; }
-.copy pre { margin: 0; background: #1d1d1c; color: #e9e6dd; border: 1px solid #333; border-radius: var(--radius); padding: 3.25rem 1.5rem 1.5rem; font: 0.9rem/1.8 var(--mono); overflow-x: auto; }
-.copy pre .c { color: #8a877f; }
-.copy button { position: absolute; top: 1rem; inset-inline-end: 1rem; font: 600 0.8rem/1 var(--mono); background: var(--accent); color: #121212; border: 0; border-radius: 999px; padding: 0.55rem 0.9rem; cursor: pointer; }
-details.tech { margin-top: 1.5rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.25rem 1.5rem; }
-details.tech summary { cursor: pointer; font-weight: 600; }
-details.tech ul { color: var(--muted); padding-inline-start: 1.25rem; margin: 1rem 0 0; }
-
-footer { border-top: 1px solid var(--line); padding: 2.5rem 0 3rem; color: var(--muted); font-size: 0.95rem; }
-footer .wrap { display: flex; flex-wrap: wrap; gap: 1rem 2rem; justify-content: space-between; }
-footer p { margin: 0; max-width: 60ch; }
-
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+@media (prefers-reduced-motion: reduce) {
+	html { scroll-behavior: auto; }
+	* { transition: none !important; }
+}
 </style>
 </head>
 <body>
+<svg class="sprite" aria-hidden="true" focusable="false">
+	<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></symbol>
+	<symbol id="i-page" viewBox="0 0 24 24"><path d="M6 3h9l4 4v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path><path d="M8 12h8M8 16h5"></path></symbol>
+</svg>
 
 <header class="top">
-	<div class="wrap">
-		<a class="logo" href="./" aria-label="Talea home">
-			<img class="light" src="img/talea-logo.svg" alt="Talea" width="92" height="28">
-			<img class="dark" src="img/talea-logo-dark.svg" alt="" width="92" height="28">
+	<div class="bar">
+		<a class="logo" href="#top">
+			<picture>
+				<source media="(prefers-color-scheme: dark)" srcset="img/talea-logo-dark.svg">
+				<img src="img/talea-logo.svg" alt="Talea" width="85" height="26">
+			</picture>
 		</a>
-		<nav>
-			<a class="hide-s" href="#locations">Locations</a>
-			<a class="hide-s" href="#looks">Looks</a>
-			<a class="hide-s" href="#editing">Editing</a>
-			<a class="hide-s" href="#questions">Questions</a>
-			<a class="hide-s" href="https://github.com/czepter/taleacms">GitHub</a>
-			<a class="btn small" href="#setup">Install Talea</a>
+		<nav class="nav" aria-label="Main">
+			<a href="#locations">Locations</a>
+			<a href="#looks">Looks</a>
+			<a href="#editing">Editing</a>
+			<a href="#questions">Questions</a>
+			<a href="https://github.com/czepter/taleacms">GitHub</a>
 		</nav>
+		<a class="btn" href="#install">Install Talea</a>
 	</div>
 </header>
 
-<main>
-	<section class="hero">
-		<div class="wrap">
-			<p class="label">Website builder for your own server</p>
-			<h1>The website builder you set up once and hand to the people who run the business.</h1>
-			<p class="lead">Talea comes with finished designs, editing right on the page and bookings, forms and a newsletter built in. One installation can run the websites of all your locations or stores, on your own server.</p>
-			<div class="actions">
-				<a class="btn" href="#setup">Install Talea</a>
-				<a class="text-link" href="#looks">See the looks</a>
-			</div>
-			<div class="shot">
-				<picture>
-					<source media="(prefers-color-scheme: dark)" srcset="img/admin-builder-dark.jpg">
-					<img src="img/admin-builder.jpg" alt="Editing a page in Talea: the owner selects the headline on the real page and types a new one" width="1800" height="1125" fetchpriority="high">
-				</picture>
-			</div>
+<main id="top">
+	<section class="sec hero">
+		<p class="eyebrow status status-live">Website builder for your own server</p>
+		<h1>The website builder you set up once and hand to the people who run the business<span>.</span></h1>
+		<p class="lead intro">Talea comes with finished designs, editing right on the page and bookings, forms and a newsletter built in. One installation can run the websites of all your locations or stores, on your own server.</p>
+		<div class="navigation-row hero-buttons">
+			<a class="btn big hero-install" href="#install">Install Talea</a>
+			<a class="navigation big" href="#looks">View the looks</a>
+		</div>
+		<div class="card shot">
+			<picture>
+				<source media="(max-width: 480px)" srcset="img/site-crafts-phone.jpg">
+				<source media="(prefers-color-scheme: dark)" srcset="img/admin-builder-dark.jpg">
+				<img src="img/admin-builder.jpg" alt="Editing a page in Talea: the owner selects the headline on the real page and types a new one" width="1800" height="1125" fetchpriority="high">
+			</picture>
 		</div>
 	</section>
 
-	<section class="block" id="locations">
-		<div class="wrap">
-			<p class="label">Several locations</p>
+	<section class="sec split" id="locations">
+		<div class="col">
 			<h2>One installation for every location</h2>
-			<p class="text">A business with several locations, stores or brands runs all their websites from one installation. Each location has its own address, pages, opening hours and people, who can be limited to their own site.</p>
-			<div class="grid">
-				<article class="card"><h3>One look for all</h3><p>Publish a new design on the main site and every location takes it over. The locations cannot change it on their own.</p></article>
-				<article class="card"><h3>One list for enquiries and bookings</h3><p>Enquiries and bookings from every location arrive in one list, which you can narrow down to a single site.</p></article>
-				<article class="card"><h3>Bookings with confirmation</h3><p>Customers pick a time online and get a confirmation by e-mail with a link to cancel. For services that need it, you confirm each request first.</p></article>
-				<article class="card"><h3>Shared photos and files</h3><p>What you upload once is available on every site.</p></article>
+			<p class="lead">A business with several locations, stores or brands runs all their websites from one installation. Each location has its own address, pages, opening hours and people, who can be limited to their own site.</p>
+			<ul class="points">
+				<li><b>One look for all.</b> Publish a new design on the main site and every location takes it over. The locations cannot change it on their own.</li>
+				<li><b>One list for enquiries and bookings.</b> Enquiries and bookings from every location arrive in one list, which you can narrow down to a single site.</li>
+				<li><b>Bookings with confirmation.</b> Customers pick a time online and get a confirmation by e-mail with a link to cancel. For services that need it, you confirm each request first.</li>
+				<li><b>Shared photos and files.</b> What you upload once is available on every site.</li>
+			</ul>
+		</div>
+		<div class="col-wide">
+			<div class="tab-wrap">
+				<table class="listing">
+					<thead><tr><th scope="col">Site</th><th scope="col">Look</th></tr></thead>
+					<tbody>
+						<tr><td class="cell-main"><div class="cell-row"><span class="cell-icon"><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg></span><div class="cell-text"><a class="cell-title" href="#locations">[Business name]</a><span class="cell-sub">[main-domain]</span></div></div></td><td><span class="status status-live">Hands down the look</span></td></tr>
+						<tr><td class="cell-main"><div class="cell-row"><span class="cell-icon"><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg></span><div class="cell-text"><a class="cell-title" href="#locations">[Location 2]</a><span class="cell-sub">[domain-2]</span></div></div></td><td><span class="status status-live">Follows the main site</span></td></tr>
+						<tr><td class="cell-main"><div class="cell-row"><span class="cell-icon"><svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg></span><div class="cell-text"><a class="cell-title" href="#locations">[Location 3]</a><span class="cell-sub">[domain-3]</span></div></div></td><td><span class="status status-live">Follows the main site</span></td></tr>
+					</tbody>
+				</table>
 			</div>
-			<p class="text">Several sites are switched on with one setting when Talea is installed.</p>
+			<p class="caption">Several sites are switched on with one setting when Talea is installed.</p>
 		</div>
 	</section>
 
-	<section class="block" id="looks">
-		<div class="wrap">
-			<p class="label">Looks</p>
-			<h2>Start from a finished design</h2>
-			<p class="text">Each of the 14 looks sets colours, fonts, header and footer. You try a look on your own pages before you apply it, and changing the brand colour later restyles the whole site.</p>
-			<div class="looks">
-				<figure><div class="frame"><img src="img/site-crafts.jpg" alt="A joinery website with warm colours and serif headings" width="1800" height="1125" loading="lazy"></div><figcaption>Joinery</figcaption></figure>
-				<figure><div class="frame"><img src="img/site-consulting.jpg" alt="A consulting website with large, elegant headings" width="1800" height="1125" loading="lazy"></div><figcaption>Consulting</figcaption></figure>
-				<figure><div class="frame"><img src="img/site-business.jpg" alt="An engineering firm’s website with a blue accent" width="1800" height="1125" loading="lazy"></div><figcaption>Engineering</figcaption></figure>
+	<section class="sec" id="looks">
+		<h2>Start from a finished design</h2>
+		<p class="lead">Each of the 14 looks sets colours, fonts, header and footer. You try a look on your own pages before you apply it, and changing the brand colour later restyles the whole site.</p>
+		<div class="looks">
+			<figure class="card"><img src="img/site-crafts.jpg" alt="A joinery website with warm colours and serif headings" width="1800" height="1125" loading="lazy"><figcaption><b>Joinery</b>Warm colours, serif headings</figcaption></figure>
+			<figure class="card"><img src="img/site-consulting.jpg" alt="A consulting website with large, elegant headings" width="1800" height="1125" loading="lazy"><figcaption><b>Consulting</b>Large serif display, navy</figcaption></figure>
+			<figure class="card"><img src="img/site-business.jpg" alt="An engineering firm’s website with a blue accent" width="1800" height="1125" loading="lazy"><figcaption><b>Engineering</b>Sans-serif, blue accent</figcaption></figure>
+		</div>
+	</section>
+
+	<section class="sec split mid" id="editing">
+		<div class="col">
+			<h2>Will they really edit it on their own?</h2>
+			<p class="lead">They click a headline on the page and type over it, and drag a photo in from the desktop. Phone and tablet are one click away. The design lives in shared styles, so a new text leaves the layout alone.</p>
+			<p class="lead">You decide who may publish and who only writes drafts. Every published page keeps its last 20 versions, and anything deleted waits in the trash for 30 days.</p>
+		</div>
+		<div class="col-wide">
+			<div class="list-toolbar">
+				<nav class="list-tabs" aria-label="Page status">
+					<a href="#editing" aria-current="page">All</a>
+					<a href="#editing">Published</a>
+					<a href="#editing">Drafts</a>
+				</nav>
+			</div>
+			<div class="tab-wrap">
+				<table class="listing">
+					<thead><tr><th scope="col">Title</th><th scope="col">Status</th><th scope="col">Edited</th></tr></thead>
+					<tbody>
+						<tr><td class="cell-main"><div class="cell-row"><span class="cell-icon"><svg class="icon" aria-hidden="true"><use href="#i-page"></use></svg></span><div class="cell-text"><a class="cell-title" href="#editing">Home</a><span class="cell-sub">/</span></div></div></td><td><span class="status status-live">Published</span></td><td class="cell-weak cell-time">2 hours ago</td></tr>
+						<tr class="unpublished"><td class="cell-main"><div class="cell-row"><span class="cell-icon"><svg class="icon" aria-hidden="true"><use href="#i-page"></use></svg></span><div class="cell-text"><a class="cell-title" href="#editing">Kitchen fitting</a><span class="cell-sub">/kitchen-fitting</span></div></div></td><td><span class="status status-review">Awaiting publication</span></td><td class="cell-weak cell-time">Today</td></tr>
+						<tr><td class="cell-main"><div class="cell-row"><span class="cell-icon"><svg class="icon" aria-hidden="true"><use href="#i-page"></use></svg></span><div class="cell-text"><a class="cell-title" href="#editing">Opening hours</a><span class="cell-sub">/opening-hours</span></div></div></td><td><span class="status status-planned">Scheduled</span></td><td class="cell-weak cell-time">Yesterday</td></tr>
+						<tr><td class="cell-main"><div class="cell-row"><span class="cell-icon"><svg class="icon" aria-hidden="true"><use href="#i-page"></use></svg></span><div class="cell-text"><a class="cell-title" href="#editing">About us</a><span class="cell-sub">/about-us</span></div></div></td><td><span class="status status-live">Published</span></td><td class="cell-weak cell-time">3 Nov</td></tr>
+					</tbody>
+				</table>
 			</div>
 		</div>
 	</section>
 
-	<section class="block" id="editing">
-		<div class="wrap split">
-			<div>
-				<p class="label">Editing</p>
-				<h2>Will they really edit it on their own?</h2>
-				<p class="text">They click a headline on the page and type over it, and drag a photo in from the desktop. Phone and tablet are one click away. The design lives in shared styles, so a new text leaves the layout alone.</p>
-				<p class="text">You decide who may publish and who only writes drafts. Every published page keeps its last 20 versions, and anything deleted waits in the trash for 30 days.</p>
-			</div>
-			<div class="phones">
-				<div class="frame"><img src="img/site-crafts-phone.jpg" alt="The joinery site on a phone" width="416" height="900" loading="lazy"></div>
-				<div class="frame"><img src="img/site-consulting-phone.jpg" alt="The consulting site on a phone" width="416" height="900" loading="lazy"></div>
-				<div class="frame"><img src="img/site-business-phone.jpg" alt="The engineering site on a phone" width="416" height="900" loading="lazy"></div>
-			</div>
-		</div>
-	</section>
-
-	<section class="block">
-		<div class="wrap">
-			<p class="label">Built in</p>
+	<section class="sec split">
+		<div class="col">
 			<h2>What the business needs is already there</h2>
-			<p class="text">There are no plugins to choose or to patch. Everything below is part of Talea, and most of it can be switched off when a site does not need it.</p>
-			<div class="grid">
-				<article class="card"><h3>Appointments</h3><p>Visitors pick a free time. Confirmations and reminders go out by e-mail.</p></article>
-				<article class="card"><h3>Enquiry forms</h3><p>Forms with steps and conditions. Spam is filtered without a puzzle for the visitor.</p></article>
-				<article class="card"><h3>Newsletter</h3><p>Sign-up with confirmation and issues in the look of the site.</p></article>
-				<article class="card"><h3>Members-only pages</h3><p>Customers sign in with a link sent by e-mail.</p></article>
-				<article class="card"><h3>Visitor numbers</h3><p>Counted without cookies.</p></article>
-				<article class="card"><h3>Found by search engines</h3><p>Address and opening hours from the company details become structured data.</p></article>
-				<article class="card"><h3>45 languages</h3><p>Language and regional versions of the site, right to left included.</p></article>
-				<article class="card"><h3>News and blog</h3><p>Posts with categories, scheduling and versions.</p></article>
-			</div>
+			<p class="lead">There are no plugins to choose or to patch. Everything here is part of Talea, and most of it can be switched off when a site does not need it.</p>
+		</div>
+		<div class="col-wide form">
+			<fieldset>
+				<legend>Features</legend>
+				<div class="feature"><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Bookings" disabled></button><div><b>Bookings</b><span>Visitors pick a free time. Confirmations and reminders go out by e-mail.</span></div></div>
+				<div class="feature"><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Enquiries" disabled></button><div><b>Enquiries</b><span>Forms with steps and conditions. Spam is filtered without a puzzle for the visitor.</span></div></div>
+				<div class="feature"><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Newsletter" disabled></button><div><b>Newsletter</b><span>Sign-up with confirmation and issues in the look of the site.</span></div></div>
+				<div class="feature"><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Members-only pages" disabled></button><div><b>Members-only pages</b><span>Customers sign in with a link sent by e-mail.</span></div></div>
+				<div class="feature"><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Statistics" disabled></button><div><b>Statistics</b><span>Visitor numbers, counted without cookies.</span></div></div>
+				<div class="feature"><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Languages" disabled></button><div><b>Languages</b><span>Versions of the site in 45 languages, right to left included.</span></div></div>
+				<div class="feature"><button class="switch" type="button" role="switch" aria-checked="true" aria-label="News" disabled></button><div><b>News</b><span>Posts with categories, scheduling and versions.</span></div></div>
+			</fieldset>
 		</div>
 	</section>
 
-	<section class="block dark-band">
-		<div class="wrap">
-			<p class="label">Upkeep</p>
+	<section class="sec split mid">
+		<div class="col">
 			<h2>Who keeps it running?</h2>
-			<p class="text">An update is a new container image, and database changes apply before the site starts. Code cannot be uploaded through the admin, and backups go to FTPS or S3 on a schedule. One installation can run many sites, each with its own people and rights.</p>
+			<p class="lead">An update is a new container image, and database changes apply before the site starts. Code cannot be uploaded through the admin. One installation can run many sites, each with its own people and rights.</p>
+		</div>
+		<div class="col-wide">
+			<p class="notice notice-ok">The backup has been sent to S3.</p>
+			<p class="notice">Database changes were applied before the site started.</p>
+			<div class="notice notice-actions"><p>Backups go to FTPS or S3 on a schedule. Choose where and how often.</p><div class="navigation-row"><a class="navigation" href="#install">Set up backups</a></div></div>
 		</div>
 	</section>
 
-	<section class="block">
-		<div class="wrap split">
-			<div>
-				<p class="label">AI</p>
-				<h2>When an AI assistant helps</h2>
-				<p class="text">Claude and other assistants connect over MCP and can do what the editor can, with the same checks. For each connection you choose whether the assistant may publish or only writes drafts with a preview link. A whole session can be undone for 30 days.</p>
-			</div>
-			<div class="chat" role="img" aria-label="A conversation in which an AI assistant prepares a website draft">
-				<p class="you">Add a page for our kitchen fitting service, with a form that asks for the room size and a budget.</p>
-				<p class="ai">The page is ready as a draft. <strong>Here is the preview link.</strong> I left two gaps for you: the starting price and a photo of a finished kitchen.</p>
+	<section class="sec split mid">
+		<div class="col">
+			<h2>When an AI assistant helps</h2>
+			<p class="lead">Claude and other assistants connect over MCP and can do what the editor can, with the same checks. For each connection you choose whether the assistant may publish or only writes drafts with a preview link. A whole session can be undone for 30 days.</p>
+		</div>
+		<div class="col-wide stack">
+			<div class="notice notice-actions"><p class="notice-head"><span class="status status-review">Awaiting publication</span></p><p>Claude prepared a draft of Kitchen fitting. Two gaps are left for you: [price] and a photo of a finished kitchen.</p><div class="navigation-row"><a class="btn" href="#editing">Review and publish</a><a class="navigation" href="#editing">Discard</a></div></div>
+			<div class="tab-wrap">
+				<table class="listing">
+					<thead><tr><th scope="col">Session</th><th scope="col">Changes</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+					<tbody>
+						<tr><td class="cell-main"><div class="cell-text"><span class="cell-title">Claude</span><span class="cell-sub">create_page, build_from_html, create_form</span></div></td><td class="cell-weak cell-time">Today, 10:12</td><td class="cell-actions"><a class="navigation danger" href="#editing">Undo the session</a></td></tr>
+					</tbody>
+				</table>
 			</div>
 		</div>
 	</section>
 
-	<section class="block">
-		<div class="wrap">
-			<p class="label">Owning</p>
-			<h2>Renting a website and running your own</h2>
-			<table class="compare">
+	<section class="sec">
+		<h2>Renting a website and running your own</h2>
+		<div class="tab-wrap mt">
+			<table class="listing compare">
 				<thead><tr><th scope="col">Renting a website</th><th scope="col">Running Talea</th></tr></thead>
 				<tbody>
-					<tr><td>A monthly fee for as long as the site exists</td><td>Free software. You pay for the server.</td></tr>
-					<tr><td>The content lives on the provider’s servers</td><td>The content lives on yours.</td></tr>
-					<tr><td>You export what the provider allows</td><td>You export everything in an open format.</td></tr>
+					<tr><td>A monthly fee for as long as the site exists</td><td class="strong">Free software. You pay for the server.</td></tr>
+					<tr><td>The content lives on the provider’s servers</td><td class="strong">The content lives on yours.</td></tr>
+					<tr><td>You export what the provider allows</td><td class="strong">You export everything in an open format.</td></tr>
 				</tbody>
 			</table>
 		</div>
 	</section>
 
-	<section class="block" id="questions">
-		<div class="wrap">
-			<p class="label">Questions</p>
-			<h2>What people ask before they install it</h2>
-			<div class="questions">
-				<details><summary>Can my client edit it without calling me?</summary><p>Yes, on the page itself. You give each person exactly the rights they need, from writing drafts to publishing.</p></details>
-				<details><summary>Do I need plugins for a contact form or bookings?</summary><p>No. Forms, bookings and a newsletter are built in.</p></details>
-				<details><summary>Who keeps it updated?</summary><p>Whoever installed it pulls a new image. There are no plugins with updates of their own.</p></details>
-				<details><summary>Can I take everything with me?</summary><p>Yes. Talea exports the whole site as an open archive that another Talea installation, or your own code, can read.</p></details>
-				<details><summary>Can I run several locations or stores?</summary><p>Yes. One installation runs a website for each location, with one shared look, one media library and one list for enquiries and bookings. Each location keeps its own address, pages and people.</p></details>
-				<details><summary>Can I sell online with it?</summary><p>You can show products with prices and variants and collect order enquiries in a basket. Checkout and payments are not built in.</p></details>
-				<details><summary>Why self-host at all?</summary><p>The business keeps its site, its customer data and its costs in its own hands.</p></details>
-			</div>
+	<section class="sec" id="questions">
+		<h2>What people ask before they install it</h2>
+		<div class="card mt">
+			<details open><summary>Can my client edit it without calling me?<span class="plus" aria-hidden="true">+</span></summary><p>Yes, on the page itself. You give each person exactly the rights they need, from writing drafts to publishing.</p></details>
+			<details><summary>Do I need plugins for a contact form or bookings?<span class="plus" aria-hidden="true">+</span></summary><p>No. Forms, bookings and a newsletter are built in.</p></details>
+			<details><summary>Who keeps it updated?<span class="plus" aria-hidden="true">+</span></summary><p>Whoever installed it pulls a new image. There are no plugins with updates of their own.</p></details>
+			<details><summary>Can I take everything with me?<span class="plus" aria-hidden="true">+</span></summary><p>Yes. Talea exports the whole site as an open archive that another Talea installation, or your own code, can read.</p></details>
+			<details><summary>Can I run several locations or stores?<span class="plus" aria-hidden="true">+</span></summary><p>Yes. One installation runs a website for each location, with one shared look, one media library and one list for enquiries and bookings. Each location keeps its own address, pages and people.</p></details>
+			<details><summary>Can I sell online with it?<span class="plus" aria-hidden="true">+</span></summary><p>You can show products with prices and variants and collect order enquiries in a basket. Checkout and payments are not built in.</p></details>
+			<details><summary>Why self-host at all?<span class="plus" aria-hidden="true">+</span></summary><p>The business keeps its site, its customer data and its costs in its own hands.</p></details>
 		</div>
 	</section>
 
-	<section class="block" id="origin">
-		<div class="wrap">
-			<p class="label">Origin</p>
-			<h2>Why Talea is a fork of Kaleta</h2>
-			<p class="text">Christian started <strong>Talea</strong> in October 2026 from Kaleta 3.7.0, a CMS for business websites by Miroslav Kaleta and contributors. The page builder, the design system, bookings, forms, the newsletter, collections and the AI connection came with Kaleta.</p>
-			<p class="text">Kaleta is made for business websites on ordinary PHP hosting, and it leaves some things out on purpose: finished designs, a font library, AI inside the admin, member areas and A/B tests. Those decisions suit Kaleta and its users. A website builder that an owner runs alone needs exactly these things, so <strong>Talea</strong> became a project of its own. It keeps Kaleta’s history, and security fixes from Kaleta are ported first.</p>
-			<p class="text">For the business this means the websites of several locations from one installation, with one look and one list for enquiries and bookings, and the other differences in the table below.</p>
-			<table class="compare origin">
-				<thead><tr><th scope="col"></th><th scope="col">Kaleta 3.7.0</th><th scope="col">Talea</th></tr></thead>
+	<section class="sec" id="origin">
+		<h2>Why Talea is a fork of Kaleta</h2>
+		<p class="lead">Christian started <b>Talea</b> in October 2026 from Kaleta 3.7.0, a CMS for business websites by Miroslav Kaleta and contributors. The page builder, the design system, bookings, forms, the newsletter, collections and the AI connection came with Kaleta.</p>
+		<p class="lead">Kaleta is made for business websites on ordinary PHP hosting, and it leaves some things out on purpose: finished designs, a font library, AI inside the admin, member areas and A/B tests. Those decisions suit Kaleta and its users. A website builder that an owner runs alone needs exactly these things, so <b>Talea</b> became a project of its own. It keeps Kaleta’s history, and security fixes from Kaleta are ported first.</p>
+		<p class="lead">For the business this means the websites of several locations from one installation, with one look and one list for enquiries and bookings, and the other differences in the table below.</p>
+		<div class="tab-wrap mt">
+			<table class="listing compare origin">
+				<thead><tr><th scope="col"><span class="sr-only">Topic</span></th><th scope="col">Kaleta 3.7.0</th><th scope="col">Talea</th></tr></thead>
 				<tbody>
-					<tr><td>Several websites</td><td>One website per installation.</td><td>Websites for several locations, stores or brands run from one installation. They share one look and one media library and keep their own pages, people and bookings.</td></tr>
-					<tr><td>Choosing a design</td><td>You set colours, fonts and sizes yourself.</td><td>You pick one of 14 finished looks and see it on your own pages before you apply it. About 28 fonts come with it.</td></tr>
-					<tr><td>Arranging a page</td><td>Spacing and sizes are set in a side panel.</td><td>You drag spacing, sizes and columns on the page itself, and you can place elements freely on a grid.</td></tr>
-					<tr><td>Forms</td><td>A form belongs to the page it sits on.</td><td>One form can sit on several pages and is edited in one place.</td></tr>
-					<tr><td>Help from AI</td><td>An assistant such as Claude connects from outside.</td><td>The admin also has a setup assistant that drafts the site from a few answers, and an Ask box in the builder. Both use your own key and only write drafts.</td></tr>
-					<tr><td>Search engines and AI assistants</td><td>A content check that takes the title as the keyword, a short file at /llms.txt for AI assistants and a Markdown copy of each news item.</td><td>One section holds everything that helps a site get found: a score from 0 to 100 with fixes for each page, a focus keyword per page, titles for the whole site, missing pages with a one-click redirect and search figures per page.</td></tr>
-					<tr><td>Members</td><td>Every page is public.</td><td>Pages, news and collection items can be limited to members, who sign in with a link sent by e-mail.</td></tr>
-					<tr><td>Trying two versions</td><td>Not included.</td><td>Two versions of a page or section run side by side, and you choose the one that works better.</td></tr>
-					<tr><td>Updates</td><td>One click in the admin, on ordinary PHP hosting.</td><td>Whoever runs the server pulls a new version. The owner never has to update anything.</td></tr>
+					<tr><td class="key">Several websites</td><td>One website per installation.</td><td class="strong">Websites for several locations, stores or brands run from one installation. They share one look and one media library and keep their own pages, people and bookings.</td></tr>
+					<tr><td class="key">Choosing a design</td><td>You set colours, fonts and sizes yourself.</td><td class="strong">You pick one of 14 finished looks and see it on your own pages before you apply it. About 28 fonts come with it.</td></tr>
+					<tr><td class="key">Arranging a page</td><td>Spacing and sizes are set in a side panel.</td><td class="strong">You drag spacing, sizes and columns on the page itself, and you can place elements freely on a grid.</td></tr>
+					<tr><td class="key">Forms</td><td>A form belongs to the page it sits on.</td><td class="strong">One form can sit on several pages and is edited in one place.</td></tr>
+					<tr><td class="key">Help from AI</td><td>An assistant such as Claude connects from outside.</td><td class="strong">The admin also has a setup assistant that drafts the site from a few answers, and an Ask box in the builder. Both use your own key and only write drafts.</td></tr>
+					<tr><td class="key">Search engines and AI assistants</td><td>A content check that takes the title as the keyword, a short file at /llms.txt for AI assistants and a Markdown copy of each news item.</td><td class="strong">One section holds everything that helps a site get found: a score from 0 to 100 with fixes for each page, a focus keyword per page, titles for the whole site, missing pages with a one-click redirect and search figures per page.</td></tr>
+					<tr><td class="key">Members</td><td>Every page is public.</td><td class="strong">Pages, news and collection items can be limited to members, who sign in with a link sent by e-mail.</td></tr>
+					<tr><td class="key">Trying two versions</td><td>Not included.</td><td class="strong">Two versions of a page or section run side by side, and you choose the one that works better.</td></tr>
+					<tr><td class="key">Updates</td><td>One click in the admin, on ordinary PHP hosting.</td><td class="strong">Whoever runs the server pulls a new version. The owner never has to update anything.</td></tr>
 				</tbody>
 			</table>
-			<p class="text">Changes in Kaleta after the fork are read and rebuilt in Talea, so far through Kaleta 3.11.0. If you want ordinary PHP hosting with updates from the admin, <a class="text-link" href="https://kaletacms.com">Kaleta</a> is the better fit. The full list is in the <a class="text-link" href="https://github.com/czepter/taleacms#what-talea-changes">README</a>.</p>
 		</div>
+		<p class="note">Changes in Kaleta after the fork are read and rebuilt in Talea, so far through Kaleta 3.11.0. If you want ordinary PHP hosting with updates from the admin, <a href="https://kaletacms.com">Kaleta</a> is the better fit.</p>
 	</section>
 
-	<section class="block" id="setup">
-		<div class="wrap">
-			<p class="label">Install</p>
-			<h2>Three commands on a server with Docker</h2>
-			<p class="text">Talea runs as one container next to a database. After the commands, the setup in the browser asks for the site name and the first administrator.</p>
-			<div class="copy">
+	<section class="sec" id="install">
+		<h2>Three commands on a server with Docker</h2>
+		<p class="lead">Talea runs as one container next to a database. After the commands, the setup in the browser asks for the site name and the first administrator.</p>
+		<div class="card code mt">
+			<div class="code-bar">
+				<span>Terminal</span>
+				<button class="navigation" type="button" data-copy="quickstart">Copy</button>
+			</div>
 <pre id="quickstart"><code>curl -O https://raw.githubusercontent.com/czepter/taleacms/main/docker-compose.yaml
 echo "TALEA_DB_PASSWORD=$(openssl rand -hex 16)" &gt; .env
 docker compose up -d
 <span class="c"># then open http://localhost:8080</span></code></pre>
-				<button type="button" data-copy="quickstart">Copy</button>
-			</div>
-			<details class="tech">
-				<summary>For the technical folks</summary>
+		</div>
+		<div class="card">
+			<details>
+				<summary>For the technical folks<span class="plus" aria-hidden="true">+</span></summary>
 				<ul>
 					<li>Plain PHP 8.5 without a framework or build step, licensed GPL-2.0-or-later.</li>
 					<li>MySQL 8, MariaDB 11.4+, PostgreSQL 18 or SQLite.</li>
@@ -389,13 +489,17 @@ docker compose up -d
 					<li>No third-party scripts or fonts on the published site.</li>
 				</ul>
 			</details>
-			<p class="text"><a class="text-link" href="https://github.com/czepter/taleacms/blob/main/docs/DEPLOYMENT.md">Deployment guide</a> · <a class="text-link" href="https://github.com/czepter/taleacms/blob/main/docs/manual.md">User manual</a> · <a class="text-link" href="https://github.com/czepter/taleacms">Source on GitHub</a></p>
 		</div>
+		<div class="navigation-row hero-buttons">
+			<a class="btn big" href="https://github.com/czepter/taleacms">Install Talea</a>
+			<a class="navigation big" href="https://github.com/czepter/taleacms/blob/main/docs/DEPLOYMENT.md">Read the deployment guide</a>
+		</div>
+		<p class="links"><a href="https://github.com/czepter/taleacms/blob/main/docs/DEPLOYMENT.md">Deployment guide</a> · <a href="https://github.com/czepter/taleacms/blob/main/docs/manual.md">User manual</a> · <a href="https://github.com/czepter/taleacms">Source on GitHub</a></p>
 	</section>
 </main>
 
-<footer>
-	<div class="wrap">
+<footer class="foot">
+	<div class="bar">
 		<p>Talea is made by <a href="https://github.com/czepter">Christian Zepter</a> and contributors. It is a hard fork of <a href="https://github.com/phprs-cms/kaletacms">Kaleta</a> by Miroslav Kaleta and contributors, who built the page builder, the design system, the AI connection and much more.</p>
 		<p>GPL-2.0-or-later · <a href="https://github.com/czepter/taleacms">GitHub</a> · <a href="https://github.com/czepter/taleacms/blob/main/NOTICE">Credits</a></p>
 	</div>
