@@ -28,6 +28,9 @@ final class Booking extends Element
     public const string EXTENSION = 'bookings';
     public const array HTML_TAGS = ['form'];
 
+    /** What the form shows of a single service (nothing to choose): the slim variants leave out the heading, the description or both. */
+    public const array SINGLE_SERVICE = ['' => 'heading, name and description', 'no_heading' => 'name and description', 'no_description' => 'heading and name', 'name' => 'only the name', 'none' => 'nothing'];
+
     /** How many of the next free times the plain form offers. */
     private const int FALLBACK_SLOTS = 40;
 
@@ -35,6 +38,7 @@ final class Booking extends Element
     {
         return [
             'service' => ['type' => 'number', 'label' => 'Service (id from Bookings → Services; 0 = the visitor chooses)', 'default' => 0, 'min' => 0, 'max' => 1000000],
+            'single_service' => ['type' => 'choice', 'label' => 'When there is only one service, show', 'default' => '', 'options' => self::SINGLE_SERVICE],
             'staff_member' => ['type' => 'number', 'label' => 'Person (id from Bookings → People; 0 = the visitor chooses, or anyone)', 'default' => 0, 'min' => 0, 'max' => 1000000],
             'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Book the appointment'), 'max' => 80],
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, your appointment is booked. A confirmation with the details and a cancel link is on its way to your e-mail.'), 'max' => 400],
@@ -145,23 +149,25 @@ final class Booking extends Element
         $html = $result !== '' ? '<p class="tl-booking-error" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $name = 'r-' . $p['id'];
 
-        // 1. the service – a single one is plain text, there is nothing to choose
-        $html .= '<fieldset class="tl-booking-step" data-step="service"><legend>' . e(t('Service')) . '</legend>';
-        $serviceText = fn (array $s): string => '<span>' . e($s['name']) . '<small>' . e(implode(' · ', array_filter([t('%d min', $s['duration_min']), $s['price_text']])))
-            . ($s['description'] !== '' ? ' – ' . e($s['description']) : '') . '</small></span>';
+        // 1. the service – a single one is plain text (or, slim, less or nothing), there is nothing to choose
+        $serviceText = fn (array $s, bool $description = true): string => '<span>' . e($s['name']) . '<small>' . e(implode(' · ', array_filter([t('%d min', $s['duration_min']), $s['price_text']])))
+            . ($description && $s['description'] !== '' ? ' – ' . e($s['description']) : '') . '</small></span>';
+        $serviceInput = fn (array $s, string $type): string => '<input type="' . $type . '" name="service" value="' . $serviceKey($s['id']) . '"' . ($type === 'radio' ? ' required' : '')
+            . (!empty($s['requires_confirmation']) ? ' data-confirmation="1"' : '');
         if (count($services) === 1) {
             $s = $services[0];
-            $html .= '<input type="hidden" name="service" value="' . $serviceKey($s['id']) . '"' . (!empty($s['requires_confirmation']) ? ' data-confirmation="1"' : '') . '>'
-                . '<p class="tl-booking-service">' . $serviceText($s) . '</p>';
+            $show = $o['single_service'] ?? '';
+            $heading = in_array($show, ['', 'no_description'], true);
+            $html .= ($heading ? '<fieldset class="tl-booking-step" data-step="service"><legend>' . e(t('Service')) . '</legend>' : '') . $serviceInput($s, 'hidden') . '>'
+                . ($show !== 'none' ? '<p class="tl-booking-service">' . $serviceText($s, in_array($show, ['', 'no_heading'], true)) . '</p>' : '')
+                . ($heading ? '</fieldset>' : '');
         } else {
-            $html .= '<div class="tl-booking-options">';
+            $html .= '<fieldset class="tl-booking-step" data-step="service"><legend>' . e(t('Service')) . '</legend><div class="tl-booking-options">';
             foreach ($services as $s) {
-                $html .= '<label><input type="radio" name="service" value="' . $serviceKey($s['id']) . '" required' . (!empty($s['requires_confirmation']) ? ' data-confirmation="1"' : '') . ($s['id'] === ($chosenService['id'] ?? 0) ? ' checked' : '') . '>'
-                    . $serviceText($s) . '</label>';
+                $html .= '<label>' . $serviceInput($s, 'radio') . ($s['id'] === ($chosenService['id'] ?? 0) ? ' checked' : '') . '>' . $serviceText($s) . '</label>';
             }
-            $html .= '</div>';
+            $html .= '</div></fieldset>';
         }
-        $html .= '</fieldset>';
 
         // 2. the person – only when there is a choice
         $offering = array_values(array_filter($staff, fn (array $m): bool => array_intersect($m['services'], array_column($services, 'id')) !== []));
