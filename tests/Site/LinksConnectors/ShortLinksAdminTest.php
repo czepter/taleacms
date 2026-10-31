@@ -64,7 +64,7 @@ final class ShortLinksAdminTest extends \Talea\Tests\Site\Support\SiteTestCase
 
         $this->adminPost(self::MODULE . '&action=save', ['short_link_id' => $id, 'target' => 'url', 'target_url' => 'https://example.org/x', 'utm_source' => 'poster'], self::MODULE . '&edit=' . $id);
         $this->assertSame(['url', 'https://example.org/x', 'poster'], array_values((array) $site->rows('SELECT target_type, target_url, path FROM tl_short_links WHERE public_id = ?', [$id])[0]));
-        $this->assertStringContainsString('/poster: Offer → https://example.org/x', (string) $site->value("SELECT description FROM tl_change_log WHERE module = 'short_links' AND action = 'save' ORDER BY log_id DESC LIMIT 1"), 'a retarget logs from where to where');
+        $this->assertStringContainsString('/poster: Offer → https://example.org/x', (string) $site->value("SELECT description FROM tl_change_log WHERE module = 'short_links' AND action = 'save' AND description LIKE '/poster:%' ORDER BY log_id DESC LIMIT 1"), 'a retarget logs from where to where');
 
         $this->adminPost(self::MODULE . '&action=delete', ['short_link_id' => $id], self::MODULE);
         $this->assertSame(0, (int) $site->value("SELECT COUNT(*) FROM tl_short_links WHERE path = 'poster'"));

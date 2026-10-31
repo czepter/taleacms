@@ -146,7 +146,7 @@ final class ShortLinksTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->mcpOk('update_settings', ['settings' => ['extensions' => implode(',', array_diff($on, ['short_links']))]]);
         $site->clearPageCache();
         $this->assertSame(404, $visitor->get('/s/k7f2qm')->status, 'extension off: no short links');
-        $this->assertStringContainsString('already exists', $site->mcpText('create_page', ['title' => 'Flyer again', 'slug' => 'flyer', 'visible' => true]), 'the address stays reserved while the extension is off');
+        $this->assertStringContainsString('used by a short link', $site->mcpText('create_page', ['title' => 'Flyer again', 'slug' => 'flyer', 'visible' => true]), 'the address stays reserved while the extension is off');
     }
 
     /** @param array<string, mixed> $arguments */
