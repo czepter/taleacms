@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "school_courses",
     "group": "health",
+    "topics": ["education"],
     "name": "Language school, tutoring or courses",
     "description": "A language school, tutoring service or course provider: course dates, the teachers, a price list and students' questions, with facts about what is taught, levels, class size, online or in-person teaching, accreditation, the placement test and refunds.",
     "presets": ["courses", "people", "price_list", "faq"],

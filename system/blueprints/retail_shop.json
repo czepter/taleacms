@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "retail_shop",
     "group": "products",
+    "topics": ["clothing"],
     "name": "Shop or showroom",
     "description": "A brick-and-mortar shop or showroom: products with an enquiry basket instead of a checkout, in-store events and customers' questions, with facts about payment, parking, reserve and collect, returns, delivery and the brands carried.",
     "presets": ["products", "events", "faq"],

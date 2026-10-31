@@ -69,18 +69,29 @@ final class Looks
     }
 
     /**
-     * All looks, the best fits of a topic first: a look's rank is the topic's place in its `topics`, a look without the topic comes
-     * last; ties keep the gallery order. An unknown topic changes nothing.
+     * All looks, the best fits of the topics first: a look's rank is the earliest place of any of the topics in its `topics`, a look
+     * without one comes last; ties keep the gallery order. Unknown topics change nothing.
      *
+     * @param string|list<string> $topics
      * @return array<string, array<string, mixed>>
      */
-    public static function ranked(string $topic): array
+    public static function ranked(string|array $topics): array
     {
+        $topics = array_filter((array) $topics, fn (string $t): bool => isset(self::TOPICS[$t]));
         $looks = self::all();
-        if (!isset(self::TOPICS[$topic])) {
+        if ($topics === []) {
             return $looks;
         }
-        $rank = fn (array $l): int => ($i = array_search($topic, $l['topics'], true)) === false ? PHP_INT_MAX : $i;
+        $rank = function (array $l) use ($topics): int {
+            $best = PHP_INT_MAX;
+            foreach ($topics as $topic) {
+                if (($i = array_search($topic, $l['topics'], true)) !== false) {
+                    $best = min($best, $i);
+                }
+            }
+
+            return $best;
+        };
         uasort($looks, fn (array $a, array $b): int => $rank($a) <=> $rank($b));
 
         return $looks;

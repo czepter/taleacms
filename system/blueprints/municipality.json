@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "municipality",
     "group": "public",
+    "topics": ["other", "education"],
     "name": "Municipality",
     "description": "A village or town office: the official notice board with its archive, documents such as regulations and forms, events, the council and staff, and residents' questions, with facts about the mayor, population and office contacts.",
     "presets": ["notices", "documents", "events", "people", "faq"],

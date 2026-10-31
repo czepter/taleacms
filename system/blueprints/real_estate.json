@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "real_estate",
     "group": "services",
+    "topics": ["real-estate"],
     "name": "Real estate agency",
     "description": "A real estate agency: property listings for sale and to let, the agents, references from sellers and buyers and clients' questions, with facts about licences and memberships, the areas covered, commission and valuations.",
     "presets": ["properties", "people", "faq", "references"],

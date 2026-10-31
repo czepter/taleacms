@@ -2,6 +2,7 @@
     "talea_blueprint": 1,
     "key": "professional_services",
     "group": "services",
+    "topics": ["consulting"],
     "name": "Law firm, accountant or consultant",
     "description": "A law firm, accounting or tax office, or a consultancy: the people, the practice areas as services, a price list and clients' questions, with facts about the professional body, fees, the first consultation, insurance and languages.",
     "presets": ["people", "services", "price_list", "faq"],
