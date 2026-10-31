@@ -617,12 +617,15 @@
 			var r = box.getBoundingClientRect();
 			var x = Math.round((e.clientX - r.left) / r.width * 100);
 			var y = Math.round((e.clientY - r.top) / r.height * 100);
-			formEl.elements.ohnisko_x.value = x;
-			formEl.elements.ohnisko_y.value = y;
+			formEl.elements.focus_x.value = x;
+			formEl.elements.focus_y.value = y;
 			box.querySelector('.focal-point').style.left = x + '%';
 			box.querySelector('.focal-point').style.top = y + '%';
 		});
 	});
+	// Media: the details panel below the files (narrow screens) scrolls into view when a file is opened
+	var panel = document.querySelector('[data-media-panel]');
+	if (panel && panel.getBoundingClientRect().top > window.innerHeight) { panel.scrollIntoView(); }
 	// Media: image description (alt) in the table view – saved on leaving the field (Enter leaves it for the next row), without reloading the page
 	var descriptions = Array.prototype.slice.call(document.querySelectorAll('[data-description-media]'));
 	descriptions.forEach(function (field, index) {

@@ -2243,9 +2243,14 @@ a.look-card:hover { background: var(--accent-light); }
 
 /* Media (docs/specs/media-library.md): the left menu, the folders of a level above its files */
 .content:has(.media) { max-width: none; }
-.media { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
-.media-content { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
-.media-rail { flex: 1 1 220px; max-width: 248px; display: flex; flex-direction: column; gap: 2px; }
+.media { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 32px; align-items: start; }
+.media-rail { grid-column: 1; grid-row: 1 / span 2; display: flex; flex-direction: column; gap: 2px; }
+.media-content { grid-column: 2; grid-row: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.media-panel { grid-column: 2; grid-row: 2; }
+@media (min-width: 1400px) {
+	.media:has(.media-panel) { grid-template-columns: 232px minmax(0, 1fr) 380px; }
+	.media-panel { grid-column: 3; grid-row: 1 / span 2; }
+}
 .media-rail .rail-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 10px; border-radius: var(--radius); color: var(--text); font-size: 14px; text-decoration: none; }
 .media-rail .rail-link:hover { background: var(--accent-light); }
 .media-rail .rail-link[aria-current] { background: var(--accent-light); font-weight: 600; }
@@ -2330,6 +2335,7 @@ a.look-card:hover { background: var(--accent-light); }
 .thumb { position: relative; display: block; aspect-ratio: 4 / 3; border-radius: var(--radius); background: var(--accent-light); overflow: hidden; }
 .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .thumb.file { display: grid; place-items: center; color: var(--text-weak); font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+.tile.open .thumb { outline: 2px solid var(--signal); outline-offset: 2px; }
 .tile:has(.tile-check input:checked) .thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tile-check { position: absolute; z-index: 1; top: 8px; inset-inline-start: 8px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--radius); background: color-mix(in oklch, var(--surface) 92%, transparent); }
 .tile-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
@@ -2350,14 +2356,59 @@ a.look-card:hover { background: var(--accent-light); }
 .media-file { display: flex; align-items: center; gap: 12px; }
 .media-mini { flex: none; display: grid; place-items: center; width: 56px; height: 42px; border-radius: var(--radius); background: var(--accent-light); color: var(--text-weak); font-size: 12px; font-weight: 700; overflow: hidden; }
 .media-mini img { display: block; width: 100%; height: 100%; object-fit: cover; }
-table.media-table td.cell-main { min-width: 280px; }
-table.media-table td.cell-input { width: 40%; min-width: 260px; }
+table.media-table td.cell-main { width: 50%; min-width: 260px; max-width: none; }
+table.media-table td.cell-input { width: 50%; min-width: 220px; }
 .media-description { width: 100%; min-width: 0; }
 /* an image without a description for blind users: the field is highlighted so the administrator fills it in (the file name is not used as a description) */
 .media-description:placeholder-shown { border-color: var(--warning-text); border-style: dashed; }
 .media-description.error { border-color: var(--error); }
 .media-saved { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: 8px; color: var(--ok); font-size: 12px; font-weight: 600; white-space: nowrap; }
-@media (max-width: 860px) { .media-rail { flex-basis: 100%; max-width: none; } .media-toolbar-end { margin-inline-start: 0; } }
+/* phones: the files first, then the details, the menu last */
+@media (max-width: 860px) {
+	.media { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+	.media-content, .media-panel, .media-rail { grid-column: 1; grid-row: auto; position: static; }
+	.media-content { order: 1; }
+	.media-panel { order: 2; }
+	.media-rail { order: 3; }
+	.media-toolbar-end { margin-inline-start: 0; }
+}
+/* the Used column goes first when the files get narrow (under ~760 px). No container query: containment would scope the selection counter.
+   The files column is the viewport minus the sidebar (248) and the content padding (64) and the menu (232 + 32 gap), and with the details panel beside it also minus 380 + 32. */
+@media (max-width: 1336px) { .media-table .cell-used { display: none; } }
+@media (min-width: 1400px) and (max-width: 1747px) { .media:has(.media-panel) .media-table .cell-used { display: none; } }
+
+/* the details panel */
+.media-panel { display: flex; flex-direction: column; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 10px 18px; border-bottom: 1px solid var(--line); }
+.panel-head h2 { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 600; }
+.panel-tools { display: flex; flex: none; gap: 2px; }
+.panel-tools .icon-btn[aria-disabled] { opacity: .35; cursor: default; }
+.panel-body { display: flex; flex-direction: column; gap: 20px; padding: 18px; }
+.media-panel .focal { display: block; max-width: none; margin: 0; }
+.media-panel .focal img { width: 100%; height: auto; max-height: 360px; object-fit: contain; background: var(--accent-light); }
+.panel-preview { display: grid; place-items: center; min-height: 120px; border-radius: var(--radius); background: var(--accent-light); overflow: hidden; }
+.panel-preview img { display: block; max-width: 100%; max-height: 300px; }
+.panel-preview.file span { color: var(--text-weak); font-size: 20px; font-weight: 700; letter-spacing: .04em; }
+.preview-help { margin: 6px 0 0; color: var(--text-weak); font-size: 12px; }
+.actions-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.actions-row .navigation { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; font-size: 13px; }
+.actions-row .icon { width: 15px; height: 15px; }
+.media-panel .field { display: flex; flex-direction: column; gap: 4px; }
+.media-panel .field label { font-size: 13px; font-weight: 600; }
+.media-panel .field .help { margin: 0; color: var(--text-weak); font-size: 12px; }
+.media-panel .field select { width: 100%; min-height: 40px; }
+.section-title { font-size: 15px; font-weight: 700; }
+.media-used { margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: var(--radius); }
+.media-used li { padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 14px; overflow-wrap: anywhere; }
+.media-used li:last-child { border-bottom: 0; }
+.info { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: 13px; }
+.info dt { color: var(--text-weak); }
+.info dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.info code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.panel-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--line); }
+.panel-foot .end { margin-inline-start: auto; }
+.panel-foot .navigation[disabled] { opacity: .45; cursor: not-allowed; }
+.foot-note { flex-basis: 100%; color: var(--text-weak); font-size: 12px; }
 
 
 /* the form's default button for Enter – invisible, it only determines the action (Settings) */
