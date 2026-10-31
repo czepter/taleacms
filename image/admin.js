@@ -623,21 +623,49 @@
 			box.querySelector('.focal-point').style.top = y + '%';
 		});
 	});
-	// Media: image description (alt) right in the grid – saved on leaving the field, without reloading the page
-	document.querySelectorAll('[data-description-media]').forEach(function (field) {
+	// Media: image description (alt) in the table view – saved on leaving the field (Enter leaves it for the next row), without reloading the page
+	var descriptions = Array.prototype.slice.call(document.querySelectorAll('[data-description-media]'));
+	descriptions.forEach(function (field, index) {
 		var previous = field.value;
 		var token = document.querySelector('input[name="_csrf"]');
-		field.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); field.blur(); } });
+		var mark = null;
+		field.addEventListener('keydown', function (e) {
+			if (e.key !== 'Enter') { return; }
+			e.preventDefault();
+			if (descriptions[index + 1]) { descriptions[index + 1].focus(); } else { field.blur(); } // leaving the field saves it (change)
+		});
 		field.addEventListener('change', function () {
 			var data = new FormData();
 			data.append('_csrf', token ? token.value : '');
 			data.append('media_id', field.getAttribute('data-description-media'));
 			data.append('name', field.value);
-			field.classList.remove('saved', 'error');
+			field.classList.remove('error');
+			if (mark) { mark.remove(); mark = null; }
 			fetch(field.getAttribute('data-address'), { method: 'POST', body: data, credentials: 'same-origin' })
 				.then(function (r) { return r.json(); })
-				.then(function (j) { if (!j.ok) { throw new Error(j.error); } previous = field.value; field.classList.add('saved'); })
+				.then(function (j) {
+					if (!j.ok) { throw new Error(j.error); }
+					previous = field.value;
+					mark = document.createElement('span');
+					mark.className = 'media-saved';
+					mark.setAttribute('role', 'status');
+					mark.textContent = '\u2713 ' + T('Saved');
+					field.after(mark);
+				})
 				.catch(function () { field.value = previous; field.classList.add('error'); });
+		});
+	});
+	// Media: "Find a folder" hides the folders of the tree that do not match, but keeps the ancestors of a match (closed branches open while filtering)
+	document.querySelectorAll('[data-folder-filter]').forEach(function (input) {
+		var tree = document.getElementById(input.getAttribute('data-folder-filter'));
+		if (!tree) { return; }
+		var items = Array.prototype.slice.call(tree.querySelectorAll('li')).reverse(); // children before their parents
+		input.addEventListener('input', function () {
+			var query = input.value.trim().toLowerCase();
+			tree.classList.toggle('filtering', query !== '');
+			items.forEach(function (li) {
+				li.hidden = query !== '' && li.querySelector('.label').textContent.toLowerCase().indexOf(query) === -1 && !li.querySelector('li:not([hidden])');
+			});
 		});
 	});
 	// the sign-in is kept alive while the admin is open (otherwise after inactivity a form submit would fail and unsaved text would be lost)
