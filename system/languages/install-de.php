@@ -79,6 +79,8 @@ return [
     'SQLite: the file name may hold letters, digits, hyphens and underscores and end in .sqlite or .db; the file is kept in storage/database/.' => 'SQLite: Der Dateiname darf Buchstaben, Ziffern, Bindestriche und Unterstriche enthalten und auf .sqlite oder .db enden; die Datei liegt in storage/database/.',
     'Scheduled news posts are published and dates are shown according to it.' => 'Geplante News-Beiträge werden danach veröffentlicht und Datumsangaben danach angezeigt.',
     'Server check' => 'Serverprüfung',
+    'Short addresses and QR codes for print, with campaign parameters that stay off the paper. A short link can be pointed at new content any time.' => 'Kurze Adressen und QR-Codes für den Druck, mit Kampagnenparametern, die nicht auf dem Papier stehen. Ein Kurzlink kann jederzeit auf neue Inhalte zeigen.',
+    'Short links' => 'Kurzlinks',
     'Shown with news items.' => 'Wird bei News-Beiträgen angezeigt.',
     'Site and administrator' => 'Website und Administrator',
     'Site language' => 'Sprache der Website',
