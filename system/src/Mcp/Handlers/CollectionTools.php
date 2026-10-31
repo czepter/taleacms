@@ -333,8 +333,9 @@ trait CollectionTools
         }
         \Talea\Core\SeoScore::refresh($this->app, 'item', $itemId);
         Notices::recordSave($this->app, $collection, $previous, $row, $itemId); // the audit trail of a notice board (2.11)
-        if (\Talea\Core\Calendar::fields($collection) !== null) {
-            \Talea\Core\Registrations::refill($this->app, [$itemId]); // a raised capacity frees seats for the waiting list
+        if (!$draftsOnly && \Talea\Core\Calendar::fields($collection) !== null) {
+            // a raised capacity frees seats for the waiting list (mails people); a drafts-only connection leaves that to the person who saves or publishes
+            \Talea\Core\Registrations::refill($this->app, [$itemId]);
         }
         \Talea\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
