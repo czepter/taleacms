@@ -101,11 +101,13 @@ final class ShortLinksExportAuditTest extends \Talea\Tests\Site\Support\SiteTest
     {
         $site = $this->site();
         $site->exec("DELETE FROM tl_short_links WHERE path = 'gone'");
-        $this->assertStringNotContainsString('short_link', $site->mcpText('site_audit'));
+        $this->assertArrayNotHasKey('short_link', (array) json_decode($site->mcpText('site_audit'), true)['by_kind']);
         $site->exec("UPDATE tl_pages SET deleted_at = NOW() WHERE slug = 'aboutus'");
-        $text = str_replace('\\/', '/', $site->mcpText('site_audit'));
-        $this->assertStringContainsString('"short_link"', $text);
-        $this->assertStringContainsString('module=short_links&edit=' . self::$ids['flyer'], $text);
+        $text = $site->mcpText('site_audit');
+        $found = array_values(array_filter(json_decode($text, true)['findings'], fn (array $f): bool => $f['kind'] === 'short_link'));
+        $this->assertCount(1, $found);
+        $this->assertSame(['short_link' => self::$ids['flyer']], $found[0]['target']);
+        $this->assertMatchesRegularExpression('#short_links.*' . self::$ids['flyer'] . '#', $found[0]['edit'], 'the finding links to the edit form');
         $site->exec("UPDATE tl_pages SET deleted_at = NULL WHERE slug = 'aboutus'");
     }
 }

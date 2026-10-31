@@ -5217,6 +5217,7 @@ return [
     'The setting was saved.' => 'Die Einstellung wurde gespeichert.',
     'The settings are saved, but the assistant key does not work: %s' => 'Die Einstellungen sind gespeichert, aber der Schlüssel des Assistenten funktioniert nicht: %s',
     'The sheet was created – tick “Enquiries to a sheet” and new enquiries will appear in it.' => 'Die Tabelle wurde erstellt – haken Sie „Anfragen in eine Tabelle“ an, und neue Anfragen erscheinen darin.',
+    'The short link leads to content that is no longer public – visitors land on the home page. Point it at something else.' => 'Der Kurzlink führt zu Inhalten, die nicht mehr öffentlich sind – Besucher landen auf der Startseite. Richten Sie ihn auf etwas anderes aus.',
     'The sign-in could not be verified. Try connecting again.' => 'Die Anmeldung konnte nicht geprüft werden. Verbinden Sie erneut.',
     'The sign-in expired – connect %s again.' => 'Die Anmeldung ist abgelaufen – verbinden Sie %s erneut.',
     'The sign-in has expired, please start again.' => 'Die Anmeldung ist abgelaufen, bitte beginnen Sie erneut.',
