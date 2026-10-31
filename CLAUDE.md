@@ -165,6 +165,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - Mail always through `Core\Mail::send()` (queue). Newsletters (`Core\Mailing`): one template `views/email/newsletter.php`, SMTP and cron
   only, frozen at start, per-recipient unsubscribe with `List-Unsubscribe-Post`. Mailing services: `Core\Newsletter`.
 - Stats without cookies (`Front\Stats`, `Core\Report`); web vitals histogram (`Core\WebVitals`, `image/vitals.js`).
+- **Short links** (`Core\ShortLinks`, extension `short_links`, `docs/superpowers/specs/2026-10-31-short-links-design.md`): `/<name>` or `/s/<code>` leads to a page, news item, collection item or URL with UTM fields kept off the paper; the target is resolved when followed (302, `no-store`, never cached), the routes run before add-on routes, the name is lower-cased on lookup and reserved against pages, collections, news and redirects (`ShortLinks::nameError`, `takesName` in `Slug::taken` and the collection checks); an unreachable target goes to the home page and `site_audit` flags it (kind `short_link`); all writes go through `ShortLinks::save`/`clean` (admin, MCP, import).
 - Audit (`Core\Audit`, MCP `site_audit`), company data (`Front\Company`, structured data from it in `Front\Seo`), site backups to FTPS/S3
   (`Core\RemoteBackup`), uploads (`Core\Images`, `Core\Files`).
 - AI assistant (`Core\Assistant`): providers anthropic | openai | google | mistral; the key is a `secret` setting; model output is untrusted input.

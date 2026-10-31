@@ -108,15 +108,13 @@ final class ShortLinks
     }
 
     /**
-     * Validates and stores a short link. Create when $id is 0 (a name is optional: none = a random code), else update (target, campaign fields
-     * and label; the short part never changes). Returns the stored row or the English refusal. target_id is the internal row id.
+     * The validated columns of a short link (target, campaign fields, label), or the English refusal. The one rule set of the admin, MCP and the import.
      *
-     * @param array<string, mixed> $input name, target_type, target_id, target_url, the UTM keys, label
+     * @param array<string, mixed> $input target_type, target_id (the row id), target_url, the UTM keys, label
      * @return array<string, mixed>|string
      */
-    public static function save(App $app, array $input, int $id = 0): array|string
+    public static function clean(Db $db, array $input): array|string
     {
-        $db = $app->db();
         $type = (string) ($input['target_type'] ?? '');
         if (!in_array($type, self::TYPES, true)) {
             return 'Choose where the short link leads.';
@@ -137,6 +135,30 @@ final class ShortLinks
             $data[$key] = mb_substr((string) preg_replace('/[\x00-\x1f\x7f]/u', '', trim((string) ($input[$key] ?? ''))), 0, self::UTM_LENGTH);
         }
         $data['label'] = mb_substr((string) preg_replace('/[\x00-\x1f\x7f]/u', '', trim((string) ($input['label'] ?? ''))), 0, 120);
+
+        return $data;
+    }
+
+    /** Is this stored short part a valid one: a random code (`s/` + 6 characters) or a free name? The English refusal, null = fine. */
+    public static function pathError(Db $db, string $path): ?string
+    {
+        return preg_match('#^s/[' . self::ALPHABET . ']{6}$#D', $path) === 1 ? null : self::nameError($db, $path);
+    }
+
+    /**
+     * Validates and stores a short link. Create when $id is 0 (a name is optional: none = a random code), else update (target, campaign fields
+     * and label; the short part never changes). Returns the stored row or the English refusal. target_id is the internal row id.
+     *
+     * @param array<string, mixed> $input name, target_type, target_id, target_url, the UTM keys, label
+     * @return array<string, mixed>|string
+     */
+    public static function save(App $app, array $input, int $id = 0): array|string
+    {
+        $db = $app->db();
+        $data = self::clean($db, $input);
+        if (is_string($data)) {
+            return $data;
+        }
 
         if ($id > 0) {
             $db->update('short_links', $data, ['short_link_id' => $id]);

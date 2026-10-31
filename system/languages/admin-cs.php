@@ -5210,6 +5210,7 @@ return [
     'The setting was saved.' => 'Nastavení bylo uloženo.',
     'The settings are saved, but the assistant key does not work: %s' => 'Nastavení je uložené, ale klíč asistenta nefunguje: %s',
     'The sheet was created – tick “Enquiries to a sheet” and new enquiries will appear in it.' => 'Tabulka je vytvořená – zaškrtněte „Poptávky do tabulky“ a nové poptávky se v ní objeví.',
+    'The short link leads to content that is no longer public – visitors land on the home page. Point it at something else.' => 'Krátký odkaz vede na obsah, který už není veřejný – návštěvníci skončí na úvodní stránce. Nasměrujte ho jinam.',
     'The sign-in could not be verified. Try connecting again.' => 'Přihlášení se nepodařilo ověřit. Zkuste napojení znovu.',
     'The sign-in expired – connect %s again.' => 'Přihlášení vypršelo – napojte %s znovu.',
     'The sign-in has expired, please start again.' => 'Přihlášení vypršelo, začněte prosím znovu.',

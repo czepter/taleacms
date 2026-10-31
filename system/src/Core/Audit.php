@@ -38,20 +38,20 @@ final class Audit
 {
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
-        'sample' => 'Sample content', 'link' => 'Broken links', 'orphan' => 'Pages nobody links to', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
+        'sample' => 'Sample content', 'short_link' => 'Short links', 'link' => 'Broken links', 'orphan' => 'Pages nobody links to', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
         'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'document' => 'Document expires soon', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Before handing over',
     ];
 
     /** Points of a kind that has no finding; the weights sum to 100 (the site score). */
     public const array WEIGHT = [
         'sample' => 10, 'link' => 10, 'description' => 10, 'title' => 8, 'build' => 8, 'accessibility' => 8, 'speed' => 8, 'orphan' => 6, 'not_found' => 6,
-        'handover' => 6, 'menu' => 4, 'blueprint' => 4, 'review' => 3, 'job' => 3, 'document' => 3, 'fact' => 3,
+        'handover' => 4, 'short_link' => 2, 'menu' => 4, 'blueprint' => 4, 'review' => 3, 'job' => 3, 'document' => 3, 'fact' => 3,
     ];
 
     /** The tab of each kind on the audit screen. */
     public const array CATEGORY = [
         'sample' => 'basics', 'description' => 'basics', 'title' => 'basics', 'build' => 'basics', 'orphan' => 'basics', 'menu' => 'basics',
-        'link' => 'advanced', 'not_found' => 'advanced', 'review' => 'advanced', 'job' => 'advanced', 'document' => 'advanced', 'fact' => 'advanced', 'blueprint' => 'advanced',
+        'link' => 'advanced', 'short_link' => 'advanced', 'not_found' => 'advanced', 'review' => 'advanced', 'job' => 'advanced', 'document' => 'advanced', 'fact' => 'advanced', 'blueprint' => 'advanced',
         'speed' => 'speed', 'handover' => 'security', 'accessibility' => 'security',
     ];
 
@@ -79,6 +79,7 @@ final class Audit
         $this->collections();
         $this->menus();
         $this->news();
+        $this->shortLinks();
         $this->brokenLinks();
         $this->orphans();
         $this->review();
@@ -300,6 +301,20 @@ final class Audit
             $this->links($c['intro'] . ' ' . $c['text'], $where, $edit, $url, ['news' => (int) $c['news_id']]);
             if (($found = SampleContent::inText($c['intro'] . ' ' . $c['text'])) !== []) {
                 $this->add('sample', $where, t('The text still has placeholders in square brackets (%s) – fill them in or delete them.', implode(', ', array_slice($found, 0, 3))), $edit, $url, ['news' => (int) $c['news_id']]);
+            }
+        }
+    }
+
+    /** A short link whose content target is gone sends visitors to the home page (Core\ShortLinks::targetUrl): the owner points it somewhere new. */
+    private function shortLinks(): void
+    {
+        if (!Extensions::isEnabled($this->app->settings(), 'short_links')) {
+            return;
+        }
+        foreach ($this->app->db()->all('SELECT * FROM {short_links} ORDER BY short_link_id') as $link) {
+            if (ShortLinks::targetUrl($this->app, $link) === null) {
+                $this->add('short_link', '/' . $link['path'], t('The short link leads to content that is no longer public – visitors land on the home page. Point it at something else.'),
+                    'admin.php?module=short_links&edit=' . $link['public_id'], null, ['short_link' => (string) $link['public_id']]);
             }
         }
     }

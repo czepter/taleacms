@@ -787,6 +787,7 @@ return [
     'The server does not meet the requirements. Fix the items marked with a cross and reload the page.' => 'Der Server erfüllt die Anforderungen nicht. Behebe die mit einem Kreuz markierten Punkte und lade die Seite neu.',
     'The service has upcoming bookings – cancel them first, or switch the service off instead.' => 'Die Leistung hat bevorstehende Buchungen – storniere sie zuerst oder schalte die Leistung stattdessen aus.',
     'The sheet was created – tick “Enquiries to a sheet” and new enquiries will appear in it.' => 'Die Tabelle wurde erstellt – hake „Anfragen in eine Tabelle“ an, und neue Anfragen erscheinen darin.',
+    'The short link leads to content that is no longer public – visitors land on the home page. Point it at something else.' => 'Der Kurzlink führt zu Inhalten, die nicht mehr öffentlich sind – Besucher landen auf der Startseite. Richte ihn auf etwas anderes aus.',
     'The sign-in could not be verified. Try connecting again.' => 'Die Anmeldung konnte nicht geprüft werden. Verbinde erneut.',
     'The sign-in expired – connect %s again.' => 'Die Anmeldung ist abgelaufen – verbinde %s erneut.',
     'The sign-in has expired, please start again.' => 'Die Anmeldung ist abgelaufen, bitte beginne erneut.',
