@@ -2061,8 +2061,8 @@ body.login {
 .palette-help { margin: 0; padding: 8px 14px; border-top: 1px solid var(--line); color: var(--text-weak); font-size: 12px; }
 
 /* the admin on a phone: Save is always at hand, the title fits, taking photos straight into the article */
-.gallery-take-photo { display: none; }
-@media (pointer: coarse) { .gallery-take-photo { display: inline-block; } }
+.navigation.gallery-take-photo { display: none; } /* two classes: label.navigation and button.navigation (display: inline-block) are more specific than one */
+@media (pointer: coarse) { .navigation.gallery-take-photo { display: inline-block; } }
 @media (max-width: 860px) {
 	.form-article { padding-bottom: 76px; }
 	.form-article .save-bar {

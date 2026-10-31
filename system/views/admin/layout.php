@@ -227,5 +227,6 @@ $userName = $username['name'] ?: $username['username'];
 <?php endforeach ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <script src="<?= e($app->url('image/editor.js')) ?>?v=<?= e(TALEA_VERSION) ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-file="<?= Talea\Core\Files::limit() ?>" data-max-file-text="<?= e(Talea\Core\Files::limitText()) ?>" data-max-page="<?= Talea\Core\Images::MAX_SIDE ?>" defer></script>
+<script src="<?= e($app->url('image/picker.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 </body>
 </html>

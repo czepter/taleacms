@@ -190,4 +190,50 @@ final class MediaLibraryScreenTest extends SiteTestCase
         $answer = $site->admin()->post('/admin.php?module=media&action=folder', ['_csrf' => $csrf, 'folder_id' => $target, 'name' => 'Panel target 2', 'level' => '']);
         $this->assertStringNotContainsString('folder=', $answer->redirect, 'the top level, not the renamed folder');
     }
+
+    /** The picker's listing (image/picker.js): the folder tree with parent, depth and count, one folder, no folder, recent, search, the page size. */
+    public function testPickerListing(): void
+    {
+        $site = $this->site();
+        $top = (string) $site->mcpResult('save_media_folder', ['name' => 'Picker top'])['id'];
+        $sub = (string) $site->mcpResult('save_media_folder', ['name' => 'Picker sub', 'parent' => $top])['id'];
+        $inSub = $this->image('picker-in-sub', $sub, 'Sunset over the sea');
+        $inTop = $this->image('picker-in-top', $top);
+        $loose = $this->image('picker-loose', null, 'Loose file');
+        $site->exec('UPDATE tl_media SET created_at = ? WHERE public_id = ?', ['2020-01-01 10:00:00', $inTop]);
+        $listing = fn (string $query = ''): array => json_decode($this->assertPage('/admin.php?module=media&action=listing' . $query, 200)->body, true);
+        $ids = fn (array $answer): array => array_column($answer['images'], 'id');
+
+        $tree = array_column($listing()['folders'], null, 'id');
+        $this->assertSame([null, 0, 1], [$tree[$top]['parent'], $tree[$top]['depth'], $tree[$top]['count']], 'a top folder: no parent, depth 0, its direct files');
+        $this->assertSame([$top, 1, 1], [$tree[$sub]['parent'], $tree[$sub]['depth'], $tree[$sub]['count']], 'a subfolder: the public id of its parent, depth 1');
+        $order = array_keys($tree);
+        $this->assertLessThan(array_search($sub, $order, true), array_search($top, $order, true), 'the tree is depth first: a folder before its children');
+
+        $this->assertContains($inSub, $ids($listing()), 'no filter: every file');
+        $this->assertSame([$inTop], $ids($listing('&folder=' . $top)), 'a folder: its own files, not those of a subfolder');
+        $this->assertSame([$inSub], $ids($listing('&folder=' . $sub)));
+        $notFiled = $ids($listing('&folder=0'));
+        $this->assertSame([true, false, false], [in_array($loose, $notFiled, true), in_array($inTop, $notFiled, true), in_array($inSub, $notFiled, true)], 'folder=0: files in no folder');
+        $recent = $ids($listing('&recent=1'));
+        $this->assertSame([true, false], [in_array($inSub, $recent, true), in_array($inTop, $recent, true)], 'recent=1: the last weeks only');
+        $this->assertSame([$inSub], $ids($listing('&search=sunset')), 'search looks at the name');
+
+        $file = $listing('&folder=' . $sub)['images'][0];
+        $this->assertSame(['Sunset over the sea', 0], [$file['name'], $file['used']], 'a file carries its name and the places that use it');
+        $this->assertNotSame('', $file['created']);
+        $this->assertTrue($file['editable'], 'an administrator may edit every file');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Picker Author', 'username' => 'pickerauthor', 'password' => $site->password, 'admin' => 0], '/admin.php?module=users&action=new');
+        $author = $site->client('pickerauthor');
+        $site->signIn($author, 'pickerauthor');
+        $theirs = json_decode($author->get('/admin.php?module=media&action=listing&folder=' . $sub)->body, true)['images'][0];
+        $this->assertFalse($theirs['editable'], 'a news author may not edit a file somebody else uploaded: the picker keeps a typed description to the insertion');
+
+        for ($i = 0; $i < 65; $i++) {
+            $site->exec('INSERT INTO tl_media (public_id, owner_id, folder_id, name, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, created_at)
+                SELECT ?, owner_id, NULL, ?, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, created_at FROM tl_media WHERE public_id = ?', [Uuid::v4(), 'bulk-pick ' . $i, $loose]);
+        }
+        $this->assertCount(60, $listing('&search=bulk-pick')['images'], 'a page has 60 files');
+        $this->assertCount(5, $listing('&search=bulk-pick&page=2')['images'], 'the second page has the rest');
+    }
 }
