@@ -108,15 +108,59 @@ final class Sites extends Module
 
     protected function actionList(): Response
     {
-        $sites = SiteRegistry::overview($this->db);
-        foreach ($sites as &$s) {
-            $s['health'] = $s['ready'] && $s['status'] !== 'trashed' ? SiteHealth::site($this->db->forSite((string) $s['prefix'])) : null;
+        $agency = \Talea\Core\Deployment::atLeast('agency');
+        $operator = $agency && OwnerRegistry::isOperator($this->db, $this->app->auth()->user());
+        // an operator walks every set-up owner (filter ?owner=<public id>); everybody else sees the owner they work in
+        $owners = [['prefix' => $this->db->ownerPrefix, 'public_id' => '']];
+        if ($operator) {
+            $owners = array_values(array_filter(OwnerRegistry::all($this->db), fn (array $o): bool => $o['ready_at'] !== null));
         }
-        unset($s);
+        $ownerFilter = $operator ? $this->request->get('owner') : '';
+        $search = mb_strtolower(trim($this->request->get('search')));
+        $sites = [];
+        $ownerNames = [];
+        foreach ($owners as $o) {
+            $own = (string) $o['prefix'] === $this->db->ownerPrefix;
+            $db = $own ? $this->db : $this->db->forOwner((string) $o['prefix']);
+            $name = OwnerRegistry::nameOf($this->db, (string) $o['prefix']);
+            $ownerNames[(string) $o['public_id']] = $name;
+            if ($ownerFilter !== '' && $ownerFilter !== (string) $o['public_id']) {
+                continue;
+            }
+            $backup = SiteHealth::lastBackup($db);
+            foreach (SiteRegistry::overview($db) as $s) {
+                if ($search !== '' && !str_contains(mb_strtolower($s['name'] . ' ' . $s['slug'] . ' ' . implode(' ', array_column($s['domains'], 'host'))), $search)) {
+                    continue;
+                }
+                $s['health'] = $s['ready'] && $s['status'] !== 'trashed' ? SiteHealth::site($db->forSite((string) $s['prefix'])) : null;
+                $s['owner_name'] = $name;
+                $s['own'] = $own;
+                $s['unverified'] = count(array_filter($s['domains'], fn (array $d): bool => $d['verified_at'] === null));
+                $s['backup'] = $backup;
+                $sites[] = $s;
+            }
+        }
 
         return $this->view('list', 'Sites', ['sites' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] !== 'trashed')),
-            'trash' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] === 'trashed')), 'current' => $this->currentId(),
-            'mediaWithoutAlt' => SiteHealth::mediaWithoutAlt($this->db), 'limit' => SiteRegistry::limit('MAX_SITES')]);
+            'trash' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] === 'trashed' && $s['own'])), 'current' => $this->currentId(),
+            'mediaWithoutAlt' => SiteHealth::mediaWithoutAlt($this->db), 'limit' => SiteRegistry::limit('MAX_SITES'),
+            'agency' => $agency, 'operator' => $operator, 'ownerNames' => $ownerNames, 'ownerFilter' => $ownerFilter, 'search' => $this->request->get('search'),
+            'siteCount' => SiteRegistry::installCount($this->db), 'ownerCount' => $agency ? count(OwnerRegistry::all($this->db)) : 0, 'ownerLimit' => SiteRegistry::limit('MAX_OWNERS')]);
+    }
+
+    /** Archives a site from the list's row menu (the name stays; a redirect target is set on the edit page). */
+    protected function actionArchive(): Response
+    {
+        $site = $this->site();
+        if (!$this->request->isPost() || $site === null) {
+            return $this->back();
+        }
+        if ((int) $site['site_id'] === $this->currentId()) {
+            return $this->back('You are working on this site right now – open another one first.', '', [], 'error');
+        }
+        $error = SiteRegistry::save($this->db, (int) $site['site_id'], (string) ($site['name'] !== '' ? $site['name'] : $site['slug']), 'archived', null);
+
+        return $error === null ? $this->back('The site has been saved.', '', [], 'ok') : $this->back($error, '', [], 'error');
     }
 
     /** The usage of this owner's sites per month as a CSV (administrators; an operator gets every owner's in the Owners area). */
