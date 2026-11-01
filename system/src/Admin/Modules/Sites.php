@@ -8,6 +8,7 @@ use Talea\Admin\Kernel;
 use Talea\Admin\Module;
 use Talea\Admin\ChangeLog;
 use Talea\Core\Antispam;
+use Talea\Core\Background;
 use Talea\Core\Backup;
 use Talea\Core\Domains;
 use Talea\Core\LookFamily;
@@ -198,13 +199,14 @@ final class Sites extends Module
         }
         if ($from === 'file') {
             try {
-                self::importArchive($this->db, $this->request, $name, (int) $this->app->auth()->id(), OwnerRegistry::isFirst($this->db));
+                $prefix = self::importArchive($this->db, $this->request, $name, (int) $this->app->auth()->id(), OwnerRegistry::isFirst($this->db));
             } catch (\RuntimeException $e) {
                 return $this->form($name, $from, $e->getMessage());
             }
             ChangeLog::write($this->app, 'sites', 'import', $name);
+            OwnerRegistry::isFirst($this->db) && Background::start('provision'); // starts now; where that is not possible the next cron run does it
 
-            return $this->back('The archive is being imported in the background. The site appears as ready when it is done; the other sites keep working meanwhile.');
+            return $this->back('The archive is being imported in the background. The other sites keep working meanwhile.', 'progress', ['id' => (string) $this->db->value('SELECT public_id FROM {sites} WHERE prefix = ?', [$prefix])]);
         }
         $parent = null;
         if ($this->request->post('look_parent') !== '') {
@@ -236,23 +238,24 @@ final class Sites extends Module
      * Makes a site of $owner from the uploaded archive (field `file`) or, where the installation's own import folder is the person's (the first
      * owner), from a file already there (field `existing`).
      *
+     * @return string the table prefix of the new site
      * @throws \RuntimeException
      */
-    public static function importArchive(\Talea\Core\Db $owner, \Talea\Core\Request $request, string $name, int $admin, bool $fromFolder): void
+    public static function importArchive(\Talea\Core\Db $owner, \Talea\Core\Request $request, string $name, int $admin, bool $fromFolder): string
     {
         $upload = $request->file('file');
         if ($upload !== null && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $upload['tmp_name'])) {
             self::requireArchive((string) $upload['tmp_name']);
-            SiteImports::create($owner, $name, (string) $upload['tmp_name'], (string) pathinfo((string) $upload['name'], PATHINFO_EXTENSION), $admin, move_uploaded_file(...));
 
-            return;
+            return SiteImports::create($owner, $name, (string) $upload['tmp_name'], (string) pathinfo((string) $upload['name'], PATHINFO_EXTENSION), $admin, move_uploaded_file(...));
         }
         $path = $fromFolder ? SiteImport::path($request->post('existing')) : null;
         if ($path === null) {
             throw new \RuntimeException('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.');
         }
         self::requireArchive($path);
-        SiteImports::create($owner, $name, $path, (string) pathinfo($path, PATHINFO_EXTENSION), $admin, rename(...));
+
+        return SiteImports::create($owner, $name, $path, (string) pathinfo($path, PATHINFO_EXTENSION), $admin, rename(...));
     }
 
     /** The same detection as Import and export: a new site starts from a Talea archive only. @throws \RuntimeException */
@@ -396,8 +399,66 @@ final class Sites extends Module
     protected function actionEdit(): Response
     {
         $site = $this->site();
+        if ($site !== null && $site['ready_at'] === null && $site['import_file'] !== '' && $site['import_error'] === '') {
+            return $this->back('', 'progress', ['id' => $site['public_id']]); // an import in progress has its own screen
+        }
 
         return $site === null ? $this->error('The site does not exist.', 404) : $this->editForm($site);
+    }
+
+    /** What the import of a new site is doing: the steps, the numbers and a bar; the script of the page asks `status` until the site is ready or the import stopped. */
+    protected function actionProgress(): Response
+    {
+        $site = $this->site();
+        if ($site === null) {
+            return $this->error('The site does not exist.', 404);
+        }
+        $status = $this->importStatus($site);
+        if ($status['state'] === 'ready' || $status['state'] === 'other') {
+            return $this->back($status['state'] === 'ready' ? 'The site is ready.' : '', 'edit', ['id' => $site['public_id']]);
+        }
+
+        return $this->view('progress', 'Importing a site', ['site' => $site, 'status' => $status, 'statusUrl' => $this->url('status', ['id' => $site['public_id']])]);
+    }
+
+    /** The same as JSON, for the script of the progress screen. */
+    protected function actionStatus(): Response
+    {
+        $site = $this->site();
+
+        return $site === null ? Response::json(['state' => 'failed', 'error' => t('The site does not exist.')], 404) : Response::json($this->importStatus($site) + ['next' => $this->url('edit', ['id' => $site['public_id']])]);
+    }
+
+    /**
+     * @param array<string, mixed> $site
+     * @return array{state: string, percent: int, steps: list<array{label: string, state: string}>, error: string, waiting: string}
+     *         state: running | ready | failed | other (not an import: the site is being set up); waiting: '' | starting | stale
+     */
+    private function importStatus(array $site): array
+    {
+        $status = ['state' => 'running', 'percent' => 0, 'steps' => [], 'error' => '', 'waiting' => ''];
+        if ($site['ready_at'] !== null) {
+            return ['state' => 'ready'] + $status;
+        }
+        $progress = SiteImports::progress($site);
+        if ($site['import_error'] !== '' || ($site['import_file'] !== '' && $progress === null)) {
+            return ['state' => 'failed', 'error' => $site['import_error'] !== '' ? (string) $site['import_error'] : t('The archive is gone – create the site again from the export.')] + $status;
+        }
+        if ($progress === null) {
+            return ['state' => 'other'] + $status;
+        }
+        $at = ['queued' => 0, 'preparing' => 0, 'preview' => 0, 'data' => 1, 'media' => 2, 'done' => 3][$progress['phase']] ?? 0;
+        $labels = [
+            t('Reading the archive'),
+            $at >= 1 ? t('Importing pages, news and settings (%d of %d)', $progress['rows_done'], $progress['rows']) : t('Importing pages, news and settings'),
+            $at >= 2 && $progress['media'] > 0 ? t('Copying images and files (%d of %d)', $progress['media_done'], $progress['media']) : t('Copying images and files'),
+            t('Finishing'),
+        ];
+        $status['steps'] = array_map(static fn (string $label, int $i): array => ['label' => $label, 'state' => $i < $at ? 'finished' : ($i === $at ? 'active' : '')], $labels, array_keys($labels));
+        $status['percent'] = $progress['percent'];
+        $status['waiting'] = $at > 0 ? '' : (time() - (int) $this->app->settings()->get('tasks_last_run') > 900 && time() - strtotime((string) $site['created_at']) > 900 ? 'stale' : 'starting');
+
+        return $status;
     }
 
     protected function actionSave(): Response

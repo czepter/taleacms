@@ -167,7 +167,7 @@ final class SiteImport
     /** @return array<string, mixed> */
     public static function newState(string $file, ?string $folder = null): array
     {
-        return ($folder !== null && $folder !== WpFile::dir() ? ['folder' => $folder] : []) + ['file' => $file, 'phase' => 'preparing', 'header' => [], 'counts' => [], 'media_total' => 0, 'table' => 0, 'position' => 0,
+        return ($folder !== null && $folder !== WpFile::dir() ? ['folder' => $folder] : []) + ['file' => $file, 'phase' => 'preparing', 'header' => [], 'counts' => [], 'media_total' => 0, 'table' => 0, 'position' => 0, 'offset' => 0,
             'emptied' => false, 'backup' => '', 'media_position' => 0, 'result' => [], 'media' => ['saved' => 0, 'skipped' => 0], 'errors' => []];
     }
 
@@ -274,8 +274,11 @@ final class SiteImport
             $zip->close();
             if ($owner !== null) {
                 // a site import: the files go into the owner's media folder, next to what the owner's other sites keep there
-                $mediaMap = ArchiveMedia::intoFolder(array_values(array_unique($entries)), (string) $state['media_dir'], static fn (string $p): bool => is_file(TALEA_ROOT . '/' . $p)
-                    || $owner->value('SELECT 1 FROM {media} WHERE image_path = ? OR thumb_path = ?', [$p, $p]) !== null, substr(sha1((string) ($state['site_prefix'] ?? '') . '|' . $state['file']), 0, 6));
+                $known = null; // every media path of the owner, read once: asking the table per file scans the unindexed thumb_path each time
+                $mediaMap = ArchiveMedia::intoFolder(array_values(array_unique($entries)), (string) $state['media_dir'], static function (string $p) use ($owner, &$known): bool {
+                    $known ??= array_flip(array_merge(...array_map(static fn (array $r): array => [(string) $r['image_path'], (string) $r['thumb_path']], $owner->all('SELECT image_path, thumb_path FROM {media}')))); // ponytail: all paths in memory (~100 bytes a row), chunk by folder if an owner has millions
+                    return is_file(TALEA_ROOT . '/' . $p) || isset($known[$p]);
+                }, substr(sha1((string) ($state['site_prefix'] ?? '') . '|' . $state['file']), 0, 6));
                 $renamed = []; // the content follows by name, also the archive's own spelling of an upper-case extension
                 foreach ($entries as $name => $target) {
                     if ($mediaMap[$target] !== $name) {
@@ -426,15 +429,16 @@ final class SiteImport
                 }
                 $state['table']++;
                 $state['position'] = 0;
+                $state['offset'] = 0;
                 continue;
             }
-            $f = new \SplFileObject($file, 'rb');
-            $f->seek((int) $state['position']);
+            $f = fopen($file, 'rb');
+            fseek($f, (int) $state['offset']);
             $this->db->transaction(function () use ($f, $table, &$state, &$done, $start): void {
-                while (!$f->eof() && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
-                    $line = trim((string) $f->current());
-                    $f->next();
+                while ($done < self::BATCH && microtime(true) - $start < self::SECONDS && ($line = fgets($f)) !== false) {
+                    $state['offset'] = ftell($f); // the next batch starts here instead of counting its way down the file again
                     $state['position']++;
+                    $line = trim($line);
                     if ($line === '') {
                         continue; // the end of the file is not a skipped row
                     }
@@ -444,6 +448,7 @@ final class SiteImport
                     $state['result'][$table][$ok ? 'ok' : 'skipped'] = ($state['result'][$table][$ok ? 'ok' : 'skipped'] ?? 0) + 1;
                 }
             });
+            fclose($f);
             $this->saveMap();
         }
         $state['people'] = $this->people;
