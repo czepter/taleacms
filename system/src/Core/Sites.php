@@ -19,7 +19,7 @@ final class Sites
     private const array NOT_CLONED = [
         'migrations', 'jobs', 'web_vitals', 'ip_checks', 'mail', 'webhook_deliveries', 'connector_queue', 'newsletter_queue', 'subscription_queue',
         'member_sessions', 'member_tokens', 'enquiries', 'requests', 'request_messages', 'bookings', 'booking_proposals', 'subscribers', 'members',
-        'member_group_links', 'consents', 'change_log', 'events', 'not_found', 'search_stats', 'monthly_reports', 'testimonial_requests',
+        'member_group_links', 'consents', 'change_log', 'events', 'not_found', 'search_stats', 'monthly_reports', 'form_links',
         'document_downloads', 'draft_comments', 'notice_log', 'connector_log', 'google_reviews', 'broken_links', 'import_map', 'agent_runs',
         'form_steps', 'fleet_pairing', 'connectors', 'agent_schedules', 'fleet_sites', // external connections: a copy would act in the clone's name
     ];

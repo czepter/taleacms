@@ -72,12 +72,17 @@ trait MigrationTools
         $db = $this->app->db();
         $months = $this->app->settings()->int('enquiries_months');
         $limit = $months > 0 ? date('Y-m-d H:i:s', strtotime('-' . $months . ' months')) : null;
-        $imported = $skipped = $old = 0;
+        $imported = $skipped = $old = $expiring = 0;
         $errors = [];
         foreach (array_values($entries) as $i => $e) {
             $entry = self::enquiryEntry($e);
             if (is_string($entry)) {
                 $errors[] = 'entries[' . $i . ']: ' . $entry;
+                continue;
+            }
+            if ($limit !== null && $entry['date'] < $limit && empty($a['allow_expiring'])) {
+                $errors[] = 'entries[' . $i . ']: older than the ' . $months . ' months enquiries are kept – the next clean-up would delete it. Pass allow_expiring: true only if the user wants it anyway.';
+                $expiring++;
                 continue;
             }
             $key = sha1($entry['date'] . '|' . $entry['form'] . '|' . json_encode($entry['data'], JSON_UNESCAPED_UNICODE));
@@ -95,7 +100,7 @@ trait MigrationTools
         }
 
         return ['imported' => $imported, 'already_imported' => $skipped, 'errors' => $errors,
-            'older_than_retention' => $old,
+            'older_than_retention' => $old, 'refused_expiring' => $expiring,
             'note' => $old > 0 ? sprintf('%d entries are older than the %d months enquiries are kept (Settings → Privacy and cookies); the site deletes them with the next clean-up. Tell the user.', $old, $months) : null];
     }
 

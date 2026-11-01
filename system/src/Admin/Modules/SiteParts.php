@@ -192,6 +192,7 @@ final class SiteParts extends Module
             'news_item' => ($seo = $this->db->value('SELECT slug FROM {news} WHERE visible = TRUE AND deleted_at IS NULL AND published_at <= NOW() AND language = ? ORDER BY published_at DESC LIMIT 1', [$language])) !== null ? 'news/' . $seo : 'news',
             'list' => 'news',
             'not_found' => 'this-page-does-not-exist',
+            'form_link' => '_form/' . \Talea\Core\Testimonials::form($this->app)['public_id'],
             default => '',
         };
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $path);

@@ -478,6 +478,11 @@ PHP);
             'import_enquiries: two old entries imported');
         $second = $this->toolText('import_enquiries', ['source' => 'breakdance', 'entries' => $entries]);
         $this->assertSame('0:2', $this->fieldOf($second, 'imported') . ':' . $this->fieldOf($second, 'already_imported'), 'import_enquiries: a second run skips them');
+        $expiring = [['date' => '2019-01-05 10:00', 'form' => 'Contact', 'fields' => ['Name' => 'Very Old']]];
+        $refused = $this->toolText('import_enquiries', ['source' => 'breakdance', 'entries' => $expiring]);
+        $this->assertSame('0:1', $this->fieldOf($refused, 'imported') . ':' . $this->fieldOf($refused, 'refused_expiring'), 'import_enquiries: an entry the clean-up would delete is refused');
+        $forced = $this->toolText('import_enquiries', ['source' => 'breakdance', 'entries' => $expiring, 'allow_expiring' => true]);
+        $this->assertSame('1', $this->fieldOf($forced, 'imported'), 'import_enquiries: allow_expiring imports it');
     }
 
     /** Starts a migration report and polls it until it is done; returns the last answer text. */

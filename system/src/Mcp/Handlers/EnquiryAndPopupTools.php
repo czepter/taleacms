@@ -126,16 +126,25 @@ trait EnquiryAndPopupTools
         return ['id' => $id, 'changed' => array_keys($changes)];
     }
 
-    /** request_testimonial (2.12) */
-    private function toolRequestTestimonial(string $name, array $a): mixed
+    /** create_form_link (2.12) */
+    private function toolCreateFormLink(string $name, array $a): mixed
     {
         if (!$this->app->auth()->hasModule('enquiries')) {
             throw new \DomainException('Enquiries can be changed only by users with the Enquiries section.');
         }
-        $result = \Talea\Core\Testimonials::request($this->app, (int) ($a['id'] ?? 0), !empty($a['send']));
+        $db = $this->app->db();
+        $form = (int) ($a['form'] ?? 0) > 0 ? \Talea\Builder\FormRecords::byId($db, (int) $a['form']) : \Talea\Core\Testimonials::form($this->app);
+        if ($form === null) {
+            throw new \InvalidArgumentException('form: no such form. list_forms in Enquiries → Forms shows them; without it the testimonial form is used.');
+        }
+        $content = (array) (\Talea\Builder\FormRecords::definition(\Talea\Builder\Build::fromJson($form['build'] ?? null))['content'] ?? []);
+        if (($content['access'] ?? 'open') !== 'link') {
+            throw new \DomainException('This form is open to everyone. Set its access to “personal links” first, or place it on a page.');
+        }
+        $result = \Talea\Core\FormLinks::create($this->app, $form, (int) ($a['id'] ?? 0), !empty($a['send']), (string) ($a['label'] ?? ''), (string) ($a['email'] ?? ''));
 
-        return $result + ['next' => $result['sent'] ? 'The customer got the link by e-mail. Their answer will be a hidden draft in References – publish it when the user approves.'
-            : 'Pass the link to the customer (it works once, for 30 days). Their answer will be a hidden draft in References.'];
+        return $result + ['next' => $result['sent'] ? 'The person got the link by e-mail. What they send waits as a hidden draft – publish it when the user approves.'
+            : 'Pass the link on (it works once). What the person sends waits as a hidden draft.'];
     }
 
     /** find_personal_data (2.14): counts and enquiry IDs for one address, never the content */

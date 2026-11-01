@@ -70,6 +70,13 @@ final class Forms
         }
         $redirectUri = fn (string $result, int $field = -1): Response => Response::redirect($back . '?form=' . rawurlencode($element['id']) . '&result=' . $result . ($field >= 0 ? '&field=' . $field : '') . '#' . Form::anchor($element), 303);
 
+        $link = null; // a form for personal links is sent only with the token of a link made for this very form (Core\FormLinks)
+        if (($element['content']['access'] ?? 'open') === 'link') {
+            $formId = (int) ($element['form_id'] ?? 0); // a form that is no record (written inside a page) has no links: it refuses everyone
+            if ($formId <= 0 || ($link = \Talea\Core\FormLinks::find($this->app->db(), $r->post('link'), $formId)) === null) {
+                return $redirectUri('verification');
+            }
+        }
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         $reason = $antispam->reason($r, 'form|' . $posted . '|' . $element['id']);
         if ($reason === 'robot') {
@@ -103,6 +110,7 @@ final class Forms
         $data = [];
         $email = '';
         $attachments = [];
+        $uploads = []; // label => [temporary file, name]: what a form that adds to a collection stores as images and files
         // multi-step forms and calculators (2.12): a field whose condition is not met is neither checked nor sent, and the
         // estimate is computed here from the answers – never taken from the browser
         $fields = $element['content']['fields'];
@@ -156,6 +164,7 @@ final class Forms
                 $data[] = [$field['label'], $uploaded ? mb_substr(basename((string) $file['name']), 0, 120) . ' (' . \Talea\Core\Files::size((int) $file['size']) . ')' : ''];
                 if ($uploaded) {
                     $attachments[count($data) - 1] = [(string) $file['tmp_name'], $extension];
+                    $uploads[(string) $field['label']] = [(string) $file['tmp_name'], (string) $file['name']];
                 }
                 continue;
             }
@@ -205,6 +214,20 @@ final class Forms
             $data[] = [$field['label'], $value];
         }
         $antispam->write($r->ip(), 'form', 0);
+        // the link is taken now, so two submissions with the same link cannot both go through; a failed one gives it back
+        if ($link !== null && !\Talea\Core\FormLinks::claim($this->app->db(), $link)) {
+            return $redirectUri('verification');
+        }
+        $ticked = []; // the consent the person gave: the checkboxes they ticked, as worded
+        foreach ($data as $n => $d) {
+            if (($types[$n] ?? '') === 'checkbox' && ($d[1] ?? '') !== '') {
+                $ticked[] = (string) $d[0];
+            }
+        }
+        $consent = implode("\n", $ticked);
+        if (($element['content']['destination'] ?? 'enquiry') === 'collection') {
+            return $this->addToCollection($element, $data, $uploads, $redirectUri, $link, $consent);
+        }
         // a gated download (2.11, Core\Documents): the enquiry records which file the visitor got
         $gatedFile = $email !== '' ? \Talea\Core\Documents::gatedFile($element['content']) : '';
         if ($gatedFile !== '') {
@@ -274,6 +297,9 @@ final class Forms
                 return $redirectUri($answer);
             }
         }
+        if ($link !== null) {
+            \Talea\Core\FormLinks::finish($db, $link, 0, $consent);
+        }
         \Talea\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['content']['name'], 0, 80), mb_substr($back, 0, 120)),
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
         \Talea\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
@@ -315,6 +341,41 @@ final class Forms
             return Response::redirect(FormResult::url($this->app, $back, $element, $db->publicId('enquiries', $idp), $calculation['variant']), 303);
         }
         $thankYouUrl = self::thankYouPage($r, (string) ($element['content']['thank_you_page'] ?? ''), (string) $element['content']['name']);
+
+        return $thankYouUrl !== null ? Response::redirect($thankYouUrl, 303) : $redirectUri('ok');
+    }
+
+    /**
+     * A form that adds to a collection (Core\CollectionSubmission): after the same checks as an enquiry, the answers become a hidden
+     * draft item; nothing is stored as an enquiry. A person publishes it; the form's recipients are told it is waiting.
+     *
+     * @param list<array<int, string>> $data
+     * @param array<string, array{0: string, 1: string}> $uploads
+     */
+    private function addToCollection(array $element, array $data, array $uploads, \Closure $redirectUri, ?array $link = null, string $consent = ''): Response
+    {
+        $saved = \Talea\Core\CollectionSubmission::save($this->app, $element['content'], $data, $uploads, Language::siteColumn(), (int) ($element['form_id'] ?? 0));
+        if (is_string($saved)) {
+            if ($link !== null) {
+                \Talea\Core\FormLinks::release($this->app->db(), $link);
+            }
+
+            return $redirectUri('field'); // nothing is stored; the page asks to check the answers
+        }
+        if ($link !== null) {
+            \Talea\Core\FormLinks::finish($this->app->db(), $link, $saved, $consent);
+        }
+        $siteSettings = $this->app->settings();
+        [$to, $bcc] = self::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $siteSettings->get('site_email'));
+        if ($to !== []) {
+            $db = $this->app->db();
+            $collection = $db->byPublicId('collections', (string) $element['content']['collection']);
+            $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $this->app->request->origin(), '/')
+                . $this->app->url('admin.php?module=collections&action=item&id=' . ($collection['public_id'] ?? '') . '&item=' . $db->publicId('collection_items', $saved));
+            Mail::send($siteSettings, implode(', ', $to), t('%s: %s', $element['content']['name'], $siteSettings->get('site_name')),
+                t("A new submission is waiting for your review. Nothing is published until you do.\n\n%s", $url), '', $bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
+        }
+        $thankYouUrl = self::thankYouPage($this->app->request, (string) ($element['content']['thank_you_page'] ?? ''), (string) $element['content']['name']);
 
         return $thankYouUrl !== null ? Response::redirect($thankYouUrl, 303) : $redirectUri('ok');
     }

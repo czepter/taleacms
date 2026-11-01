@@ -71,7 +71,7 @@ final class PersonalData
             'subscriber' => $subscriber,
             'sync' => $db->all('SELECT action, created_at, attempts FROM {subscription_queue} WHERE LOWER(email) = ?', [$email]),
             'mail' => $db->all('SELECT mail_id, subject, created_at, sent_at FROM {mail} WHERE LOWER(recipient) = ? ORDER BY mail_id', [$email]),
-            'testimonials' => $db->all('SELECT id, enquiry_id, created_at, used_at, item_id, consent FROM {testimonial_requests} WHERE LOWER(email) = ? ORDER BY id', [$email]),
+            'testimonials' => $db->all('SELECT id, enquiry_id, created_at, used_at, item_id, consent FROM {form_links} WHERE LOWER(email) = ? ORDER BY id', [$email]),
             'bookings' => $bookings,
             'member' => $member,
             'account' => $db->one('SELECT user_id, name, email FROM {users} WHERE LOWER(email) = ?', [$email]),
@@ -128,7 +128,7 @@ final class PersonalData
             $db->delete('subscribers', ['subscriber_id' => (int) $found['subscriber']['subscriber_id']]);
         }
         $db->run('DELETE FROM {mail} WHERE LOWER(recipient) = ?', [$email]);
-        $db->run('DELETE FROM {testimonial_requests} WHERE LOWER(email) = ?', [$email]);
+        $db->run('DELETE FROM {form_links} WHERE LOWER(email) = ?', [$email]);
         if ($found['bookings'] !== []) {
             $db->run('DELETE FROM {bookings} WHERE LOWER(email) = ?', [$email]); // upcoming ones too – the person asked to be forgotten
         }
