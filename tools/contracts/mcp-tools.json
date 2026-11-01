@@ -915,6 +915,7 @@
     },
     "import_enquiries": {
         "parameters": {
+            "allow_expiring": "boolean",
             "entries": "array",
             "source": "string",
             "status": "string"
