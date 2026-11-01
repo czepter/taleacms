@@ -204,6 +204,7 @@ final class Sites extends Module
     {
         $upload = $request->file('file');
         if ($upload !== null && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $upload['tmp_name'])) {
+            self::requireArchive((string) $upload['tmp_name']);
             SiteImports::create($owner, $name, (string) $upload['tmp_name'], (string) pathinfo((string) $upload['name'], PATHINFO_EXTENSION), $admin, move_uploaded_file(...));
 
             return;
@@ -212,7 +213,16 @@ final class Sites extends Module
         if ($path === null) {
             throw new \RuntimeException('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.');
         }
+        self::requireArchive($path);
         SiteImports::create($owner, $name, $path, (string) pathinfo($path, PATHINFO_EXTENSION), $admin, rename(...));
+    }
+
+    /** The same detection as Import and export: a new site starts from a Talea archive only. @throws \RuntimeException */
+    private static function requireArchive(string $path): void
+    {
+        if (Transfer::kind($path) !== 'talea') {
+            throw new \RuntimeException('This is a WordPress export. Import it into a site under Import and export; a new site starts from a Talea export.');
+        }
     }
 
     private function importForm(string $name, string $existing, string $error = ''): Response

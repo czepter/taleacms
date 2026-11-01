@@ -190,35 +190,63 @@ final class Transfer extends Module
 
     /* ---------- import: 1. file ---------- */
 
-    /** Uploading the export with the form; the file ends up in storage/import/ just like one uploaded via FTP. */
+    /**
+     * What a file is, from its first bytes and the zip directory only (never a full parse): 'talea' (a zip with content.json, or a JSON
+     * document) or 'wordpress' (a WXR export). Everything else is refused here; the importers keep their own, stricter checks.
+     *
+     * @throws \RuntimeException with a message for the user
+     */
+    public static function kind(string $path): string
+    {
+        $head = (string) @file_get_contents($path, false, null, 0, 8192);
+        if ($head === '') {
+            throw new \RuntimeException('The file is empty.');
+        }
+        if (str_starts_with($head, "PK\x03\x04")) {
+            if (class_exists(\ZipArchive::class)) {
+                $zip = new \ZipArchive();
+                $found = $zip->open($path, \ZipArchive::RDONLY) === true && $zip->locateName('content.json') !== false;
+                $zip->close();
+                if ($found) {
+                    return 'talea';
+                }
+            }
+            throw new \RuntimeException('This zip archive is not a Talea export: it has no content.json.');
+        }
+        $start = ltrim($head, "\xEF\xBB\xBF \t\r\n");
+        if (str_starts_with($start, '{')) {
+            return 'talea';
+        }
+        if (str_starts_with($start, '<') && str_contains($head, 'wordpress.org/export/')) {
+            return 'wordpress';
+        }
+
+        throw new \RuntimeException('Talea does not recognise this file. Use a Talea export (.zip) or a WordPress export (.xml, Tools → Export).');
+    }
+
+    /** One drop zone for both kinds: the kind is read from the file, then the matching importer takes over (nothing is imported before the preview is confirmed). */
     protected function actionUpload(): Response
     {
         $file = $this->request->file('file');
         if (!$this->request->isPost() || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
             return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.', type: 'error');
         }
-        if (in_array(strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)), ['zip', 'json'], true)) {
-            // an export of another Talea site
-            $name = SiteImport::uploadName((string) $file['name']);
-            try {
+        try {
+            $kind = self::kind((string) $file['tmp_name']);
+            if ($kind === 'talea') {
+                // the extension follows the content: a zip is a zip whatever it is called
+                $zip = (string) @file_get_contents((string) $file['tmp_name'], false, null, 0, 2) === 'PK';
+                $name = SiteImport::uploadName(pathinfo((string) $file['name'], PATHINFO_FILENAME) . ($zip ? '.zip' : '.json'));
                 if (!move_uploaded_file((string) $file['tmp_name'], WpFile::folder() . '/' . $name)) {
                     throw new \RuntimeException('The file could not be saved – check write permissions for storage/import.');
                 }
-            } catch (\RuntimeException $e) {
-                return $this->back(self::message($e), type: 'error');
-            }
 
-            return $this->startTalea($name);
-        }
-        if (strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) !== 'xml') {
-            return $this->back('The file must have the .xml extension – it is an export from WordPress (Tools → Export).', type: 'error');
-        }
-        try {
+                return $this->startTalea($name);
+            }
             $name = WpFile::uploadName((string) $file['name']);
-            $target = WpFile::folder() . '/' . $name;
             // verify first, only then save: nothing that is not a WordPress export gets into the folder
             (new WpFile((string) $file['tmp_name']))->verifyContent();
-            if (!move_uploaded_file((string) $file['tmp_name'], $target)) {
+            if (!move_uploaded_file((string) $file['tmp_name'], WpFile::folder() . '/' . $name)) {
                 throw new \RuntimeException('The file could not be saved – check write permissions for storage/import.');
             }
         } catch (\RuntimeException $e) {
@@ -226,6 +254,27 @@ final class Transfer extends Module
         }
 
         return $this->start($name);
+    }
+
+    /** Removes every file waiting in storage/import/ and every export (they hold e-mail addresses of authors and the whole content). Imported content stays. */
+    protected function actionPurgeFiles(): Response
+    {
+        if ($this->request->isPost()) {
+            foreach ([...WpFile::listAll(), ...SiteImport::listAll()] as $f) {
+                if (($path = WpFile::path($f['file']) ?? SiteImport::path($f['file'])) !== null) {
+                    unlink($path);
+                    WpImport::deleteState($f['file']);
+                    SiteImport::deleteState($f['file']);
+                }
+            }
+            foreach (SiteExport::listAll() as $x) {
+                if (($path = SiteExport::path($x['file'])) !== null) {
+                    unlink($path);
+                }
+            }
+        }
+
+        return $this->back('All import files and exports have been deleted from the server. The imported content stays on the site.');
     }
 
     /** Choosing a file that already lies in storage/import/ (uploaded via FTP or earlier). */

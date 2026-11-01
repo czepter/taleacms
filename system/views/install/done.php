@@ -43,7 +43,7 @@ $interactive = false;
 <?php if (!empty($fromExport)): ?>
 	<section class="next-item">
 		<h2><?= e(t('Import')) ?></h2>
-		<p><?= e(t('The site is empty. Sign in and import the export of your Talea site in Import and export → Import from Talea.')) ?></p>
+		<p><?= e(t('The site is empty. Sign in and drop the export of your Talea site on the Import and export page.')) ?></p>
 		<a class="btn" href="<?= e($base) ?>/admin/transfer"><?= e(t('Continue with the import')) ?></a>
 	</section>
 <?php else: ?>

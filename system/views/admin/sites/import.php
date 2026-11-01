@@ -10,7 +10,7 @@
  */
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to sites')) ?></a></p>
-<p class="small-text"><?= e(t('An export of an older Talea site (Import and export, Export of the whole site) becomes a new site here. Pages, news, collections, look and settings come over, the media files join the shared library, and the other sites keep working while it runs. Accounts are not imported; the new site lists the people the archive names so you can invite them.')) ?></p>
+<p class="small-text"><?= e(t('Talea reads the file to see what it is (the same detection as on Import and export); a WordPress export is not accepted here.')) ?> <?= e(t('An export of an older Talea site (Import and export, Export of the whole site) becomes a new site here. Pages, news, collections, look and settings come over, the media files join the shared library, and the other sites keep working while it runs. Accounts are not imported; the new site lists the people the archive names so you can invite them.')) ?></p>
 <form class="form" method="post" enctype="multipart/form-data" action="<?= e($module->url('import')) ?>">
 <?= $csrf ?>
 <?= $error !== '' ? '<p class="notice notice-error" role="alert">' . e(t($error)) . '</p>' : '' ?>
