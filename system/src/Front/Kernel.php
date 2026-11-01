@@ -302,6 +302,7 @@ final class Kernel
             ->add('ANY', '/' . $collection . '.ics', [CollectionPages::class, 'calendarFile']) // only an events collection answers
             ->add('ANY', '/' . $collection . '/' . $item . '.ics', [CollectionPages::class, 'calendarFile'])
             ->add('ANY', '/_testimonial/' . $token, [CollectionPages::class, 'testimonialPage'])
+            ->add('ANY', '/_f/' . $token, [self::class, 'linkForm'])
             ->add('POST', '/_comment', [Endpoints::class, 'comment'])
             ->add('ANY', '/' . $collection . '/_compare', [CollectionPages::class, 'compareProducts'])
             ->add('ANY', '/{collection:(?!news/)[a-z0-9-]{1,110}}/' . $item, [CollectionPages::class, 'showCollectionItem'])
@@ -470,6 +471,24 @@ final class Kernel
         [$k->editor, $k->draft] = [false, false];
 
         return $this->frame->page((string) $form['name'], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
+    }
+
+    /** The form a personal link opens (Core\FormLinks): the published form inside the wrapper "form_link", never cached, never indexed. */
+    public function linkForm(string $token): Response
+    {
+        $db = $this->app->db();
+        $link = \Talea\Core\FormLinks::find($db, $token);
+        $form = $link !== null ? \Talea\Builder\FormRecords::byId($db, (int) $link['form_id']) : null;
+        if ($form === null || (string) $form['build'] === '') {
+            return $this->notFound();
+        }
+        $k = $this->frame->context();
+        $k->source = 'form:' . $form['public_id'];
+        $k->linkToken = $token;
+        $k->withoutCache = true;
+        $html = \Talea\Builder\Renderer::html(\Talea\Builder\FormRecords::definitionBuild(\Talea\Builder\Build::fromJson($form['build'])), $k);
+
+        return $this->frame->page((string) $form['name'], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true, 'part' => 'form_link']);
     }
 
     public function home(): Response

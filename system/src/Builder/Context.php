@@ -78,6 +78,9 @@ final class Context
     /** Where the build being rendered comes from: „page:<id>“ or „part:<typ>:<jazyk>“ (the form finds its fields by it). */
     public string $source = '';
 
+    /** The token of a personal link the page was opened with (Core\FormLinks): the form posts it back. */
+    public string $linkToken = '';
+
     /** @var list<array{0: string, 1: string}> breadcrumbs of the displayed page: [text, url]; the last one is the page itself (url '') */
     public array $breadcrumbs = [];
 

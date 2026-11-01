@@ -414,7 +414,7 @@ final class Tools
     }
 
     /** Site parts by their public names (MCP) => the stored types. */
-    private const array PART_NAMES = ['header' => 'header', 'footer' => 'footer', 'news_item' => 'news_item', 'news_list' => 'list', 'not_found' => 'not_found'];
+    private const array PART_NAMES = ['header' => 'header', 'footer' => 'footer', 'news_item' => 'news_item', 'news_list' => 'list', 'not_found' => 'not_found', 'form_link' => 'form_link'];
 
     /** The public name of a stored site part type (list => news_list). */
     private static function partName(string $type): string
@@ -768,7 +768,7 @@ final class Tools
             'components' => array_map(fn (array $k): array => ['id' => $this->pid('components', $k['component_id']), 'name' => $k['name'], 'properties' => self::fieldTypes($k['properties'], false)], \Talea\Builder\Components::all($db))
                 + ['note' => 'Use: {"type":"component","content":{"component":"<id>","values":{"<key>":"value"}}}; an empty value = the default. Edit a component with the *_build tools and component: <id>.'],
             'site_parts' => ['header' => 'the header of every page', 'footer' => 'the footer of every page', 'news_item' => 'the wrapper of a news item', 'news_list' => 'the wrapper of the news list',
-                'not_found' => 'the wrapper of the 404 page', 'note' => 'The elements logo, navigation, company_details and page_content belong only in site parts; a wrapper (news_item, news_list, not_found) must contain exactly one page_content element.'],
+                'not_found' => 'the wrapper of the 404 page', 'form_link' => 'the wrapper of a form opened from a personal link', 'note' => 'The elements logo, navigation, company_details and page_content belong only in site parts; a wrapper (news_item, news_list, not_found, form_link) must contain exactly one page_content element.'],
             'library' => array_column(array_map(fn (array $k): array => ['key' => $k['key'], 'description' => $admin($k['name']) . ' – ' . $admin($k['description'])], $library), 'description', 'key'),
             'saved_sections' => array_map(fn (array $r): array => ['id' => $this->pid('sections', $r['section_id']), 'name' => $r['name']], $db->all('SELECT section_id, name FROM {sections} ORDER BY name LIMIT 200'))
                 + ['note' => 'Sections saved in the builder: insert_section with saved_section: <id>.'],

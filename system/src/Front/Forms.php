@@ -70,6 +70,10 @@ final class Forms
         }
         $redirectUri = fn (string $result, int $field = -1): Response => Response::redirect($back . '?form=' . rawurlencode($element['id']) . '&result=' . $result . ($field >= 0 ? '&field=' . $field : '') . '#' . Form::anchor($element), 303);
 
+        $link = null; // a form for personal links is sent only with the token of its link (Core\FormLinks)
+        if (($element['content']['access'] ?? 'open') === 'link' && ($link = \Talea\Core\FormLinks::find($this->app->db(), $r->post('link'), (int) ($element['form_id'] ?? 0))) === null) {
+            return $redirectUri('verification');
+        }
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         $reason = $antispam->reason($r, 'form|' . $posted . '|' . $element['id']);
         if ($reason === 'robot') {
@@ -207,8 +211,19 @@ final class Forms
             $data[] = [$field['label'], $value];
         }
         $antispam->write($r->ip(), 'form', 0);
+        // the link is taken now, so two submissions with the same link cannot both go through; a failed one gives it back
+        if ($link !== null && !\Talea\Core\FormLinks::claim($this->app->db(), $link)) {
+            return $redirectUri('verification');
+        }
+        $ticked = []; // the consent the person gave: the checkboxes they ticked, as worded
+        foreach ($data as $n => $d) {
+            if (($types[$n] ?? '') === 'checkbox' && ($d[1] ?? '') !== '') {
+                $ticked[] = (string) $d[0];
+            }
+        }
+        $consent = implode("\n", $ticked);
         if (($element['content']['destination'] ?? 'enquiry') === 'collection') {
-            return $this->addToCollection($element, $data, $uploads, $redirectUri);
+            return $this->addToCollection($element, $data, $uploads, $redirectUri, $link, $consent);
         }
         // a gated download (2.11, Core\Documents): the enquiry records which file the visitor got
         $gatedFile = $email !== '' ? \Talea\Core\Documents::gatedFile($element['content']) : '';
@@ -279,6 +294,9 @@ final class Forms
                 return $redirectUri($answer);
             }
         }
+        if ($link !== null) {
+            \Talea\Core\FormLinks::finish($db, $link, 0, $consent);
+        }
         \Talea\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['content']['name'], 0, 80), mb_substr($back, 0, 120)),
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
         \Talea\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
@@ -331,11 +349,18 @@ final class Forms
      * @param list<array<int, string>> $data
      * @param array<string, array{0: string, 1: string}> $uploads
      */
-    private function addToCollection(array $element, array $data, array $uploads, \Closure $redirectUri): Response
+    private function addToCollection(array $element, array $data, array $uploads, \Closure $redirectUri, ?array $link = null, string $consent = ''): Response
     {
         $saved = \Talea\Core\CollectionSubmission::save($this->app, $element['content'], $data, $uploads, Language::siteColumn());
         if (is_string($saved)) {
+            if ($link !== null) {
+                \Talea\Core\FormLinks::release($this->app->db(), $link);
+            }
+
             return $redirectUri('field'); // nothing is stored; the page asks to check the answers
+        }
+        if ($link !== null) {
+            \Talea\Core\FormLinks::finish($this->app->db(), $link, $saved, $consent);
         }
         $siteSettings = $this->app->settings();
         [$to, $bcc] = self::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $siteSettings->get('site_email'));
