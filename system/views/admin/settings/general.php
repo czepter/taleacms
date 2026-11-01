@@ -9,7 +9,6 @@ if (Talea\Core\SiteUrl::locked($app->db())) {
 } else {
     $field('site_url', 'Site address', 'url', 'For example https://www.example.com, without a trailing slash. Links in e-mails, RSS, the sitemap and notifications are built from it. Change it after moving to another domain.', 'required placeholder="https://"');
 }
-$field('redirect_to_site_url', 'Redirect other addresses to the site address', 'flag', 'Visitors who reach the site under another address (with or without www, an old domain) are sent to the same page on the site address. The administration, the Claude connection and preview links are not redirected.');
 $field('site_description', 'Site description', 'lines', 'One or two sentences – a motto, a description for search engines and RSS.');
 $field('site_email', 'Site email', 'email', 'System notifications are sent to it.');
 ?>
@@ -135,13 +134,7 @@ $field('agency_phone', 'Phone for help');
 $field('agency_logo', 'Logo', 'text', 'A path from Media, e.g. media/2026/10/agency.svg – click the file in Media to open it, its address starts with media/.');
 ?>
 </fieldset>
-<details class="advanced"<?= $values['maintenance'] === '1' ? ' open' : '' ?>>
-<summary><?= e(t('Maintenance mode')) ?><?= $values['maintenance'] === '1' ? ' – ' . e(t('ON')) : '' ?></summary>
-<?php
-$field('maintenance', 'The site is temporarily unavailable', 'flag', 'Visitors see only the notice below. Signed-in users see the site as usual.');
-$field('maintenance_text', 'Notice text', 'text', '', 'maxlength="300"');
-?>
-</details>
+<p class="help"><?= e(t('Host names, maintenance mode and search engines are set in')) ?> <a href="<?= e($module->url('list', ['tab' => 'address'])) ?>"><?= e(t('Address and visibility')) ?></a>.</p>
 <?php /* screen mode (2.11, Front\Screen): a kiosk address for a TV or a tablet in the reception; $screenCollections address => name, $screenUrl '' until the address exists */ ?>
 <details class="advanced"<?= ($values['screen_mode'] ?? '') === '1' ? ' open' : '' ?>>
 <summary><?= e(t('Screen mode')) ?><?= ($values['screen_mode'] ?? '') === '1' ? ' – ' . e(t('ON')) : '' ?></summary>

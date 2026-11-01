@@ -2,7 +2,7 @@
 <p class="notice"><?= e(t('The system does most things itself: URLs, descriptions, the sitemap, structured data and resources for AI search engines. Here you decide only on the essentials.')) ?></p>
 <fieldset>
 <legend><?= e(t('Site visibility')) ?></legend>
-<?php $field('indexing', 'Allow the site in search engines', 'flag', 'Turn off only for a site under construction.'); ?>
+<p class="help"><?= e(t('Whether search engines may list the site is set in')) ?> <a href="<?= e($module->url('list', ['tab' => 'address'])) ?>"><?= e(t('Address and visibility')) ?></a>.</p>
 <div class="row">
 	<label for="ai_crawlers"><?= e(t('AI search engines and assistants')) ?></label>
 	<div><select id="ai_crawlers" name="ai_crawlers">
