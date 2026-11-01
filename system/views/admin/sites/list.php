@@ -70,7 +70,7 @@ $title = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (str
 		'menu' => array_merge(
 			$s['ready'] && !$here && $host !== '' ? [['post' => $module->url('handoff'), 'fields' => ['id' => $s['public_id']], 'label' => t('Open'), 'icon' => 'out']] : [],
 			// the two pages below are built elsewhere; point them at the screens that exist today
-			[['url' => $edit, 'label' => t('Address and visibility')], ['url' => $module->url('import'), 'label' => t('Import and export')]],
+			[['url' => $here ? $app->url('admin.php?module=settings&tab=address') : $edit, 'label' => t('Address and visibility')], ['url' => $here ? $app->url('admin.php?module=transfer') : $module->url('import'), 'label' => t('Import and export')]],
 			$operator ? [['url' => $app->url('admin.php?' . http_build_query(['module' => 'owners', 'action' => 'transfer', 'site' => $s['public_id']])), 'label' => t('Move')]] : [],
 			$s['site_id'] != 1 && !$here ? array_merge(['-'],
 				$s['status'] !== 'archived' ? [['post' => $module->url('archive'), 'fields' => ['id' => $s['public_id']], 'label' => t('Archive'), 'icon' => 'check', 'confirm' => t('Archive this site? It stops answering and can be set live again on its edit page.')]] : [],
