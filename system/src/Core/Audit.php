@@ -550,7 +550,7 @@ final class Audit
         }
         $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → General) so that leftover access closes itself.'), 'admin.php?module=settings&tab=general', 'auto_suspend');
         $check((int) $db->value('SELECT COUNT(*) FROM {users} WHERE admin < 2 AND blocked = FALSE') > 0, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
-        $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency');
+        Agency::visible($s) && $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency');
         if (Extensions::isEnabled($s, 'newsletter_signup')) {
             $check($s->int('tasks_last_run') > 0, t('Background tasks have never run – newsletters are sent only while they do. Add the cron line from System status.'), 'admin.php?module=status', 'cron');
         }

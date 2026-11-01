@@ -22,6 +22,11 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<label for="description"><?= e(t('Description')) ?></label>
 	<input class="textfield wide" type="text" id="description" name="description" value="<?= e($role['description']) ?>" maxlength="200">
 </div>
+<div class="row">
+	<span class="caption"><?= e(t('Agency role')) ?></span>
+	<div class="options"><label><input type="checkbox" name="is_agency" value="1"<?= !empty($role['is_agency']) ? ' checked' : '' ?>> <?= e(t('Yes')) ?></label>
+	<span class="help"><?= e(t('A user with this role switches on "Created and maintained by" in Settings → General.')) ?></span></div>
+</div>
 <fieldset>
 <legend><?= e(t('News')) ?></legend>
 <div class="cards-options cards-options-text">
