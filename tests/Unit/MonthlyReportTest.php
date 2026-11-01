@@ -21,7 +21,7 @@ final class MonthlyReportTest extends TestCase
             'enquiries' => ['total' => 3, 'forms' => [['form' => 'Kontakt jan.novak@visitor.example', 'n' => 3]], 'pages' => [['path' => '/kontakt', 'n' => 3]], 'unanswered' => 2], 'signups' => 1, // check-english: allow
             'backups' => ['created' => 20, 'failed' => 0, 'last' => '2026-09-30 03:00:00'], 'changes' => ['people' => 12, 'claude' => 7],
             'problems' => [['group' => 'Operation', 'name' => 'Cron', 'state' => 'warning', 'info' => 'not set up – ask admin@visitor.example']], 'decisions' => ['enquiries' => 2, 'errors' => 0]];
-        $withAgency = MonthlyReport::render($reportData, FakeSettings::site(['agency_name' => 'Studio Talea', 'agency_email' => 'help@studio.example', 'agency_logo' => 'media/logo.svg']), 'https://example.com/');
+        $withAgency = MonthlyReport::render($reportData, FakeSettings::site(['agency_enabled' => '1', 'agency_name' => 'Studio Talea', 'agency_email' => 'help@studio.example', 'agency_logo' => 'media/logo.svg']), 'https://example.com/');
         $withoutAgency = MonthlyReport::render($reportData, FakeSettings::site([]), 'https://example.com');
         $this->assertSame([true, true, true, false, true, true], [str_contains($withAgency['html'], 'Studio Talea'), str_contains($withAgency['html'], 'https://example.com/media/logo.svg'), str_contains($withAgency['text'], 'help@studio.example'),
             str_contains($withoutAgency['html'], 'Studio Talea'), str_contains($withoutAgency['html'], 'Testovací firma'), str_contains($withoutAgency['html'], '120 (+20 %)')], '2.9: the report carries the agency when it is set, otherwise the site'); // check-english: allow

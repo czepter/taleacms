@@ -54,7 +54,7 @@ class Settings extends Module
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
             'screen_mode' => 'flag', 'screen_seconds' => 'number:' . \Talea\Front\Screen::MIN_SECONDS . ':' . \Talea\Front\Screen::MAX_SECONDS, 'screen_news' => 'flag', 'screen_hours' => 'flag', 'screen_clock' => 'flag',
             'auto_suspend' => 'list:' . \Talea\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Talea\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
-            'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'pattern:/^[+()\d\s\/.-]{0,30}$/',
+            'agency_enabled' => 'flag', 'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'pattern:/^[+()\d\s\/.-]{0,30}$/',
             'agency_logo' => 'pattern:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
             'time_zone' => 'timezone', 'site_language' => 'choice:' . \Talea\Core\Language::CODES, 'german_register' => 'choice:formal|informal', 'additional_languages' => 'list:' . \Talea\Core\Language::CODES,
         ],
@@ -300,6 +300,11 @@ class Settings extends Module
         foreach ($this->fields($tab) as $key => $type) {
             if (\Talea\Core\Demo::active() && \Talea\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
+            }
+            // the agency card is not saved while hidden or read-only; the switch is not posted while a role (or agency mode) decides
+            if ($key === 'agency_enabled' ? \Talea\Core\Deployment::level() === \Talea\Core\Deployment::AGENCY || \Talea\Core\Agency::roleExists($this->db)
+                : str_starts_with($key, 'agency_') && (!\Talea\Core\Agency::visible($settings) || !\Talea\Core\Agency::editable($this->db, $this->app->auth()->user()))) {
+                continue;
             }
             if ($key === 'site_url' && \Talea\Core\SiteUrl::locked($this->db)) {
                 continue; // the server sets the address (TALEA_SITE_URL): the field is read-only

@@ -8,7 +8,7 @@
  */
 $s = $app->settings();
 $name = $s->get('agency_name');
-if ($name === '') {
+if ($name === '' || !Talea\Core\Agency::visible($s)) {
     return;
 }
 $logo = $s->get('agency_logo');

@@ -258,6 +258,8 @@ PHP);
 
         // 2.4 for agencies
         $this->assertPage('/admin.php?module=roles&action=new&preset=client', 200, 'name="name" value="Client"', message: '2.4: ready-made Client role fills the form');
+        $this->assertDoesNotMatchRegularExpression('#"handover": ?"agency"#', $this->toolText('site_audit', ['kind' => 'handover']), 'hand-over check: no agency card, no agency check');
+        $site->setting('agency_enabled', '1');
         $text = $this->toolText('site_audit', ['kind' => 'handover']);
         $this->assertMatchesRegularExpression('#"handover": ?"agency"#', $text, 'hand-over check: agency contact missing');
         $this->assertMatchesRegularExpression('#"handover": ?"smtp"#', $text, 'hand-over check: SMTP missing');
