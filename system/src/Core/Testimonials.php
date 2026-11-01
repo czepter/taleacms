@@ -26,21 +26,29 @@ final class Testimonials
     public const int MAX_PHOTO = 8 * 1024 * 1024;
 
     /**
-     * Creates a request for an enquiry with an e-mail address; sends the e-mail when asked. Returns the link (absolute) and
-     * whether the e-mail went out.
+     * Creates a request – for an enquiry with an e-mail address, or without one for a person named by a label (a customer who
+     * never wrote to this site); sends the e-mail when asked. Returns the link (absolute) and whether the e-mail went out.
      *
      * @return array{link: string, sent: bool}
-     * @throws \DomainException when the enquiry has no e-mail address
+     * @throws \DomainException when there is nobody to name the request after, or no e-mail address to send it to
      */
-    public static function request(App $app, int $idp, bool $send): array
+    public static function request(App $app, int $idp, bool $send, string $label = '', string $email = ''): array
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT enquiry_id, form, email FROM {enquiries} WHERE enquiry_id = ?', [$idp]);
-        if ($enquiry === null || filter_var((string) $enquiry['email'], FILTER_VALIDATE_EMAIL) === false) {
-            throw new \DomainException('The enquiry has no e-mail address to send the request to.');
+        $enquiry = $idp > 0 ? $db->one('SELECT enquiry_id, form, email FROM {enquiries} WHERE enquiry_id = ?', [$idp]) : null;
+        if ($idp > 0 && $enquiry === null) {
+            throw new \DomainException('The enquiry does not exist.');
+        }
+        $email = trim($enquiry !== null ? (string) $enquiry['email'] : $email);
+        $label = mb_substr(trim(strip_tags($label)), 0, 190);
+        if ($enquiry === null && $label === '') {
+            throw new \DomainException('Name the person the link is for (label), or pass an enquiry.');
+        }
+        if (($send || $email !== '') && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            throw new \DomainException($send ? 'The enquiry has no e-mail address to send the request to.' : 'The e-mail address is not valid.');
         }
         $token = bin2hex(random_bytes(16));
-        $db->insert('testimonial_requests', ['enquiry_id' => $idp, 'token_hash' => hash('sha256', $token), 'email' => (string) $enquiry['email'],
+        $db->insert('form_links', ['enquiry_id' => $idp > 0 ? $idp : null, 'token_hash' => hash('sha256', $token), 'email' => $email, 'label' => $label,
             'created_at' => date('Y-m-d H:i:s'), 'expires_at' => date('Y-m-d H:i:s', time() + self::DAYS * 86400)]);
         $link = Mailing::absolute($app, '_testimonial/' . $token);
         $sent = false;
@@ -49,9 +57,9 @@ final class Testimonials
             // in the language of the site the customer wrote to, not of the admin who clicked
             [$subject, $text] = Language::runWith($app->settings()->get('site_language') ?: 'en', fn (): array => [t('Would you share your experience with %s?', $site),
                 t("Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s", $link, self::DAYS, $site)]);
-            $sent = Mail::send($app->settings(), (string) $enquiry['email'], $subject, $text);
+            $sent = Mail::send($app->settings(), $email, $subject, $text);
         }
-        \Talea\Admin\ChangeLog::write($app, 'enquiries', 'testimonial_request', mb_substr((string) $enquiry['form'], 0, 80) . ($sent ? ' (e-mail)' : ''));
+        \Talea\Admin\ChangeLog::write($app, 'enquiries', 'testimonial_request', mb_substr($enquiry !== null ? (string) $enquiry['form'] : $label, 0, 80) . ($sent ? ' (e-mail)' : ''));
 
         return ['link' => $link, 'sent' => $sent];
     }
@@ -63,7 +71,7 @@ final class Testimonials
             return null;
         }
 
-        return $db->one('SELECT * FROM {testimonial_requests} WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s')]);
+        return $db->one('SELECT * FROM {form_links} WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s')]);
     }
 
     /** The two consents, as the customer sees them. @return array{words: string, photo: string} */
@@ -127,7 +135,7 @@ final class Testimonials
         $consents = self::consents((string) $app->settings()->get('site_name'));
         $itemId = $db->insert('collection_items', ['collection_id' => $idk, 'name' => mb_substr($answer['name'], 0, 200), 'slug' => self::slug($db, $idk, $answer['name']),
             'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'visible' => 0, 'language' => '', 'created_at' => date('Y-m-d H:i:s'), 'sort_order' => 0]);
-        $db->update('testimonial_requests', ['used_at' => date('Y-m-d H:i:s'), 'item_id' => $itemId,
+        $db->update('form_links', ['used_at' => date('Y-m-d H:i:s'), 'item_id' => $itemId,
             'consent' => $consents['words'] . ($answer['photo'] && $image !== '' ? "\n" . $consents['photo'] : '')], ['id' => (int) $request['id']]);
         Events::record($db, 'testimonial.received', 'info', t('A testimonial arrived – a hidden draft in %s.', (string) $collection['name']), ['item' => $itemId]);
 
@@ -142,6 +150,6 @@ final class Testimonials
     /** The requests of an enquiry for its detail: when, to whom, whether it came back and the draft it made. @return list<array<string, mixed>> */
     public static function ofEnquiry(Db $db, int $idp): array
     {
-        return $db->all('SELECT id, email, created_at, expires_at, used_at, item_id FROM {testimonial_requests} WHERE enquiry_id = ? ORDER BY id DESC', [$idp]);
+        return $db->all('SELECT id, email, label, created_at, expires_at, used_at, item_id FROM {form_links} WHERE enquiry_id = ? ORDER BY id DESC', [$idp]);
     }
 }

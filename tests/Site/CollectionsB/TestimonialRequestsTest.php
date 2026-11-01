@@ -19,13 +19,17 @@ final class TestimonialRequestsTest extends SiteTestCase
         $enquiry = $this->insertEnquiry('customer@example.com', '[["Message","Thank you"]]', 2);
         $noMail = $this->insertEnquiry('', '[]', 2);
 
-        $this->assertStringContainsString('no e-mail address', $this->mcpText('request_testimonial', ['id' => $this->site()->publicId('enquiries', $noMail)]), 'testimonials: an enquiry without an e-mail cannot be asked');
+        $this->assertStringContainsString('no e-mail address', $this->mcpText('request_testimonial', ['id' => $this->site()->publicId('enquiries', $noMail), 'send' => true]), 'testimonials: an enquiry without an e-mail cannot be mailed');
+        $nameOnly = $site->mcpResult('request_testimonial', ['label' => 'Anna Weber, wedding 2019']);
+        $this->assertStringContainsString('/_testimonial/', (string) ($nameOnly['link'] ?? ''), 'testimonials: a link needs neither an enquiry nor an e-mail address');
+        $this->assertSame('Anna Weber, wedding 2019', (string) $site->value("SELECT label FROM tl_form_links WHERE label <> '' ORDER BY id DESC LIMIT 1"), 'testimonials: the label says who the link is for');
+        $this->assertStringContainsString('label', $this->mcpText('request_testimonial', []), 'testimonials: without enquiry and label there is nobody to name the link after');
 
         $answer = $site->mcpResult('request_testimonial', ['id' => $site->publicId('enquiries', $enquiry), 'send' => false]);
         $link = ltrim((string) parse_url((string) ($answer['link'] ?? ''), PHP_URL_PATH), '/');
         $this->assertNotSame('', $link, 'testimonials: request_testimonial returns the link');
         $token = substr($link, strlen('_testimonial/'));
-        $this->assertSame('1', (string) $site->value('SELECT COUNT(*) FROM tl_testimonial_requests WHERE enquiry_id = ? AND token_hash = SHA2(?, 256)', [$enquiry, $token]), 'testimonials: only a hash of the token is stored');
+        $this->assertSame('1', (string) $site->value('SELECT COUNT(*) FROM tl_form_links WHERE enquiry_id = ? AND token_hash = SHA2(?, 256)', [$enquiry, $token]), 'testimonials: only a hash of the token is stored');
 
         $customer = $site->client();
         $page = $customer->get("/$link");
@@ -39,12 +43,12 @@ final class TestimonialRequestsTest extends SiteTestCase
         $this->assertMatchesRegularExpression('/only with your consent/', $refused->body, 'testimonials: nothing is saved without the consent');
 
         $answered = $customer->post("/$link", $signed + ['text' => 'Excellent cooperation, all <b>on time</b>.', 'name' => 'Eve Novak', 'role' => 'director, ACME', 'consent_words' => 1]);
-        $item = $site->value('SELECT item_id FROM tl_testimonial_requests WHERE enquiry_id = ? AND used_at IS NOT NULL', [$enquiry]);
+        $item = $site->value('SELECT item_id FROM tl_form_links WHERE enquiry_id = ? AND used_at IS NOT NULL', [$enquiry]);
         $this->assertNotNull($item, 'testimonials: the answer was saved: ' . mb_substr($answered->text(), 0, 300));
         $this->assertSame('0|Eve Novak|Excellent cooperation, all on time.|Eve Novak, director, ACME|references', $site->value("SELECT CONCAT(p.visible, '|', p.name, '|', p.data->>'\$.quote', '|', p.data->>'\$.client', '|', k.preset) FROM tl_collection_items p JOIN tl_collections k ON k.collection_id = p.collection_id WHERE p.item_id = ?", [$item]),
             'testimonials: the answer is a hidden draft reference with the words, the name and the role');
 
-        $kept = (string) $site->value("SELECT consent LIKE '%publish my words%' FROM tl_testimonial_requests WHERE item_id = ?", [$item]);
+        $kept = (string) $site->value("SELECT consent LIKE '%publish my words%' FROM tl_form_links WHERE item_id = ?", [$item]);
         $this->assertSame('1|404', $kept . '|' . $customer->get("/$link")->status, 'testimonials: the consent the customer saw is kept, the link works once');
 
         $this->assertPage("/admin.php?module=enquiries&action=detail&id=" . $site->publicId('enquiries', (int) $enquiry), 200, 'item=' . $site->publicId('collection_items', (int) $item), message: 'testimonials: the enquiry detail shows the request and links the draft');

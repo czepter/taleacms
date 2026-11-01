@@ -406,6 +406,9 @@ final class Enquiries extends Module
         if ($months <= 0) {
             return;
         }
+        // personal links: an unused one is gone with its expiry; a used one keeps the consent it recorded, without the address
+        $db->run('DELETE FROM {form_links} WHERE used_at IS NULL AND expires_at < NOW() - INTERVAL ? MONTH', [$months]);
+        $db->run("UPDATE {form_links} SET email = '' WHERE used_at IS NOT NULL AND email <> '' AND used_at < NOW() - INTERVAL ? MONTH", [$months]);
         if ($siteSettings->get('enquiries_expiry') === 'anonymise') {
             \Talea\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT enquiry_id FROM {enquiries} WHERE anonymised_at IS NULL AND created_at < NOW() - INTERVAL ? MONTH', [$months]), 'enquiry_id')));
 

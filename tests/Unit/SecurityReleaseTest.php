@@ -199,7 +199,7 @@ final class SecurityReleaseTest extends TestCase
         $this->assertSame([[0, 0, 0, 1, 1], true, null], [array_map(fn (string $key): int => preg_match($mcpSettings, $key), ['gtm_id', 'matomo_url', 'matomo_id', 'ga4_id', 'plausible_domain']),
                 str_contains((string) file_get_contents(TALEA_SYSTEM . '/src/Mcp/Handlers/SettingsTools.php'), "['gtm_id', 'matomo_url', 'matomo_id']"), \Talea\Admin\Modules\Settings::verifyValue('gtm_id', 'GTM-<x>')], '3.3.2 (N27): Claude cannot set GTM or Matomo (script chosen by their owner); GA4 and Plausible load from a fixed host and stay; the tool says why');
         $this->assertSame([false, false, false, false, false, true, true], array_map(\Talea\Core\AgentJournal::journaled(...),
-            ['enquiries', 'testimonial_requests', 'bookings', 'subscribers', 'mail', 'pages', 'settings']), '3.3.2 (N29): visitors\' personal data are never journaled for undo; content still is');
+            ['enquiries', 'form_links', 'bookings', 'subscribers', 'mail', 'pages', 'settings']), '3.3.2 (N29): visitors\' personal data are never journaled for undo; content still is');
         $settingsScreens = array_values(array_filter(\Talea\Admin\Kernel::MODULES, fn (string $c): bool => is_a($c, \Talea\Admin\Modules\Settings::class, true)));
         $this->assertSame([true, [], false, true, false, true, true, false], [
             count($settingsScreens) >= 5,

@@ -41,7 +41,7 @@ final class AgentJournal
     private const array VOLATILE = ['short_links' => ['hits', 'last_hit_at']];
 
     /** Tables with visitors' personal data: never journaled; rows an older release journaled are redacted by forget(). */
-    public const array PERSONAL_TABLES = ['enquiries', 'testimonial_requests', 'bookings', 'subscribers', 'mail', 'subscription_queue', 'newsletter_queue'];
+    public const array PERSONAL_TABLES = ['enquiries', 'form_links', 'bookings', 'subscribers', 'mail', 'subscription_queue', 'newsletter_queue'];
 
     /** Settings keys that are the site's own bookkeeping (timestamps of background work, versions) – never undone. */
     private const string BOOKKEEPING = '/^(notification_check)$|_(check|time|checked|seen|ts|at)$/';

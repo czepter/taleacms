@@ -132,7 +132,7 @@ trait EnquiryAndPopupTools
         if (!$this->app->auth()->hasModule('enquiries')) {
             throw new \DomainException('Enquiries can be changed only by users with the Enquiries section.');
         }
-        $result = \Talea\Core\Testimonials::request($this->app, (int) ($a['id'] ?? 0), !empty($a['send']));
+        $result = \Talea\Core\Testimonials::request($this->app, (int) ($a['id'] ?? 0), !empty($a['send']), (string) ($a['label'] ?? ''), (string) ($a['email'] ?? ''));
 
         return $result + ['next' => $result['sent'] ? 'The customer got the link by e-mail. Their answer will be a hidden draft in References – publish it when the user approves.'
             : 'Pass the link to the customer (it works once, for 30 days). Their answer will be a hidden draft in References.'];
