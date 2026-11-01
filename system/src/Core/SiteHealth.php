@@ -24,6 +24,12 @@ final class SiteHealth
         ];
     }
 
+    /** When the owner's newest backup file was made (Unix time), 0 = none. The first owner's backups are the installation's. */
+    public static function lastBackup(Db $ownerDb): int
+    {
+        return (int) ((Owners::isFirst($ownerDb) ? Backup::listAll() : Backup::listForOwner($ownerDb))[0]['time'] ?? 0);
+    }
+
     /** Images in the owner's media without a description for blind visitors (the same test as the clean-up in Media, without reading any file). */
     public static function mediaWithoutAlt(Db $ownerDb): int
     {
