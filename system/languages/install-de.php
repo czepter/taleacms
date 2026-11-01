@@ -152,6 +152,7 @@ return [
     'The sample pages and the texts for visitors are created in this language. The administration stays in the language of the installation.' => 'Die Beispielseiten und die Texte für Besucher werden in dieser Sprache erstellt. Die Verwaltung bleibt in der Sprache der Installation.',
     'The server does not meet the requirements:' => 'Der Server erfüllt die Anforderungen nicht:',
     'The server has set up the database for you: %s on %s.' => 'Die Datenbank hat der Server für Sie eingerichtet: %s auf %s.',
+    'The site is empty. Sign in and drop the export of your Talea site on the Import and export page.' => 'Die Website ist leer. Melden Sie sich an und legen Sie den Export Ihrer Talea-Website auf der Seite Import und Export ab.',
     'The site is empty. Sign in and import the export of your Talea site in Import and export → Import from Talea.' => 'Die Website ist leer. Melden Sie sich an und importieren Sie den Export Ihrer Talea-Website unter Import und Export → Import aus Talea.',
     'The starter pages are live with placeholder texts in square brackets.' => 'Die Startseiten sind online, mit Platzhaltertexten in eckigen Klammern.',
     'The tables were created, but config.php could not be written. Check the write permissions.' => 'Die Tabellen wurden erstellt, aber config.php konnte nicht geschrieben werden. Prüfen Sie die Schreibrechte.',

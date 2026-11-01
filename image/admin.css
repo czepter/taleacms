@@ -2690,3 +2690,4 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .dropzone input[type=file] { max-width: 100%; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--accent-light); font-size: 12.5px; }
+form:not(:has(input[name=from][value=file]:checked)) .start-file { display: none; }

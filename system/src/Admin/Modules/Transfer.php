@@ -57,6 +57,7 @@ final class Transfer extends Module
             'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))),
             'missingXml' => !class_exists(\XMLReader::class) || !class_exists(\Dom\HTMLDocument::class),
             'exports' => SiteExport::listAll(),
+            'emptyUrl' => $this->emptyUrl(),
             'taleaFiles' => array_map(fn (array $s): array => $s + ['status' => SiteImport::loadState($s['file'])], SiteImport::listAll()),
             'siteContent' => SiteImport::siteContent($this->db),
             'taleaRefusal' => \Talea\Core\Sites::importRefusal($this->db),
@@ -70,6 +71,22 @@ final class Transfer extends Module
             'canFetch' => function_exists('curl_init'),
             'sourceFiles' => array_map(fn (array $s): array => $s + ['status' => Batch::loadState($s['file'])], Batch::listAll()),
         ]);
+    }
+
+    /** The page where this site can be emptied (several sites, not the first): the existing action of Modules\Sites, with its own name check. */
+    private function emptyUrl(): ?string
+    {
+        $id = (int) ($this->app->site['site_id'] ?? 1);
+        if ($id === 1 || !\Talea\Core\Sites::enabled()) {
+            return null;
+        }
+        foreach (\Talea\Core\Sites::overview($this->db, false) as $s) {
+            if ((int) $s['site_id'] === $id) {
+                return $this->app->url('admin.php?' . http_build_query(['module' => 'sites', 'action' => 'edit', 'id' => $s['public_id']]));
+            }
+        }
+
+        return null;
     }
 
     /* ---------- import from a website (2.6) ---------- */

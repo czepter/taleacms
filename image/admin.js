@@ -450,7 +450,7 @@
 	document.querySelectorAll('[data-dropzone]').forEach(function (zone) {
 		var input = zone.querySelector('input[type=file]'), form = zone.closest('form'), label = zone.querySelector('[data-dropzone-name]');
 		if (!input || !form) { return; }
-		var chosen = function () { if (input.files.length) { if (label) { label.textContent = input.files[0].name; } form.requestSubmit ? form.requestSubmit() : form.submit(); } };
+		var chosen = function () { if (input.files.length) { if (label) { label.textContent = input.files[0].name; } if (zone.hasAttribute('data-dropzone-manual')) { return; } form.requestSubmit ? form.requestSubmit() : form.submit(); } };
 		input.addEventListener('change', chosen);
 		['dragenter', 'dragover'].forEach(function (n) { zone.addEventListener(n, function (e) { e.preventDefault(); zone.classList.add('drop-over'); }); });
 		['dragleave', 'drop'].forEach(function (n) { zone.addEventListener(n, function () { zone.classList.remove('drop-over'); }); });

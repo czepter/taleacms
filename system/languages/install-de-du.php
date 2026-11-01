@@ -29,6 +29,7 @@ return [
     'The database user name or password is wrong. Check them in your hosting control panel.' => 'Benutzername oder Passwort der Datenbank ist falsch. Prüfe beides im Kontrollpanel deines Hostings.',
     'The installation code could not be created – make the storage folder writable.' => 'Der Installationscode konnte nicht erstellt werden – erlaube das Schreiben in den Ordner storage.',
     'The server has set up the database for you: %s on %s.' => 'Die Datenbank hat der Server für dich eingerichtet: %s auf %s.',
+    'The site is empty. Sign in and drop the export of your Talea site on the Import and export page.' => 'Die Website ist leer. Melde dich an und lege den Export deiner Talea-Website auf der Seite Import und Export ab.',
     'The site is empty. Sign in and import the export of your Talea site in Import and export → Import from Talea.' => 'Die Website ist leer. Melde dich an und importiere den Export deiner Talea-Website unter Import und Export → Import aus Talea.',
     'The tables were created, but config.php could not be written. Check the write permissions.' => 'Die Tabellen wurden erstellt, aber config.php konnte nicht geschrieben werden. Prüfe die Schreibrechte.',
     'Then tell Claude about your business, for example:' => 'Erzähle Claude dann von deinem Unternehmen, zum Beispiel:',

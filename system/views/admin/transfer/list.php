@@ -5,6 +5,7 @@
  * @var Talea\Admin\Modules\Transfer $module
  * @var Talea\Core\App $app
  * @var string $csrf
+ * @var string|null $emptyUrl  link to the Empty this site action (several sites, not the first), or null
  * @var list<array{file:string, size:int, time:int, state:array<string,mixed>|null}> $files  WordPress exports in storage/import/
  * @var int $uploadLimit  how many bytes the server allows to upload through a form
  * @var bool $missingXml  the server lacks the extension for reading XML
@@ -130,11 +131,19 @@ $phase = [
 <?php endif ?>
 </section>
 
+<section class="panel-card">
+<h2><?= e(t('Clean up files')) ?></h2>
+<p><?= e(t('Delete every import file and every export from the server. They contain the whole content and e-mail addresses of authors. The content of this site is not touched.')) ?></p>
+<form method="post" action="<?= e($module->url('purge_files')) ?>" data-confirm="<?= e(t('Delete all import files and exports from the server? This cannot be undone.')) ?>"><?= $csrf ?><p><button class="btn" type="submit"><?= e(t('Delete all import files and exports')) ?></button></p></form>
+</section>
+
+<?php if ($emptyUrl !== null): ?>
 <section class="panel-card panel-danger">
 <h2><?= e(t('Danger zone')) ?></h2>
-<p><?= e(t('Delete every import file and every export from the server. They contain the whole content and e-mail addresses of authors. The content of this site is not touched.')) ?></p>
-<form method="post" action="<?= e($module->url('purge_files')) ?>" data-confirm="<?= e(t('Delete all import files and exports from the server? This cannot be undone.')) ?>"><?= $csrf ?><p><button class="btn danger" type="submit"><?= e(t('Delete all import files and exports')) ?></button></p></form>
+<p><?= e(t('Deletes the pages, news, collections, forms, enquiries, bookings, statistics and import files of this site. The site, its host names, users, media, components and facts stay. An export of the site is made first.')) ?></p>
+<p><a class="btn danger" href="<?= e($emptyUrl) ?>"><?= e(t('Empty this site')) ?></a></p>
 </section>
+<?php endif ?>
 
 <p class="small-text"><?= e(t('Other ways to bring content in:')) ?></p>
 <?php /* 3.2: one panel per task, folded until it is opened or has work in progress – the screen no longer stacks seven forms */ ?>

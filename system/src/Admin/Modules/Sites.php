@@ -136,7 +136,7 @@ final class Sites extends Module
 
     protected function actionNew(): Response
     {
-        return $this->form('', '');
+        return $this->form('', $this->request->get('from') === 'file' ? 'file' : '');
     }
 
     protected function actionCreate(): Response
@@ -151,6 +151,16 @@ final class Sites extends Module
         }
         if ($name === '') {
             return $this->form($name, $from, 'Fill in the site name.');
+        }
+        if ($from === 'file') {
+            try {
+                self::importArchive($this->db, $this->request, $name, (int) $this->app->auth()->id(), OwnerRegistry::isFirst($this->db));
+            } catch (\RuntimeException $e) {
+                return $this->form($name, $from, $e->getMessage());
+            }
+            ChangeLog::write($this->app, 'sites', 'import', $name);
+
+            return $this->back('The archive is being imported in the background. The site appears as ready when it is done; the other sites keep working meanwhile.');
         }
         $parent = null;
         if ($this->request->post('look_parent') !== '') {
@@ -172,26 +182,10 @@ final class Sites extends Module
         return $this->back('The site is created. It is being set up in the background and appears as ready within a few minutes.');
     }
 
-    /** Import a Talea archive (an export of an older single-site install) as a NEW site: the row and the file are all this request writes, cron imports it. */
+    /** The old address of the import form: the new-site page with "Import from a file" chosen. */
     protected function actionImport(): Response
     {
-        if (!$this->request->isPost()) {
-            return $this->importForm('', '');
-        }
-        $name = trim(mb_substr($this->request->post('name'), 0, 120));
-        $existing = $this->request->post('existing');
-        $refusal = SiteRegistry::limitRefusal($this->db) ?? ($name === '' ? 'Fill in the site name.' : null);
-        if ($refusal !== null) {
-            return $this->importForm($name, $existing, $refusal);
-        }
-        try {
-            self::importArchive($this->db, $this->request, $name, (int) $this->app->auth()->id(), OwnerRegistry::isFirst($this->db));
-        } catch (\RuntimeException $e) {
-            return $this->importForm($name, $existing, $e->getMessage());
-        }
-        ChangeLog::write($this->app, 'sites', 'import', $name);
-
-        return $this->back('The archive is being imported in the background. The site appears as ready when it is done; the other sites keep working meanwhile.');
+        return $this->back('', 'new', ['from' => 'file']);
     }
 
     /**
@@ -223,12 +217,6 @@ final class Sites extends Module
         if (Transfer::kind($path) !== 'talea') {
             throw new \RuntimeException('This is a WordPress export. Import it into a site under Import and export; a new site starts from a Talea export.');
         }
-    }
-
-    private function importForm(string $name, string $existing, string $error = ''): Response
-    {
-        return $this->view('import', 'Import a Talea archive', ['name' => $name, 'existing' => $existing, 'error' => $error, 'files' => OwnerRegistry::isFirst($this->db) ? SiteImport::listAll() : [],
-            'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size')))]);
     }
 
     /** "8M" from php.ini to bytes. */
@@ -533,7 +521,8 @@ final class Sites extends Module
     {
         $ready = array_values(array_filter(SiteRegistry::overview($this->db), fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed'));
 
-        return $this->view('form', 'New site', ['name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready, 'parent' => $parent, 'parents' => self::familyParents($ready, null)]);
+        return $this->view('form', 'New site', ['files' => OwnerRegistry::isFirst($this->db) ? SiteImport::listAll() : [], 'existing' => $this->request->post('existing'),
+            'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))), 'name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready, 'parent' => $parent, 'parents' => self::familyParents($ready, null)]);
     }
 
     /**
