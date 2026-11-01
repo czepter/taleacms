@@ -468,8 +468,10 @@ final class Kernel
         $k->source = 'form:' . $form['public_id'];
         $html = \Talea\Builder\Renderer::html(\Talea\Builder\FormRecords::definitionBuild(\Talea\Builder\Build::fromJson($k->draft ? ($form['build_draft'] ?? $form['build']) : $form['build'])), $k);
         [$k->editor, $k->draft] = [false, false];
+        // a form for personal links is previewed in the wrapper its customers see (the preview sends nothing: without a link it is refused)
+        $link = (\Talea\Builder\FormRecords::definition(\Talea\Builder\Build::fromJson($form['build_draft'] ?? $form['build']))['content']['access'] ?? 'open') === 'link';
 
-        return $this->frame->page((string) $form['name'], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
+        return $this->frame->page((string) $form['name'], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true] + ($link ? ['part' => 'form_link'] : []));
     }
 
     /** The form a personal link opens (Core\FormLinks): the published form inside the wrapper "form_link", never cached, never indexed. */

@@ -101,6 +101,8 @@
         "confirmation_text",
         "destination",
         "fields",
+        "heading",
+        "intro",
         "item_name",
         "link_days",
         "link_subject",

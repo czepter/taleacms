@@ -267,6 +267,21 @@
             "openWorldHint": false
         }
     },
+    "create_form_link": {
+        "parameters": {
+            "email": "string",
+            "form": "string",
+            "id": "string",
+            "label": "string",
+            "send": "boolean"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "create_news": {
         "parameters": {
             "breadcrumb_title": "string",
@@ -1635,20 +1650,6 @@
             "status",
             "summary"
         ],
-        "annotations": {
-            "readOnlyHint": false,
-            "destructiveHint": false,
-            "openWorldHint": false
-        }
-    },
-    "request_testimonial": {
-        "parameters": {
-            "email": "string",
-            "id": "string",
-            "label": "string",
-            "send": "boolean"
-        },
-        "required": [],
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": false,

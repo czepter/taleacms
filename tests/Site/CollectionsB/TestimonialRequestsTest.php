@@ -53,6 +53,9 @@ final class TestimonialRequestsTest extends SiteTestCase
         $kept = (string) $site->value("SELECT consent LIKE '%publish my words%' FROM tl_form_links WHERE item_id = ?", [$item]);
         $this->assertSame('1|404', $kept . '|' . $customer->get("/$link")->status, 'testimonials: the consent the customer saw is kept, the link works once');
 
+        $form = $site->publicId('forms', (int) $site->value("SELECT form_id FROM tl_forms WHERE origin = 'system:testimonial'"));
+        $this->assertPage('/admin.php?module=forms', 200, 'Share your experience', message: 'testimonials: the system form is listed in Enquiries → Forms');
+        $this->assertPage('/_form/' . $form, 200, 'Your words', message: 'testimonials: the admin preview shows the form without a link');
         $this->assertPage("/admin.php?module=enquiries&action=detail&id=" . $site->publicId('enquiries', (int) $enquiry), 200, 'item=' . $site->publicId('collection_items', (int) $item), message: 'testimonials: the enquiry detail shows the request and links the draft');
     }
 }

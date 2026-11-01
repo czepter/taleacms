@@ -463,14 +463,6 @@
         "methods": [
             "ANY"
         ],
-        "pattern": "/_testimonial/{token:[a-f0-9]{32}}",
-        "when": "",
-        "handler": "CollectionPages::testimonialPage"
-    },
-    {
-        "methods": [
-            "ANY"
-        ],
         "pattern": "/_f/{token:[a-f0-9]{32}}",
         "when": "",
         "handler": "Kernel::linkForm"

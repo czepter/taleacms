@@ -308,6 +308,7 @@ trait BuildTargets
             $path = match ($r['type']) {
                 'news_item', 'list' => 'news',
                 'not_found' => 'this-page-does-not-exist',
+                'form_link' => '_form/' . \Talea\Core\Testimonials::form($this->app)['public_id'],
                 default => '',
             };
         }

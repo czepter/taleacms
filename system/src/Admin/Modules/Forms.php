@@ -96,6 +96,9 @@ final class Forms extends Module
         if ($form === null) {
             return $this->error('The form does not exist.', 404);
         }
+        if (\Talea\Core\Testimonials::isSystem($form)) {
+            return $this->back(t('This form belongs to the system: change it as you like, but it cannot be deleted.'), '', [], 'error');
+        }
         $places = FormRecords::placements($this->app, (string) $form['public_id']);
         if ($places !== []) {
             return $this->back(t('The form is placed on: %s. Take it off those pages first.', implode(', ', array_unique(array_column($places, 'where')))), '', [], 'error');
@@ -236,6 +239,10 @@ final class Forms extends Module
     private function forms(): array
     {
         FormRecords::adoptAll($this->app); // forms an import or a kit wrote into published builds become records
+        // the testimonial form (Core\Testimonials) shows up here as soon as the site has a References collection to send answers to; before, it is made when first used
+        if ($this->db->value('SELECT 1 FROM {collections} WHERE preset = ?', [\Talea\Core\Testimonials::PRESET]) !== null) {
+            \Talea\Core\Testimonials::form($this->app);
+        }
         $forms = [];
         $placed = [];
         $answers = [];
@@ -248,9 +255,10 @@ final class Forms extends Module
             foreach ($places as $p) {
                 $placed[$p['source'] . '|' . $p['element']] = true;
             }
+            $linkOnly = (FormRecords::definition(Build::fromJson($f['build']))['content']['access'] ?? 'open') === 'link'; // opened from personal links: no page needs to place it
             $state = match (true) {
                 $f['build'] === null => 'draft',
-                $live === [] => 'unplaced',
+                $live === [] && !$linkOnly => 'unplaced',
                 $f['build_draft'] !== null && $f['build_draft'] !== $f['build'] => 'changes',
                 default => 'live',
             };
@@ -258,7 +266,7 @@ final class Forms extends Module
                 'fields' => array_values((array) (FormRecords::definition(Build::fromJson($f['build'] ?? $f['build_draft']))['content']['fields'] ?? [])),
                 'where' => implode(', ', array_unique(array_column($places, 'where'))), 'kind' => $places === [] ? '' : t('%d places', count(array_unique(array_column($places, 'where')))),
                 'edit' => $this->url('builder', ['id' => (string) $f['public_id']]), 'state' => $state, 'places' => array_map(fn (array $p): array => [$p['source'], $p['element']], $live),
-                'deletable' => $places === [], 'total' => 0, 'new' => 0, 'last' => null];
+                'deletable' => $places === [] && !\Talea\Core\Testimonials::isSystem($f), 'total' => 0, 'new' => 0, 'last' => null];
             $forms[(string) $f['public_id']] = ($answers[(int) $f['form_id']] ?? []) + $forms[(string) $f['public_id']];
         }
         // a form written inside a draft becomes a record when its build is published (FormRecords::adopt)
