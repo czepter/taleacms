@@ -162,7 +162,6 @@ return [
     'A style is a ready set of colours, fonts, sizes and corner radius. Pick one with a click and fine-tune it in the other tabs – the content of the site does not change.' => 'Styl je hotová sada barev, písem, velikostí a zaoblení. Vyberte ho jedním klikem a v dalších záložkách dolaďte – obsah webu se nemění.',
     'A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.' => 'Podstránka má adresu pod nadřazenou (/sluzby/kuchyne) a ukáže se v jejích drobečcích.',
     'A template builds the page from ready-made sections with sample texts and opens it in the builder.' => 'Šablona poskládá stránku z hotových sekcí s ukázkovými texty a otevře ji v builderu.',
-    'A testimonial arrived – a hidden draft in %s.' => 'Přišla reference – skrytý koncept v kolekci %s.',
     'A thin horizontal line between parts of the content.' => 'Tenká vodorovná čára mezi částmi obsahu.',
     'A title and an intro sentence for the top of a subpage.' => 'Nadpis a úvodní věta na začátek podstránky.',
     'A token works without the password and without two-factor sign-in. If you are changing the password because you suspect misuse, leave this ticked and create the connection again afterwards.' => 'Token funguje bez hesla i bez dvoufázového přihlášení. Měníte-li heslo kvůli podezření na zneužití, nechte zaškrtnuté a napojení pak vytvořte znovu.',

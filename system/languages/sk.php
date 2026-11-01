@@ -60,7 +60,6 @@ return [
     'A strip with four short promises – delivery, guarantee, deadline, payment.' => 'Pruh so štyrmi krátkymi sľubmi – doprava, záruka, termín, platba.',
     'A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.' => 'Podstránka má adresu pod nadradenou (/sluzby/kuchyne) a zobrazí sa v jej omrvinkovej navigácii.',
     'A template builds the page from ready-made sections with sample texts and opens it in the builder.' => 'Šablóna poskladá stránku z hotových sekcií s ukážkovými textami a otvorí ju v builderi.',
-    'A testimonial arrived – a hidden draft in %s.' => 'Prišla referencia – skrytý koncept v kolekcii %s.',
     'A title and an intro sentence for the top of a subpage.' => 'Nadpis a úvodná veta na začiatok podstránky.',
     'A two-minute video says more than a long text. Paste the video address in the Content panel.' => 'Dvojminútové video povie viac než dlhý text. Adresu videa vložte v paneli Obsah.',
     'A website search field – for the header, the 404 page or a listing.' => 'Pole na vyhľadávanie na webe – do hlavičky, na stránku 404 alebo k výpisu.',

@@ -65,7 +65,6 @@ return [
     'A strip with four short promises – delivery, guarantee, deadline, payment.' => '一个列出四项简短承诺的横条——交付、质保、工期、付款。',
     'A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.' => '子页面的地址位于其上级页面之下（/services/kitchens），并显示在上级页面的面包屑导航中。',
     'A template builds the page from ready-made sections with sample texts and opens it in the builder.' => '模板会用带示例文本的现成区块搭建页面，并在页面编辑器中打开。',
-    'A testimonial arrived – a hidden draft in %s.' => '收到一条客户评价——已作为隐藏草稿保存在 %s 中。',
     'A title and an intro sentence for the top of a subpage.' => '子页面顶部的标题和一句引言。',
     'A two-minute video says more than a long text. Paste the video address in the Content panel.' => '两分钟的视频胜过长篇文字。请在“内容”面板中粘贴视频地址。',
     'A website search field – for the header, the 404 page or a listing.' => '网站搜索框——用于页眉、404 页面或列表页。',

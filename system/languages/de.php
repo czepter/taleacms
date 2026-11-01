@@ -65,7 +65,6 @@ return [
     'A strip with four short promises – delivery, guarantee, deadline, payment.' => 'Ein Streifen mit vier kurzen Versprechen – Lieferung, Garantie, Termin, Zahlung.',
     'A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.' => 'Eine Unterseite hat eine Adresse unter der übergeordneten Seite (/leistungen/kuechen) und erscheint in deren Brotkrumennavigation.',
     'A template builds the page from ready-made sections with sample texts and opens it in the builder.' => 'Eine Vorlage stellt die Seite aus fertigen Sektionen mit Beispieltexten zusammen und öffnet sie im Builder.',
-    'A testimonial arrived – a hidden draft in %s.' => 'Eine Referenz ist eingegangen – ein ausgeblendeter Entwurf in %s.',
     'A title and an intro sentence for the top of a subpage.' => 'Ein Titel und ein Einleitungssatz für den Anfang einer Unterseite.',
     'A two-minute video says more than a long text. Paste the video address in the Content panel.' => 'Ein zweiminütiges Video sagt mehr als ein langer Text. Fügen Sie die Videoadresse im Panel Inhalt ein.',
     'A website search field – for the header, the 404 page or a listing.' => 'Ein Suchfeld für die Website – für den Header, die 404-Seite oder eine Übersicht.',

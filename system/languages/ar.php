@@ -65,7 +65,6 @@ return [
     'A strip with four short promises – delivery, guarantee, deadline, payment.' => 'شريط بأربعة وعود قصيرة – التوصيل والضمان والموعد والدفع.',
     'A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.' => 'للصفحة الفرعية عنوان تحت صفحتها الأم (/services/kitchens) وتظهر في مسار التنقل الخاص بها.',
     'A template builds the page from ready-made sections with sample texts and opens it in the builder.' => 'يبني القالب الصفحة من أقسام جاهزة بنصوص نموذجية ويفتحها في المنشئ.',
-    'A testimonial arrived – a hidden draft in %s.' => 'وصلت شهادة – مسودة مخفية في %s.',
     'A title and an intro sentence for the top of a subpage.' => 'عنوان وجملة تمهيدية لأعلى الصفحة الفرعية.',
     'A two-minute video says more than a long text. Paste the video address in the Content panel.' => 'فيديو مدته دقيقتان يقول أكثر من نص طويل. الصق عنوان الفيديو في لوحة المحتوى.',
     'A website search field – for the header, the 404 page or a listing.' => 'حقل بحث في الموقع – للترويسة أو صفحة 404 أو قائمة.',

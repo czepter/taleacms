@@ -65,7 +65,6 @@ return [
     'A strip with four short promises – delivery, guarantee, deadline, payment.' => 'Sáv négy rövid ígérettel – szállítás, garancia, határidő, fizetés.',
     'A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.' => 'Az aloldal címe a szülőoldal alatt van (/szolgaltatasok/konyhak), és megjelenik annak morzsamenüjében.',
     'A template builds the page from ready-made sections with sample texts and opens it in the builder.' => 'A sablon kész szekciókból, mintaszövegekkel állítja össze az oldalt, és megnyitja a szerkesztőben.',
-    'A testimonial arrived – a hidden draft in %s.' => 'Új vélemény érkezett – rejtett piszkozatként itt: %s.',
     'A title and an intro sentence for the top of a subpage.' => 'Cím és bevezető mondat egy aloldal tetejére.',
     'A two-minute video says more than a long text. Paste the video address in the Content panel.' => 'Egy kétperces videó többet mond egy hosszú szövegnél. Illessze be a videó címét a Tartalom panelen.',
     'A website search field – for the header, the 404 page or a listing.' => 'Keresőmező a weboldalhoz – a fejlécbe, a 404-es oldalra vagy egy listába.',
