@@ -30,7 +30,7 @@ class Settings extends Module
     public const array MOVED_TABS = ['company' => 'business', 'health' => 'status'];
 
     public const array TABS = [
-        'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
+        'general' => 'General', 'address' => 'Address and visibility', 'company' => 'Company', 'seo' => 'SEO and GEO',
         'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'enquiries' => 'Enquiries', 'messages' => 'Messages', 'ai' => 'AI', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
@@ -48,9 +48,9 @@ class Settings extends Module
      */
     private const array FIELDS = [
         'general' => [
-            'site_name' => 'text', 'site_url' => 'pattern:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'redirect_to_site_url' => 'flag', 'site_description' => 'lines', 'site_email' => 'email', 'footer_text' => 'text',
+            'site_name' => 'text', 'site_url' => 'pattern:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'lines', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
-            'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'list:' . \Talea\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'maintenance' => 'flag', 'maintenance_text' => 'text', 'require_2fa' => 'choice:|admins|everyone', 'trusted_proxy' => 'choice:|cloudflare',
+            'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'list:' . \Talea\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'require_2fa' => 'choice:|admins|everyone', 'trusted_proxy' => 'choice:|cloudflare',
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
             'screen_mode' => 'flag', 'screen_seconds' => 'number:' . \Talea\Front\Screen::MIN_SECONDS . ':' . \Talea\Front\Screen::MAX_SECONDS, 'screen_news' => 'flag', 'screen_hours' => 'flag', 'screen_clock' => 'flag',
             'auto_suspend' => 'list:' . \Talea\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Talea\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
@@ -67,8 +67,10 @@ class Settings extends Module
             'company_street' => 'text', 'company_city' => 'text', 'company_postcode' => 'pattern:/^[A-Z0-9 -]{0,10}$/i', 'company_country' => 'pattern:/^[A-Z]{2}$/',
             'company_phone' => 'pattern:/^[+()\d\s\/.-]{0,30}$/', 'company_email' => 'email', 'company_hours' => 'hours', 'company_map' => 'url', 'company_gps' => 'pattern:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/',
         ],
+        // who can see the site (docs/specs/settings-ux.md 5.1); the host names of a site are managed through Modules\Sites
+        'address' => ['maintenance' => 'flag', 'maintenance_text' => 'text', 'indexing' => 'flag', 'redirect_to_site_url' => 'flag'],
         'seo' => [
-            'indexing' => 'flag', 'schema_org' => 'flag', 'share_image' => 'text', 'share_image_auto' => 'flag', 'verification_google' => 'pattern:/^[A-Za-z0-9_-]{0,100}$/',
+            'schema_org' => 'flag', 'share_image' => 'text', 'share_image_auto' => 'flag', 'verification_google' => 'pattern:/^[A-Za-z0-9_-]{0,100}$/',
             'verification_bing' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'lines', 'ai_crawlers' => 'choice:allow|block', 'url_slash' => 'choice:none|slash|html', 'llms_txt' => 'flag', 'markdown_versions' => 'flag', 'indexnow' => 'flag',
             'security_contact' => 'pattern:#^([^\s@<>]+@[^\s@<>]+\.[a-z]{2,}|https://[^\s<>]+)?$#i',
         ],
@@ -133,6 +135,19 @@ class Settings extends Module
         }
 
         return $tab === 'reports' && \Talea\Core\AllSitesReport::available($this->app) ? $field + ['report_all_sites' => 'flag'] : $field; // multisite: site 1 only
+    }
+
+    /** @return array{site: array<string, mixed>, host: string, dnsOnly: bool}|null the host names of the current site (several websites only) */
+    private function addressHosts(): ?array
+    {
+        $id = (int) ($this->app->site['site_id'] ?? 1);
+        foreach (\Talea\Core\Sites::overview($this->db, false) as $site) {
+            if ((int) $site['site_id'] === $id) {
+                return ['site' => $site, 'host' => \Talea\Core\Sites::requestHost($this->request), 'dnsOnly' => \Talea\Core\Domains::dnsOnly($this->db)];
+            }
+        }
+
+        return null;
     }
 
     /** @return array<string, string> address => name of every collection, for the screen mode checkboxes */
@@ -225,6 +240,7 @@ class Settings extends Module
             'pages' => $tab === 'general' ? $this->db->pairs("SELECT public_id, title FROM {pages} WHERE visible = TRUE AND language = '' ORDER BY sort_order, title") : [],
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'messageGroups' => $tab === 'messages' ? Messages::groups($this->db, $settings) : [],
+            'address' => $tab === 'address' && \Talea\Core\Sites::enabled() ? $this->addressHosts() : null,
             'screenUrl' => $tab === 'general' ? \Talea\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' && \Talea\Core\Owners::isFirst($this->db) ? Backup::listAll() : [], // the files of the whole install: the first owner's
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),

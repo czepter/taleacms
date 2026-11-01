@@ -433,7 +433,7 @@ final class Sites extends Module
         $verify = Domains::needsVerification($this->db, $this->app->auth()->user());
         $error = SiteRegistry::addDomain($this->db, (int) $site['site_id'], $this->request->post('host'), $verify);
 
-        return $error === null ? $this->back($verify ? 'The host name is added. It answers once it is verified: follow the steps next to it, then choose Check now.' : 'The host name is added.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
+        return $error === null ? $this->domainBack($verify ? 'The host name is added. It answers once it is verified: follow the steps next to it, then choose Check now.' : 'The host name is added.', $site['public_id']) : $this->domainBack($error, $site['public_id'], 'error');
     }
 
     /** Checks a host that is not verified yet (the token file over HTTP, else the DNS record); the request leaves through the safe outbound path. */
@@ -446,7 +446,7 @@ final class Sites extends Module
         }
         $error = Domains::check($this->db, $domain);
 
-        return $error === null ? $this->back('The host name is verified and answers now.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
+        return $error === null ? $this->domainBack('The host name is verified and answers now.', $site['public_id']) : $this->domainBack($error, $site['public_id'], 'error');
     }
 
     protected function actionDomainRemove(): Response
@@ -458,7 +458,7 @@ final class Sites extends Module
         }
         $error = SiteRegistry::removeDomain($this->db, (int) $site['site_id'], (int) $domain['domain_id'], SiteRegistry::requestHost($this->request));
 
-        return $error === null ? $this->back('The host name is removed.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
+        return $error === null ? $this->domainBack('The host name is removed.', $site['public_id']) : $this->domainBack($error, $site['public_id'], 'error');
     }
 
     protected function actionDomainPrimary(): Response
@@ -469,7 +469,7 @@ final class Sites extends Module
             SiteRegistry::makePrimary($this->db, (int) $site['site_id'], (int) $domain['domain_id']);
         }
 
-        return $this->back('The primary host name is changed.', 'edit', ['id' => (string) ($site['public_id'] ?? '')]);
+        return $this->domainBack('The primary host name is changed.', (string) ($site['public_id'] ?? ''));
     }
 
     protected function actionDomainRedirect(): Response
@@ -480,7 +480,18 @@ final class Sites extends Module
             SiteRegistry::setRedirect($this->db, (int) $site['site_id'], (int) $domain['domain_id'], $this->request->post('redirect') === '1');
         }
 
-        return $this->back('The host name is saved.', 'edit', ['id' => (string) ($site['public_id'] ?? '')]);
+        return $this->domainBack('The host name is saved.', (string) ($site['public_id'] ?? ''));
+    }
+
+    /** Back to the site's page, or to Settings → Address and visibility when the form came from there. */
+    private function domainBack(string $message, string $id, string $type = 'ok'): Response
+    {
+        if ($this->request->post('return') !== 'address') {
+            return $this->back($message, 'edit', ['id' => $id], $type);
+        }
+        $this->app->session->flash($type, $message);
+
+        return Response::redirect($this->app->url('admin.php?module=settings&tab=address'));
     }
 
     /** Opens a site: a one-time token, then the browser goes to the primary host of that site, where Admin\Kernel signs the administrator in. */

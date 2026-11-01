@@ -60,3 +60,4 @@ $saveConfirm = $tab === 'enquiries' ? ' data-confirm="' . e(t('Enquiries older t
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save settings')) ?>"<?= $saveConfirm ?>></p>
 <?php endif ?>
 </form>
+<?php if ($tab === 'address' && ($address ?? null) !== null) { require __DIR__ . '/address_hosts.php'; } ?>
