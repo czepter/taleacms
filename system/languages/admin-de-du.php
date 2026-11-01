@@ -211,6 +211,7 @@ return [
     'Connect Google Search Console or Bing Webmaster Tools to see how people find your site.' => 'Verbinde Google Search Console oder Bing Webmaster Tools, um zu sehen, wie Besucher deine Website finden.',
     'Connect Google first.' => 'Verbinde zuerst Google.',
     'Connected applications and personal tokens for other tools are in' => 'Verbundene Anwendungen und persönliche Tokens für andere Werkzeuge findest du unter',
+    'Content, e.g. {Your name}, {Your role}' => 'Inhalt, z. B. {Dein Name}, {Deine Rolle}',
     'Cookiebot, CookieYes, Usercentrics… You paste in their code.' => 'Cookiebot, CookieYes, Usercentrics … Du fügst deren Code ein.',
     'Copy it now – it will not be shown again.' => 'Kopiere es jetzt – es wird nicht erneut angezeigt.',
     'Copy the media/ folder from the same place into the root of the site.' => 'Kopiere den Ordner media/ von derselben Stelle in das Hauptverzeichnis der Website.',
