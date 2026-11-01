@@ -469,6 +469,14 @@
     },
     {
         "methods": [
+            "ANY"
+        ],
+        "pattern": "/_f/{token:[a-f0-9]{32}}",
+        "when": "",
+        "handler": "Kernel::linkForm"
+    },
+    {
+        "methods": [
             "POST"
         ],
         "pattern": "/_comment",

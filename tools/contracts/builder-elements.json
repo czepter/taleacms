@@ -89,6 +89,7 @@
         "single_open"
     ],
     "form": [
+        "access",
         "bcc",
         "button_text",
         "calculation",
@@ -101,6 +102,9 @@
         "destination",
         "fields",
         "item_name",
+        "link_days",
+        "link_subject",
+        "link_text",
         "logic",
         "mapping",
         "name",
