@@ -154,7 +154,7 @@ final class Kernel
      * a group is one line here. An entry shows only when the person may open its module; the overview page shows the same groups as tiles.
      */
     public const array SETTINGS_MENU = [
-        'This website' => [['settings', 'general', 'Basics'], ['business', '', 'Company'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'messages', 'Messages'], ['settings', 'enquiries', 'Enquiries'], ['settings', 'analytics', 'Analytics'], ['transfer', '', 'Import and export']],
+        'This website' => [['settings', 'general', 'Basics'], ['settings', 'address', 'Address and visibility'], ['business', '', 'Company'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'messages', 'Messages'], ['settings', 'enquiries', 'Enquiries'], ['settings', 'analytics', 'Analytics'], ['transfer', '', 'Import and export']],
         'News and communication' => [['settings', 'mail', 'Mail'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'webhooks', 'Webhooks'], ['settings', 'reports', 'Reports'], ['connectors', '', 'Integrations']],
         'Data' => [['settings', 'backups', 'Backups'], ['redirects', '', 'Redirects'], ['changelog', '', 'Change log']],
         'System' => [['extensions', '', 'Features and add-ons'], ['settings', 'ai', 'AI'], ['users', '', 'Users and roles'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console'], ['status', '', 'System status']],
