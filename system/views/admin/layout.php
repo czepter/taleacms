@@ -93,7 +93,7 @@ $waitingCount = fn (int $n): string => $n > 0 ? ' <span class="menu-count" aria-
 $settingsMenu = [];
 if ($current === 'Settings') {
     $tab = (string) $app->request->get('tab');
-    foreach (Talea\Admin\Kernel::SETTINGS_MENU as $menuGroup => $entries) {
+    foreach (Talea\Admin\Kernel::settingsMenu() as $menuGroup => $entries) {
         foreach ($entries as [$ident, $entryTab, $label]) {
             if (isset($modules[$ident]) && ($ident !== 'settings' || ($entryTab === 'messages' ? ($messagesTab ??= Talea\Admin\Modules\Settings::tabAvailable('messages', $app->settings(), $app->db())) : Talea\Admin\Modules\Settings::tabAvailable($entryTab, $app->settings(), $app->db())))) {
                 $here = $ident === $inMenu && ($ident !== 'settings' || $entryTab === ($tab !== '' ? $tab : 'general'));
@@ -130,7 +130,7 @@ $userName = $username['name'] ?: $username['username'];
 	<?= $sidebar ?>
 <?php elseif ($settingsMenu !== []): ?>
 	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>"><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><?= e(t('Home')) ?></a>
-	<p class="menu-title"><?= e(t('Settings')) ?></p>
+	<p class="menu-title"><a href="<?= e($app->url('admin.php?module=settings&tab=overview')) ?>"><?= e(t('Settings')) ?></a></p>
 	<ul class="menu menu-settings" id="menu">
 <?php foreach ($settingsMenu as $menuGroup => $entries): ?>
 		<li><span class="menu-heading"><?= e(t($menuGroup)) ?></span>
