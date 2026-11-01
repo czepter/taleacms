@@ -5,6 +5,7 @@
  * @var Talea\Admin\Modules\Transfer $module
  * @var Talea\Core\App $app
  * @var string $csrf
+ * @var string|null $emptyUrl  link to the Empty this site action (several sites, not the first), or null
  * @var list<array{file:string, size:int, time:int, state:array<string,mixed>|null}> $files  WordPress exports in storage/import/
  * @var int $uploadLimit  how many bytes the server allows to upload through a form
  * @var bool $missingXml  the server lacks the extension for reading XML
@@ -27,6 +28,124 @@ $phase = [
     'images' => 'downloading images', 'images_done' => 'imported including images',
 ];
 ?>
+<?php /* 5.2: one page – one drop zone that reads the kind of the file, files waiting on the server, export, a danger card; the other ways in stay folded below */ ?>
+<section class="panel-card">
+<h2><?= e(t('Import a file')) ?></h2>
+<?php if ($taleaRefusal !== null): ?>
+<p class="notice"><?= e(t($taleaRefusal)) ?></p>
+<?php endif ?>
+<p><?= e(t('Drop a file here and Talea recognises what it is. Nothing is imported before you have seen a preview and confirmed it.')) ?></p>
+<form class="form" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>" data-dropzone-form>
+<?= $csrf ?>
+<label class="dropzone" data-dropzone for="import-file">
+	<strong><?= e(t('Drop a file here or choose one')) ?></strong>
+	<span class="chips"><span class="chip"><?= e(t('Talea export (.zip)')) ?></span><span class="chip"><?= e(t('WordPress export (.xml)')) ?></span></span>
+	<input type="file" id="import-file" name="file" accept=".zip,.json,.xml,application/zip,application/json,text/xml,application/xml" required>
+	<span class="help" data-dropzone-name><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/ folder – it will appear in the list below.', Talea\Core\Files::size($uploadLimit))) ?></span>
+</label>
+<?php if ($missingXml): ?>
+<p class="notice notice-error"><?= e(t('The PHP extension xmlreader or dom is missing on the server – a WordPress export cannot be read without them.')) ?></p>
+<?php endif ?>
+<?php if (!$siteContent['empty']): ?>
+<p class="small-text"><?= e(t('A Talea export can only be imported into an empty site. This site already has content, so only a WordPress export can be added to it.')) ?></p>
+<?php endif ?>
+<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Upload and show preview')) ?>"></p>
+</form>
+</section>
+
+<?php if ($files !== [] || $taleaFiles !== []): ?>
+<section class="panel-card">
+<h2><?= e(t('Files on the server')) ?></h2>
+<div class="tab-wrap">
+<table class="listing">
+<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Kind')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($files as $s): $state = $s['status']; ?>
+<tr>
+	<td><?= e($s['file']) ?></td>
+	<td><span class="chip"><?= e(t('WordPress export')) ?></span></td>
+	<td class="number"><?= e(Talea\Core\Files::size($s['size'])) ?></td>
+	<td class="number"><?= e(format_date(date('Y-m-d H:i:s', $s['time']), true)) ?></td>
+	<td><?= $state === null ? '–' : e(t($phase[$state['phase']] ?? '–')) . ($state['phase'] === 'import' ? ' (' . (int) $state['position'] . ' / ' . (int) $state['total'] . ')' : '') ?></td>
+	<td class="actions">
+<?php if ($state !== null): ?>
+		<a href="<?= e($module->url($state['phase'] === 'preview' ? 'preview' : 'progress', ['file' => $s['file']])) ?>"><?= e(t(in_array($state['phase'], ['done', 'images_done'], true) ? 'Result' : 'Continue')) ?></a>
+<?php endif ?>
+<?php if (!$missingXml): ?>
+		<form class="inline" method="post" action="<?= e($module->url('select')) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
+<?php endif ?>
+		<form class="inline" method="post" action="<?= e($module->url('delete_file')) ?>" data-confirm="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
+	</td>
+</tr>
+<?php endforeach ?>
+<?php foreach ($taleaFiles as $s): $state = $s['status']; ?>
+<tr>
+	<td><?= e($s['file']) ?></td>
+	<td><span class="chip"><?= e(t('Talea export')) ?></span></td>
+	<td class="number"><?= e(Talea\Core\Files::size($s['size'])) ?></td>
+	<td class="number"><?= e(format_date(date('Y-m-d H:i:s', $s['time']), true)) ?></td>
+	<td><?= $state === null ? '–' : e(t(['preparing' => 'being read', 'preview' => 'ready to import', 'data' => 'import in progress', 'media' => 'import in progress', 'done' => 'imported'][$state['phase']] ?? '–')) ?></td>
+	<td class="actions">
+<?php if ($state !== null && $state['phase'] !== 'preparing'): ?>
+		<a href="<?= e($module->url('talea', ['file' => $s['file']])) ?>"><?= e(t($state['phase'] === 'done' ? 'Result' : 'Continue')) ?></a>
+<?php endif ?>
+<?php if ($taleaRefusal === null && $siteContent['empty'] && ($state === null || $state['phase'] === 'preview')): ?>
+		<form class="inline" method="post" action="<?= e($module->url('talea_select')) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
+<?php endif ?>
+		<form class="inline" method="post" action="<?= e($module->url('talea_delete')) ?>" data-confirm="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
+	</td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
+<p class="small-text"><?= e(t('You can import the same file repeatedly – whatever has already been imported is skipped. Delete the file when the import is finished; it contains e-mail addresses of authors and commenters from the old site.')) ?></p>
+</section>
+<?php endif ?>
+
+<section class="panel-card">
+<h2><?= e(t('Export of the whole site')) ?></h2>
+<p><?= e(t('One archive gives you the whole site in an open format (JSON): pages, news, categories, tags, redirects, menus, collections, pop-ups, site parts, components, shared classes and uploaded files – as a content backup or for moving elsewhere. Enquiries, passwords, keys and accounts are not included.')) ?></p>
+<?php if (!$hasZip): ?>
+<p class="notice"><?= e(t('The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.')) ?></p>
+<?php endif ?>
+<form method="post" action="<?= e($module->url('export')) ?>"><?= $csrf ?><p><button class="btn" type="submit"><?= e(t('Create export')) ?></button></p></form>
+<?php if ($exports !== []): ?>
+<div class="tab-wrap">
+<table class="listing">
+<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Created')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($exports as $x): ?>
+<tr>
+	<td><?= e($x['file']) ?></td>
+	<td class="number"><?= e(Talea\Core\Files::size($x['size'])) ?></td>
+	<td class="number"><?= e(format_date(date('Y-m-d H:i:s', $x['time']), true)) ?></td>
+	<td class="actions"><a href="<?= e($module->url('download', ['file' => $x['file']])) ?>"><?= e(t('Download')) ?></a>
+		<form class="inline" method="post" action="<?= e($module->url('delete_export')) ?>" data-confirm="<?= e(t('Delete the export %s?', $x['file'])) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($x['file']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
+<p class="small-text"><?= e(t('The last three exports are kept. To restore this site, use the database backup in Settings → Backups.')) ?></p>
+<?php endif ?>
+</section>
+
+<section class="panel-card">
+<h2><?= e(t('Clean up files')) ?></h2>
+<p><?= e(t('Delete every import file and every export from the server. They contain the whole content and e-mail addresses of authors. The content of this site is not touched.')) ?></p>
+<form method="post" action="<?= e($module->url('purge_files')) ?>" data-confirm="<?= e(t('Delete all import files and exports from the server? This cannot be undone.')) ?>"><?= $csrf ?><p><button class="btn" type="submit"><?= e(t('Delete all import files and exports')) ?></button></p></form>
+</section>
+
+<?php if ($emptyUrl !== null): ?>
+<section class="panel-card panel-danger">
+<h2><?= e(t('Danger zone')) ?></h2>
+<p><?= e(t('Deletes the pages, news, collections, forms, enquiries, bookings, statistics and import files of this site. The site, its host names, users, media, components and facts stay. An export of the site is made first.')) ?></p>
+<p><a class="btn danger" href="<?= e($emptyUrl) ?>"><?= e(t('Empty this site')) ?></a></p>
+</section>
+<?php endif ?>
+
+<p class="small-text"><?= e(t('Other ways to bring content in:')) ?></p>
 <?php /* 3.2: one panel per task, folded until it is opened or has work in progress – the screen no longer stacks seven forms */ ?>
 <details class="panel-collapsed"<?= $webImports !== [] ? ' open' : '' ?>>
 <summary><h2><?= e(t('Import from a website')) ?></h2></summary>
@@ -80,49 +199,6 @@ $phase = [
 <?php endif ?>
 </details>
 
-<details class="panel-collapsed"<?= $files !== [] ? ' open' : '' ?>>
-<summary><h2><?= e(t('Import from WordPress')) ?></h2></summary>
-<?= $app->view->render('admin/transfer/steps', ['step' => 1]) ?>
-<p><?= e(t('In WordPress, open Tools → Export, choose “All content” and download the .xml file. Then upload it here. Pages, posts (as news), categories and tags are converted and redirects from the old addresses are created; nothing changes on the site until you confirm the import in the next step.')) ?></p>
-<?php if ($missingXml): ?>
-<p class="notice notice-error"><?= e(t('The PHP extension xmlreader or dom is missing on the server – a WordPress export cannot be read without them.')) ?></p>
-<?php else: ?>
-<form class="form" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>">
-<?= $csrf ?>
-<div class="row"><label for="file"><?= e(t('WordPress export')) ?></label><div><input type="file" id="file" name="file" accept=".xml,text/xml,application/xml" required>
-	<span class="help"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/ folder – it will appear in the list below.', Talea\Core\Files::size($uploadLimit))) ?></span></div></div>
-<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Upload and show preview')) ?>"></p>
-</form>
-<?php endif ?>
-
-<?php if ($files !== []): ?>
-<div class="tab-wrap">
-<table class="listing">
-<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
-<tbody>
-<?php foreach ($files as $s): $state = $s['status']; ?>
-<tr>
-	<td><?= e($s['file']) ?></td>
-	<td class="number"><?= e(Talea\Core\Files::size($s['size'])) ?></td>
-	<td class="number"><?= e(format_date(date('Y-m-d H:i:s', $s['time']), true)) ?></td>
-	<td><?= $state === null ? '–' : e(t($phase[$state['phase']] ?? '–')) . ($state['phase'] === 'import' ? ' (' . (int) $state['position'] . ' / ' . (int) $state['total'] . ')' : '') ?></td>
-	<td class="actions">
-<?php if ($state !== null): ?>
-		<a href="<?= e($module->url($state['phase'] === 'preview' ? 'preview' : 'progress', ['file' => $s['file']])) ?>"><?= e(t(in_array($state['phase'], ['done', 'images_done'], true) ? 'Result' : 'Continue')) ?></a>
-<?php endif ?>
-<?php if (!$missingXml): ?>
-		<form class="inline" method="post" action="<?= e($module->url('select')) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
-<?php endif ?>
-		<form class="inline" method="post" action="<?= e($module->url('delete_file')) ?>" data-confirm="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
-	</td>
-</tr>
-<?php endforeach ?>
-</tbody>
-</table>
-</div>
-<p class="small-text"><?= e(t('You can import the same file repeatedly – whatever has already been imported is skipped. Delete the file when the import is finished; it contains e-mail addresses of authors and commenters from the old site.')) ?></p>
-<?php endif ?>
-</details>
 
 <details class="panel-collapsed"<?= $sourceFiles !== [] ? ' open' : '' ?>>
 <summary><h2><?= e(t('From another system')) ?></h2></summary>
@@ -188,73 +264,4 @@ $phase = [
 <?php endif ?>
 </details>
 
-<details class="panel-collapsed"<?= $taleaFiles !== [] ? ' open' : '' ?>>
-<summary><h2><?= e(t('Import from Talea')) ?></h2></summary>
-<p><?= e(t('Moving a site from another Talea installation: upload its export (the .zip archive from Export of the whole site). Everything is imported – pages, news, collections, components, menus, the look and the media – into a new, empty site; user accounts and secrets are never part of an export.')) ?></p>
-<?php if ($taleaRefusal !== null): ?>
-<p class="notice"><?= e(t($taleaRefusal)) ?></p>
-<?php elseif (!$siteContent['empty']): ?>
-<p class="notice"><?= e(t('This site already has its own content, so an export cannot be imported here. Install Talea again and choose “Start from an export”.')) ?></p>
-<?php else: ?>
-<form class="form" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>">
-<?= $csrf ?>
-<div class="row"><label for="file-talea"><?= e(t('Talea export')) ?></label><div><input type="file" id="file-talea" name="file" accept=".zip,.json,application/zip,application/json" required>
-	<span class="help"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/ folder – it will appear in the list below.', Talea\Core\Files::size($uploadLimit))) ?></span></div></div>
-<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Upload and show preview')) ?>"></p>
-</form>
-<?php endif ?>
-<?php if ($taleaFiles !== []): ?>
-<div class="tab-wrap">
-<table class="listing">
-<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
-<tbody>
-<?php foreach ($taleaFiles as $s): $state = $s['status']; ?>
-<tr>
-	<td><?= e($s['file']) ?></td>
-	<td class="number"><?= e(Talea\Core\Files::size($s['size'])) ?></td>
-	<td class="number"><?= e(format_date(date('Y-m-d H:i:s', $s['time']), true)) ?></td>
-	<td><?= $state === null ? '–' : e(t(['preparing' => 'being read', 'preview' => 'ready to import', 'data' => 'import in progress', 'media' => 'import in progress', 'done' => 'imported'][$state['phase']] ?? '–')) ?></td>
-	<td class="actions">
-<?php if ($state !== null && $state['phase'] !== 'preparing'): ?>
-		<a href="<?= e($module->url('talea', ['file' => $s['file']])) ?>"><?= e(t($state['phase'] === 'done' ? 'Result' : 'Continue')) ?></a>
-<?php endif ?>
-<?php if ($state === null || $state['phase'] === 'preview'): ?>
-		<form class="inline" method="post" action="<?= e($module->url('talea_select')) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
-<?php endif ?>
-		<form class="inline" method="post" action="<?= e($module->url('talea_delete')) ?>" data-confirm="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($s['file']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form>
-	</td>
-</tr>
-<?php endforeach ?>
-</tbody>
-</table>
-</div>
-<?php endif ?>
-</details>
 
-<details class="panel-collapsed"<?= $exports !== [] ? ' open' : '' ?>>
-<summary><h2><?= e(t('Export of the whole site')) ?></h2></summary>
-<p><?= e(t('One archive gives you the whole site in an open format (JSON): pages, news, categories, tags, redirects, menus, collections, pop-ups, site parts, components, shared classes and uploaded files – as a content backup or for moving elsewhere. Enquiries, passwords, keys and accounts are not included.')) ?></p>
-<?php if (!$hasZip): ?>
-<p class="notice"><?= e(t('The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.')) ?></p>
-<?php endif ?>
-<form method="post" action="<?= e($module->url('export')) ?>"><?= $csrf ?><p><button class="btn" type="submit"><?= e(t('Create export')) ?></button></p></form>
-<?php if ($exports !== []): ?>
-<div class="tab-wrap">
-<table class="listing">
-<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Created')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
-<tbody>
-<?php foreach ($exports as $x): ?>
-<tr>
-	<td><?= e($x['file']) ?></td>
-	<td class="number"><?= e(Talea\Core\Files::size($x['size'])) ?></td>
-	<td class="number"><?= e(format_date(date('Y-m-d H:i:s', $x['time']), true)) ?></td>
-	<td class="actions"><a href="<?= e($module->url('download', ['file' => $x['file']])) ?>"><?= e(t('Download')) ?></a>
-		<form class="inline" method="post" action="<?= e($module->url('delete_export')) ?>" data-confirm="<?= e(t('Delete the export %s?', $x['file'])) ?>"><?= $csrf ?><input type="hidden" name="file" value="<?= e($x['file']) ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form></td>
-</tr>
-<?php endforeach ?>
-</tbody>
-</table>
-</div>
-<p class="small-text"><?= e(t('The last three exports are kept. To restore this site, use the database backup in Settings → Backups.')) ?></p>
-<?php endif ?>
-</details>

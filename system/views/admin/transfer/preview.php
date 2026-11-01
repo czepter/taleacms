@@ -24,7 +24,7 @@ $byStatus = function (array $counts) use ($statuses): string {
 };
 $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['publish' => 1, 'future' => 1, 'draft' => 1, 'pending' => 1]));
 ?>
-<?= $app->view->render('admin/transfer/steps', ['step' => 2]) ?>
+<?= $app->view->render('admin/transfer/steps', ['step' => 2, 'kind' => 'wordpress', 'size' => @filesize((string) Talea\Core\WpFile::path($state['file'])), 'module' => $module]) ?>
 <p><?= e(t('File %s – site “%s” (%s). Nothing has been imported yet; this is only an overview of what the file contains.', $state['file'], $state['web']['name'], $state['web']['url'])) ?></p>
 <div class="tiles">
 	<div class="tiles-item"><strong><?= (int) array_sum($p['articles']) ?></strong><span><?= e(t('Posts')) ?><?= $p['articles'] !== [] ? ': ' . e($byStatus($p['articles'])) : '' ?></span></div>

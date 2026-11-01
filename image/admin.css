@@ -2686,3 +2686,13 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .site-tile { display: grid; gap: 2px; padding: 10px 16px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--surface); }
 .site-tile-label { font-size: 0.85em; opacity: 0.7; }
 .site-filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+/* Import and export: cards, the drop zone and kind chips */
+.panel-card { margin: 0 0 12px; padding: 14px 18px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--surface); }
+.panel-card > h2 { margin: 0 0 8px; font-size: 16px; }
+.panel-danger { border-color: var(--danger, #b3261e); }
+.dropzone { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 18px; border: 2px dashed var(--card-line); border-radius: var(--radius); text-align: center; cursor: pointer; }
+.dropzone.drop-over { border-color: var(--accent); background: var(--accent-light); }
+.dropzone input[type=file] { max-width: 100%; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.chip { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--accent-light); font-size: 12.5px; }
+form:not(:has(input[name=from][value=file]:checked)) .start-file { display: none; }
