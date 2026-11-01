@@ -61,7 +61,7 @@ final class CollectionSubmission
      * @param list<array<int, string>> $data the answers as [label, answer, …]
      * @param array<string, array{0: string, 1: string}> $uploads field label => [temporary file, file name] of what the visitor uploaded
      */
-    public static function save(App $app, array $content, array $data, array $uploads, string $language): int|string
+    public static function save(App $app, array $content, array $data, array $uploads, string $language, int $formId = 0): int|string
     {
         $db = $app->db();
         $collection = self::collection($db, $content);
@@ -105,7 +105,7 @@ final class CollectionSubmission
         $idk = (int) $collection['collection_id'];
         $slug = Slug::makeUnique(slugify($name, 150), static fn (string $s): bool => $db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ?', [$idk, $language, $s]) !== null);
         $itemId = $db->insert('collection_items', ['collection_id' => $idk, 'name' => $name, 'slug' => $slug, 'data' => (string) json_encode($values, JSON_UNESCAPED_UNICODE),
-            'visible' => 0, 'language' => $language, 'created_at' => date('Y-m-d H:i:s'), 'sort_order' => 0]);
+            'visible' => 0, 'language' => $language, 'created_at' => date('Y-m-d H:i:s'), 'sort_order' => 0, 'submitted_via' => $formId > 0 ? $formId : null]);
         Slug::fromId($db, 'collection_items', $itemId);
         Events::record($db, 'collection.submission', 'info', t('A submission arrived – a hidden draft in %s.', (string) $collection['name']), ['item' => $itemId]);
 

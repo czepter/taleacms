@@ -78,6 +78,21 @@ final class FormRecords
         return $find((array) ($build['children'] ?? []));
     }
 
+    /**
+     * Why this user may not store this form (an error text for t()), or null. A form that adds items to a collection is a way into that
+     * collection: whoever saves or publishes it needs the Collections right as well as the Enquiries one. Build::sanitize has no user,
+     * so the check sits where the editor and MCP store a form.
+     */
+    public static function destinationRefusal(App $app, ?string $json): ?string
+    {
+        $content = (array) (self::definition(Build::fromJson($json))['content'] ?? []);
+        if (($content['destination'] ?? 'enquiry') === 'collection' && !$app->auth()->hasModule('collections')) {
+            return 'This form adds items to a collection. Saving it needs access to Collections as well.';
+        }
+
+        return null;
+    }
+
     /** What a form's build may hold: its first Form element alone (nothing else is saved). @return array<string, mixed> */
     public static function definitionBuild(?array $build): array
     {
@@ -97,6 +112,45 @@ final class FormRecords
             default => [$field('Your name', 'text', true), $field('Email', 'email', true), $field('Phone', 'tel'), $field('How can we help you?', 'textarea', true), $consent],
         };
         [$build] = Build::sanitize(['v' => Build::VERSION, 'children' => [Build::fresh(Form::TYPE, ['fields' => $fields] + ($starter === 'download' ? ['button_text' => t('Send me the file'), 'confirmation' => true] : []))]], true);
+
+        return $build;
+    }
+
+    /**
+     * A start form for a collection (Core\CollectionSubmission): one form field per field a visitor can fill (text, numbers, dates,
+     * choices, links) or upload (image, file), each mapped to its collection field 1:1, and a consent. Formatted text, galleries and
+     * links to other items are left out. Null when the collection has nothing a visitor could fill.
+     *
+     * @param array<string, mixed> $collection a collection (Builder\Collections::byId)
+     * @return array<string, mixed>|null
+     */
+    public static function collectionStarter(array $collection, string $publicId, bool $byLink): ?array
+    {
+        $types = ['text' => 'text', 'lines' => 'textarea', 'number' => 'number', 'date' => 'date', 'radio' => 'select', 'link' => 'text', 'image' => 'file', 'file' => 'file'];
+        $fields = [];
+        $mapping = [];
+        $seen = [];
+        $nameLabel = '';
+        foreach ((array) $collection['fields'] as $f) {
+            $label = (string) ($f['label'] ?? '');
+            $type = $types[$f['type'] ?? ''] ?? null;
+            if ($type === null || $label === '' || isset($seen[mb_strtolower($label)])) {
+                continue; // a label the mapping could not tell apart would fill the wrong field
+            }
+            $seen[mb_strtolower($label)] = true;
+            $fields[] = ['label' => $label, 'type' => $type, 'required' => !empty($f['required'])]
+                + ($type === 'select' ? ['options' => implode("\n", (array) ($f['options'] ?? []))] : []);
+            $mapping[] = ['target' => (string) $f['key'], 'template' => '{' . $label . '}'];
+            $nameLabel = $nameLabel !== '' || $type !== 'text' ? $nameLabel : $label;
+        }
+        if ($fields === []) {
+            return null;
+        }
+        $fields[] = ['label' => t('I agree that this may be published on the website.'), 'type' => 'checkbox', 'required' => true];
+        [$build] = Build::sanitize(['v' => Build::VERSION, 'children' => [Build::fresh(Form::TYPE, [
+            'fields' => $fields, 'destination' => 'collection', 'collection' => $publicId, 'item_name' => '{' . ($nameLabel !== '' ? $nameLabel : $fields[0]['label']) . '}', 'mapping' => $mapping,
+            'thank_you' => t('Thank you! We have received your entry. We will publish it after a short check.'), 'no_captcha' => $byLink,
+        ] + ($byLink ? ['access' => 'link'] : []))]], true);
 
         return $build;
     }

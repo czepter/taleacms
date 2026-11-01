@@ -63,7 +63,18 @@ final class Forms extends Module
 
     protected function actionNew(): Response
     {
-        return $this->view('new', 'New form', ['back' => $this->backToBuilder()]);
+        return $this->view('new', 'New form', ['back' => $this->backToBuilder(), 'collections' => $this->fillableCollections()]);
+    }
+
+    /** The collections a visitor could add to (something to fill), for the person who may also work in Collections. @return list<array<string, mixed>> */
+    private function fillableCollections(): array
+    {
+        if (!$this->app->auth()->hasModule('collections')) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(fn (array $c): array => (array) \Talea\Builder\Collections::byId($this->db, (int) $c['collection_id']),
+            \Talea\Builder\Collections::all($this->db)), fn (array $c): bool => FormRecords::collectionStarter($c, '', false) !== null));
     }
 
     /** Creates a form from a starter and opens it in the form builder (back to the page builder it was asked from, when it was). */
@@ -77,7 +88,16 @@ final class Forms extends Module
             return $this->back('The form needs a name.', 'new', array_filter(['back' => $this->request->post('back')]), 'error');
         }
         $starter = isset(self::STARTERS[$this->request->post('starter')]) ? $this->request->post('starter') : 'enquiry';
-        $build = FormRecords::starterBuild($starter);
+        if ($this->request->post('starter') === 'collection') {
+            $target = $this->db->byPublicId('collections', $this->request->post('collection'));
+            $collection = $target !== null && $this->app->auth()->hasModule('collections') ? \Talea\Builder\Collections::byId($this->db, (int) $target['collection_id']) : null;
+            $build = $collection !== null ? FormRecords::collectionStarter($collection, (string) $target['public_id'], $this->request->postBool('by_link')) : null;
+            if ($build === null) {
+                return $this->back('Choose a collection that has fields a visitor can fill in.', 'new', array_filter(['back' => $this->request->post('back')]), 'error');
+            }
+        } else {
+            $build = FormRecords::starterBuild($starter);
+        }
         $build['children'][0]['content']['name'] = $name;
         $now = date('Y-m-d H:i:s');
         $id = $this->db->insert('forms', ['name' => $name, 'build_draft' => Build::toJson($build), 'created_at' => $now, 'updated_at' => $now]);
@@ -109,6 +129,32 @@ final class Forms extends Module
         FormRecords::forget();
 
         return $this->back('The form was deleted. Its answers stay in Enquiries.');
+    }
+
+    /** A personal link to a form that is opened only through one: for a name, to pass on yourself (e-mailing a link needs an enquiry – Enquiries). */
+    protected function actionLink(): Response
+    {
+        $form = $this->request->isPost() ? FormRecords::byId($this->db, $this->idParam()) : null;
+        if ($form === null) {
+            return $this->back();
+        }
+        $back = ['id' => $form['public_id']];
+        if (!self::opensByLink($form)) {
+            return $this->back(t('This form is open to everyone. Set its access to a personal link in the form builder first.'), 'detail', $back, 'error');
+        }
+        try {
+            $result = \Talea\Core\FormLinks::create($this->app, $form, 0, false, $this->request->post('label'), $this->request->post('email'));
+        } catch (\DomainException $e) {
+            return $this->back(t($e->getMessage()), 'detail', $back, 'error');
+        }
+
+        return $this->back(t('The link to pass on: %s', $result['link']), 'detail', $back);
+    }
+
+    /** Is the published form one that opens only through a personal link? @param array<string, mixed> $form */
+    private static function opensByLink(array $form): bool
+    {
+        return $form['build'] !== null && (FormRecords::definition(Build::fromJson($form['build']))['content']['access'] ?? 'open') === 'link';
     }
 
     protected function actionDetail(): Response
@@ -155,7 +201,7 @@ final class Forms extends Module
         }
 
         return $this->view('detail', $form['name'] !== '' ? $form['name'] : t('Form'), ['days' => $days, 'steps' => array_values($steps), 'multiStep' => $multiStep,
-            'drop' => \Talea\Front\FormSteps::biggestDrop(array_values($steps)), 'sent' => $sent, 'form' => $form, 'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
+            'drop' => \Talea\Front\FormSteps::biggestDrop(array_values($steps)), 'sent' => $sent, 'linkForm' => $form['form_id'] > 0 && ($record = FormRecords::byId($this->db, (int) $form['form_id'])) !== null && self::opensByLink($record), 'form' => $form, 'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'enquiries' => $this->db->all('SELECT public_id, created_at, email, status, page, data' . $sql . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'shownTotal' => (int) $this->db->value('SELECT COUNT(*)' . $sql, $params),
             'totals' => ['total' => (int) ($all['total'] ?? 0), 'new' => $form['new'], 'open' => (int) ($all['open'] ?? 0), 'recent' => (int) ($all['recent'] ?? 0)]]);
@@ -196,6 +242,11 @@ final class Forms extends Module
     protected function shapeBuild(array $build): array
     {
         return FormRecords::definitionBuild($build);
+    }
+
+    protected function buildRefusal(array $target, ?string $json): ?string
+    {
+        return FormRecords::destinationRefusal($this->app, $json);
     }
 
     protected function saveDraft(array $target, ?string $draft): void

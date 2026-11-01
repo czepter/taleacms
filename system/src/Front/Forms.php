@@ -354,7 +354,7 @@ final class Forms
      */
     private function addToCollection(array $element, array $data, array $uploads, \Closure $redirectUri, ?array $link = null, string $consent = ''): Response
     {
-        $saved = \Talea\Core\CollectionSubmission::save($this->app, $element['content'], $data, $uploads, Language::siteColumn());
+        $saved = \Talea\Core\CollectionSubmission::save($this->app, $element['content'], $data, $uploads, Language::siteColumn(), (int) ($element['form_id'] ?? 0));
         if (is_string($saved)) {
             if ($link !== null) {
                 \Talea\Core\FormLinks::release($this->app->db(), $link);

@@ -198,6 +198,9 @@ trait BuildTargets
         [$build, $errors] = Build::sanitize($input, $this->app->auth()->canWriteCode(), Build::fromJson($target['draft'] ?? $target['build']));
         if ($target['kind'] === 'form') {
             $build = \Talea\Builder\FormRecords::definitionBuild($build); // a form's build is its one form element
+            if (($refusal = \Talea\Builder\FormRecords::destinationRefusal($this->app, Build::toJson($build))) !== null) {
+                throw new \DomainException($refusal);
+            }
         }
         $r = $target['row'];
         if ($target['kind'] === 'page') {
