@@ -173,7 +173,7 @@ trait BuilderActions
         [$build, $errors] = Build::sanitize($input, $this->app->auth()->canWriteCode(), Build::fromJson($target['draft'] ?? $target['build']));
         $build = $this->shapeBuild($build);
         $json = Build::toJson($build);
-        if (($refusal = $this->buildRefusal($target, $json)) !== null) {
+        if (($refusal = $this->buildRefusal($target, $json) ?? \Talea\Builder\FormRecords::destinationRefusal($this->app, $json)) !== null) {
             return Response::json(['ok' => false, 'error' => t($refusal)], 422);
         }
         $this->saveDraft($target, $json);
@@ -195,7 +195,7 @@ trait BuilderActions
         if (($conflict = $this->checkVersionConflict($target)) !== null) {
             return $conflict;
         }
-        if (($refusal = $this->buildRefusal($target, $target['draft'] ?? $target['build'])) !== null) {
+        if (($refusal = $this->buildRefusal($target, $target['draft'] ?? $target['build']) ?? \Talea\Builder\FormRecords::destinationRefusal($this->app, $target['draft'] ?? $target['build'])) !== null) {
             return Response::json(['ok' => false, 'error' => t($refusal)], 422);
         }
         $this->publishTarget($target);

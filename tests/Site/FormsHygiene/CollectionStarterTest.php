@@ -54,12 +54,12 @@ final class CollectionStarterTest extends SiteTestCase
         $this->adminPost('/admin.php?module=forms&action=link', ['id' => $link, 'label' => 'Eva'], '/admin.php?module=forms');
         $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM tl_form_links WHERE label = 'Eva'"), 'admin link: a form that is not published has no link yet');
 
-        $this->site()->admin()->post('/admin.php?module=forms&action=build_publish', ['_csrf' => $this->site()->csrf(), 'id' => $link]);
+        $this->site()->admin()->post('/admin.php?module=forms&action=build_publish&id=' . $link, ['_csrf' => $this->site()->csrf()]);
         $this->adminPost('/admin.php?module=forms&action=link', ['id' => $link, 'label' => 'Eva'], '/admin.php?module=forms');
         $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM tl_form_links WHERE label = 'Eva' AND email = '' AND enquiry_id IS NULL"), 'admin link: a published link form gets a link for a name');
         $this->adminPost('/admin.php?module=forms&action=link', ['id' => $link, 'label' => ''], '/admin.php?module=forms');
         $this->assertSame('1', (string) $this->site()->value('SELECT COUNT(*) FROM tl_form_links'), 'admin link: a link needs a name');
-        $this->site()->admin()->post('/admin.php?module=forms&action=build_publish', ['_csrf' => $this->site()->csrf(), 'id' => $plain]);
+        $this->site()->admin()->post('/admin.php?module=forms&action=build_publish&id=' . $plain, ['_csrf' => $this->site()->csrf()]);
         $this->adminPost('/admin.php?module=forms&action=link', ['id' => $plain, 'label' => 'Ben'], '/admin.php?module=forms');
         $this->assertSame('1', (string) $this->site()->value('SELECT COUNT(*) FROM tl_form_links'), 'admin link: a form open to everyone makes no links');
     }
@@ -77,7 +77,7 @@ final class CollectionStarterTest extends SiteTestCase
 
         $collectionForm = ['v' => 1, 'children' => [['type' => 'form', 'content' => ['name' => 'Plain', 'destination' => 'collection', 'collection' => $collection, 'item_name' => '{Your name}',
             'mapping' => [['target' => 'quote', 'template' => '{Your name}']], 'fields' => [['label' => 'Your name', 'type' => 'text']]]]]];
-        $saved = $client->post('/admin.php?module=forms&action=build_save', ['_csrf' => $client->get('/admin.php?module=forms')->csrf(), 'id' => $form, 'build' => json_encode($collectionForm)]);
+        $saved = $client->post('/admin.php?module=forms&action=build_save&id=' . $form, ['_csrf' => $client->get('/admin.php?module=forms')->csrf(), 'build' => json_encode($collectionForm)]);
         $this->assertSame(422, $saved->status, 'rights: the draft is refused without the Collections right');
         $this->assertStringNotContainsString('"destination":"collection"', (string) $site->value("SELECT COALESCE(build_draft, '') FROM tl_forms WHERE name = 'Plain'"), 'rights: nothing was stored');
 
@@ -85,7 +85,7 @@ final class CollectionStarterTest extends SiteTestCase
         $this->assertNotNull($as->redirect);
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_forms WHERE name = 'Sneaky'"), 'rights: no collection starter either');
 
-        $ok = $site->admin()->post('/admin.php?module=forms&action=build_save', ['_csrf' => $site->csrf(), 'id' => $form, 'build' => json_encode($collectionForm)]);
+        $ok = $site->admin()->post('/admin.php?module=forms&action=build_save&id=' . $form, ['_csrf' => $site->csrf(), 'build' => json_encode($collectionForm)]);
         $this->assertSame(200, $ok->status, 'rights: an administrator may');
     }
 
@@ -112,7 +112,7 @@ final class CollectionStarterTest extends SiteTestCase
         sleep(1);
 
         $sent = $visitor->upload('/form', $signed + ['p0' => 'Anna'], ['p1' => [$path, 'image/png', 'voice.png']]);
-        $this->assertStringContainsString('result=ok', (string) $sent->redirect, 'upload: the answer is accepted');
+        $this->assertStringContainsString('result=ok', (string) $sent->redirect, 'upload: the answer is accepted (' . $sent->status . ' ' . substr($sent->body, 0, 300) . ')');
         $item = $this->site()->rows('SELECT data, submitted_via FROM tl_collection_items WHERE collection_id = (SELECT collection_id FROM tl_collections WHERE slug = ?)', ['voices'])[0];
         $photo = (string) (json_decode((string) $item['data'], true)['image'] ?? '');
         $this->assertNotSame('', $photo, 'upload: the item holds the uploaded picture');

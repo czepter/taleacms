@@ -79,18 +79,33 @@ final class FormRecords
     }
 
     /**
-     * Why this user may not store this form (an error text for t()), or null. A form that adds items to a collection is a way into that
-     * collection: whoever saves or publishes it needs the Collections right as well as the Enquiries one. Build::sanitize has no user,
-     * so the check sits where the editor and MCP store a form.
+     * Why this user may not store or publish this build (an error text for t()), or null. A Form element that adds items to a
+     * collection is a way into that collection: whoever saves or publishes a build that holds one – a form record, a page, a pop-up,
+     * a site part, a component – needs the Collections right as well. Build::sanitize has no user, so the check sits where the editor
+     * and MCP store a build and where Publisher publishes it (adopt).
      */
     public static function destinationRefusal(App $app, ?string $json): ?string
     {
-        $content = (array) (self::definition(Build::fromJson($json))['content'] ?? []);
-        if (($content['destination'] ?? 'enquiry') === 'collection' && !$app->auth()->hasModule('collections')) {
-            return 'This form adds items to a collection. Saving it needs access to Collections as well.';
+        if ($json === null || !str_contains($json, '"collection"') || !self::addsToCollection(Build::fromJson($json)['children'] ?? [])) {
+            return null;
         }
 
-        return null;
+        return $app->auth()->hasModule('collections') ? null : 'This form adds items to a collection. Saving it needs access to Collections as well.';
+    }
+
+    /** Is there a Form element with the destination collection anywhere in these elements? @param list<array<string, mixed>> $children */
+    private static function addsToCollection(array $children): bool
+    {
+        foreach ($children as $node) {
+            if (($node['type'] ?? '') === Form::TYPE && ($node['content']['destination'] ?? 'enquiry') === 'collection') {
+                return true;
+            }
+            if (self::addsToCollection((array) ($node['children'] ?? []))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** What a form's build may hold: its first Form element alone (nothing else is saved). @return array<string, mixed> */
@@ -233,6 +248,9 @@ final class FormRecords
     {
         if ($json === null || !str_contains($json, '"type":"' . Form::TYPE . '"')) {
             return $json;
+        }
+        if (($refusal = self::destinationRefusal($app, $json)) !== null) {
+            throw new \DomainException(t($refusal));
         }
         $build = Build::fromJson($json);
         if ($build === null) {

@@ -244,11 +244,6 @@ final class Forms extends Module
         return FormRecords::definitionBuild($build);
     }
 
-    protected function buildRefusal(array $target, ?string $json): ?string
-    {
-        return FormRecords::destinationRefusal($this->app, $json);
-    }
-
     protected function saveDraft(array $target, ?string $draft): void
     {
         $this->db->update('forms', ['build_draft' => $draft === null ? null : Build::toJson(FormRecords::definitionBuild(Build::fromJson($draft))), 'updated_at' => date('Y-m-d H:i:s')],

@@ -123,7 +123,7 @@ final class CollectionSubmission
         } catch (\RuntimeException) {
             return ''; // the answer still arrives, without the file
         }
-        $db->insert('media', $saved + ['owner_id' => 0, 'staged_at' => date('Y-m-d H:i:s'), 'created_at' => date('Y-m-d H:i:s')]);
+        $db->insert('media', $saved + ['owner_id' => null, 'staged_at' => date('Y-m-d H:i:s'), 'created_at' => date('Y-m-d H:i:s')]);
 
         return $saved['image_path'];
     }
