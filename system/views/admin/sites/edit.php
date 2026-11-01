@@ -103,7 +103,7 @@ $hidden = '<input type="hidden" name="id" value="' . e($id) . '">';
 <tbody>
 <?php foreach ($site['domains'] as $d): $field = '<input type="hidden" name="host" value="' . e($d['host']) . '">'; ?>
 <tr>
-	<td class="cell-main"><span class="cell-title"><?= bdi($d['host']) ?></span><?= $d['host'] === $host ? '<span class="cell-sub">' . e(t('You are using this host name')) . '</span>' : '' ?></td>
+	<td class="cell-main"><div class="cell-text"><span class="cell-title"><?= bdi($d['host']) ?></span><?= $d['host'] === $host ? '<span class="cell-sub">' . e(t('You are using this host name')) . '</span>' : '' ?></div></td>
 	<td><?= $d['kind'] === 'preview' ? '<span class="badge">' . e(t('Preview address')) . '</span>' : ($d['is_primary'] ? '<span class="badge badge-published">' . e(t('Primary')) . '</span>' : ($d['redirect_to_primary'] ? '<span class="badge">' . e(t('Redirects to the primary')) . '</span>' : '<span class="badge">' . e(t('Alias')) . '</span>')) ?></td>
 	<td><?= $d['verified_at'] !== null ? '<span class="badge badge-published">' . e(t('Verified')) . '</span>' : '<span class="badge">' . e(t('Not verified')) . '</span>' ?></td>
 	<td class="cell-actions">

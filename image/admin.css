@@ -1068,6 +1068,7 @@ form.center.small-text .btn {
 
 /* forms */
 
+.tab-wrap + .form { margin-top: 24px; }
 .form {
 	max-width: 860px;
 	padding: 24px;
