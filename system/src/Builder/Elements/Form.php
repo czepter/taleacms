@@ -108,6 +108,8 @@ final class Form extends Element
                 'target' => ['type' => 'text', 'label' => 'Collection field (its key)', 'default' => '', 'max' => 40],
                 'template' => ['type' => 'text', 'label' => 'Content, e.g. {Your name}, {Your role}', 'default' => '', 'max' => 500],
             ], 'default' => []],
+            'heading' => ['type' => 'text', 'label' => 'Heading above the fields (empty = none)', 'default' => '', 'max' => 200],
+            'intro' => ['type' => 'lines', 'label' => 'Short text above the fields (empty = none)', 'default' => '', 'max' => 1000],
             'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Send enquiry'), 'max' => 80],
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
             'recipient' => ['type' => 'text', 'label' => 'Notification e-mails (several separated by commas; empty = site e-mail from Settings)', 'default' => '', 'max' => 190],
@@ -429,6 +431,8 @@ final class Form extends Element
             . ($k->linkToken !== '' ? '<input type="hidden" name="link" value="' . e($k->linkToken) . '">' : '')
             . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '">' . \Talea\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('form|' . $k->source . '|' . $p['id'])
+            . (trim((string) ($o['heading'] ?? '')) !== '' ? '<h2 class="tl-form-heading">' . e($o['heading']) . '</h2>' : '')
+            . (trim((string) ($o['intro'] ?? '')) !== '' ? '<p class="tl-form-intro">' . nl2br(e($o['intro'])) . '</p>' : '')
             . $html
             . (empty($o['no_captcha']) ? self::captcha($k) : '')
             . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e($waitingList ? t('Join the waiting list') : $o['button_text']) . '</button></p></form>';

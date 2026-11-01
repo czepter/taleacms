@@ -70,9 +70,12 @@ final class Forms
         }
         $redirectUri = fn (string $result, int $field = -1): Response => Response::redirect($back . '?form=' . rawurlencode($element['id']) . '&result=' . $result . ($field >= 0 ? '&field=' . $field : '') . '#' . Form::anchor($element), 303);
 
-        $link = null; // a form for personal links is sent only with the token of its link (Core\FormLinks)
-        if (($element['content']['access'] ?? 'open') === 'link' && ($link = \Talea\Core\FormLinks::find($this->app->db(), $r->post('link'), (int) ($element['form_id'] ?? 0))) === null) {
-            return $redirectUri('verification');
+        $link = null; // a form for personal links is sent only with the token of a link made for this very form (Core\FormLinks)
+        if (($element['content']['access'] ?? 'open') === 'link') {
+            $formId = (int) ($element['form_id'] ?? 0); // a form that is no record (written inside a page) has no links: it refuses everyone
+            if ($formId <= 0 || ($link = \Talea\Core\FormLinks::find($this->app->db(), $r->post('link'), $formId)) === null) {
+                return $redirectUri('verification');
+            }
         }
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         $reason = $antispam->reason($r, 'form|' . $posted . '|' . $element['id']);

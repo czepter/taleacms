@@ -106,7 +106,7 @@ final class Enquiries extends Module
         }
 
         return $this->view('detail', t('Enquiry') . ' – ' . ($p['email'] !== '' ? $p['email'] : format_date($p['created_at'], true)), ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
-            'testimonials' => \Talea\Core\Testimonials::ofEnquiry($this->db, (int) $p['enquiry_id']),
+            'testimonials' => \Talea\Core\FormLinks::ofEnquiry($this->db, (int) $p['enquiry_id']),
             'users' => $this->listAssignees((int) $p['assigned_to']), 'assignedPublicId' => $this->publicId((int) $p['assigned_to'], 'users'),
             // the inbox beside the open enquiry: the latest ones that are not spam (the full list with filters is the list screen)
             'inbox' => $this->db->all("SELECT public_id, created_at, form, email, status, category, data FROM {enquiries} WHERE category <> 'spam' AND deleted_at IS NULL ORDER BY enquiry_id DESC LIMIT " . self::INBOX),
@@ -136,7 +136,7 @@ final class Enquiries extends Module
             return $this->back();
         }
         try {
-            $result = \Talea\Core\Testimonials::request($this->app, $id, $this->request->postBool('send'));
+            $result = \Talea\Core\FormLinks::create($this->app, \Talea\Core\Testimonials::form($this->app), $id, $this->request->postBool('send'));
         } catch (\DomainException $e) {
             return $this->back($e->getMessage(), 'detail', ['id' => $this->publicId($id)], 'error');
         }

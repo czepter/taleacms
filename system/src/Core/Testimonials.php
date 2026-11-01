@@ -4,155 +4,74 @@ declare(strict_types=1);
 
 namespace Talea\Core;
 
-use Talea\Builder\Collections;
+use Talea\Builder\Build;
+use Talea\Builder\Elements\Form;
+use Talea\Builder\FormRecords;
 use Talea\Builder\Presets;
 
 /**
- * Testimonial requests with consent (2.12): after a won enquiry the site sends the customer a personal link; what they
- * write – their words, their name and role, a photo if they want – arrives as a hidden draft item of the References
- * collection, together with the consent they ticked and when. Nothing is published without the administrator.
+ * The testimonial form (2.12): a form of Enquiries → Forms like any other, made once when it is first needed and marked as the
+ * system's own (origin system:testimonial: it cannot be deleted). A customer opens it from a personal link (Core\FormLinks) and
+ * writes their words, name and role, a photo if they want, and ticks the consent; the answer arrives as a hidden draft item of the
+ * References collection (Core\CollectionSubmission) together with the consent and when it was given. Nothing is published
+ * without the administrator.
  *
- *  - The link is /_testimonial/<token>: 32 random hex characters, valid for 30 days and once; only a hash is stored.
- *  - Consent is explicit and separate for the words with the name and for the photo; the texts the customer saw are kept
- *    with the request, so the site can show what was agreed.
- *  - The References collection (preset references) is created when the site has none.
+ * The owner changes the form like any other: the fields, the texts, the collection and the mapping. The mapping names the fields
+ * by their labels, so a renamed label needs the same name in the mapping.
  */
 final class Testimonials
 {
     public const string PRESET = 'references';
 
-    public const int DAYS = 30;
+    public const string ORIGIN = 'system:testimonial';
 
-    public const int MAX_PHOTO = 8 * 1024 * 1024;
+    /** Is this form row the system's testimonial form? @param array<string, mixed> $form */
+    public static function isSystem(array $form): bool
+    {
+        return ($form['origin'] ?? '') === self::ORIGIN;
+    }
 
-    /**
-     * Creates a request – for an enquiry with an e-mail address, or without one for a person named by a label (a customer who
-     * never wrote to this site); sends the e-mail when asked. Returns the link (absolute) and whether the e-mail went out.
-     *
-     * @return array{link: string, sent: bool}
-     * @throws \DomainException when there is nobody to name the request after, or no e-mail address to send it to
-     */
-    public static function request(App $app, int $idp, bool $send, string $label = '', string $email = ''): array
+    /** The testimonial form; made (with the References collection, when the site has none) the first time. @return array<string, mixed> */
+    public static function form(App $app): array
     {
         $db = $app->db();
-        $enquiry = $idp > 0 ? $db->one('SELECT enquiry_id, form, email FROM {enquiries} WHERE enquiry_id = ?', [$idp]) : null;
-        if ($idp > 0 && $enquiry === null) {
-            throw new \DomainException('The enquiry does not exist.');
+        $row = $db->one('SELECT * FROM {forms} WHERE origin = ?', [self::ORIGIN]);
+        if ($row !== null) {
+            return $row;
         }
-        $email = trim($enquiry !== null ? (string) $enquiry['email'] : $email);
-        $label = mb_substr(trim(strip_tags($label)), 0, 190);
-        if ($enquiry === null && $label === '') {
-            throw new \DomainException('Name the person the link is for (label), or pass an enquiry.');
-        }
-        if ($send && $enquiry === null) {
-            throw new \DomainException('Only a link for an enquiry can be e-mailed – the address must come from the person themself. Return the link and pass it on.');
-        }
-        if (($send || $email !== '') && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            throw new \DomainException($send ? 'The enquiry has no e-mail address to send the request to.' : 'The e-mail address is not valid.');
-        }
-        $token = bin2hex(random_bytes(16));
-        $db->insert('form_links', ['enquiry_id' => $idp > 0 ? $idp : null, 'token_hash' => hash('sha256', $token), 'email' => $email, 'label' => $label,
-            'created_at' => date('Y-m-d H:i:s'), 'expires_at' => date('Y-m-d H:i:s', time() + self::DAYS * 86400)]);
-        $link = Mailing::absolute($app, '_testimonial/' . $token);
-        $sent = false;
-        if ($send) {
-            $site = $app->settings()->get('site_name');
-            // in the language of the site the customer wrote to, not of the admin who clicked
-            [$subject, $text] = Language::runWith($app->settings()->get('site_language') ?: 'en', fn (): array => [t('Would you share your experience with %s?', $site),
-                t("Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s", $link, self::DAYS, $site)]);
-            $sent = Mail::send($app->settings(), $email, $subject, $text);
-        }
-        \Talea\Admin\ChangeLog::write($app, 'enquiries', 'testimonial_request', mb_substr($enquiry !== null ? (string) $enquiry['form'] : $label, 0, 80) . ($sent ? ' (e-mail)' : ''));
+        $collection = $db->one('SELECT * FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1', [self::PRESET]);
+        $collectionId = $collection !== null ? (int) $collection['collection_id'] : (int) Presets::create($app, self::PRESET);
+        $collectionPublic = $db->publicId('collections', $collectionId);
+        $build = Language::runWith($app->settings()->get('site_language') ?: 'en', function () use ($app, $collectionPublic): array {
+            $site = (string) $app->settings()->get('site_name');
+            $words = t('Your words');
+            $name = t('Your name');
+            $role = t('Role and company (optional)');
+            $photo = t('Your photo (optional)');
+            [$build] = Build::sanitize(['v' => Build::VERSION, 'children' => [Build::fresh(Form::TYPE, [
+                'name' => t('Share your experience'), 'heading' => t('Share your experience with %s', $site),
+                'intro' => t('It takes a minute, and we publish it only with your consent.'),
+                'fields' => [
+                    ['label' => $words, 'type' => 'textarea', 'required' => true],
+                    ['label' => $name, 'type' => 'text', 'required' => true],
+                    ['label' => $role, 'type' => 'text'],
+                    ['label' => $photo, 'type' => 'file'],
+                    ['label' => t('I agree that %s may publish my words with my name and role, and the photo if I upload one, on its website.', $site), 'type' => 'checkbox', 'required' => true],
+                ],
+                'access' => 'link', 'link_days' => FormLinks::DAYS, 'destination' => 'collection', 'collection' => $collectionPublic, 'item_name' => '{' . $name . '}',
+                'mapping' => [['target' => 'quote', 'template' => '{' . $words . '}'], ['target' => 'client', 'template' => '{' . $name . '}, {' . $role . '}'], ['target' => 'image', 'template' => '{' . $photo . '}']],
+                'button_text' => t('Send'), 'thank_you' => t('Thank you! We have received your words. We will publish them after a short check.'), 'no_captcha' => true,
+                'link_subject' => t('Would you share your experience with %s?', $site),
+                'link_text' => t("Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n{link}\n\nThe link works for {days} days.\n\n{site name}"),
+            ])]], true);
 
-        return ['link' => $link, 'sent' => $sent];
-    }
+            return $build;
+        });
+        $json = Build::toJson($build);
+        $now = date('Y-m-d H:i:s');
+        $id = $db->insert('forms', ['name' => (string) ($build['children'][0]['content']['name'] ?? 'Share your experience'), 'origin' => self::ORIGIN, 'build' => $json, 'created_at' => $now, 'updated_at' => $now]);
+        FormRecords::forget();
 
-    /** The open request of a token from a link: not used, not expired; null otherwise. @return array<string, mixed>|null */
-    public static function find(Db $db, string $token): ?array
-    {
-        if (preg_match('/^[a-f0-9]{32}$/', $token) !== 1) {
-            return null;
-        }
-
-        return $db->one('SELECT * FROM {form_links} WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s')]);
-    }
-
-    /** The two consents, as the customer sees them. @return array{words: string, photo: string} */
-    public static function consents(string $site): array
-    {
-        return [
-            'words' => t('I agree that %s may publish my words with my name and role on its website.', $site),
-            'photo' => t('I agree that %s may publish the photo I uploaded next to them.', $site),
-        ];
-    }
-
-    /**
-     * What the customer sent, checked: the words (required, plain text), the name (required), the role and the consents.
-     *
-     * @return array{text: string, name: string, role: string, words: bool, photo: bool}|string the clean answer or an error for the customer
-     */
-    public static function clean(array $input): array|string
-    {
-        $line = fn (string $key, int $max): string => mb_substr(trim(strip_tags(str_replace(["\r", "\n"], ' ', is_scalar($input[$key] ?? null) ? (string) $input[$key] : ''))), 0, $max);
-        $text = mb_substr(trim(strip_tags(str_replace("\r\n", "\n", is_scalar($input['text'] ?? null) ? (string) $input['text'] : ''))), 0, 3000);
-        $answer = ['text' => $text, 'name' => $line('name', 120), 'role' => $line('role', 160), 'words' => ($input['consent_words'] ?? '') === '1', 'photo' => ($input['consent_photo'] ?? '') === '1'];
-
-        return match (true) {
-            mb_strlen($text) < 10 => t('Please write a few words.'),
-            $answer['name'] === '' => t('Please fill in your name.'),
-            !$answer['words'] => t('We can publish your words only with your consent.'),
-            default => $answer,
-        };
-    }
-
-    /**
-     * Saves the answer: the photo (only with its consent) into Media, a hidden draft item in References, the consents with
-     * the request, and marks the link used. Returns the item id.
-     *
-     * @param array{text: string, name: string, role: string, words: bool, photo: bool} $answer
-     * @param array<string, mixed>|null $photo an item of $_FILES
-     */
-    public static function save(App $app, array $request, array $answer, ?array $photo): int
-    {
-        $db = $app->db();
-        $collection = $db->one("SELECT * FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1", [self::PRESET]);
-        $idk = $collection !== null ? (int) $collection['collection_id'] : (int) Presets::create($app, self::PRESET);
-        $collection = (array) Collections::byId($db, $idk);
-        $image = '';
-        if ($answer['photo'] && $photo !== null && ($photo['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && (int) ($photo['size'] ?? 0) <= self::MAX_PHOTO) {
-            try {
-                $saved = Images::save($photo);
-                $saved['name'] = $answer['name'];
-                $db->insert('media', $saved + ['owner_id' => 0, 'created_at' => date('Y-m-d H:i:s')]);
-                $image = $saved['image_path'];
-            } catch (\RuntimeException) {
-                $image = ''; // a photo that cannot be read is left out; the words still arrive
-            }
-        }
-        $keys = array_column((array) $collection['fields'], 'type', 'key');
-        $data = array_filter([
-            'quote' => isset($keys['quote']) ? $answer['text'] : null,
-            'client' => isset($keys['client']) ? trim($answer['name'] . ($answer['role'] !== '' ? ', ' . $answer['role'] : '')) : null,
-            'image' => isset($keys['image']) && $image !== '' ? $image : null,
-        ], fn (?string $v): bool => $v !== null);
-        $consents = self::consents((string) $app->settings()->get('site_name'));
-        $itemId = $db->insert('collection_items', ['collection_id' => $idk, 'name' => mb_substr($answer['name'], 0, 200), 'slug' => self::slug($db, $idk, $answer['name']),
-            'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'visible' => 0, 'language' => '', 'created_at' => date('Y-m-d H:i:s'), 'sort_order' => 0]);
-        $db->update('form_links', ['used_at' => date('Y-m-d H:i:s'), 'item_id' => $itemId,
-            'consent' => $consents['words'] . ($answer['photo'] && $image !== '' ? "\n" . $consents['photo'] : '')], ['id' => (int) $request['id']]);
-        Events::record($db, 'testimonial.received', 'info', t('A testimonial arrived – a hidden draft in %s.', (string) $collection['name']), ['item' => $itemId]);
-
-        return $itemId;
-    }
-
-    private static function slug(Db $db, int $idk, string $name): string
-    {
-        return Slug::makeUnique(slugify($name !== '' ? $name : 'reference', 150) ?: 'reference', fn (string $s): bool => $db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND slug = ?', [$idk, $s]) !== null, 160);
-    }
-
-    /** The requests of an enquiry for its detail: when, to whom, whether it came back and the draft it made. @return list<array<string, mixed>> */
-    public static function ofEnquiry(Db $db, int $idp): array
-    {
-        return $db->all('SELECT id, email, label, created_at, expires_at, used_at, item_id FROM {form_links} WHERE enquiry_id = ? ORDER BY id DESC', [$idp]);
+        return (array) FormRecords::byId($db, $id);
     }
 }

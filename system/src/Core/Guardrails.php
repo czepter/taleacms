@@ -28,7 +28,7 @@ final class Guardrails
      * a destructive tool. tool => the parameter that makes the call destructive ('' = the tool always overwrites), or a list of
      * them ('action=undo_promotion': that value). The tools read these parameters with !empty().
      */
-    private const array DESTRUCTIVE_CALLS = ['save_redirect' => 'delete', 'save_part_variant' => 'delete', 'restore_item_version' => '', 'request_testimonial' => 'send',
+    private const array DESTRUCTIVE_CALLS = ['save_redirect' => 'delete', 'save_part_variant' => 'delete', 'restore_item_version' => '', 'create_form_link' => 'send',
         'create_experiment' => ['auto_promote'], 'update_experiment' => ['auto_promote', 'action=undo_promotion']]; // auto_promote: the scheduler publishes later; undo_promotion publishes into the page
 
     /** The other build targets: with one of them the `id` does not name a page. */

@@ -68,15 +68,17 @@ final class FormLinks
         return ['link' => $link, 'sent' => $sent];
     }
 
-    /** The open link of a token: not used, not expired (and made for this form, when given); null otherwise. @return array<string, mixed>|null */
-    public static function find(Db $db, string $token, int $formId = 0): ?array
+    /** The open link of a token: not used, not expired (and made for this form, when given); null otherwise. With $justUsed: a link used within the last hour. @return array<string, mixed>|null */
+    public static function find(Db $db, string $token, int $formId = 0, bool $justUsed = false): ?array
     {
         if (preg_match('/^[a-f0-9]{32}$/', $token) !== 1) {
             return null;
         }
-        $link = $db->one('SELECT * FROM {form_links} WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s')]);
+        // $justUsed: the person was just sent back to the page of their link – it shows the thank-you for an hour after the submission
+        $link = $justUsed ? $db->one('SELECT * FROM {form_links} WHERE token_hash = ? AND used_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - 3600)])
+            : $db->one('SELECT * FROM {form_links} WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s')]);
 
-        return $link !== null && ($formId === 0 || (int) $link['form_id'] === $formId) ? $link : null;
+        return $link !== null && ($formId === 0 || (int) $link['form_id'] === $formId) ? $link : null; // $formId 0: the page of a link asks for the link's own form
     }
 
     /** Takes the link for one submission: false when somebody else took it a moment ago. */

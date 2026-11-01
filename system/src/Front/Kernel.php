@@ -301,7 +301,6 @@ final class Kernel
             ->add('ANY', '/_form/{id:[a-f0-9-]{36}}', [self::class, 'previewForm'], fn (App $app): bool => $app->auth()->hasModule('enquiries'), 'permission:enquiries')
             ->add('ANY', '/' . $collection . '.ics', [CollectionPages::class, 'calendarFile']) // only an events collection answers
             ->add('ANY', '/' . $collection . '/' . $item . '.ics', [CollectionPages::class, 'calendarFile'])
-            ->add('ANY', '/_testimonial/' . $token, [CollectionPages::class, 'testimonialPage'])
             ->add('ANY', '/_f/' . $token, [self::class, 'linkForm'])
             ->add('POST', '/_comment', [Endpoints::class, 'comment'])
             ->add('ANY', '/' . $collection . '/_compare', [CollectionPages::class, 'compareProducts'])
@@ -477,7 +476,7 @@ final class Kernel
     public function linkForm(string $token): Response
     {
         $db = $this->app->db();
-        $link = \Talea\Core\FormLinks::find($db, $token);
+        $link = \Talea\Core\FormLinks::find($db, $token) ?? ($this->app->request->get('result') === 'ok' ? \Talea\Core\FormLinks::find($db, $token, 0, true) : null);
         $form = $link !== null ? \Talea\Builder\FormRecords::byId($db, (int) $link['form_id']) : null;
         if ($form === null || (string) $form['build'] === '') {
             return $this->notFound();
