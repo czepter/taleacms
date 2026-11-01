@@ -36,7 +36,7 @@ final class CollectionFormTest extends SiteTestCase
 
         $sent = $visitor->post('/form', $signed + ['p0' => 'Anna', 'p1' => 'Designer', 'p2' => 'Lovely work <b>indeed</b>']);
         $this->assertStringContainsString('result=ok', $sent->redirect, 'collection form: the submission is accepted');
-        $item = $this->site()->one('SELECT name, visible, data FROM tl_collection_items WHERE collection_id = (SELECT collection_id FROM tl_collections WHERE slug = ?)', ['voices']);
+        $item = ($this->site()->rows('SELECT name, visible, data FROM tl_collection_items WHERE collection_id = (SELECT collection_id FROM tl_collections WHERE slug = ?)', ['voices']))[0];
         $this->assertSame('Anna|0', $item['name'] . '|' . $item['visible'], 'collection form: a hidden draft named after the answer');
         $data = json_decode((string) $item['data'], true);
         $this->assertSame('Anna, Designer', $data['client'] ?? null, 'collection form: a template puts several answers together');
