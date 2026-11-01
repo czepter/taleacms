@@ -861,6 +861,7 @@ return [
     'This URL is used by the system, choose another one.' => 'Diese URL wird vom System verwendet, wähle eine andere.',
     'This address is used by the system, choose another one.' => 'Diese Adresse wird vom System verwendet, wähle eine andere.',
     'This fact comes from the settings (Business details) – change it there.' => 'Dieser Fakt stammt aus den Einstellungen (Firmendaten) – ändere ihn dort.',
+    'This form belongs to the system: change it as you like, but it cannot be deleted.' => 'Dieses Formular gehört zum System: Du kannst es beliebig ändern, aber nicht löschen.',
     'This group still restricts pages, items or news. Remove the restriction first – otherwise they would become public.' => 'Diese Gruppe beschränkt noch Seiten, Einträge oder News. Entferne zuerst die Beschränkung – sonst würden sie öffentlich.',
     'This host name belongs to the installation\'s preview addresses. Use your own domain.' => 'Dieser Name gehört zu den Vorschau-Adressen der Installation. Verwende deine eigene Domain.',
     'This host name does not resolve yet: point it to this installation in the DNS first.' => 'Dieser Hostname wird noch nicht aufgelöst: Richte ihn zuerst im DNS auf diese Installation aus.',

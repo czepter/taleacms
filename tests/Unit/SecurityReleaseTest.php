@@ -218,7 +218,7 @@ final class SecurityReleaseTest extends TestCase
             \Talea\Core\Guardrails::targetPage('save_build', ['id' => 5, 'popup' => 0]), \Talea\Core\Guardrails::targetPage('edit_build', ['id' => 5, 'part' => '', 'component' => '0', 'collection' => null]),
             \Talea\Core\Guardrails::targetPage('save_build', ['id' => 5, 'popup' => 3]), \Talea\Core\Guardrails::targetPage('publish_build', ['id' => 5, 'part' => 'header']),
             \Talea\Core\Guardrails::targetPage('update_page', ['id' => 5, 'popup' => 3]), \Talea\Core\Guardrails::targetPage('trash_page', ['id' => 5, 'collection' => 'x'])], '3.3.2 (N31): an empty other build target does not hide the page from the protected-pages guardrail; update_page and trash_page have no other target');
-        $this->assertSame([['save_redirect' => 'delete', 'save_part_variant' => 'delete', 'restore_item_version' => '', 'request_testimonial' => 'send',
+        $this->assertSame([['save_redirect' => 'delete', 'save_part_variant' => 'delete', 'restore_item_version' => '', 'create_form_link' => 'send',
             'create_experiment' => ['auto_promote'], 'update_experiment' => ['auto_promote', 'action=undo_promotion']]], [
             (new \ReflectionClassConstant(\Talea\Core\Guardrails::class, 'DESTRUCTIVE_CALLS'))->getValue()], '3.3.2 (N32): with deleting switched off, deleting a redirect or a part variant, restoring an item version and e-mailing a testimonial request count as destructive');
         $this->assertSame(['203.0.113.7', '2001:db8:1:2::/64', '2001:db8:1:2::/64', '203.0.113.7', 'unknown'], array_map(\Talea\Core\Antispam::network(...),
