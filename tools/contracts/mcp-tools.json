@@ -1643,12 +1643,12 @@
     },
     "request_testimonial": {
         "parameters": {
+            "email": "string",
             "id": "string",
+            "label": "string",
             "send": "boolean"
         },
-        "required": [
-            "id"
-        ],
+        "required": [],
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": false,
