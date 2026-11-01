@@ -137,19 +137,6 @@ class Settings extends Module
         return $tab === 'reports' && \Talea\Core\AllSitesReport::available($this->app) ? $field + ['report_all_sites' => 'flag'] : $field; // multisite: site 1 only
     }
 
-    /** @return array{site: array<string, mixed>, host: string, dnsOnly: bool}|null the host names of the current site (several websites only) */
-    private function addressHosts(): ?array
-    {
-        $id = (int) ($this->app->site['site_id'] ?? 1);
-        foreach (\Talea\Core\Sites::overview($this->db, false) as $site) {
-            if ((int) $site['site_id'] === $id) {
-                return ['site' => $site, 'host' => \Talea\Core\Sites::requestHost($this->request), 'dnsOnly' => \Talea\Core\Domains::dnsOnly($this->db)];
-            }
-        }
-
-        return null;
-    }
-
     /** @return array<string, string> address => name of every collection, for the screen mode checkboxes */
     private function screenCollections(): array
     {
@@ -240,7 +227,7 @@ class Settings extends Module
             'pages' => $tab === 'general' ? $this->db->pairs("SELECT public_id, title FROM {pages} WHERE visible = TRUE AND language = '' ORDER BY sort_order, title") : [],
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'messageGroups' => $tab === 'messages' ? Messages::groups($this->db, $settings) : [],
-            'address' => $tab === 'address' && \Talea\Core\Sites::enabled() ? $this->addressHosts() : null,
+            'address' => $tab === 'address' && \Talea\Core\Sites::enabled() ? \Talea\Admin\AddressHosts::of($this->app, $this->db, $this->request) : null,
             'screenUrl' => $tab === 'general' ? \Talea\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' && \Talea\Core\Owners::isFirst($this->db) ? Backup::listAll() : [], // the files of the whole install: the first owner's
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
