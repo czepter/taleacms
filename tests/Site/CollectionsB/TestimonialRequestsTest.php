@@ -23,6 +23,7 @@ final class TestimonialRequestsTest extends SiteTestCase
         $nameOnly = $site->mcpResult('request_testimonial', ['label' => 'Anna Weber, wedding 2019']);
         $this->assertStringContainsString('/_testimonial/', (string) ($nameOnly['link'] ?? ''), 'testimonials: a link needs neither an enquiry nor an e-mail address');
         $this->assertSame('Anna Weber, wedding 2019', (string) $site->value("SELECT label FROM tl_form_links WHERE label <> '' ORDER BY id DESC LIMIT 1"), 'testimonials: the label says who the link is for');
+        $this->assertStringContainsString('Only a link for an enquiry', $this->mcpText('request_testimonial', ['label' => 'Stranger', 'email' => 'stranger@example.com', 'send' => true]), 'testimonials: an address the site did not get from the person is never mailed');
         $this->assertStringContainsString('label', $this->mcpText('request_testimonial', []), 'testimonials: without enquiry and label there is nobody to name the link after');
 
         $answer = $site->mcpResult('request_testimonial', ['id' => $site->publicId('enquiries', $enquiry), 'send' => false]);

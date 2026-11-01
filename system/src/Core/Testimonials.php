@@ -44,6 +44,9 @@ final class Testimonials
         if ($enquiry === null && $label === '') {
             throw new \DomainException('Name the person the link is for (label), or pass an enquiry.');
         }
+        if ($send && $enquiry === null) {
+            throw new \DomainException('Only a link for an enquiry can be e-mailed – the address must come from the person themself. Return the link and pass it on.');
+        }
         if (($send || $email !== '') && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             throw new \DomainException($send ? 'The enquiry has no e-mail address to send the request to.' : 'The e-mail address is not valid.');
         }
