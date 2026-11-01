@@ -157,7 +157,7 @@ final class Kernel
         'This website' => [['settings', 'general', 'Basics'], ['settings', 'address', 'Address and visibility'], ['business', '', 'Company'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'messages', 'Messages'], ['settings', 'enquiries', 'Enquiries'], ['settings', 'analytics', 'Analytics'], ['transfer', '', 'Import and export']],
         'News and communication' => [['settings', 'mail', 'Mail'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'webhooks', 'Webhooks'], ['settings', 'reports', 'Reports'], ['connectors', '', 'Integrations']],
         'Data' => [['settings', 'backups', 'Backups'], ['redirects', '', 'Redirects'], ['changelog', '', 'Change log']],
-        'System' => [['extensions', '', 'Features and add-ons'], ['settings', 'ai', 'AI'], ['users', '', 'Users and roles'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console'], ['status', '', 'System status']],
+        'Features and system' => [['extensions', '', 'Features and add-ons'], ['settings', 'ai', 'AI'], ['users', '', 'Users and roles'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console'], ['status', '', 'System status']],
         'Installation' => [['sites', '', 'Websites', 'multisite'], ['owners', '', 'Owners', 'agency']],
     ];
 

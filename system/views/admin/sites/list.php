@@ -54,7 +54,7 @@ $title = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (str
 <?php endif ?>
 <p class="small-text"><?= e(t('Every site has its own pages, news, settings and look. Users, media files, components and facts are shared by all sites. New sites are set up in the background by the scheduled tasks.')) ?></p>
 <div class="tab-wrap"><table class="listing">
-<thead><tr><th scope="col"><?= e(t('Site')) ?></th><?php if ($agency): ?><th scope="col"><?= e(t('Owner')) ?></th><?php endif ?><th scope="col"><?= e(t('Addresses')) ?></th><th scope="col"><?= e(t('Last backup')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Storage')) ?></th><th scope="col"><?= e(t('Open enquiries')) ?></th><th scope="col"><?= e(t('Broken links')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Site')) ?></th><?php if ($agency): ?><th scope="col"><?= e(t('Owner')) ?></th><?php endif ?><th scope="col"><?= e(t('Addresses')) ?></th><th scope="col"><?= e(t('Last backup')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><span class="visually-hidden"><?= e(t('Actions')) ?></span></th></tr></thead>
 <tbody>
 <?php foreach ($sites as $s): $edit = $module->url('edit', ['id' => $s['public_id']]); $host = $s['domains'][0]['host'] ?? ''; $here = (int) $s['site_id'] === $current; $own = $s['own']; ?>
 <tr>
@@ -63,9 +63,6 @@ $title = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (str
 	<td class="cell-weak"><?= $host !== '' ? bdi($host) : e(t('none yet')) ?><?= count($s['domains']) > 1 ? ' <span class="cell-sub">' . e(t('+ %d more', count($s['domains']) - 1)) . '</span>' : '' ?><?= $s['unverified'] > 0 ? ' <span class="badge badge-pending">' . e(t('%d open', $s['unverified'])) . '</span>' : '' ?></td>
 	<td class="cell-weak"><?php if (!$s['ready']): ?><?php elseif ($s['backup'] === 0): ?><span class="badge badge-error"><?= e(t('none')) ?></span><?php else: ?><?= e(format_date(date('Y-m-d H:i:s', $s['backup']))) ?><?= time() - $s['backup'] > 2 * 86400 ? ' <span class="badge badge-error">' . e(t('old')) . '</span>' : '' ?><?php endif ?></td>
 	<td><?= $state($s) ?></td>
-	<td class="number"><?= $s['ready'] ? e(Talea\Core\Files::size((int) $s['bytes'])) : '' ?></td>
-	<td class="number"><?= $s['health'] ? (int) $s['health']['enquiries'] : '' ?></td>
-	<td class="number"><?= $s['health'] ? (int) $s['health']['broken_links'] : '' ?></td>
 	<td class="cell-actions"><?php if ($own): ?><?= $app->view->render('admin/list/actions', ['id' => 'site-' . $s['public_id'], 'name' => $title($s), 'edit' => $edit, 'csrf' => $csrf,
 		'menu' => array_merge(
 			$s['ready'] && !$here && $host !== '' ? [['post' => $module->url('handoff'), 'fields' => ['id' => $s['public_id']], 'label' => t('Open'), 'icon' => 'out']] : [],

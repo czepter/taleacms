@@ -2564,6 +2564,9 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .stats-head .tabs { margin: 0; }
 .tiles-item { border-radius: var(--radius); padding: 16px 18px; }
 .tiles-item strong { font-size: 28px; font-weight: 600; }
+/* Settings overview: a tile is a name, not a number */
+.settings-tiles { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.settings-tiles .tiles-item strong { font-size: 16px; font-weight: 600; letter-spacing: 0; overflow-wrap: anywhere; }
 .stats-chart { margin: 0 0 24px; padding: 18px 20px 6px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--surface); }
 .stats-chart figcaption { margin: 0 0 12px; font-weight: 600; }
 .stats-chart .chart { border: 0; padding: 0; }

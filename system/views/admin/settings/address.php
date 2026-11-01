@@ -13,6 +13,6 @@
 <?php $field('indexing', 'Allow the site in search engines', 'flag', 'Turn off only for a site under construction.'); ?>
 </fieldset>
 <fieldset>
-<legend><?= e(t('Host names')) ?></legend>
+<legend><?= e(t('Redirect')) ?></legend>
 <?php $field('redirect_to_site_url', 'Redirect other addresses to the site address', 'flag', 'Visitors who reach the site under another address (with or without www, an old domain) are sent to the same page on the site address. The administration, the Claude connection and preview links are not redirected.'); ?>
 </fieldset>
