@@ -2699,3 +2699,11 @@ table.translations td[data-status] form { margin-inline-start: 6px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--accent-light); font-size: 12.5px; }
 form:not(:has(input[name=from][value=file]:checked)) .start-file { display: none; }
+
+/* a yes/no setting as a switch: the checkbox itself, so the form posts as before */
+.flag-switch { appearance: none; position: relative; flex: none; width: 42px; height: 24px; margin: 0 8px 0 0; border-radius: 999px; background: var(--line-field); cursor: pointer; vertical-align: middle; transition: background-color .12s; }
+.flag-switch::after { content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); transition: inset-inline-start .12s; }
+.flag-switch:checked { background: var(--ok); }
+.flag-switch:checked::after { inset-inline-start: 21px; }
+.flag-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.settings-tiles .tiles-item span { display: block; margin-top: 4px; }

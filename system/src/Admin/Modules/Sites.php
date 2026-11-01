@@ -124,6 +124,9 @@ final class Sites extends Module
             $own = (string) $o['prefix'] === $this->db->ownerPrefix;
             $db = $own ? $this->db : $this->db->forOwner((string) $o['prefix']);
             $name = OwnerRegistry::nameOf($this->db, (string) $o['prefix']);
+            if ($name === (string) $o['prefix'] && $name === $this->db->installPrefix) {
+                $name = t('Main owner'); // an unnamed first owner is not shown by its table prefix
+            }
             $ownerNames[(string) $o['public_id']] = $name;
             if ($ownerFilter !== '' && $ownerFilter !== (string) $o['public_id']) {
                 continue;
