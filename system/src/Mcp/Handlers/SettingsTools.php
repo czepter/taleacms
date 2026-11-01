@@ -136,6 +136,14 @@ trait SettingsTools
                 $errors[$key] = 'The site has no language version "' . $message['language'] . '". The key without a language suffix is the default language' . ($languages !== [] ? '; further languages: ' . implode(', ', $languages) . '.' : ' (the site has no further languages).');
                 continue;
             }
+            if (str_starts_with($key, 'agency_') && !\Talea\Core\Agency::visible($siteSettings)) {
+                $errors[$key] = 'The "Created and maintained by" card is hidden: switch on "Maintained by an agency" in Settings → General (or give a user the Agency role) first.';
+                continue;
+            }
+            if (str_starts_with($key, 'agency_') && !\Talea\Core\Agency::editable($this->app->db(), $this->app->auth()->user())) {
+                $errors[$key] = 'In agency mode only the operator can change the "Created and maintained by" card.';
+                continue;
+            }
             $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Talea\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
             if ($clean !== null && $message !== null && \Talea\Core\Messages::isTemplate($siteSettings, $key, $clean)) {
                 $clean = ''; // the template itself is no own text

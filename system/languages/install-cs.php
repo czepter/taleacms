@@ -2174,6 +2174,7 @@ return [
     'The site appearance has been saved.' => 'Vzhled webu byl uložen.',
     'The site has a custom menu – the page is added to its end. Change the order and submenus in Appearance → Menu.' => 'Web má sestavené menu – stránka se přidá na jeho konec. Pořadí a podmenu upravíte ve Vzhled → Menu.',
     'The site has no database backup yet.' => 'Web zatím nemá žádnou zálohu databáze.',
+    'The site is empty. Sign in and drop the export of your Talea site on the Import and export page.' => 'Web je prázdný. Přihlaste se a přetáhněte export svého webu Talea na stránku Import a export.',
     'The site is empty. Sign in and import the export of your Talea site in Import and export → Import from Talea.' => 'Web je prázdný. Přihlaste se a naimportujte export svého webu na Talea v Import a export → Import z Talea.',
     'The site is temporarily unavailable' => 'Web je dočasně mimo provoz',
     'The site logo from Appearance, otherwise the site name – a link to the home page.' => 'Logo webu z nastavení Vzhledu, jinak název webu – odkaz na úvodní stránku.',

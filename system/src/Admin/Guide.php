@@ -71,6 +71,7 @@ final class Guide
 
     /** Settings tab => article#anchor */
     public const array SETTINGS = [
+        'address' => 'sites',
         'general' => 'languages#how-language-versions-work',
         'company' => 'company-details',
         'seo' => 'seo#settings-seo-and-geo',

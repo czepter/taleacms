@@ -446,6 +446,17 @@
 		document.addEventListener('input', function (e) { if (e.target.tagName === 'TEXTAREA') { later(e, 1200); } });
 	});
 
+	/* ---------- import: one drop zone, the file goes up as soon as it is chosen or dropped ---------- */
+	document.querySelectorAll('[data-dropzone]').forEach(function (zone) {
+		var input = zone.querySelector('input[type=file]'), form = zone.closest('form'), label = zone.querySelector('[data-dropzone-name]');
+		if (!input || !form) { return; }
+		var chosen = function () { if (input.files.length) { if (label) { label.textContent = input.files[0].name; } if (zone.hasAttribute('data-dropzone-manual')) { return; } form.requestSubmit ? form.requestSubmit() : form.submit(); } };
+		input.addEventListener('change', chosen);
+		['dragenter', 'dragover'].forEach(function (n) { zone.addEventListener(n, function (e) { e.preventDefault(); zone.classList.add('drop-over'); }); });
+		['dragleave', 'drop'].forEach(function (n) { zone.addEventListener(n, function () { zone.classList.remove('drop-over'); }); });
+		zone.addEventListener('drop', function (e) { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files.length) { input.files = e.dataTransfer.files; chosen(); } });
+	});
+
 	/* ---------- progress of a site import: asks the status address, redraws the bar and the steps, opens the site when it is ready ---------- */
 
 	var importStatus = document.querySelector('[data-import-status]');

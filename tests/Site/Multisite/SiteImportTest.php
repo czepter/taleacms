@@ -35,7 +35,7 @@ final class SiteImportTest extends SiteTestCase
         file_put_contents($zip, $admin->get('/admin.php?module=transfer&action=download&file=' . $m[0])->body);
 
         $this->assertStringContainsString('Import a Talea archive', $admin->get('/admin.php?module=sites')->body);
-        $upload = $admin->upload('/admin.php?module=sites&action=import', ['_csrf' => $site->csrf($admin, '/admin.php?module=sites'), 'name' => 'Moved'], ['file' => $zip]);
+        $upload = $admin->upload('/admin.php?module=sites&action=create', ['_csrf' => $site->csrf($admin, '/admin.php?module=sites'), 'name' => 'Moved', 'from' => 'file'], ['file' => $zip]);
         $this->assertSame(302, $upload->status);
         $row = $site->rows('SELECT ready_at, import_file, prefix FROM tl_sites WHERE site_id = 2')[0];
         $this->assertNull($row['ready_at']);

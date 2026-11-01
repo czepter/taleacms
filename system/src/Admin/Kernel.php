@@ -149,16 +149,31 @@ final class Kernel
     public const array GLANCE_PERIODS = [7, 30, 90];
 
     /**
-     * The sidebar of the Settings area (the gear): heading => list of [module ident, settings tab ('' = the module's own
-     * screen), label]. An entry shows only when the person may open its module.
+     * The sidebar of the Settings area (the gear), grouped (docs/specs/settings-ux.md section 4): group => list of
+     * [module ident, settings tab ('' = the module's own screen), label, optional minimum Deployment level]. Adding a screen to
+     * a group is one line here. An entry shows only when the person may open its module; the overview page shows the same groups as tiles.
      */
     public const array SETTINGS_MENU = [
-        'Site' => [['settings', 'general', 'General'], ['business', '', 'Business details'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'enquiries', 'Enquiries'], ['sites', '', 'Sites'], ['owners', '', 'Owners']],
-        'People' => [['users', '', 'Users and roles']],
-        'Connections' => [['settings', 'mail', 'Mail'], ['connectors', '', 'Integrations'], ['settings', 'analytics', 'Analytics'], ['settings', 'webhooks', 'Webhooks']],
-        'Features' => [['extensions', '', 'Features and add-ons'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'messages', 'Messages'], ['settings', 'ai', 'AI']],
-        'Data and system' => [['settings', 'backups', 'Backups'], ['settings', 'reports', 'Reports'], ['transfer', '', 'Import and export'], ['changelog', '', 'Change log'], ['status', '', 'System status'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console']],
+        'This website' => [['settings', 'general', 'Basics'], ['settings', 'address', 'Address and visibility'], ['business', '', 'Company'], ['settings', 'seo', 'SEO and GEO'], ['settings', 'cookies', 'Privacy and cookies'], ['settings', 'messages', 'Messages'], ['settings', 'enquiries', 'Enquiries'], ['settings', 'analytics', 'Analytics'], ['transfer', '', 'Import and export']],
+        'News and communication' => [['settings', 'mail', 'Mail'], ['newsletter_settings', '', 'Newsletter'], ['settings', 'webhooks', 'Webhooks'], ['settings', 'reports', 'Reports'], ['connectors', '', 'Integrations']],
+        'Data' => [['settings', 'backups', 'Backups'], ['redirects', '', 'Redirects'], ['changelog', '', 'Change log']],
+        'Features and system' => [['extensions', '', 'Features and add-ons'], ['settings', 'ai', 'AI'], ['users', '', 'Users and roles'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console'], ['status', '', 'System status']],
+        'Installation' => [['sites', '', 'Websites', 'multisite'], ['owners', '', 'Owners', 'agency']],
     ];
+
+    /** SETTINGS_MENU without the entries the deployment does not have (several websites, agency mode). */
+    public static function settingsMenu(): array
+    {
+        $menu = [];
+        foreach (self::SETTINGS_MENU as $group => $entries) {
+            $entries = array_values(array_filter($entries, static fn (array $entry): bool => !isset($entry[3]) || \Talea\Core\Deployment::atLeast($entry[3])));
+            if ($entries !== []) {
+                $menu[$group] = $entries;
+            }
+        }
+
+        return $menu;
+    }
 
     /** Home: the first steps in collapsible groups (step name => group); every step of firstSteps() is listed. */
     private const array FIRST_STEP_GROUPS = [
