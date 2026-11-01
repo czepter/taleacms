@@ -95,6 +95,14 @@ final class Form extends Element
             // rules and result variants (Builder\FormLogic); edited in its own overlay, not as a field
             'calculation' => ['type' => 'choice', 'label' => 'Show the estimate', 'default' => 'live', 'options' => ['live' => 'while answering', 'after_contact' => 'after the visitor sent their contact details']],
             'logic' => ['type' => 'form_logic', 'label' => 'Logic for a quiz or quote calculator. Options of radio, select and checkboxes fields may carry an amount ("Label | 1200"), a number field a unit_price, an estimate field adds them up to a total with an optional range (range_below/range_above in percent), rounding (round_to) and a minimum. "logic" holds rules and result variants: {"rules":[{"label":"…","match":"all|any","when":[{"field":"<field key>","op":"is|is_not|contains|not_contains|gt|lt|between|weekday|month|empty|not_empty","value":"…","to":"… (between)"}],"then":[{"do":"add|quantity|multiply|skip|show_when|result", …}]}],"results":[{"key":"…","heading":"…","text":"…","show_amount":true,"button_text":"","button_link":""}]} – add: {"do":"add","amount":100}, quantity (amount × the number in a field): {"do":"quantity","field":"<key>","amount":10}, multiply: {"do":"multiply","by":1.3}, skip: {"do":"skip","field":"<key>"} (the field is hidden when the rule holds), show_when: {"do":"show_when","field":"<key>"} (the field shows only when the rule holds), result: {"do":"result","variant":"<result key>"}. Fields are named by their key (get_build shows it), never by label. calculation "after_contact" shows the estimate only after the visitor sent their contact details (no amount is then in the page). Run it with try_form.', 'default' => ['rules' => [], 'results' => []]],
+            // where the answers go: an enquiry (default), or a hidden draft item of a collection (Core\CollectionSubmission)
+            'destination' => ['type' => 'choice', 'label' => 'Where the answers go', 'default' => 'enquiry', 'options' => ['enquiry' => 'Enquiries', 'collection' => 'a collection (as a hidden draft item)']],
+            'collection' => ['type' => 'text', 'label' => 'Collection (its ID from list_collections)', 'default' => '', 'max' => 40, 'when' => ['destination' => 'collection']],
+            'item_name' => ['type' => 'text', 'label' => 'Name of the item; {Field label} puts in an answer', 'default' => '', 'max' => 200, 'when' => ['destination' => 'collection']],
+            'mapping' => ['type' => 'items', 'label' => 'Fields of the item: per collection field a text with {Field label} for an answer. Fields a visitor can fill: text, lines, number, date, datetime, radio, link; an image or file field takes only {label of an attachment field}.', 'max' => 30, 'summary' => ['target', 'template'], 'when' => ['destination' => 'collection'], 'fields' => [
+                'target' => ['type' => 'text', 'label' => 'Collection field (its key)', 'default' => '', 'max' => 40],
+                'template' => ['type' => 'text', 'label' => 'Content, e.g. {Your name}, {Your role}', 'default' => '', 'max' => 500],
+            ], 'default' => []],
             'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Send enquiry'), 'max' => 80],
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
             'recipient' => ['type' => 'text', 'label' => 'Notification e-mails (several separated by commas; empty = site e-mail from Settings)', 'default' => '', 'max' => 190],
@@ -184,6 +192,17 @@ final class Form extends Element
         if ($replyTo !== '' && count(\Talea\Core\Mail::addresses($replyTo)) !== 1) {
             $errors[$place . '.confirmation_reply_to'] = 'Replies to the thank-you e-mail need one valid e-mail address.';
             $content['confirmation_reply_to'] = '';
+        }
+        if (($content['destination'] ?? 'enquiry') === 'collection') {
+            if (!\Talea\Core\Uuid::valid((string) ($content['collection'] ?? '')) || trim((string) ($content['item_name'] ?? '')) === '') {
+                $errors[$place . '.destination'] = 'A form that adds to a collection needs the collection (its ID) and a name for the item; it was set back to Enquiries.';
+                $content['destination'] = 'enquiry';
+            }
+            $content['mapping'] = array_values(array_filter((array) ($content['mapping'] ?? []), static fn (mixed $row): bool => is_array($row)
+                && preg_match(\Talea\Builder\Collections::KEY_PATTERN, (string) ($row['target'] ?? '')) === 1 && trim((string) ($row['template'] ?? '')) !== ''));
+        } else {
+            $content['collection'] = $content['item_name'] = '';
+            $content['mapping'] = [];
         }
         $content['logic'] = FormLogic::sanitize($content['logic'] ?? null, array_values($content['fields'] ?? []), $place . '.logic', $errors);
 

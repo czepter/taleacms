@@ -103,6 +103,7 @@ final class Forms
         $data = [];
         $email = '';
         $attachments = [];
+        $uploads = []; // label => [temporary file, name]: what a form that adds to a collection stores as images and files
         // multi-step forms and calculators (2.12): a field whose condition is not met is neither checked nor sent, and the
         // estimate is computed here from the answers – never taken from the browser
         $fields = $element['content']['fields'];
@@ -156,6 +157,7 @@ final class Forms
                 $data[] = [$field['label'], $uploaded ? mb_substr(basename((string) $file['name']), 0, 120) . ' (' . \Talea\Core\Files::size((int) $file['size']) . ')' : ''];
                 if ($uploaded) {
                     $attachments[count($data) - 1] = [(string) $file['tmp_name'], $extension];
+                    $uploads[(string) $field['label']] = [(string) $file['tmp_name'], (string) $file['name']];
                 }
                 continue;
             }
@@ -205,6 +207,9 @@ final class Forms
             $data[] = [$field['label'], $value];
         }
         $antispam->write($r->ip(), 'form', 0);
+        if (($element['content']['destination'] ?? 'enquiry') === 'collection') {
+            return $this->addToCollection($element, $data, $uploads, $redirectUri);
+        }
         // a gated download (2.11, Core\Documents): the enquiry records which file the visitor got
         $gatedFile = $email !== '' ? \Talea\Core\Documents::gatedFile($element['content']) : '';
         if ($gatedFile !== '') {
@@ -315,6 +320,34 @@ final class Forms
             return Response::redirect(FormResult::url($this->app, $back, $element, $db->publicId('enquiries', $idp), $calculation['variant']), 303);
         }
         $thankYouUrl = self::thankYouPage($r, (string) ($element['content']['thank_you_page'] ?? ''), (string) $element['content']['name']);
+
+        return $thankYouUrl !== null ? Response::redirect($thankYouUrl, 303) : $redirectUri('ok');
+    }
+
+    /**
+     * A form that adds to a collection (Core\CollectionSubmission): after the same checks as an enquiry, the answers become a hidden
+     * draft item; nothing is stored as an enquiry. A person publishes it; the form's recipients are told it is waiting.
+     *
+     * @param list<array<int, string>> $data
+     * @param array<string, array{0: string, 1: string}> $uploads
+     */
+    private function addToCollection(array $element, array $data, array $uploads, \Closure $redirectUri): Response
+    {
+        $saved = \Talea\Core\CollectionSubmission::save($this->app, $element['content'], $data, $uploads, Language::siteColumn());
+        if (is_string($saved)) {
+            return $redirectUri('field'); // nothing is stored; the page asks to check the answers
+        }
+        $siteSettings = $this->app->settings();
+        [$to, $bcc] = self::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $siteSettings->get('site_email'));
+        if ($to !== []) {
+            $db = $this->app->db();
+            $collection = $db->byPublicId('collections', (string) $element['content']['collection']);
+            $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $this->app->request->origin(), '/')
+                . $this->app->url('admin.php?module=collections&action=item&id=' . ($collection['public_id'] ?? '') . '&item=' . $db->publicId('collection_items', $saved));
+            Mail::send($siteSettings, implode(', ', $to), t('%s: %s', $element['content']['name'], $siteSettings->get('site_name')),
+                t("A new submission is waiting for your review. Nothing is published until you do.\n\n%s", $url), '', $bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
+        }
+        $thankYouUrl = self::thankYouPage($this->app->request, (string) ($element['content']['thank_you_page'] ?? ''), (string) $element['content']['name']);
 
         return $thankYouUrl !== null ? Response::redirect($thankYouUrl, 303) : $redirectUri('ok');
     }
