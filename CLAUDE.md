@@ -232,4 +232,5 @@ and size/time limits, never SVG.
 - In this project's German UI text, use the term 'AI' instead of 'KI' for the AI assistant.
 - Use prebuilt images instead of build context in the Coolify compose file and all other compose files.
 - Name branches `<type>/<short-topic>` in kebab-case (feat/, fix/, refactor/, perf/, docs/, test/, ci/, chore/), never `claude/<random>`; rename an app-created `claude/<slug>-<hash>` worktree branch with `git branch -m` before the first commit or push.
+- Use the English site dictionary as the master when checking translation key parity, not the Czech one.
 <!-- end claude-reflect -->

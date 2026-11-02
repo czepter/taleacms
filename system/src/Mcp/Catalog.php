@@ -159,7 +159,7 @@ final class Catalog
         'list_hours' => ['read', ''],
         'list_collection_presets' => ['read', ''],
         'triage_enquiries' => ['read', 'enquiries'],
-        'request_testimonial' => ['write', 'enquiries'],
+        'create_form_link' => ['write', 'enquiries'],
         'get_blueprint' => ['read', ''],
         'list_connectors' => ['read', ''],
         'processing_record' => ['read', ''],
@@ -239,7 +239,7 @@ final class Catalog
      * Writes that send something to a person (an e-mail to a customer or a test newsletter): the runner treats them like a
      * destructive tool – nothing can take a sent e-mail back – although their access is "write" (update_request: draft, but status done e-mails the requester).
      */
-    public const array SENDS = ['send_test_newsletter', 'request_testimonial', 'confirm_booking', 'propose_booking_times', 'update_request', 'update_registration', 'cancel_course'];
+    public const array SENDS = ['send_test_newsletter', 'create_form_link', 'confirm_booking', 'propose_booking_times', 'update_request', 'update_registration', 'cancel_course'];
 
     /**
      * The tools of the owner's sites: listed and callable only with TALEA_MULTISITE (Core\Sites::enabled()), like the tools of an

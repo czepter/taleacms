@@ -19,6 +19,7 @@ final class SiteParts
         'news_item' => ['News item', 'A wrapper around the news item – a call to action or more news below the text, for example.'],
         'list' => ['News list', 'A wrapper around the news list, category, tag and search results.'],
         'not_found' => ['Page not found (404)', 'A wrapper around the page-not-found message – e.g. with links onward.'],
+        'form_link' => ['Form from a personal link', 'A wrapper around a form that a person opens from their personal link – e.g. with a header image and a short welcome.'],
     ];
 
     /** Wrappers of news pages: without the News extension they wrap nothing and are not offered. */

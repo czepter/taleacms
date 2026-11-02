@@ -463,9 +463,9 @@
         "methods": [
             "ANY"
         ],
-        "pattern": "/_testimonial/{token:[a-f0-9]{32}}",
+        "pattern": "/_f/{token:[a-f0-9]{32}}",
         "when": "",
-        "handler": "CollectionPages::testimonialPage"
+        "handler": "Kernel::linkForm"
     },
     {
         "methods": [

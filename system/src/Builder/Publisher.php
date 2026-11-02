@@ -77,6 +77,9 @@ final class Publisher
     public static function form(App $app, array $form): void
     {
         $new = Build::toJson(FormRecords::definitionBuild(Build::fromJson($form['build_draft'] ?? $form['build'])));
+        if (($refusal = FormRecords::destinationRefusal($app, $new)) !== null) {
+            throw new \DomainException($refusal);
+        }
         self::version($app, ['part' => 'form:' . (int) $form['form_id']], $form['build'], $new, $form['updated_at'] ?? null);
         $name = trim((string) (FormRecords::definition(Build::fromJson($new))['content']['name'] ?? ''));
         $app->db()->update('forms', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')] + ($name !== '' ? ['name' => mb_substr($name, 0, 120)] : []), ['form_id' => $form['form_id']]);

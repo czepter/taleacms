@@ -199,6 +199,9 @@ trait BuildTargets
         if ($target['kind'] === 'form') {
             $build = \Talea\Builder\FormRecords::definitionBuild($build); // a form's build is its one form element
         }
+        if (($refusal = \Talea\Builder\FormRecords::destinationRefusal($this->app, Build::toJson($build))) !== null) {
+            throw new \DomainException($refusal);
+        }
         $r = $target['row'];
         if ($target['kind'] === 'page') {
             $db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $r['page_id']]);
@@ -308,6 +311,7 @@ trait BuildTargets
             $path = match ($r['type']) {
                 'news_item', 'list' => 'news',
                 'not_found' => 'this-page-does-not-exist',
+                'form_link' => '_form/' . \Talea\Core\Testimonials::form($this->app)['public_id'],
                 default => '',
             };
         }

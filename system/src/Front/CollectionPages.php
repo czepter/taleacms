@@ -10,7 +10,7 @@ use Talea\Core\Response;
 
 /**
  * The pages of collections on the public site: an item page by the collection's template, the product comparison, the calendar of an
- * events collection, a document's latest file, and the page a customer opens from a testimonial request.
+ * events collection, a document's latest file.
  */
 final class CollectionPages
 {
@@ -198,56 +198,5 @@ final class CollectionPages
     public function latest(string $collectionSlug, string $itemSlug): Response
     {
         return \Talea\Core\Documents::latest($this->app, $collectionSlug, $itemSlug) ?? $this->kernel->notFound();
-    }
-
-    /**
-     * The page a customer opens from a testimonial request (2.12, Core\Testimonials): their words, name and role, an optional
-     * photo and two separate consents. An unknown, used or expired link is a 404. Never cached, never indexed.
-     */
-    public function testimonialPage(string $token): Response
-    {
-        $db = $this->app->db();
-        $request = \Talea\Core\Testimonials::find($db, $token);
-        if ($request === null) {
-            return $this->kernel->notFound();
-        }
-        $r = $this->app->request;
-        $site = (string) $this->app->settings()->get('site_name');
-        $consents = \Talea\Core\Testimonials::consents($site);
-        $error = '';
-        if ($r->isPost()) {
-            $antispam = new \Talea\Core\Antispam($db, $this->app->settings());
-            $answer = \Talea\Core\Testimonials::clean($_POST);
-            $reason = $antispam->verify($r, 'testimonial|' . $token);
-            if ($reason !== null) {
-                $error = $reason === 'robot' ? t('The form could not be verified. Reload the page and try again.') : $reason;
-            } elseif (is_string($answer)) {
-                $error = $answer;
-            } else {
-                \Talea\Core\Testimonials::save($this->app, $request, $answer, is_array($_FILES['photo'] ?? null) ? $_FILES['photo'] : null);
-                $html = '<div class="tl-system-page"><h1>' . e(t('Thank you!')) . '</h1><p>' . e(t('We have received your words. We will publish them after a short check.')) . '</p></div>';
-
-                return $this->frame->page(t('Thank you!'), $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
-            }
-        }
-        $field = fn (string $name): string => e(is_scalar($_POST[$name] ?? null) ? (string) $_POST[$name] : '');
-        $antispam = new \Talea\Core\Antispam($db, $this->app->settings());
-        $title = t('Share your experience with %s', $site);
-        $html = '<div class="tl-system-page"><h1>' . e($title) . '</h1>'
-            . ($error !== '' ? '<p class="tl-form-error" role="alert">' . e($error) . '</p>' : '')
-            . '<form class="tl-form" method="post" enctype="multipart/form-data">' . $antispam->fields('testimonial|' . $token)
-            . '<p class="tl-field"><label for="t-text">' . e(t('Your words')) . ' <span class="tl-required" aria-hidden="true">*</span></label><textarea id="t-text" name="text" rows="6" maxlength="3000" required>' . $field('text') . '</textarea></p>'
-            . '<p class="tl-field"><label for="t-name">' . e(t('Your name')) . ' <span class="tl-required" aria-hidden="true">*</span></label><input id="t-name" name="name" maxlength="120" autocomplete="name" required value="' . $field('name') . '"></p>'
-            . '<p class="tl-field"><label for="t-role">' . e(t('Role and company (optional)')) . '</label><input id="t-role" name="role" maxlength="160" autocomplete="organization-title" value="' . $field('role') . '"></p>'
-            . '<p class="tl-field"><label for="t-photo">' . e(t('Your photo (optional)')) . '</label><input id="t-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></p>'
-            . '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="consent_words" value="1" required> <span>' . e($consents['words']) . '</span></label></p>'
-            . '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="consent_photo" value="1"> <span>' . e($consents['photo']) . '</span></label></p>'
-            . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e(t('Send')) . '</button></p></form></div>';
-        $k = $this->frame->context();
-        $k->types['form'] = true; // the form styles
-        $k->types[\Talea\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
-        $k->withoutCache = true;
-
-        return $this->frame->page($title, $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
     }
 }

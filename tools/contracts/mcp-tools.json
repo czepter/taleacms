@@ -267,6 +267,21 @@
             "openWorldHint": false
         }
     },
+    "create_form_link": {
+        "parameters": {
+            "email": "string",
+            "form": "string",
+            "id": "string",
+            "label": "string",
+            "send": "boolean"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "create_news": {
         "parameters": {
             "breadcrumb_title": "string",
@@ -915,6 +930,7 @@
     },
     "import_enquiries": {
         "parameters": {
+            "allow_expiring": "boolean",
             "entries": "array",
             "source": "string",
             "status": "string"
@@ -1633,20 +1649,6 @@
             "id",
             "status",
             "summary"
-        ],
-        "annotations": {
-            "readOnlyHint": false,
-            "destructiveHint": false,
-            "openWorldHint": false
-        }
-    },
-    "request_testimonial": {
-        "parameters": {
-            "id": "string",
-            "send": "boolean"
-        },
-        "required": [
-            "id"
         ],
         "annotations": {
             "readOnlyHint": false,

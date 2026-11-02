@@ -10,6 +10,7 @@
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var array<string, mixed> $p
+ * @var string $submittedForm  the name of the form a visitor sent the item through, or empty
  * @var ?array<string, mixed> $seoCheck  the SEO score panel of a saved item (Core\SeoScore::panel)
  * @var array{serpTitle: string, serpDescription: string, serpAddress: string, dir: string} $serp  the search result preview
  * @var ?array{course: array<string, mixed>, taken: int, requested: int, waitlisted: int} $seats  the seats of a course with registration (Core\Registrations), null for any other item
@@ -61,6 +62,9 @@ if ($actions !== '') {
 <?php if ($detail): ?>
 	<span class="item-address"><?= e('/' . $address) ?></span>
 	<?= Talea\Admin\Modules\ShortLinks::entryLinks($app, 'item', $p['public_id']) ?>
+<?php endif ?>
+<?php if (!empty($p['submitted_via'])): ?>
+	<span class="status status-hidden"><?= e(t('Sent by a visitor through the form "%s"', (string) ($submittedForm ?? ''))) ?></span>
 <?php endif ?>
 <?php if (!empty($p['updated_at'])): ?>
 	<span><?= e(t('edited %s', format_ago((string) $p['updated_at']))) ?></span>

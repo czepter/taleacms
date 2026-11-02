@@ -419,7 +419,9 @@ final class Collections extends Module
         $host = (string) (parse_url($settings->get('site_url') ?: $this->request->origin(), PHP_URL_HOST) ?? '');
         $address = $k['detail'] ? ($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'] : '';
 
-        return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p, 'host' => $host, 'address' => $address,
+        $submittedForm = !empty($p['submitted_via']) ? (string) $this->db->value('SELECT name FROM {forms} WHERE form_id = ?', [(int) $p['submitted_via']]) : '';
+
+        return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p, 'submittedForm' => $submittedForm, 'host' => $host, 'address' => $address,
             // the search result preview: the title and description as Front\CollectionPages hands them to the item page's head
             'serp' => ['serpTitle' => \Talea\Core\SeoTitle::compose($settings, 'item', $p['seo_title'] !== '' ? (string) $p['seo_title'] : (string) $p['name'], $p['seo_title'] !== '', ['category' => (string) $k['name']]),
                 'serpDescription' => (string) $p['description'], 'serpAddress' => $host . '/' . $address,

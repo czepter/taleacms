@@ -12,6 +12,9 @@
  * @var list<array{step: int, title: string, reached: int}> $steps
  * @var ?string $drop
  * @var int $sent
+
+ * @var string $csrf
+ * @var bool $linkForm        the form opens only through a personal link (Core\FormLinks)
  * @var bool $multiStep
  * @var string $filter
  * @var string $search
@@ -38,6 +41,17 @@ echo $app->view->render('admin/list/head', ['count' => (string) $totals['total']
 	<div class="tiles-item"><strong><?= $totals['open'] ?></strong><span><?= e(t('To do')) ?></span></div>
 	<div class="tiles-item"><strong><?= $totals['recent'] ?></strong><span><?= e(t('Last 30 days')) ?></span></div>
 </div>
+<?php if ($linkForm): ?>
+<section aria-labelledby="form-link">
+	<h2 id="form-link"><?= e(t('Personal link')) ?></h2>
+	<form class="toolbar" method="post" action="<?= e($module->url('link')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($form['query']['id'] ?? '') ?>">
+		<label><?= e(t('Who is the link for?')) ?> <input class="textbox" type="text" name="label" maxlength="190" required></label>
+		<label><?= e(t('E-mail (optional, not sent to)')) ?> <input class="textbox" type="email" name="email" maxlength="190"></label>
+		<button type="submit"><?= e(t('Create link')) ?></button>
+	</form>
+	<p class="small-text"><?= e(t('The link works once and for the days the form says. You pass it on yourself; to e-mail it, use the button on an enquiry.')) ?></p>
+</section>
+<?php endif ?>
 <?php if ($multiStep): $base = max(1, $steps[0]['reached'] ?? 0); ?>
 <section aria-labelledby="form-steps">
 	<h2 id="form-steps"><?= e(t('Where visitors stop')) ?></h2>

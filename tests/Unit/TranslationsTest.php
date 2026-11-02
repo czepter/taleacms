@@ -40,16 +40,61 @@ final class TranslationsTest extends TestCase
         $this->assertSame([[], [], []], array_map(fn (string $f): array => array_values(array_diff(array_keys(require TALEA_ROOT . '/system/languages/' . $f), ['datum_format', 'date_in_words'])), ['en.php', 'admin-en.php', 'install-en.php']), 'English dictionaries carry only the data-driven keys (English is the source language)');
     }
 
+    /**
+     * Every English text the code can show: the string literals of the PHP and script sources (a text reaches t() as a literal, or from
+     * a list of literals such as a schema label). English is the source language, so this is the list a translation must stay within.
+     *
+     * @return array<string, true>
+     */
+    private static function sourceTexts(): array
+    {
+        $root = TALEA_ROOT;
+        $texts = [];
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
+        foreach ($files as $file) {
+            $relative = substr($file->getPathname(), strlen($root) + 1);
+            if (preg_match('#^(vendor|tests|tools|docs|\.git|\.claude|node_modules|storage|media|system/languages|image/languages)/#', $relative) === 1) {
+                continue;
+            }
+            $code = (string) file_get_contents($file->getPathname());
+            if (str_ends_with($relative, '.php')) {
+                foreach (\PhpToken::tokenize($code) as $token) {
+                    if ($token->id === T_CONSTANT_ENCAPSED_STRING) {
+                        $inner = substr($token->text, 1, -1);
+                        $texts[$token->text[0] === "'" ? str_replace(["\\'", '\\\\'], ["'", '\\'], $inner) : stripcslashes($inner)] = true;
+                    }
+                }
+            } elseif (str_ends_with($relative, '.json')) {
+                // data files (looks, blueprints, starters) carry texts too
+                $decoded = (array) json_decode($code, true);
+                array_walk_recursive($decoded, static function (mixed $value) use (&$texts): void {
+                    if (is_string($value)) {
+                        $texts[$value] = true;
+                    }
+                });
+            } elseif (str_ends_with($relative, '.js')) {
+                preg_match_all('/"((?:[^"\\\\\n]|\\\\.)*)"|\'((?:[^\'\\\\\n]|\\\\.)*)\'/', $code, $found, PREG_SET_ORDER);
+                foreach ($found as $match) {
+                    $texts[($match[2] ?? '') !== '' ? str_replace("\\'", "'", $match[2]) : (string) json_decode('"' . $match[1] . '"')] = true;
+                }
+            }
+        }
+
+        return $texts;
+    }
+
     public function testSiteDictionaries(): void
     {
-        // dictionaries of the site languages: same keys as the Czech one (English source texts), the same %s and tags in the values
-        $sourceDictionary = require TALEA_ROOT . '/system/languages/cs.php';
+        // dictionaries of the site languages: the keys are English texts of the code (English is the source), the same %s and tags in the values
+        $sourceDictionary = self::sourceTexts();
+        // texts that were already in the dictionaries but no longer in the code when this check was made; the list only gets shorter
+        $knownStale = array_fill_keys((array) json_decode((string) file_get_contents(__DIR__ . '/stale-translation-keys.json'), true), true);
         $dataNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         $brokenDictionaries = [];
         foreach (glob(TALEA_ROOT . '/system/languages/*.php') ?: [] as $file) {
             $code = basename($file, '.php');
             // a language (de) or a regional version holding what differs (pt-br); not the admin and installer sets, not the German -du overlay
-            if ($code === 'en' || $code === 'cs' || preg_match('/^' . \Talea\Core\Language::TAG . '$/D', $code) !== 1 || str_ends_with($code, '-du')) {
+            if ($code === 'en' || preg_match('/^' . \Talea\Core\Language::TAG . '$/D', $code) !== 1 || str_ends_with($code, '-du')) {
                 continue;
             }
             $dictionary = require $file;
@@ -57,14 +102,14 @@ final class TranslationsTest extends TestCase
                 $brokenDictionaries[] = $code . ': language is not in Language::AVAILABLE';
             }
             foreach ($dictionary as $key => $translation) {
-                if (!isset($sourceDictionary[$key]) && !in_array($key, $dataNames, true) && $key !== 'date_in_words' && $key !== 'datum_format') {
+                if (!isset($sourceDictionary[$key]) && !isset($knownStale[$key]) && !in_array($key, $dataNames, true) && $key !== 'date_in_words' && $key !== 'datum_format') {
                     $brokenDictionaries[] = $code . ': extra "' . $key . '"';
                 } elseif (isset($sourceDictionary[$key]) && (preg_match_all('/%(?:\d+\$)?[sd]/', $key) !== preg_match_all('/%(?:\d+\$)?[sd]/', $translation) || substr_count($key, '<') !== substr_count($translation, '<'))) {
                     $brokenDictionaries[] = $code . ': placeholders or tags in "' . $key . '"';
                 }
             }
         }
-        $this->assertSame([], $brokenDictionaries, 'Site language dictionaries: keys from cs.php, same %s and HTML');
+        $this->assertSame([], $brokenDictionaries, 'Site language dictionaries: keys are English texts of the code, same %s and HTML');
     }
 
     public function testNewerVisitorDictionariesAreComplete(): void

@@ -41,7 +41,7 @@ final class PublicIds
         'update_media' => ['id' => 'media'], 'delete_media' => ['id' => 'media'], 'replace_media' => ['id' => 'media'],
         'list_media' => ['folder' => 'media_folders'], 'upload_file' => ['folder' => 'media_folders'], 'upload_files' => ['folder' => 'media_folders'], 'request_upload' => ['folder' => 'media_folders'],
         'save_media_folder' => ['id' => 'media_folders', 'parent' => 'media_folders'], 'delete_media_folder' => ['id' => 'media_folders'], 'move_media_folder' => ['id' => 'media_folders', 'parent' => 'media_folders'], 'move_media' => ['ids.*' => 'media', 'folder' => 'media_folders'],
-        'update_enquiry' => ['id' => 'enquiries'], 'delete_enquiry' => ['id' => 'enquiries'], 'request_testimonial' => ['id' => 'enquiries'],
+        'update_enquiry' => ['id' => 'enquiries'], 'delete_enquiry' => ['id' => 'enquiries'], 'create_form_link' => ['id' => 'enquiries', 'form' => 'forms'],
         'list_registrations' => ['item' => 'collection_items'], 'update_registration' => ['registration' => 'enquiries'], 'cancel_course' => ['item' => 'collection_items', 'offer.*' => 'collection_items'],
         'save_collection_item' => ['id' => 'collection_items'], 'delete_collection_item' => ['id' => 'collection_items'], 'list_item_versions' => ['id' => 'collection_items'],
         'restore_item_version' => ['id' => 'collection_items'], 'get_email_signature' => ['id' => 'collection_items'], 'list_notice_log' => ['id' => 'collection_items'],
