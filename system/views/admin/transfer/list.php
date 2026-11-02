@@ -37,10 +37,10 @@ $phase = [
 <p><?= e(t('Drop a file here and Talea recognises what it is. Nothing is imported before you have seen a preview and confirmed it.')) ?></p>
 <form class="form" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>" data-dropzone-form>
 <?= $csrf ?>
-<label class="dropzone" data-dropzone for="import-file">
+<label class="dropzone" data-dropzone for="<?= ($siteContent['empty'] && $taleaRefusal === null) ? 'file-talea' : 'import-file' ?>">
 	<strong><?= e(t('Drop a file here or choose one')) ?></strong>
 	<span class="chips"><span class="chip"><?= e(t('Talea export (.zip)')) ?></span><span class="chip"><?= e(t('WordPress export (.xml)')) ?></span></span>
-	<input type="file" id="import-file" name="file" accept=".zip,.json,.xml,application/zip,application/json,text/xml,application/xml" required>
+	<input type="file" id="<?= ($siteContent['empty'] && $taleaRefusal === null) ? 'file-talea' : 'import-file' ?>" name="file" accept=".zip,.json,.xml,application/zip,application/json,text/xml,application/xml" required>
 	<span class="help" data-dropzone-name><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/ folder – it will appear in the list below.', Talea\Core\Files::size($uploadLimit))) ?></span>
 </label>
 <?php if ($missingXml): ?>

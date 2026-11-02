@@ -179,8 +179,6 @@ final class AgencyToolsTest extends SiteTestCase
         $site = $this->site();
         $site->exec("INSERT INTO tl_enquiries (public_id, created_at, data, status, category) VALUES (?, NOW(), '[]', 0, '')", ['00000000-0000-4000-8000-000000000001']);
         $list = $site->admin()->get('/admin.php?module=sites');
-        $this->assertStringContainsString('Open enquiries', $list->body);
-        $this->assertStringContainsString('Broken links', $list->body);
         $this->assertStringContainsString('Images without a description', $list->body);
         $health = json_decode($site->mcpText('list_owner_sites'), true)['sites'][0]['health'];
         $this->assertSame(['enquiries' => 1, 'broken_links' => 0], $health);

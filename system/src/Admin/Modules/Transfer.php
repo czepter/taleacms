@@ -222,7 +222,8 @@ final class Transfer extends Module
         if (str_starts_with($head, "PK\x03\x04")) {
             if (class_exists(\ZipArchive::class)) {
                 $zip = new \ZipArchive();
-                $found = $zip->open($path, \ZipArchive::RDONLY) === true && $zip->locateName('content.json') !== false;
+                // obsah.json: a Kaleta export, converted when the import starts (SiteImport)
+                $found = $zip->open($path, \ZipArchive::RDONLY) === true && ($zip->locateName('content.json') !== false || $zip->locateName('obsah.json') !== false);
                 $zip->close();
                 if ($found) {
                     return 'talea';
