@@ -220,7 +220,7 @@ final class Forms
         }
         $ticked = []; // the consent the person gave: the checkboxes they ticked, as worded
         foreach ($data as $n => $d) {
-            if (($types[$n] ?? '') === 'checkbox' && ($d[1] ?? '') !== '') {
+            if (($types[$n] ?? '') === 'checkbox' && $d[1] !== '') {
                 $ticked[] = (string) $d[0];
             }
         }
