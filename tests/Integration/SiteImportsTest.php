@@ -166,19 +166,19 @@ final class SiteImportsTest extends DatabaseTestCase
 
         // owner 1: the first run stops after the preparation (a zero budget), and the other site goes on working meanwhile
         $site = (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$one]);
-        $line = SiteImports::work($db, $site, 0.0);
+        $line = SiteImports::work($db, $site, 0.0, 0.0);
         $db->upsert('settings', ['name' => 'during_import', 'value' => 'written'], ['name']); // site 1 still takes writes
         self::$facts = ['half' => $line, 'during' => [
             'ready' => $db->value('SELECT ready_at FROM {sites} WHERE prefix = ?', [$one]), 'site1' => (int) $db->value('SELECT COUNT(*) FROM {pages}'),
             'running' => SiteImport::running(), 'media' => (int) $db->value('SELECT COUNT(*) FROM {media}'),
         ], 'survivor' => $survivorId, 'keeper' => $keeper, 'main' => $main, 'tag' => $tag, 'admin' => $admin, 'component' => $component, 'survivorPath' => $survivor,
             'archive' => $path, 'beta' => $beta, 'one' => $one, 'two' => $two, 'mediaBefore' => (int) $db->value('SELECT COUNT(*) FROM {media}'), 'componentsBefore' => (int) $db->value('SELECT COUNT(*) FROM {components}')];
-        for ($i = 0; $i < 50 && ($line = SiteImports::work($db, (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$one]), 30.0)) !== 'ready'; $i++) {
+        for ($i = 0; $i < 50 && ($line = SiteImports::work($db, (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$one]), 30.0, 0.0)) !== 'ready'; $i++) {
             self::$facts['lines'][] = $line;
         }
         self::$facts['one_line'] = $line;
         $siteTwo = (array) $betaDb->one('SELECT * FROM {sites} WHERE prefix = ?', [$two]);
-        for ($i = 0; $i < 50 && ($line = SiteImports::work($betaDb, $siteTwo, 30.0)) !== 'ready'; $i++) {
+        for ($i = 0; $i < 50 && ($line = SiteImports::work($betaDb, $siteTwo, 30.0, 0.0)) !== 'ready'; $i++) {
             $siteTwo = (array) $betaDb->one('SELECT * FROM {sites} WHERE prefix = ?', [$two]);
         }
         self::$facts['two_line'] = $line;
@@ -301,7 +301,7 @@ final class SiteImportsTest extends DatabaseTestCase
         Migrator::migrate($this->dbConfig());
         Sites::forgetCurrent();
         $site = (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$prefix]);
-        $line = SiteImports::work($db, $site, 30.0);
+        $line = SiteImports::work($db, $site, 30.0, 0.0);
 
         $this->assertStringStartsWith('error: ', $line);
         $this->assertStringContainsString('before public ids', (string) $db->value('SELECT import_error FROM {sites} WHERE prefix = ?', [$prefix]));
@@ -360,7 +360,7 @@ final class SiteImportsTest extends DatabaseTestCase
         self::$folders[] = SiteImports::folder($this->publicId($db, $prefix));
         Migrator::migrate($this->dbConfig());
         Sites::forgetCurrent();
-        for ($i = 0; $i < 50 && ($line = SiteImports::work($db, (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$prefix]), 30.0)) !== 'ready'; $i++) {
+        for ($i = 0; $i < 50 && ($line = SiteImports::work($db, (array) $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$prefix]), 30.0, 0.0)) !== 'ready'; $i++) {
         }
         $this->assertSame('ready', $line);
         $this->assertNull($db->value("SELECT 1 FROM {media} WHERE name = 'Foreign'"), 'no row for a file the archive did not bring');

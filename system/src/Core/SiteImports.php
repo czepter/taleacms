@@ -17,6 +17,9 @@ final class SiteImports
     /** The seconds one cron run spends on imports (the next run goes on from the saved state). */
     public const float SECONDS = 200.0;
 
+    /** After a batch the import rests this many times as long as the batch took: it never takes a whole core from the sites that are live (1.0 = at most half). */
+    public const float REST = 1.0;
+
     /**
      * The folder of a site's archive, state, lock and working files, named by the site's public id. Never by the table prefix: a prefix is
      * handed out again after a site is dropped (and every test database uses the same ones), and two sites must not share or remove files.
@@ -102,7 +105,7 @@ final class SiteImports
      * Where the import of a pending site is: the phase and a share of the work done, for the Sites list.
      *
      * @param array<string, mixed> $site the row of {sites}
-     * @return array{phase: string, percent: int}|null null = not an import (or no state)
+     * @return array{phase: string, percent: int, rows: int, rows_done: int, media: int, media_done: int}|null null = not an import (or no state)
      */
     public static function progress(array $site): ?array
     {
@@ -116,7 +119,8 @@ final class SiteImports
         $rows = array_sum(array_map('intval', (array) $state['counts']));
         $phase = (string) $state['phase'];
         $before = array_slice(SiteImport::order(true), 0, (int) $state['table']);
-        $data = $rows > 0 ? min(1.0, (array_sum(array_map(fn (string $t): int => (int) ($state['counts'][$t] ?? 0), $before)) + (int) $state['position']) / $rows) : 1.0;
+        $rowsDone = array_sum(array_map(fn (string $t): int => (int) ($state['counts'][$t] ?? 0), $before)) + (int) $state['position'];
+        $data = $rows > 0 ? min(1.0, $rowsDone / $rows) : 1.0;
         $media = (int) $state['media_total'] > 0 ? min(1.0, (int) $state['media_position'] / max(1, (int) $state['media_total'])) : 1.0;
         $percent = match ($phase) {
             'queued', 'preparing', 'preview' => 0,
@@ -125,7 +129,10 @@ final class SiteImports
             default => 100,
         };
 
-        return ['phase' => $phase, 'percent' => $percent];
+        $past = in_array($phase, ['media', 'done'], true);
+
+        return ['phase' => $phase, 'percent' => $percent, 'rows' => $rows, 'rows_done' => $past ? $rows : min($rows, $rowsDone),
+            'media' => (int) $state['media_total'], 'media_done' => $phase === 'done' ? (int) $state['media_total'] : ($phase === 'media' ? (int) $state['media_position'] : 0)];
     }
 
     /**
@@ -134,7 +141,7 @@ final class SiteImports
      *
      * @param array<string, mixed> $site the row of {sites}
      */
-    public static function work(Db $owner, array $site, float $seconds = self::SECONDS): string
+    public static function work(Db $owner, array $site, float $seconds = self::SECONDS, float $rest = self::REST): string
     {
         $prefix = (string) $site['prefix'];
         $folder = self::folder((string) $site['public_id']);
@@ -166,8 +173,10 @@ final class SiteImports
                 SiteImport::saveState($state);
             }
             while (in_array($state['phase'], ['data', 'media'], true) && microtime(true) < $end) {
+                $began = microtime(true);
                 $state['phase'] === 'data' ? $import->importData($state) : $import->importMedia($state);
                 SiteImport::saveState($state);
+                $rest > 0 && usleep((int) ((microtime(true) - $began) * $rest * 1_000_000)); // the database and the disk get their breath too
             }
             if ($state['phase'] !== 'done') {
                 $p = self::progress($site);

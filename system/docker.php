@@ -3,6 +3,7 @@
  * Talea - command line for containers (docker/). Configuration comes from TALEA_* environment variables, see docker/README.md.
  *
  *   php system/docker.php cron      run the background jobs that are due (what the /tasks address does for web cron), for every live site
+ *   php system/docker.php provision set up the new sites (migrate, import an archive) now, without waiting for the next cron run
  *   php system/docker.php site-url  store TALEA_SITE_URL as the site address when it differs (the entrypoint, on every start)
  *   php system/docker.php error-test send a test event to the error tracking (TALEA_ERROR_DSN, Core\ErrorReport)
  */
@@ -83,6 +84,22 @@ try {
                     passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' cron ' . $args);
                 }
             }
+            break;
+        case 'provision':
+            // started right after an archive is uploaded (Core\Background); cron does the same on its next run if this process could not start
+            if (Talea\Core\Config::load() === null || !Talea\Core\Sites::enabled()) {
+                break;
+            }
+            $app = Talea\Core\App::boot();
+            Talea\Core\ErrorReport::tag('area', 'cron');
+            $end = time() + 4 * 3600; // ponytail: one process for up to four hours; what is left waits for cron
+            do {
+                $more = false;
+                foreach (Talea\Core\Sites::provisionPending($app->db(), $app->config['db']) as $line) {
+                    fwrite(STDOUT, $line . "\n");
+                    $more = $more || preg_match('/: importing \d+ %$/', $line) === 1; // an import goes on in batches: the next round continues it ("busy" = another process has it)
+                }
+            } while ($more && time() < $end);
             break;
         case 'site-url':
             // TALEA_SITE_URL wins over the stored address (Core\SiteUrl); not set or not installed yet = nothing to do

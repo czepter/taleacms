@@ -446,6 +446,55 @@
 		document.addEventListener('input', function (e) { if (e.target.tagName === 'TEXTAREA') { later(e, 1200); } });
 	});
 
+	/* ---------- import: one drop zone, the file goes up as soon as it is chosen or dropped ---------- */
+	document.querySelectorAll('[data-dropzone]').forEach(function (zone) {
+		var input = zone.querySelector('input[type=file]'), form = zone.closest('form'), label = zone.querySelector('[data-dropzone-name]');
+		if (!input || !form) { return; }
+		var chosen = function () { if (input.files.length) { if (label) { label.textContent = input.files[0].name; } if (zone.hasAttribute('data-dropzone-manual')) { return; } form.requestSubmit ? form.requestSubmit() : form.submit(); } };
+		input.addEventListener('change', chosen);
+		['dragenter', 'dragover'].forEach(function (n) { zone.addEventListener(n, function (e) { e.preventDefault(); zone.classList.add('drop-over'); }); });
+		['dragleave', 'drop'].forEach(function (n) { zone.addEventListener(n, function () { zone.classList.remove('drop-over'); }); });
+		zone.addEventListener('drop', function (e) { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files.length) { input.files = e.dataTransfer.files; chosen(); } });
+	});
+
+	/* ---------- progress of a site import: asks the status address, redraws the bar and the steps, opens the site when it is ready ---------- */
+
+	var importStatus = document.querySelector('[data-import-status]');
+	if (importStatus) {
+		var importBar = importStatus.querySelector('progress');
+		var importPercent = importStatus.querySelector('[data-import-percent]');
+		var importSteps = importStatus.querySelector('[data-import-steps]');
+		var importWaiting = importStatus.querySelector('[data-import-waiting]');
+		var importDraw = function (s) {
+			importBar.value = s.percent;
+			importPercent.textContent = s.percent + ' %';
+			importSteps.textContent = '';
+			s.steps.forEach(function (step, i) {
+				var li = document.createElement('li');
+				var n = document.createElement('span');
+				n.textContent = String(i + 1);
+				li.appendChild(n);
+				li.appendChild(document.createTextNode(' ' + step.label));
+				if (step.state) { li.className = step.state; }
+				if (step.state === 'active') { li.setAttribute('aria-current', 'step'); }
+				importSteps.appendChild(li);
+			});
+			importWaiting.textContent = s.waiting ? (importWaiting.getAttribute('data-text-' + s.waiting) || '') : '';
+		};
+		var importPoll = function () {
+			fetch(importStatus.getAttribute('data-import-status'), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+				.then(function (r) { return r.json(); })
+				.then(function (s) {
+					if (s.state === 'ready' || s.state === 'other') { window.location.href = s.next; return; }
+					if (s.state === 'failed') { window.location.reload(); return; } // the page shows the error
+					importDraw(s);
+					setTimeout(importPoll, 2000);
+				})
+				.catch(function () { setTimeout(importPoll, 5000); }); // a request that fails (a restart, a bad connection) is tried again
+		};
+		setTimeout(importPoll, 2000);
+	}
+
 	var autoSubmit = document.querySelector('form[data-auto-submit]');
 	if (autoSubmit) { setTimeout(function () { autoSubmit.requestSubmit ? autoSubmit.requestSubmit() : autoSubmit.submit(); }, parseInt(autoSubmit.getAttribute('data-auto-submit'), 10) || 1200); }
 	/* ---------- command palette: Ctrl/⌘+K – sections, quick actions and news item search ---------- */

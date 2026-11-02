@@ -16,7 +16,7 @@ final class SiteImportTest extends SiteTestCase
 {
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']];
     }
 
     public function testAnExportBecomesANewSiteThatCronImports(): void
@@ -35,7 +35,7 @@ final class SiteImportTest extends SiteTestCase
         file_put_contents($zip, $admin->get('/admin.php?module=transfer&action=download&file=' . $m[0])->body);
 
         $this->assertStringContainsString('Import a Talea archive', $admin->get('/admin.php?module=sites')->body);
-        $upload = $admin->upload('/admin.php?module=sites&action=import', ['_csrf' => $site->csrf($admin, '/admin.php?module=sites'), 'name' => 'Moved'], ['file' => $zip]);
+        $upload = $admin->upload('/admin.php?module=sites&action=create', ['_csrf' => $site->csrf($admin, '/admin.php?module=sites'), 'name' => 'Moved', 'from' => 'file'], ['file' => $zip]);
         $this->assertSame(302, $upload->status);
         $row = $site->rows('SELECT ready_at, import_file, prefix FROM tl_sites WHERE site_id = 2')[0];
         $this->assertNull($row['ready_at']);
@@ -43,6 +43,10 @@ final class SiteImportTest extends SiteTestCase
         $this->assertStringContainsString('Importing', $admin->get('/admin.php?module=sites')->body);
 
         $id = (string) $site->value('SELECT public_id FROM tl_sites WHERE site_id = 2');
+        $this->assertStringContainsString('data-import-status', $admin->get('/admin.php?module=sites&action=progress&id=' . $id)->body, 'the progress screen');
+        $this->assertSame(302,$admin->get('/admin.php?module=sites&action=edit&id=' . $id)->status, 'an import in progress opens its progress screen');
+        $status = json_decode($admin->get('/admin.php?module=sites&action=status&id=' . $id)->body, true);
+        $this->assertSame(['running', 4, 0], [$status['state'], count($status['steps']), $status['percent']]);
         $admin->post('/admin.php?module=sites&action=domain_add', ['_csrf' => $site->csrf($admin, '/admin.php?module=sites'), 'id' => $id, 'host' => 'moved.test']);
         $cron = '';
         for ($i = 0; $i < 10 && !str_contains($cron, 'site tl2_: ready'); $i++) {
@@ -50,6 +54,7 @@ final class SiteImportTest extends SiteTestCase
         }
         $this->assertStringContainsString('site tl2_: ready', $cron);
         $this->assertNotNull($site->value('SELECT ready_at FROM tl_sites WHERE site_id = 2'));
+        $this->assertSame('ready', json_decode($admin->get('/admin.php?module=sites&action=status&id=' . $id)->body, true)['state']);
         $admin->post('/admin.php?module=sites&action=save', ['_csrf' => $site->csrf($admin, '/admin.php?module=sites'), 'id' => $id, 'name' => 'Moved', 'status' => 'live']);
 
         $host = 'Host: moved.test:' . $site->port;

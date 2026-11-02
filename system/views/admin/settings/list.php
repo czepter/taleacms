@@ -38,7 +38,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     $hintHtml = $hint !== '' ? '<span class="help">' . (str_contains($hint, '<') ? $hint : Talea\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude'])) . '</span>' : '';
     echo '<div class="row">';
     if ($kind === 'flag') {
-        echo '<span class="caption">' . e($labelText) . '</span><div class="options"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';
+        echo '<span class="caption">' . e($labelText) . '</span><div class="options"><label><input type="checkbox" class="flag-switch" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';
     } elseif ($kind === 'lines' || $kind === 'code') {
         echo '<label for="' . e($key) . '">' . e($labelText) . '</label><div><textarea class="textbox low' . ($kind === 'code' ? ' code' : '') . '" id="' . e($key) . '" name="' . e($key) . '" rows="4" ' . $attributes . '>' . e($h) . '</textarea>' . $hintHtml . '</div>';
     } else {
@@ -60,3 +60,4 @@ $saveConfirm = $tab === 'enquiries' ? ' data-confirm="' . e(t('Enquiries older t
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save settings')) ?>"<?= $saveConfirm ?>></p>
 <?php endif ?>
 </form>
+<?php if ($tab === 'address' && ($address ?? null) !== null) { require __DIR__ . '/address_hosts.php'; } ?>

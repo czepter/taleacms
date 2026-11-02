@@ -110,6 +110,7 @@ final class Settings
         'url_slash' => 'none',         // none (/path) | slash (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
         'llms_txt' => '1',
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
+        'agency_enabled' => '0',       // "Maintained by an agency": shows the card below on one or several websites; a user with an Agency role does it by itself (Core\Agency)
         'agency_name' => '',           // who built the site and looks after it – on the sign-in screen and in the admin (2.4)
         'agency_url' => '',
         'agency_email' => '',

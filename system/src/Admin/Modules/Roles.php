@@ -75,6 +75,7 @@ final class Roles extends Module
             'description' => mb_substr($r->post('description'), 0, 200),
             'level' => isset(self::LEVELS[$r->postInt('level')]) ? $r->postInt('level') : Auth::AUTHOR,
             'modules' => implode(',', array_values(array_intersect($r->postList('modules'), array_keys(self::configurable())))),
+            'is_agency' => $r->postBool('is_agency') ? 1 : 0,
         ];
         $errors = [];
         if ($data['name'] === '') {

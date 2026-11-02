@@ -327,6 +327,8 @@ final class MonthlyReport
             $siteUrl = rtrim($siteUrl, '/');
             $siteName = $s->get('site_name');
             $agency = $s->get('agency_name');
+            $agencyOn = $agency !== '' && Agency::visible($s);
+            $agency = $agencyOn ? $agency : '';
             $monthName = t(self::MONTHS[(int) substr((string) $data['month'], 5, 2)] ?? 'January') . ' ' . substr((string) $data['month'], 0, 4);
             $subject = t('Website report – %s – %s', $monthName, $siteName);
             // no e-mail address or phone number gets through from the data – a form name or a message could carry one (#161: the
@@ -506,7 +508,7 @@ final class MonthlyReport
             }
 
             // header and footer: the agency when it is set, otherwise the site
-            $logo = $s->get('agency_logo');
+            $logo = $agencyOn ? $s->get('agency_logo') : '';
             $title = $agency !== '' ? $agency : $siteName;
             $header = '<tr><td style="padding:24px 28px 8px;">'
                 . ($agency !== '' && $logo !== '' ? '<img src="' . e($siteUrl . '/' . ltrim($logo, '/')) . '" alt="" height="32" style="display:block;height:32px;margin:0 0 12px;">' : '')

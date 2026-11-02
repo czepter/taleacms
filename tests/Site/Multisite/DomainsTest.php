@@ -104,7 +104,7 @@ final class DomainsTest extends SiteTestCase
         $this->assertNotNull($site->value("SELECT verified_at FROM tl_site_domains WHERE host = 'added.test'"), 'one owner: a host added in the Sites area is verified at once');
         $this->assertSame(200, $this->on('added.test', '/')->status);
 
-        $edit = $site->admin()->get('/admin.php?module=sites&action=edit&id=' . $id)->body;
+        $edit = $site->admin()->get('/admin.php?module=settings&tab=address')->body; // the host names moved to Address and visibility
         $this->assertStringContainsString('Not verified', $edit);
         $this->assertStringContainsString('/.well-known/talea-domain/' . self::TOKEN, $edit);
         $this->assertStringContainsString('talea-verify=' . self::TOKEN, $edit);
