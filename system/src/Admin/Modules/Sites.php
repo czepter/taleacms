@@ -109,15 +109,62 @@ final class Sites extends Module
 
     protected function actionList(): Response
     {
-        $sites = SiteRegistry::overview($this->db);
-        foreach ($sites as &$s) {
-            $s['health'] = $s['ready'] && $s['status'] !== 'trashed' ? SiteHealth::site($this->db->forSite((string) $s['prefix'])) : null;
+        $agency = \Talea\Core\Deployment::atLeast('agency');
+        $operator = $agency && OwnerRegistry::isOperator($this->db, $this->app->auth()->user());
+        // an operator walks every set-up owner (filter ?owner=<public id>); everybody else sees the owner they work in
+        $owners = [['prefix' => $this->db->ownerPrefix, 'public_id' => '']];
+        if ($operator) {
+            $owners = array_values(array_filter(OwnerRegistry::all($this->db), fn (array $o): bool => $o['ready_at'] !== null));
         }
-        unset($s);
+        $ownerFilter = $operator ? $this->request->get('owner') : '';
+        $search = mb_strtolower(trim($this->request->get('search')));
+        $sites = [];
+        $ownerNames = [];
+        foreach ($owners as $o) {
+            $own = (string) $o['prefix'] === $this->db->ownerPrefix;
+            $db = $own ? $this->db : $this->db->forOwner((string) $o['prefix']);
+            $name = OwnerRegistry::nameOf($this->db, (string) $o['prefix']);
+            if ($name === (string) $o['prefix'] && $name === $this->db->installPrefix) {
+                $name = t('Main owner'); // an unnamed first owner is not shown by its table prefix
+            }
+            $ownerNames[(string) $o['public_id']] = $name;
+            if ($ownerFilter !== '' && $ownerFilter !== (string) $o['public_id']) {
+                continue;
+            }
+            $backup = SiteHealth::lastBackup($db);
+            foreach (SiteRegistry::overview($db) as $s) {
+                if ($search !== '' && !str_contains(mb_strtolower($s['name'] . ' ' . $s['slug'] . ' ' . implode(' ', array_column($s['domains'], 'host'))), $search)) {
+                    continue;
+                }
+                $s['health'] = $s['ready'] && $s['status'] !== 'trashed' ? SiteHealth::site($db->forSite((string) $s['prefix'])) : null;
+                $s['owner_name'] = $name;
+                $s['own'] = $own;
+                $s['unverified'] = count(array_filter($s['domains'], fn (array $d): bool => $d['verified_at'] === null));
+                $s['backup'] = $backup;
+                $sites[] = $s;
+            }
+        }
 
         return $this->view('list', 'Sites', ['sites' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] !== 'trashed')),
-            'trash' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] === 'trashed')), 'current' => $this->currentId(),
-            'mediaWithoutAlt' => SiteHealth::mediaWithoutAlt($this->db), 'limit' => SiteRegistry::limit('MAX_SITES')]);
+            'trash' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] === 'trashed' && $s['own'])), 'current' => $this->currentId(),
+            'mediaWithoutAlt' => SiteHealth::mediaWithoutAlt($this->db), 'limit' => SiteRegistry::limit('MAX_SITES'),
+            'agency' => $agency, 'operator' => $operator, 'ownerNames' => $ownerNames, 'ownerFilter' => $ownerFilter, 'search' => $this->request->get('search'),
+            'siteCount' => SiteRegistry::installCount($this->db), 'ownerCount' => $agency ? count(OwnerRegistry::all($this->db)) : 0, 'ownerLimit' => SiteRegistry::limit('MAX_OWNERS')]);
+    }
+
+    /** Archives a site from the list's row menu (the name stays; a redirect target is set on the edit page). */
+    protected function actionArchive(): Response
+    {
+        $site = $this->site();
+        if (!$this->request->isPost() || $site === null) {
+            return $this->back();
+        }
+        if ((int) $site['site_id'] === $this->currentId()) {
+            return $this->back('You are working on this site right now – open another one first.', '', [], 'error');
+        }
+        $error = SiteRegistry::save($this->db, (int) $site['site_id'], (string) ($site['name'] !== '' ? $site['name'] : $site['slug']), 'archived', null);
+
+        return $error === null ? $this->back('The site has been saved.', '', [], 'ok') : $this->back($error, '', [], 'error');
     }
 
     /** The usage of this owner's sites per month as a CSV (administrators; an operator gets every owner's in the Owners area). */
@@ -137,7 +184,7 @@ final class Sites extends Module
 
     protected function actionNew(): Response
     {
-        return $this->form('', '');
+        return $this->form('', $this->request->get('from') === 'file' ? 'file' : '');
     }
 
     protected function actionCreate(): Response
@@ -152,6 +199,17 @@ final class Sites extends Module
         }
         if ($name === '') {
             return $this->form($name, $from, 'Fill in the site name.');
+        }
+        if ($from === 'file') {
+            try {
+                $prefix = self::importArchive($this->db, $this->request, $name, (int) $this->app->auth()->id(), OwnerRegistry::isFirst($this->db));
+            } catch (\RuntimeException $e) {
+                return $this->form($name, $from, $e->getMessage());
+            }
+            ChangeLog::write($this->app, 'sites', 'import', $name);
+            OwnerRegistry::isFirst($this->db) && Background::start('provision'); // starts now; where that is not possible the next cron run does it
+
+            return $this->back('The archive is being imported in the background. The other sites keep working meanwhile.', 'progress', ['id' => (string) $this->db->value('SELECT public_id FROM {sites} WHERE prefix = ?', [$prefix])]);
         }
         $parent = null;
         if ($this->request->post('look_parent') !== '') {
@@ -173,27 +231,10 @@ final class Sites extends Module
         return $this->back('The site is created. It is being set up in the background and appears as ready within a few minutes.');
     }
 
-    /** Import a Talea archive (an export of an older single-site install) as a NEW site: the row and the file are all this request writes, cron imports it. */
+    /** The old address of the import form: the new-site page with "Import from a file" chosen. */
     protected function actionImport(): Response
     {
-        if (!$this->request->isPost()) {
-            return $this->importForm('', '');
-        }
-        $name = trim(mb_substr($this->request->post('name'), 0, 120));
-        $existing = $this->request->post('existing');
-        $refusal = SiteRegistry::limitRefusal($this->db) ?? ($name === '' ? 'Fill in the site name.' : null);
-        if ($refusal !== null) {
-            return $this->importForm($name, $existing, $refusal);
-        }
-        try {
-            $prefix = self::importArchive($this->db, $this->request, $name, (int) $this->app->auth()->id(), OwnerRegistry::isFirst($this->db));
-        } catch (\RuntimeException $e) {
-            return $this->importForm($name, $existing, $e->getMessage());
-        }
-        ChangeLog::write($this->app, 'sites', 'import', $name);
-        OwnerRegistry::isFirst($this->db) && Background::start('provision'); // starts now; where that is not possible the next cron run does it
-
-        return $this->back('The archive is being imported in the background. The other sites keep working meanwhile.', 'progress', ['id' => (string) $this->db->value('SELECT public_id FROM {sites} WHERE prefix = ?', [$prefix])]);
+        return $this->back('', 'new', ['from' => 'file']);
     }
 
     /**
@@ -207,19 +248,25 @@ final class Sites extends Module
     {
         $upload = $request->file('file');
         if ($upload !== null && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $upload['tmp_name'])) {
+            self::requireArchive((string) $upload['tmp_name']);
+
             return SiteImports::create($owner, $name, (string) $upload['tmp_name'], (string) pathinfo((string) $upload['name'], PATHINFO_EXTENSION), $admin, move_uploaded_file(...));
         }
         $path = $fromFolder ? SiteImport::path($request->post('existing')) : null;
         if ($path === null) {
             throw new \RuntimeException('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.');
         }
+        self::requireArchive($path);
+
         return SiteImports::create($owner, $name, $path, (string) pathinfo($path, PATHINFO_EXTENSION), $admin, rename(...));
     }
 
-    private function importForm(string $name, string $existing, string $error = ''): Response
+    /** The same detection as Import and export: a new site starts from a Talea archive only. @throws \RuntimeException */
+    private static function requireArchive(string $path): void
     {
-        return $this->view('import', 'Import a Talea archive', ['name' => $name, 'existing' => $existing, 'error' => $error, 'files' => OwnerRegistry::isFirst($this->db) ? SiteImport::listAll() : [],
-            'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size')))]);
+        if (Transfer::kind($path) !== 'talea') {
+            throw new \RuntimeException('This is a WordPress export. Import it into a site under Import and export; a new site starts from a Talea export.');
+        }
     }
 
     /** "8M" from php.ini to bytes. */
@@ -492,7 +539,7 @@ final class Sites extends Module
         $verify = Domains::needsVerification($this->db, $this->app->auth()->user());
         $error = SiteRegistry::addDomain($this->db, (int) $site['site_id'], $this->request->post('host'), $verify);
 
-        return $error === null ? $this->back($verify ? 'The host name is added. It answers once it is verified: follow the steps next to it, then choose Check now.' : 'The host name is added.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
+        return $error === null ? $this->domainBack($verify ? 'The host name is added. It answers once it is verified: follow the steps next to it, then choose Check now.' : 'The host name is added.', $site['public_id']) : $this->domainBack($error, $site['public_id'], 'error');
     }
 
     /** Checks a host that is not verified yet (the token file over HTTP, else the DNS record); the request leaves through the safe outbound path. */
@@ -505,7 +552,7 @@ final class Sites extends Module
         }
         $error = Domains::check($this->db, $domain);
 
-        return $error === null ? $this->back('The host name is verified and answers now.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
+        return $error === null ? $this->domainBack('The host name is verified and answers now.', $site['public_id']) : $this->domainBack($error, $site['public_id'], 'error');
     }
 
     protected function actionDomainRemove(): Response
@@ -517,7 +564,7 @@ final class Sites extends Module
         }
         $error = SiteRegistry::removeDomain($this->db, (int) $site['site_id'], (int) $domain['domain_id'], SiteRegistry::requestHost($this->request));
 
-        return $error === null ? $this->back('The host name is removed.', 'edit', ['id' => $site['public_id']]) : $this->back($error, 'edit', ['id' => $site['public_id']], 'error');
+        return $error === null ? $this->domainBack('The host name is removed.', $site['public_id']) : $this->domainBack($error, $site['public_id'], 'error');
     }
 
     protected function actionDomainPrimary(): Response
@@ -528,7 +575,7 @@ final class Sites extends Module
             SiteRegistry::makePrimary($this->db, (int) $site['site_id'], (int) $domain['domain_id']);
         }
 
-        return $this->back('The primary host name is changed.', 'edit', ['id' => (string) ($site['public_id'] ?? '')]);
+        return $this->domainBack('The primary host name is changed.', (string) ($site['public_id'] ?? ''));
     }
 
     protected function actionDomainRedirect(): Response
@@ -539,7 +586,18 @@ final class Sites extends Module
             SiteRegistry::setRedirect($this->db, (int) $site['site_id'], (int) $domain['domain_id'], $this->request->post('redirect') === '1');
         }
 
-        return $this->back('The host name is saved.', 'edit', ['id' => (string) ($site['public_id'] ?? '')]);
+        return $this->domainBack('The host name is saved.', (string) ($site['public_id'] ?? ''));
+    }
+
+    /** Back to the site's page, or to Settings → Address and visibility when the form came from there. */
+    private function domainBack(string $message, string $id, string $type = 'ok'): Response
+    {
+        if ($this->request->post('return') !== 'address') {
+            return $this->back($message, 'edit', ['id' => $id], $type);
+        }
+        $this->app->session->flash($type, $message);
+
+        return Response::redirect($this->app->url('admin.php?module=settings&tab=address'));
     }
 
     /** Opens a site: a one-time token, then the browser goes to the primary host of that site, where Admin\Kernel signs the administrator in. */
@@ -582,7 +640,8 @@ final class Sites extends Module
     {
         $ready = array_values(array_filter(SiteRegistry::overview($this->db), fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed'));
 
-        return $this->view('form', 'New site', ['name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready, 'parent' => $parent, 'parents' => self::familyParents($ready, null)]);
+        return $this->view('form', 'New site', ['files' => OwnerRegistry::isFirst($this->db) ? SiteImport::listAll() : [], 'existing' => $this->request->post('existing'),
+            'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))), 'name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready, 'parent' => $parent, 'parents' => self::familyParents($ready, null)]);
     }
 
     /**

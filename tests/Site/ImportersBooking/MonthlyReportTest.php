@@ -20,6 +20,7 @@ final class MonthlyReportTest extends SiteTestCase
     {
         $site = $this->site();
         // the agency and the site e-mail come from earlier sections of the old walk
+        $site->setting('agency_enabled', '1');
         $site->setting('agency_name', 'Studio Test');
         $site->setting('site_email', 'spravce@example.cz');
         $lastMonth = (new \DateTimeImmutable('first day of last month'))->format('Y-m');

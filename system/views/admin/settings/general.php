@@ -9,7 +9,6 @@ if (Talea\Core\SiteUrl::locked($app->db())) {
 } else {
     $field('site_url', 'Site address', 'url', 'For example https://www.example.com, without a trailing slash. Links in e-mails, RSS, the sitemap and notifications are built from it. Change it after moving to another domain.', 'required placeholder="https://"');
 }
-$field('redirect_to_site_url', 'Redirect other addresses to the site address', 'flag', 'Visitors who reach the site under another address (with or without www, an old domain) are sent to the same page on the site address. The administration, the Claude connection and preview links are not redirected.');
 $field('site_description', 'Site description', 'lines', 'One or two sentences – a motto, a description for search engines and RSS.');
 $field('site_email', 'Site email', 'email', 'System notifications are sent to it.');
 ?>
@@ -124,24 +123,35 @@ if ($waiting !== []): ?>
 <?php $field('news_slug', 'News URL', 'text', 'The first part of the news addresses in every language: blog gives /blog/…. Empty = the default address. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.', 'maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="' . e('news') . '"'); ?>
 <?php $field('news_per_page', 'News items per page', 'number', '', 'min="1" max="100"'); ?>
 </fieldset>
+<?php
+// the card is hidden unless Core\Agency says so (docs/specs/settings-ux.md 5.5)
+$agencyLevel = Talea\Core\Deployment::level() === Talea\Core\Deployment::AGENCY;
+$agencyRole = !$agencyLevel && Talea\Core\Agency::roleExists($app->db());
+$agencyOn = $agencyLevel || $agencyRole || ($values['agency_enabled'] ?? '') === '1';
+$agencyReadOnly = !Talea\Core\Agency::editable($app->db(), $app->auth()->user());
+?>
 <fieldset>
-<legend><?= e(t('Built and looked after by')) ?></legend>
+<legend><?= e(t('Created and maintained by')) ?></legend>
+<?php if (!$agencyLevel): ?>
+<div class="row">
+	<span class="caption"><?= e(t('Maintained by an agency')) ?></span>
+	<div class="options"><label><input type="checkbox" name="agency_enabled" value="1"<?= $agencyOn ? ' checked' : '' ?><?= $agencyRole ? ' disabled' : '' ?>> <?= e(t('Yes')) ?></label>
+	<?php if ($agencyRole): ?><span class="help"><?= e(t('On automatically because a user has the Agency role')) ?></span><?php endif ?></div>
+</div>
+<?php endif ?>
+<?php if ($agencyOn): ?>
 <p class="help"><?= e(t('The agency or freelancer who looks after the site. The sign-in screen and the foot of the admin show whom to ask for help.')) ?></p>
 <?php
-$field('agency_name', 'Name');
-$field('agency_url', 'Website', 'url');
-$field('agency_email', 'E-mail for help', 'email');
-$field('agency_phone', 'Phone for help');
-$field('agency_logo', 'Logo', 'text', 'A path from Media, e.g. media/2026/10/agency.svg – click the file in Media to open it, its address starts with media/.');
+$ro = $agencyReadOnly ? 'readonly' : '';
+$field('agency_name', 'Name', 'text', '', $ro);
+$field('agency_url', 'Website', 'url', '', $ro);
+$field('agency_email', 'E-mail for help', 'email', '', $ro);
+$field('agency_phone', 'Phone for help', 'text', '', $ro);
+$field('agency_logo', 'Logo', 'text', 'A path from Media, e.g. media/2026/10/agency.svg – click the file in Media to open it, its address starts with media/.', $ro);
 ?>
+<?php endif ?>
 </fieldset>
-<details class="advanced"<?= $values['maintenance'] === '1' ? ' open' : '' ?>>
-<summary><?= e(t('Maintenance mode')) ?><?= $values['maintenance'] === '1' ? ' – ' . e(t('ON')) : '' ?></summary>
-<?php
-$field('maintenance', 'The site is temporarily unavailable', 'flag', 'Visitors see only the notice below. Signed-in users see the site as usual.');
-$field('maintenance_text', 'Notice text', 'text', '', 'maxlength="300"');
-?>
-</details>
+<p class="help"><?= e(t('Host names, maintenance mode and search engines are set in')) ?> <a href="<?= e($module->url('list', ['tab' => 'address'])) ?>"><?= e(t('Address and visibility')) ?></a>.</p>
 <?php /* screen mode (2.11, Front\Screen): a kiosk address for a TV or a tablet in the reception; $screenCollections address => name, $screenUrl '' until the address exists */ ?>
 <details class="advanced"<?= ($values['screen_mode'] ?? '') === '1' ? ' open' : '' ?>>
 <summary><?= e(t('Screen mode')) ?><?= ($values['screen_mode'] ?? '') === '1' ? ' – ' . e(t('ON')) : '' ?></summary>

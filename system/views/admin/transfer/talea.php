@@ -21,7 +21,7 @@ $rowsTotal = max(1, array_sum($counts));
 $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (int) ($v['skipped'] ?? 0), $state['result']));
 ?>
 <h2><?= e(t('Import from Talea')) ?></h2>
-<?= $app->view->render('admin/transfer/steps', ['step' => $state['phase'] === 'preview' ? 2 : 3]) ?>
+<?= $app->view->render('admin/transfer/steps', ['step' => $state['phase'] === 'preview' ? 2 : 3, 'kind' => 'talea', 'size' => @filesize((string) Talea\Core\SiteImport::path($state['file'])), 'module' => $module]) ?>
 <?php if ($error !== ''): ?>
 <p class="notice notice-error"><?= e(t('The import has stopped:')) ?> <?= e(t($error)) ?></p>
 <?php if ($state['backup'] !== ''): ?>

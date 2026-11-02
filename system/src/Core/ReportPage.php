@@ -48,7 +48,9 @@ final class ReportPage
     {
         $siteUrl = rtrim($siteUrl, '/');
         $agency = $s->get('agency_name');
-        $logo = $s->get('agency_logo');
+        $visible = $agency !== '' && Agency::visible($s);
+        $agency = $visible ? $agency : '';
+        $logo = $visible ? $s->get('agency_logo') : '';
         $month = self::monthName($stored['month']);
 
         return [
