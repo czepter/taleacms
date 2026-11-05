@@ -6,6 +6,30 @@
 	'use strict';
 
 	var script = document.currentScript;
+
+	/* The visit (Front\Stats::view): the server only renders the page; the visit is counted when this browser confirms the page was
+	   shown – one beacon to POST /_view (no cookies, no identifiers) once the page is visible, not while it is prerendered or in a
+	   background tab. The endpoint, the path and the signature are in data-view* of this tag (only where the statistics are on, for
+	   anonymous visitors, not in previews). Without JavaScript nothing is counted. */
+	var viewEndpoint = script && script.getAttribute('data-view');
+	if (viewEndpoint && navigator.sendBeacon && !navigator.webdriver) {
+		var counted = false;
+		var confirmView = function () {
+			if (counted || document.prerendering || document.visibilityState !== 'visible') { return; }
+			counted = true;
+			var beacon = new URLSearchParams();
+			beacon.set('path', script.getAttribute('data-view-path') || '');
+			beacon.set('news', script.getAttribute('data-view-news') || '');
+			beacon.set('sig', script.getAttribute('data-view-sig') || '');
+			beacon.set('ref', document.referrer);
+			beacon.set('query', location.search);
+			try { navigator.sendBeacon(viewEndpoint, beacon); } catch (e) { /* no counter */ }
+		};
+		document.addEventListener('visibilitychange', confirmView);
+		document.addEventListener('prerenderingchange', confirmView);
+		confirmView();
+	}
+
 	var endpoint = script && script.getAttribute('data-vitals');
 	if (!endpoint || typeof PerformanceObserver !== 'function' || !navigator.sendBeacon || navigator.webdriver
 		|| /bot|crawl|spider|slurp|preview|monitor|lighthouse|headless/i.test(navigator.userAgent)) { return; }

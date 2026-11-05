@@ -188,7 +188,7 @@ final class Endpoints
         return \Talea\Core\Conversions::record($this->app);
     }
 
-    /** POST /_view: the browser confirms that a page was shown (image/web.js) – the only place visits are counted */
+    /** POST /_view: the browser confirms that a page was shown (image/vitals.js) – the only place visits are counted */
     public function view(): Response
     {
         return Stats::view($this->app);

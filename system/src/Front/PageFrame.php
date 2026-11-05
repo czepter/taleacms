@@ -76,9 +76,9 @@ final class PageFrame
         $newsItem = $meta['article'] ?? null;
         unset($meta['article']);
         if ($status === 200 && empty($meta['noindex'])) {
-            // visits are counted by the browser's beacon (Front\Stats::view), not by this request: the page only says where to send it,
-            // and for which news item. Real-user speed (2.8) is measured on the same page views – never in previews or the builder
-            // (noindex), and not for signed-in users, whose pages carry the editing bar
+            // visits are counted by the browser's beacon (image/vitals.js -> Front\Stats::view), not by this request: the page only says where
+            // to send it, and for which news item. Real-user speed (2.8) is measured on the same page views – never in previews or the
+            // builder (noindex), and not for signed-in users, whose pages carry the editing bar
             $meta['count_news'] = $newsItem === null ? '' : (string) ($newsItem['public_id'] ?? '');
             $meta['vitals'] = Stats::isOn($this->app) && $this->app->request->get('preview') === '' && $this->app->auth()->user() === null;
         }
@@ -152,9 +152,7 @@ final class PageFrame
         // enquiry basket and comparing products). Contact clicks (2.12, Core\Conversions): a phone number, an e-mail address
         // or a WhatsApp link anywhere on the page – a footer with the phone number is enough – keeps the script too, but only
         // when a click would be counted (the statistics are on, a visitor, no preview: the same switch as the speed beacon)
-        // Visits: the script also carries the beacon that confirms the view (Front\Stats::view), so while the statistics count (the same
-        // switch) every page keeps it.
-        $countsClicks = !empty($meta['vitals']);
+        $countsClicks = !empty($meta['vitals']) && preg_match(\Talea\Core\Conversions::LINK_PATTERN, $html);
         if (!$countsClicks && !preg_match('/data-(insert|share|copy|tabs|carousel|before-after|booking|form|sent|counter|countdown|theme-option|collection|locator|product|basket|recaptcha)|popover role="dialog"|gallery|class="(?:text|lead)[" ][\s\S]*?<img|cookies-|<li class="submenu|data-popup=|id="tl-experiments"|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }

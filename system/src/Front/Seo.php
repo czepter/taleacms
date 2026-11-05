@@ -410,14 +410,14 @@ final class Seo
         // script is downloading, and prints the unhandled error „Transition was aborted because of invalid state“ to the console.
         // contact clicks (2.12, Core\Conversions) follow the same switch as the speed beacon below: the script counts a click on a
         // phone number, an e-mail address or a WhatsApp link only when the tag names the endpoint in data-conversion
-        $clicks = !empty($meta['vitals']) ? ' data-conversion="' . e($this->app->url('conversion')) . '"' . Stats::viewAttributes($this->app, (string) ($meta['count_news'] ?? '')) : '';
+        $clicks = !empty($meta['vitals']) ? ' data-conversion="' . e($this->app->url('conversion')) . '"' : '';
         $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::SCRIPT_TEXTS) . $clicks . '></script>';
         // forms (steps, conditions, the estimate): a script of their own, kept by Front\PageFrame only on a page with a form
         $h[] = '<script src="' . e($this->app->url('image/forms.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::FORM_SCRIPT_TEXTS) . '></script>';
         if (!empty($meta['vitals'])) {
-            // real-user speed (2.8, Core\WebVitals): a small deferred script of its own, so pages without image/web.js stay
-            // without it; the beacon goes to POST /vitals without cookies or identifiers
-            $h[] = '<script src="' . e($this->app->url('image/vitals.js')) . '?v=' . $version . '" defer data-vitals="' . e($this->app->url('vitals')) . '"></script>';
+            // real-user speed (2.8, Core\WebVitals) and the visit beacon (Front\Stats::view): a small deferred script of its own, so pages
+            // without image/web.js stay without it; the beacons go to POST /vitals and POST /_view without cookies or identifiers
+            $h[] = '<script src="' . e($this->app->url('image/vitals.js')) . '?v=' . $version . '" defer data-vitals="' . e($this->app->url('vitals')) . '"' . Stats::viewAttributes($this->app, (string) ($meta['count_news'] ?? '')) . '></script>';
         }
         if (\Talea\Core\ErrorReport::browserOnSite()) {
             // browser errors of the site's own scripts to the error tracking, only when the operator switched it on

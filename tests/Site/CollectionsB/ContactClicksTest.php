@@ -38,7 +38,7 @@ final class ContactClicksTest extends SiteTestCase
         $site->clearPageCache();
 
         $this->countView($site->client(), '/call-212', 'Mozilla/5.0 test', $page);
-        $this->assertMatchesRegularExpression('#image/web\.js\?v=[^"]*" defer blocking="render"[^>]* data-conversion="/conversion"[^>]* data-view="/_view"[^>]*></script>#', $page->body, '2.12: a page with only a tel: link keeps web.js with the /conversion endpoint when the statistics are on');
+        $this->assertMatchesRegularExpression('#image/web\.js\?v=[^"]*" defer blocking="render"[^>]* data-conversion="/conversion"></script>#', $page->body, '2.12: a page with only a tel: link keeps web.js with the /conversion endpoint when the statistics are on');
         $this->assertStringNotContainsString('data-conversion', $site->admin()->get('/call-212')->body, '2.12: no click counter for signed-in users');
 
         $this->assertSame(204, $this->beacon('tel', '/call-212'), '2.12: a click beacon answers 204');

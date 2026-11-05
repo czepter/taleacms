@@ -84,7 +84,7 @@ final class Stats
     }
 
     /**
-     * The attributes image/web.js reads on its own script tag (Front\Seo::head) to confirm the view: the endpoint, the page path
+     * The attributes image/vitals.js reads on its own script tag (Front\Seo::head) to confirm the view: the endpoint, the page path
      * as the statistics store it, the news item (public id) and the signature. They are part of the cached page, so a cache hit
      * carries what the beacon needs; the server request itself counts nothing.
      */
@@ -119,14 +119,14 @@ final class Stats
     /** How visits are counted, in words (the Statistics screen, get_stats). */
     public static function method(): string
     {
-        return 'A visit is counted when the visitor\'s browser confirms that the page was shown: image/web.js sends a small beacon (no cookies) '
+        return 'A visit is counted when the visitor\'s browser confirms that the page was shown: image/vitals.js sends a small beacon (no cookies) '
             . 'after the page is visible, so a page that was only fetched – prefetched, prerendered, a link preview, a crawler or an uptime check – '
             . 'and a visitor without JavaScript are not counted, nor are signed-in people and previews. A visit is one visitor (a hash of address and browser '
             . 'that changes every day) per day; page views are the confirmed page loads. One visitor adds at most ' . self::DAILY_CAP . ' page views a day, and '
             . self::MACHINE_VIEWS . ' views within ' . self::MACHINE_SECONDS . ' seconds are treated as a machine and not counted further that day.';
     }
 
-    /** POST /_view: the browser confirms that a page was shown (image/web.js). Always 204; anything unwanted is simply not counted. */
+    /** POST /_view: the browser confirms that a page was shown (image/vitals.js). Always 204; anything unwanted is simply not counted. */
     public static function view(App $app): Response
     {
         $done = new Response('', 204, ['Cache-Control' => 'no-store']);

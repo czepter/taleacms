@@ -188,7 +188,7 @@ PHP);
         $visitor = $site->client();
         $this->clearCache();
         $this->countView($visitor, '/services');
-        $this->assertMatchesRegularExpression('#<script src="/image/vitals.js\?v=[^"]*" defer data-vitals="/vitals"></script>#', $visitor->get('/services')->body, '2.8: the speed beacon script loads deferred with the statistics on');
+        $this->assertMatchesRegularExpression('#<script src="/image/vitals.js\?v=[^"]*" defer data-vitals="/vitals" data-view="/_view"[^>]*></script>#', $visitor->get('/services')->body, '2.8: the speed beacon script loads deferred with the statistics on');
         $this->assertStringNotContainsString('blocking="render" data-vitals', $visitor->get('/services')->body, '2.8: the beacon script does not block rendering');
         $this->assertStringNotContainsString('vitals.js', $site->admin()->get('/services')->body, '2.8: no speed beacon for signed-in users');
 

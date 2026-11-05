@@ -515,30 +515,6 @@
 	   endpoint into the data-conversion attribute of this <script> tag. ---------- */
 	var clicksTag = document.currentScript || document.querySelector('script[data-conversion]');
 	var clicksEndpoint = clicksTag && clicksTag.getAttribute('data-conversion');
-	/* ---------- visits (Front\Stats::view): the server only renders the page; the visit is counted when this browser confirms the page
-	   was shown – one beacon to POST /_view (no cookies, no identifiers) once the page is visible, not while it is prerendered or in
-	   a background tab. The endpoint, the path and the signature are in data-view* of this <script> tag (only where the statistics
-	   are on, for anonymous visitors, not in previews). Without JavaScript nothing is counted. ---------- */
-	(function () {
-		var endpoint = clicksTag && clicksTag.getAttribute('data-view');
-		if (!endpoint || !navigator.sendBeacon || navigator.webdriver) { return; }
-		var sent = false;
-		function confirmView() {
-			if (sent || document.prerendering || document.visibilityState !== 'visible') { return; }
-			sent = true;
-			var beacon = new URLSearchParams();
-			beacon.set('path', clicksTag.getAttribute('data-view-path') || '');
-			beacon.set('news', clicksTag.getAttribute('data-view-news') || '');
-			beacon.set('sig', clicksTag.getAttribute('data-view-sig') || '');
-			beacon.set('ref', document.referrer);
-			beacon.set('query', location.search);
-			try { navigator.sendBeacon(endpoint, beacon); } catch (error) { /* no counter */ }
-		}
-		document.addEventListener('visibilitychange', confirmView);
-		document.addEventListener('prerenderingchange', confirmView);
-		confirmView();
-	})();
-
 	document.addEventListener('click', function (e) {
 		var a = e.target.closest && e.target.closest('a[href]');
 		if (!a) { return; }
