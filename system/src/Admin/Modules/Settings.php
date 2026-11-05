@@ -11,6 +11,7 @@ use Talea\Core\Response;
 use Talea\Core\Extensions;
 use Talea\Core\Health;
 use Talea\Core\Messages;
+use Talea\Admin\ChangeLog;
 use Talea\Core\Backup;
 
 /**
@@ -443,6 +444,7 @@ class Settings extends Module
         $path = Backup::path($this->request->post('file'), $this->db);
         if ($this->request->isPost() && $path !== null && !Backup::refusedInDemo()) {
             unlink($path);
+            ChangeLog::backup($this->app, 'settings', 'backup_delete', $path);
         }
 
         return $this->back('Backup deleted.', '', ['tab' => 'backups']);
@@ -641,6 +643,7 @@ class Settings extends Module
             return $this->back(t('Restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'error');
         }
         \Talea\Front\Cache::clear();
+        ChangeLog::backup($this->app, 'settings', 'backup_restore', $this->request->post('file'));
 
         return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
     }

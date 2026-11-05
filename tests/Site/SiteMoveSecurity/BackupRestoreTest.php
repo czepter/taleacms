@@ -32,4 +32,18 @@ final class BackupRestoreTest extends SiteTestCase
         $this->adminPost('/admin.php?module=settings&action=restore_backup', ['file' => basename($broken)], '/admin.php?module=settings&tab=backups');
         $this->assertSame('Pred poskozenou', $site->settingValue('site_name'), 'a damaged backup does not change the database');
     }
+
+    public function testRestoringAndDeletingABackupAreLogged(): void
+    {
+        $site = $this->site();
+        $this->adminPost('/admin.php?module=settings&action=backup', [], '/admin.php?module=settings&tab=backups');
+        $backup = $this->newestBackup($site);
+        $this->adminPost('/admin.php?module=settings&action=restore_backup', ['file' => $backup], '/admin.php?module=settings&tab=backups');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_change_log WHERE action = 'backup_restore' AND description = ?", [$backup]), 'the restore is in the change log (written after it, so the restored log has it)');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_events WHERE type = 'backup.restored' AND message LIKE ?", ['%' . $backup . '%']), 'and in the events');
+
+        $this->adminPost('/admin.php?module=settings&action=delete_backup', ['file' => $backup], '/admin.php?module=settings&tab=backups');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_change_log WHERE action = 'backup_delete' AND description = ?", [$backup]));
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_events WHERE type = 'backup.deleted' AND message LIKE ?", ['%' . $backup . '%']));
+    }
 }
