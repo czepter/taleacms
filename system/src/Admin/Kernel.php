@@ -337,7 +337,9 @@ final class Kernel
 
             return Response::redirect($app->url('admin.php' . ($to !== null ? '?' . $to : '')));
         }
-        if ($app->auth()->user() === null) {
+        // a password link opened in a browser that is signed in: the page ends that sign-in when the link is for another account
+        $passwordLink = $action === 'password' && ($request->isPost() ? $request->post('token') : $request->get('token')) !== '';
+        if ($app->auth()->user() === null || $passwordLink) {
             return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();
         }
         if ($action === 'logout' && $request->isPost()) {

@@ -7,8 +7,8 @@ namespace Talea\Core;
 /**
  * Copy of the database backup off the server: FTP/FTPS (another hosting, NAS) or S3-compatible storage
  * (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2…). A backup on the same disk as the site does not protect against
- * losing the hosting. Since 1.8 the media go to the same place, incrementally (syncMedia). No libraries: FTP through
- * the PHP extension, S3 through cURL with an AWS Signature V4 signature.
+ * losing the hosting. Since 1.8 the media go to the same place, incrementally (syncMedia). No libraries: FTPS and S3
+ * through cURL (the FTPS certificate is verified; S3 requests carry an AWS Signature V4 signature).
  */
 final class RemoteBackup
 {
@@ -128,50 +128,63 @@ final class RemoteBackup
         return $s->get('remote_backup') === 'ftp' ? self::ftp($s) : self::s3($s);
     }
 
-    /** @return array{0: callable(string, string): void, 1: callable(): void} */
+    /**
+     * Explicit FTPS through cURL: unlike `ftp_ssl_connect()` (which accepts any certificate) cURL checks the server
+     * certificate and its name, so a man in the middle cannot read the backup or the FTP password.
+     *
+     * @return array{0: callable(string, string): void, 1: callable(): void}
+     */
     private static function ftp(Settings $s): array
     {
-        if (!function_exists('ftp_connect')) {
-            throw new \RuntimeException('The PHP extension for FTP is missing on the server.');
+        if (!function_exists('curl_init')) {
+            throw new \RuntimeException('The cURL extension is missing on the server.');
         }
         $host = $s->get('backup_host');
-        // encrypted FTPS only: the backup contains passwords and secret keys, over plain FTP they would travel the network
-        // readable (the FTP password too)
-        if (!function_exists('ftp_ssl_connect')) {
-            throw new \RuntimeException('The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.');
+        if (!preg_match('/^[A-Za-z0-9.-]+$/', $host)) {
+            throw new \RuntimeException('Enter the FTP server address without ftp:// and without a path.');
         }
-        $connection = @ftp_ssl_connect($host, 21, 15);
-        if ($connection === false) {
-            throw new \RuntimeException('The FTP server ' . $host . ' does not support an encrypted connection (FTPS). Talea does not use unencrypted FTP – choose S3 storage.');
-        }
-        if (!@ftp_login($connection, $s->get('backup_user'), $s->get('backup_password'))) {
-            throw new \RuntimeException('Could not sign in to the FTP server ' . $host . '.');
-        }
-        ftp_pasv($connection, true);
         $folder = trim($s->get('backup_folder'), '/');
-        if ($folder !== '' && !@ftp_chdir($connection, '/' . $folder)) {
-            @ftp_mkdir($connection, '/' . $folder);
-            if (!@ftp_chdir($connection, '/' . $folder)) {
-                throw new \RuntimeException('The folder ' . $folder . ' does not exist on the FTP server and cannot be created.');
-            }
-        }
-        $made = [];
-        $put = function (string $remote, string $local) use ($connection, &$made): void {
-            // media/2026/09/photo.jpg: the folders on the way are created once per connection
-            $dir = '';
-            foreach (array_slice(explode('/', $remote), 0, -1) as $part) {
-                $dir .= ($dir === '' ? '' : '/') . $part;
-                if (!isset($made[$dir])) {
-                    @ftp_mkdir($connection, $dir);
-                    $made[$dir] = true;
-                }
-            }
-            if (!@ftp_put($connection, $remote, $local, FTP_BINARY)) {
-                throw new \RuntimeException('The file could not be uploaded to the FTP server.');
+        $put = function (string $remote, string $local) use ($s, $host, $folder): void {
+            $f = fopen($local, 'rb');
+            $ch = curl_init(self::ftpUrl($host, $folder, $remote));
+            curl_setopt_array($ch, self::ftpOptions($s->get('backup_user'), $s->get('backup_password'), $f, (int) filesize($local)));
+            $ok = curl_exec($ch);
+            $error = curl_error($ch);
+            fclose($f);
+            if ($ok === false) {
+                throw new \RuntimeException('The file could not be uploaded to the FTP server ' . $host . ($error !== '' ? ': ' . $error : '') . '.');
             }
         };
 
-        return [$put, fn () => @ftp_close($connection)];
+        return [$put, fn () => null];
+    }
+
+    public static function ftpUrl(string $host, string $folder, string $remote): string
+    {
+        $path = implode('/', array_map(rawurlencode(...), array_filter(explode('/', trim($folder . '/' . $remote, '/')), fn (string $p): bool => $p !== '')));
+
+        return 'ftp://' . $host . '/' . $path;
+    }
+
+    /**
+     * cURL options of one FTPS upload: TLS is required (never plain FTP) and the certificate and host name are verified.
+     *
+     * @param resource $file
+     * @return array<int, mixed>
+     */
+    public static function ftpOptions(string $user, string $password, $file, int $size): array
+    {
+        return [
+            CURLOPT_USERPWD => $user . ':' . $password,
+            CURLOPT_USE_SSL => CURLUSESSL_ALL,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_FTP_CREATE_MISSING_DIRS => CURLFTP_CREATE_DIR,
+            CURLOPT_UPLOAD => true, CURLOPT_INFILE => $file, CURLOPT_INFILESIZE => $size,
+            CURLOPT_PROTOCOLS => CURLPROTO_FTP,
+            CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 300,
+            CURLOPT_RETURNTRANSFER => true,
+        ];
     }
 
     /** @return array{0: callable(string, string): void, 1: callable(): void} */
