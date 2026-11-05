@@ -25,7 +25,7 @@ trait SiteTools
         return [
             ['list_owner_sites', 'The sites of this installation (multisite, administrators, read-only): id, name, status (live | paused | archived | trashed), whether it is set up, the host names with the primary one, and where an archived site redirects. Each set-up site carries health: its open enquiries and broken links. Pass a site\'s id as the site argument of any other tool to work on that site instead of the one this connection calls.',
                 $s([])],
-            ['create_site', 'Creates a further site (multisite, administrators): empty, or a copy of another site with clone_of (its content and look, never its visitors\' data). It starts paused and is set up in the background within a few minutes; add a host name with add_site_domain and set it live with update_site. Only on a connection of the installation\'s own first owner (an operator): clone_of may name a site of another owner, which is copied with its media, components and facts but never its mail or AI settings, nothing linked, and owner makes the copy in another owner.',
+            ['create_site', 'Creates a further site (multisite, administrators): empty, or a copy of another site with clone_of (its content and look, never its visitors\' data). It starts paused and is set up in the background right away (within a few minutes where the host cannot start processes); add a host name with add_site_domain and set it live with update_site. Only on a connection of the installation\'s own first owner (an operator): clone_of may name a site of another owner, which is copied with its media, components and facts but never its mail or AI settings, nothing linked, and owner makes the copy in another owner.',
                 $s(['name' => $text('name of the site'), 'clone_of' => $pid('site id from list_owner_sites to copy (omit for an empty site); an operator of the installation may also name a site of another owner'), 'owner' => $pid('operators only: id of the owner (Owners area) that gets the new site; omit for the owner this connection belongs to'),
                     'parent' => $pid('site id (a look family\'s parent, set up): the new site takes its design system, classes, header and footer from it; omit for none')], ['name'])],
             ['set_look_parent', 'Puts a site into the look family of a parent site, or takes it out (multisite, administrators). A child takes its published design system, dark mode, classes (merged by name; its own extra classes stay) and header and footer (every language the parent has) from the parent; they are copied again whenever the parent publishes, and the child cannot change them (menus, pages and everything else stay its own). One level only: a parent cannot be a child, the same owner. Joining copies the parent\'s look at once and throws away the child\'s unpublished look draft – refused unless discard_draft is true. Leaving (parent empty) keeps the current copy; the child can roll back its look alone with restore_look_version.',
@@ -162,9 +162,11 @@ trait SiteTools
         }
         $prefix = Sites::add($db, $title, Sites::freeSlug($db, $title), $source, $clone, $sourceOwner, (int) ($parent['site_id'] ?? 0));
         $site = $db->one('SELECT * FROM {sites} WHERE prefix = ?', [$prefix]) ?? throw new \DomainException('The site could not be created.');
+        // set up now in a process of its own, as from the admin (a site of another owner is set up in that owner's cron run)
+        $started = \Talea\Core\Owners::isFirst($db) && \Talea\Core\Background::start('provision');
 
         return ['site' => ['current' => false] + $this->siteOutput($site + ['domains' => []]),
-            'next' => 'The site is set up in the background within a few minutes (ready: true in list_owner_sites) and starts paused. Add a host name with add_site_domain, then set it live with update_site.'];
+            'next' => ($started ? 'The site is being set up now in the background' : 'The site is set up in the background within a few minutes') . ' (ready: true in list_owner_sites) and starts paused. Add a host name with add_site_domain, then set it live with update_site.'];
     }
 
     /** transfer_site */
