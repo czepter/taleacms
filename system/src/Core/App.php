@@ -109,7 +109,9 @@ final class App
             }
             $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'owner_prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true, 'verified' => true, 'kind' => 'domain'];
         }
-        $claude = preg_match('#^/(mcp|mcp/upload/[a-f0-9]{48}|oauth/.*|\.well-known/.*)$#', $request->path()) === 1;
+        // only the front script and the real address: admin.php?path=/mcp or index.php?path=… must not borrow the exemption
+        $claude = $request->script() === 'index.php' && $request->get('path') === ''
+            && preg_match('#^/(mcp|mcp/upload/[a-f0-9]{48}|oauth/.*|\.well-known/.*)$#D', $request->path()) === 1;
         if (($site['owner_status'] ?? 'live') !== 'live' && $request->path() !== '/health' && !($claude && $site['owner_status'] === 'paused')) {
             // a paused owner: every one of its sites answers 503 (admin too; Claude's connection, OAuth and upload links pass), an archived owner's hosts are unknown
             $paused = $site['owner_status'] === 'paused';

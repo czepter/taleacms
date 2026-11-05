@@ -317,6 +317,8 @@ final class OwnersIsolationTest extends SiteTestCase
         $link = $this->site()->client('visitor')->put('/mcp/upload/' . str_repeat('a', 48), 'x', $this->host(true));
         $this->assertSame(404, $link->status, 'Claude\'s upload links reach the site of a paused owner (unknown link, not 503)');
         $this->assertNotSame(503, $this->site()->client('visitor')->post('/mcp', [], $this->host(true))->status, 'so does the connection');
+        $this->assertSame(503, $this->get(true, '/admin.php?path=/mcp', $this->betaAdmin())->status, 'the exemption cannot be borrowed through ?path=');
+        $this->assertSame(503, $this->get(true, '/about?path=/mcp')->status);
         $this->assertSame(200, $this->get(false, '/about')->status, 'owner A is unaffected');
 
         $site->exec("UPDATE tl_owners SET status = 'archived' WHERE prefix = 'tlb_'");
