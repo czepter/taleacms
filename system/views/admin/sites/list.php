@@ -64,8 +64,9 @@ $title = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (str
 	<td class="cell-weak"><?php if (!$s['ready']): ?><?php elseif ($s['backup'] === 0): ?><span class="badge badge-error"><?= e(t('none')) ?></span><?php else: ?><?= e(format_date(date('Y-m-d H:i:s', $s['backup']))) ?><?= time() - $s['backup'] > 2 * 86400 ? ' <span class="badge badge-error">' . e(t('old')) . '</span>' : '' ?><?php endif ?></td>
 	<td><?= $state($s) ?></td>
 	<td class="cell-actions"><?php if ($own): ?><?= $app->view->render('admin/list/actions', ['id' => 'site-' . $s['public_id'], 'name' => $title($s), 'edit' => $edit, 'csrf' => $csrf,
+		// opening a site is the everyday step: a button on the row, not a menu entry
+		'quick' => $s['ready'] && !$here && $host !== '' ? ['action' => $module->url('handoff'), 'fields' => ['id' => $s['public_id']], 'label' => t('Open'), 'icon' => 'out'] : null,
 		'menu' => array_merge(
-			$s['ready'] && !$here && $host !== '' ? [['post' => $module->url('handoff'), 'fields' => ['id' => $s['public_id']], 'label' => t('Open'), 'icon' => 'out']] : [],
 			// the two pages below are built elsewhere; point them at the screens that exist today
 			[['url' => $here ? $app->url('admin.php?module=settings&tab=address') : $edit, 'label' => t('Address and visibility')], ['url' => $here ? $app->url('admin.php?module=transfer') : $module->url('import'), 'label' => t('Import and export')]],
 			$operator ? [['url' => $app->url('admin.php?' . http_build_query(['module' => 'owners', 'action' => 'transfer', 'site' => $s['public_id']])), 'label' => t('Move')]] : [],

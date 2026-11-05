@@ -169,6 +169,7 @@ $waiting = $warnings !== [] || $pending !== [];
 				<p class="home-site-state home-site-live"><?= e(t('Everything is published.')) ?></p>
 <?php endif ?>
 <?php if (isset($modules['appearance'])): ?>
+				<a class="navigation" href="<?= e($app->url('admin.php?module=appearance&action=templates')) ?>"><?= e(t('Start from a site template')) ?></a>
 				<a class="navigation" href="<?= e($app->url('admin.php?module=appearance&action=looks')) ?>"><?= e(t('Try on another look')) ?></a>
 <?php endif ?>
 			</div>

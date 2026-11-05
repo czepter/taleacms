@@ -30,6 +30,7 @@ final class OwnerClone
         'collection_items' => ['data', 'image'],
         'build_revisions' => ['build'],
         'sections' => ['element'],
+        'page_templates' => ['build'],
         'classes' => ['style', 'css'],
         'menus' => ['items'],
         'settings' => ['value'],

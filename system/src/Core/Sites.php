@@ -50,7 +50,7 @@ final class Sites
      * null = no such domain. With several owners (TALEA_OWNERS) the domains of every set-up owner are read in one query – a host is
      * unique in the whole install – and the result names the owner's prefix; without, only this owner's.
      *
-     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, owner_status: string, owner_public_id: string, status: string, transferring: bool, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool, verified: bool, kind: string}|null
+     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, owner_status: string, owner_public_id: string, status: string, transferring: bool, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool, verified: bool, kind: string, template: ?string}|null
      */
     public static function resolve(Db $db, string $host): ?array
     {
@@ -62,7 +62,7 @@ final class Sites
             $o = $db->forOwner($owner);
             $sites = $db->dialect()->quote($o->table('sites'));
             $domains = $db->dialect()->quote($o->table('site_domains'));
-            $selects[] = 'SELECT ' . $i . ' AS owner_idx, s.site_id, s.public_id, s.prefix, s.status, s.transfer_to, s.redirect_to_site_id, s.ready_at, d.is_primary, d.redirect_to_primary, d.verified_at, d.kind,
+            $selects[] = 'SELECT ' . $i . ' AS owner_idx, s.site_id, s.public_id, s.prefix, s.status, s.transfer_to, s.redirect_to_site_id, s.ready_at, s.template, d.is_primary, d.redirect_to_primary, d.verified_at, d.kind,
                 (SELECT p.host FROM ' . $domains . ' p WHERE p.site_id = s.site_id AND p.is_primary = TRUE ORDER BY p.domain_id LIMIT 1) AS primary_host
              FROM ' . $domains . ' d JOIN ' . $sites . ' s ON s.site_id = d.site_id WHERE d.host = ?';
         }
@@ -75,7 +75,7 @@ final class Sites
             'site_id' => (int) $r['site_id'], 'public_id' => (string) $r['public_id'], 'prefix' => (string) $r['prefix'], 'owner_prefix' => $owners[(int) $r['owner_idx']], 'owner_status' => (string) ($statuses[$owners[(int) $r['owner_idx']]] ?? 'live'), 'owner_public_id' => $owners[(int) $r['owner_idx']] === $db->installPrefix ? '' : (string) ($publicIds[$owners[(int) $r['owner_idx']]] ?? ''), 'status' => (string) $r['status'], 'transferring' => $r['transfer_to'] !== null,
             'redirect_to_site_id' => $r['redirect_to_site_id'] === null ? null : (int) $r['redirect_to_site_id'],
             'is_primary' => (bool) $r['is_primary'], 'redirect_to_primary' => (bool) $r['redirect_to_primary'], 'primary_host' => $r['primary_host'] === null ? null : (string) $r['primary_host'], 'ready' => $r['ready_at'] !== null,
-            'verified' => $r['verified_at'] !== null || ($owners[(int) $r['owner_idx']] === $db->installPrefix && Domains::envVerified($host)), 'kind' => (string) $r['kind'],
+            'verified' => $r['verified_at'] !== null || ($owners[(int) $r['owner_idx']] === $db->installPrefix && Domains::envVerified($host)), 'kind' => (string) $r['kind'], 'template' => $r['template'] === null ? null : (string) $r['template'], // the site template waiting for an administrator's first visit
         ];
     }
 
@@ -543,7 +543,7 @@ final class Sites
 
     /** Columns of the copied tables that store a build (or one element) with component elements; the experiments' variant is a component too. */
     private const array BUILD_COLUMNS = ['pages' => ['build', 'build_draft'], 'site_parts' => ['build', 'build_draft'], 'popups' => ['build', 'build_draft'],
-        'collections' => ['build', 'build_draft'], 'collection_templates' => ['build', 'build_draft'], 'build_revisions' => ['build'], 'experiments' => ['previous_build']];
+        'collections' => ['build', 'build_draft'], 'collection_templates' => ['build', 'build_draft'], 'build_revisions' => ['build'], 'experiments' => ['previous_build'], 'page_templates' => ['build']];
 
     /**
      * A clone's own rows of the shared tables: the source site's local components and facts (shared ones are not copied – the clone

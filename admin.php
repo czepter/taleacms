@@ -10,10 +10,11 @@ require_once __DIR__ . '/system/bootstrap.php';
 
 $app = Talea\Core\App::boot();
 $response = (new Talea\Admin\Kernel($app))->handle();
-// forms may submit only to the site itself; the exception is consent to connecting an application (OAuth): after submitting,
-// the browser goes to the application's return URL (claude.ai, localhost for Claude Code) and CSP form-action guards this redirect too
+// forms may submit only to the site itself; the exceptions: consent to connecting an application (OAuth) – after submitting, the
+// browser goes to the application's return URL (claude.ai, localhost for Claude Code) and CSP form-action guards this redirect too –
 $headers = $response->headers;
-$formTargets = "'self'" . (preg_match('#^https?://[a-z0-9.\[\]:-]+$#i', $headers['X-Talea-Form-Action'] ?? '') ? ' ' . $headers['X-Talea-Form-Action'] : '');
+// and opening another site of the owner (Modules\Sites::formOrigins): a space-separated list of origins, each checked
+$formTargets = implode(' ', ["'self'", ...array_filter(explode(' ', (string) ($headers['X-Talea-Form-Action'] ?? '')), fn (string $origin): bool => preg_match('#^https?://[a-z0-9.\[\]:-]+$#i', $origin) === 1)]);
 unset($headers['X-Talea-Form-Action']);
 // admin: nothing from it belongs in the browser or proxy cache, and it may run only its own scripts (no inline, no third-party)
 (new Talea\Core\Response($response->body, $response->status, $headers + [

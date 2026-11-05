@@ -380,6 +380,16 @@ trait SiteImportRows
             ? ['section_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'element' => (string) json_encode($build['children'][0], JSON_UNESCAPED_UNICODE), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
     }
 
+    /** One of the site's own page templates: its build through the sanitizer, references mapped like a page's. */
+    private function pageTemplate(array $r): ?array
+    {
+        $build = $this->build($r['build'] ?? null);
+        $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
+
+        return $name !== '' && $build !== null
+            ? ['page_template_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'build' => $build, 'created_at' => date('Y-m-d H:i:s')] : null;
+    }
+
     private function menu(array $r): ?array
     {
         $location = (string) ($r['location'] ?? '');

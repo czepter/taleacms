@@ -69,6 +69,11 @@ final class Catalog
         'discard_look' => ['destructive', ''],
         'list_looks' => ['read', ''],
         'apply_look' => ['draft', ''],
+        'list_site_templates' => ['read', ''],
+        'list_page_templates' => ['read', ''],
+        'save_page_template' => ['write', ''],
+        'delete_page_template' => ['destructive', ''],
+        'apply_site_template' => ['draft', ''],
         'list_look_versions' => ['read', ''],
         'restore_look_version' => ['draft', ''],
         // Collections

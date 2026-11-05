@@ -625,10 +625,8 @@ final class Pages extends Module
 
                 return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
             }
-            $template = \Talea\Builder\Library::PAGE_TEMPLATES[$r->post('template')] ?? null;
-            if ($template !== null && $template[1] !== []) {
-                // new page from a template: sections from the library as a draft and straight into the builder
-                $build = \Talea\Builder\Library::page($this->db, $template[1], $data['title'], $this->contentLanguage($data['language']));
+            $template = \Talea\Builder\PageTemplates::startSections($r->post('template')); // a start in the builder: its draft, straight into the builder
+            if (($build = \Talea\Builder\PageTemplates::startBuild($this->db, $r->post('template'), $r->post('copy_of'), $data['title'], $data['language'], $this->contentLanguage($data['language']), $this->app->auth()->isAdmin())) !== null) {
                 $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $id]);
                 \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
                 \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
@@ -1073,6 +1071,8 @@ final class Pages extends Module
         // a new translation says so in its heading: "Translation: Garden design → Português"
         return $this->view('form', $page['page_id'] ? 'Edit page' : ($translationOf !== null ? t('Translation: %s → %s', $translationOf, $languageName) : 'New page'), [
             'page' => $page, 'errors' => $errors, 'translationOf' => $translationOf, 'languageName' => $languageName, 'parentPublicId' => $this->publicId((int) ($page['parent_id'] ?? 0)),
+            // New page: the cards to start from (Builder\PageTemplates::newPage)
+            ...($page['page_id'] ? ['starts' => [], 'start' => '', 'sectionNames' => [], 'mine' => [], 'copyable' => []] : \Talea\Builder\PageTemplates::newPage($this->db, $language, $this->request->post('template', $this->request->get('template')))),
             // possible parent pages: the same language, not the page itself nor its subpages
             'parents' => array_values(array_filter($this->db->all('SELECT page_id, public_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, (int) $page['page_id']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['slug'] . '/', $custom . '/'))),

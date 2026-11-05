@@ -149,6 +149,8 @@ final class SiteExport
         // forms (docs/specs/form-builder.md): "form_embed" elements place them by public id; where one was adopted from stays this site's
         self::fields($f, 'forms', $all('forms', 'SELECT form_id, public_id, name, build, build_draft FROM {forms} ORDER BY form_id', [], $builds));
         self::fields($f, 'sections', $all('sections', 'SELECT section_id, public_id, name, element, kit_key FROM {sections} ORDER BY section_id', [], ['element' => 'element']));
+        // the site's own page templates (Builder\PageTemplates)
+        self::fields($f, 'page_templates', $all('page_templates', 'SELECT page_template_id, public_id, name, build, created_at FROM {page_templates} ORDER BY page_template_id', [], ['build' => 'build']));
         self::fields($f, 'menus', $all('menus', 'SELECT location, language, items FROM {menus} ORDER BY location, language', [], ['items' => 'menu']));
         self::fields($f, 'collections', $all('collections', 'SELECT collection_id, public_id, name, slug, fields, detail, admin_menu, hidden_redirect, preset, schema_org, build, build_draft FROM {collections} ORDER BY collection_id', [], $builds));
         self::fields($f, 'collection_templates', $all('collection_templates', 'SELECT collection_id, language, build, build_draft FROM {collection_templates} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY collection_id, language', ['collection_id' => 'collections'], $builds));

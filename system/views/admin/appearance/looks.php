@@ -17,7 +17,7 @@ $familyParent = Talea\Core\LookFamily::parent($app->db());
 <p class="notice notice-warning"><?= e(t('This site takes its look from %s. Change it there or leave the family.', $familyParent['name'])) ?></p>
 <?php endif ?>
 <p class="help"><?= e(t('A look is a ready set of colours (with a dark mode), fonts, scale and shapes plus a header and a footer. Applying it goes to the draft look: preview the whole site, then publish or discard. Pages, news, menus and settings stay as they are.')) ?>
-	<a href="<?= e($module->url()) ?>"><?= e(t('Back to the appearance')) ?></a></p>
+	<a href="<?= e($module->url('templates')) ?>"><?= e(t('Finished designs with pages: Site templates')) ?></a> · <a href="<?= e($module->url()) ?>"><?= e(t('Back to the appearance')) ?></a></p>
 <div class="looks-gallery">
 <?php foreach ($looks as $key => $look): $ds = $look['design_system']; ?>
 	<form class="look-card" method="post" action="<?= e($module->url('apply_look')) ?>"><?= $csrf ?>
@@ -28,8 +28,9 @@ $familyParent = Talea\Core\LookFamily::parent($app->db());
 <?php endif ?>
 		<small><?= e(t($look['description'])) ?></small>
 		<small><?= e($fontName($ds['font_heading']) . ' + ' . $fontName($ds['font_body'])) ?> · <?= e(t(Talea\Builder\PartTemplates::LIST['header'][$look['header']][0])) ?> · <?= e(t(Talea\Builder\PartTemplates::LIST['footer'][$look['footer']][0])) ?></small>
-		<small><?= e(t('Ready sections')) ?>: <?= e(implode(', ', array_map(fn (string $k): string => $sections[$k] ?? $k, $look['sections']))) ?></small>
-		<button type="submit" class="button"><?= e(t('Apply as a draft')) ?></button>
+		<small><?= e(t('Suggested sections')) ?>: <?= e(implode(', ', array_map(fn (string $k): string => $sections[$k] ?? $k, $look['sections']))) ?></small>
+		<span class="navigation-row"><button type="submit" class="button"><?= e(t('Apply as a draft')) ?></button><?php if ($app->auth()->hasModule('pages')): // applying changes only the look; these sections reach a page from here ?>
+			<a class="navigation" href="<?= e($app->url('admin.php?module=pages&action=new&template=' . rawurlencode('look:' . $key))) ?>"><?= e(t('New page with these sections')) ?></a><?php endif ?></span>
 	</form>
 <?php endforeach ?>
 </div>

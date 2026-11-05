@@ -24,7 +24,7 @@ $more ??= array_filter([
     'parts' => 'Header, footer and system pages', 'menu' => 'Menu', 'components' => 'Components', 'popups' => 'Pop-ups', 'redirects' => 'Redirects',
 ], fn (string $ident): bool => isset($modules[$ident]), ARRAY_FILTER_USE_KEY);
 ?>
-	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>"><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><?= e(t('Home')) ?></a>
+	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>" data-return><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><span><?= e(t('Home')) ?></span></a>
 	<p class="menu-title"><?= e(t('Website')) ?></p>
 <?php if (count($tabs) > 1): ?>
 	<nav class="tabs website-tabs" aria-label="<?= e(t('Website')) ?>">

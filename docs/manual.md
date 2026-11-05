@@ -31,6 +31,14 @@ settings and users stay with you), **Writer** (news for someone else to publish)
 guide (in the admin language, if the guide has it); in the builder the article is in Help (**?**). The admin speaks
 Czech, English and German – each user chooses in **My account**.
 
+**Getting around.** The magnifier next to the logo (or **Ctrl K** / **⌘K** / **/**) opens the quick search: the screens you opened
+last come first, then every section, quick actions (New page, New form, New booking…), pages, news and single settings by the
+name their form gives them (*Time zone*, *Sender address*, *Banner text*), which jump straight to the field. **+** (or **C**) lists
+what you can create in one step. The bell shows what waits – new enquiries, bookings to confirm, drafts to publish, comments on
+drafts, Claude's finished requests, files to approve – from every screen. **G** and a letter goes to a section (**G P** Pages,
+**G E** Enquiries, **G S** Settings…); **?** lists all shortcuts. **Settings** has a search field of its own, on the overview
+and in its sidebar. **Settings**, **Website** and **My account** lead back to the screen you came from, not always to Home.
+
 **Building the site for a client?** In **Settings → General → Built and looked after by** fill in your name, website,
 e-mail, phone and logo: the sign-in screen and the foot of the admin show the client whom to ask for help. Before
 handing over, **Site audit → Before handing over** lists what is still missing – site e-mail, an SMTP server, an
@@ -113,7 +121,21 @@ A page that used to be plain text is converted by the builder automatically. You
 **Pages** have their own search-engine title, sharing image and a noindex option (page settings → Search engines and
 sharing). A deleted page goes to the **trash** and can be restored for 30 days; **Duplicate** creates a hidden copy including the build.
 
+**New page** starts from a card: a text page, a blank builder page, a page template (each card lists its sections), the sections a
+look suggests (Looks → *New page with these sections*), **your own templates** or a copy of one of your pages. **Save as template**
+in a page's menu (Pages) keeps a copy of its build as a template: New page offers it as a card, and *Your page templates* (linked
+from New page) renames and deletes them; the template is a copy, so the page it came from and the pages started from it stay as they
+are. Claude uses `list_page_templates`, `save_page_template`, `delete_page_template` and `create_page` with `page_template`.
+
 ## 3. Site appearance
+
+**Site templates** (Appearance → Site templates) are finished designs, not only colours and fonts: a look with its header and
+footer plus pages composed for it – Portrait (photography and art), Workshop (trades) and Editorial (consultants and agencies).
+Each card shows the template's real home page. *Use this template* puts its look into the draft look and its pages into drafts:
+on your own pages where they match (the home page, a page of the same name, never one that already has unpublished changes),
+otherwise as new hidden pages. Texts are placeholders in square brackets and photos are tinted frames until you choose your own;
+nothing is public until you publish. With several sites, **New site** offers the templates for an empty site: the template waits as
+drafts until you first open the new site. Claude uses `list_site_templates` and `apply_site_template`.
 
 **Appearance → Site appearance** changes the whole site at once. Two words, used the same way everywhere: a **starter
 site** is sample content plus a style (you choose it at installation), and a **style** is a ready set of colours, fonts,
@@ -583,8 +605,14 @@ site is set up and how much space it takes.
   a plain 404.
 - **States:** paused sites answer visitors with a short "not public yet" page, archived sites either redirect to another site or become
   read-only. A deleted site stays in the trash for 30 days.
-- **Switcher:** the site name in the sidebar opens another site and signs you in there. Enquiries and Bookings can list every
-  site; a row opens on its own site.
+- **Switcher:** the **Site** button under the logo lists your sites with their address and status (live, paused, archived);
+  choosing one opens it and signs you in there, on the same section you were in (Enquiries here → Enquiries there). Opening the
+  picker shows what waits on each site; from five other sites it has a filter. **Ctrl K** finds them too (*Switch to …*). The Sites
+  list and the Overview open a site with one click (the Overview straight into its Analytics). Every site has a mark of its own –
+  its initial on a colour that stays the same – and the browser tab names the site (*Enquiries – Lindner Bakery – Talea*). In
+  agency mode an operator also finds the other owners in the picker and in **Ctrl K**; each leads to that owner's sites. The bell lists what waits on the other
+  sites under **Other sites** (new enquiries, bookings to confirm) and opens that list on its own site. Enquiries and Bookings can
+  list every site; a row opens on its own site.
 - **Shared and own:** media, users, components and facts are shared by default across sites; a component or fact can be shared with
   every site or kept for one.
 - **Claude:** one connection works on all sites. A tool acts on the site the connection calls, or on another site when you pass its id as

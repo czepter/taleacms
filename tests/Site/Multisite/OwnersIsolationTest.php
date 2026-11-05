@@ -26,12 +26,12 @@ final class OwnersIsolationTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => 'k3y-for-the-owners-isolation-test-0123456789abcdef']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => 'k3y-for-the-owners-isolation-test-0123456789abcdef']];
     }
 
     private function env(): array
     {
-        return ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => 'k3y-for-the-owners-isolation-test-0123456789abcdef'];
+        return ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => 'k3y-for-the-owners-isolation-test-0123456789abcdef'];
     }
 
     /** @return list<string> */

@@ -69,6 +69,19 @@
             "openWorldHint": false
         }
     },
+    "apply_site_template": {
+        "parameters": {
+            "template": "string"
+        },
+        "required": [
+            "template"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "booking_availability": {
         "parameters": {
             "day": "string",
@@ -330,6 +343,7 @@
             "language": "string",
             "noindex": "boolean",
             "order": "integer",
+            "page_template": "string",
             "parent": "string",
             "publish_at": "string",
             "review_by": "string",
@@ -558,6 +572,19 @@
     "delete_notebook_entry": {
         "parameters": {
             "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_page_template": {
+        "parameters": {
+            "id": "string"
         },
         "required": [
             "id"
@@ -1342,6 +1369,15 @@
             "openWorldHint": false
         }
     },
+    "list_page_templates": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_pages": {
         "parameters": [],
         "required": [],
@@ -1425,6 +1461,15 @@
         }
     },
     "list_site_parts": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_site_templates": {
         "parameters": [],
         "required": [],
         "annotations": {
@@ -2014,6 +2059,20 @@
             "openWorldHint": false
         }
     },
+    "save_page_template": {
+        "parameters": {
+            "name": "string",
+            "page": "string"
+        },
+        "required": [
+            "page"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "save_part_variant": {
         "parameters": {
             "delete": "boolean",
@@ -2469,6 +2528,7 @@
             "language": "string",
             "noindex": "boolean",
             "order": "integer",
+            "page_template": "string",
             "parent": "string",
             "publish_at": "string",
             "review_by": "string",

@@ -21,13 +21,13 @@ final class SiteTransferTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_OWNERS' => '1']];
     }
 
     /** @return array<string, string> */
     private function env(): array
     {
-        return ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1'];
+        return ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_OWNERS' => '1'];
     }
 
     public function testAnOperatorSeesTheReportAndQueuesTheMove(): void

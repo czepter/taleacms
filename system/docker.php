@@ -86,7 +86,7 @@ try {
             }
             break;
         case 'provision':
-            // started right after an archive is uploaded (Core\Background); cron does the same on its next run if this process could not start
+            // started right after a site is created or an archive is uploaded (Core\Background: admin and MCP create_site); cron does the same on its next run if this process could not start
             if (Talea\Core\Config::load() === null || !Talea\Core\Sites::enabled()) {
                 break;
             }

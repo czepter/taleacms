@@ -437,7 +437,9 @@ An operator moves a site from one owner to another (a client changes agency, a l
 ### Deviations from the first design, and what stays open
 
 - Signed links are bound to a site by a per-site derived key, not by a site id in the payload (above).
-- A new site is provisioned by cron (`docker.php cron`), never on a page request: the admin and MCP only insert the row.
+- A new site is provisioned in a process of its own, never inside a page request: the admin inserts the row and starts
+  `Background::start('provision')` at once (as an import does); where processes cannot be started (or `TALEA_BACKGROUND=0`, as the
+  site tests set) the next cron run (`docker.php cron`) does it. MCP `create_site` does the same; a site created for another owner is set up in that owner's cron run.
 - A clone is an SQL copy (`INSERT … SELECT`) of the source's site tables without logs, queues, counters and visitors' data, with an
   allow-list of settings (`SiteExport::SETTINGS` and the account settings); secrets are made again.
 - `TALEA_SITE_URL` is the address of site 1 only (`SiteUrl::locked()`); a further site edits its own `site_url`.

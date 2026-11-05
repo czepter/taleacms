@@ -103,6 +103,7 @@ final class Tools
             'parent' => $pid('Parent page – the address becomes /parent/page (empty = none)'),
             'language' => $text('Language version of the page on a multilingual site (code such as de or pt-br; empty = default language)'),
             'translation_of' => $pid('Counterpart in the default language (for a page in another language version) – language switcher and hreflang'),
+            'page_template' => $text('only for a new page: the ID of one of the site\'s own page templates (list_page_templates) – the draft starts as a copy of its build'),
             'copy_build' => ['type' => 'boolean', 'description' => 'only for a new page with translation_of: the draft starts as a copy of the original’s build – then translate with get_build (texts_only) and edit_build'],
             'publish_at' => $text('Scheduled publishing of a hidden page YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'),
             'head_code' => $text('Not settable through MCP (since 2.5.1): code for <head> of a page is set by the administrator in the administration – tell the user where'),
@@ -273,6 +274,13 @@ final class Tools
                 $s(['topic' => ['type' => 'string', 'enum' => array_keys(\Talea\Builder\Looks::TOPICS), 'description' => 'what the site is about: re-ranks the looks, best fits first']])],
             ['apply_look', 'Applies a ready-made look (administrators) as a DRAFT look: its design system, and a header and a footer template in the drafts of those parts. Nothing public changes; pages, news, menus and settings stay. Check it with preview_link site: true, then publish_look (or discard_look). Looks: list_looks.',
                 $s(['look' => $text('look key from list_looks'), 'palette' => $number('index in the look\'s palettes (0 = its own colours)'), 'fonts' => $number('index in the look\'s font pairs (0 = its own fonts)')], ['look'])],
+            ['list_page_templates', 'The site\'s own page templates (read-only): pages saved as templates, with their number of sections. create_page with page_template starts a new page from one.', $s([])],
+            ['save_page_template', 'Saves a copy of a builder page (its draft, otherwise the published build) as one of the site\'s own page templates (editors and administrators). The template is a copy: changing the page later does not change it.',
+                $s(['page' => $pid('ID of the page to save'), 'name' => $text('name of the template (default: the page title)')], ['page'])],
+            ['delete_page_template', 'Deletes one of the site\'s own page templates (editors and administrators) – only when the user asks. Pages started from it stay as they are.', $s(['id' => $pid('ID of the template from list_page_templates')], ['id'])],
+            ['list_site_templates', 'Site templates (read-only): finished designs – a look plus pages composed for it (the home page with its own Compose layout, further pages from ready-made sections). Unlike a look they bring page layouts. apply_site_template puts one into drafts.', $s([])],
+            ['apply_site_template', 'Applies a site template (administrators) as DRAFTS: its look into the draft look, each of its pages as the build draft of the site\'s own page where one matches (the home page, a page of the same title, without a draft yet), otherwise as a new hidden page. Nothing public changes; check with preview_link site: true and the preview links of the pages, then publish them and publish_look. Texts are placeholders in [square brackets] and image frames wait for real photos – ask the owner for both.',
+                $s(['template' => $text('template key from list_site_templates')], ['template'])],
             ['list_look_versions', 'Earlier published looks (the last 20), with what the next publishing changed. restore_look_version brings one back into the draft.', $s([])],
             ['restore_look_version', 'Loads an earlier published look into the draft look (administrators) – check it with preview_link site: true, then publish_look.', $s(['id' => $number('version ID from list_look_versions')], ['id'])],
             ['list_newsletters', 'Newsletters (Newsletter extension; users with the Newsletters section): drafts, scheduled, being sent and sent, with counts of recipients, sent and failed e-mails, the number of confirmed subscribers and sending_problem – why the site cannot send now (no SMTP server, cron not running).', $s([])],
@@ -653,6 +661,12 @@ final class Tools
                     throw new \InvalidArgumentException('copy_build needs translation_of – the ID of the page in the default language – and the language of the translation.');
                 }
                 $data['build_draft'] = $original['build_draft'] ?? $original['build'];
+            }
+            if (($a['page_template'] ?? '') !== '') {
+                // one of the site's own templates (Save as template): its build with new element ids as the draft
+                $start = \Talea\Builder\PageTemplates::build($db, (string) $a['page_template'])
+                    ?? throw new \InvalidArgumentException('No such page template – list_page_templates lists them.');
+                $data['build_draft'] = \Talea\Builder\Build::toJson($start);
             }
             $id = $db->insert('pages', $data + ['text' => '', 'visible' => 0, 'in_menu' => 0]);
             \Talea\Core\Slug::fromId($db, 'pages', $id); // a title with nothing to transliterate: page-<id>, not n-a

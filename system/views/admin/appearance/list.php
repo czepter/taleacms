@@ -56,7 +56,7 @@ $familyChildren = Talea\Core\LookFamily::childCount($app->db());
 <div role="tabpanel" id="panel-style" aria-labelledby="tab-style">
 <fieldset>
 <legend><?= e(t('Styles')) ?></legend>
-<p class="help"><a href="<?= e($module->url('looks')) ?>"><?= e(t('Browse the looks gallery')) ?></a> – <?= e(t('complete looks with fonts, a dark mode, a header and a footer.')) ?></p>
+<p class="help"><a href="<?= e($module->url('templates')) ?>"><?= e(t('Site templates')) ?></a> – <?= e(t('finished designs with pages of their own.')) ?> <a href="<?= e($module->url('looks')) ?>"><?= e(t('Browse the looks gallery')) ?></a> – <?= e(t('complete looks with fonts, a dark mode, a header and a footer.')) ?></p>
 <p class="help"><?= e(t('A style is a ready set of colours, fonts, sizes and corner radius. Pick one with a click and fine-tune it in the other tabs – the content of the site does not change.')) ?></p>
 <div class="appearance-presets">
 <?php foreach ($presets as $key => $p): ?>

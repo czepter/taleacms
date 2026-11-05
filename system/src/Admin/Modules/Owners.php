@@ -360,6 +360,14 @@ final class Owners extends Module
             $users = (int) $ownerDb->value('SELECT COUNT(*) FROM {users} WHERE operator_user_id IS NULL');
         }
 
-        return $this->view('edit', (string) ($owner['name'] !== '' ? $owner['name'] : $owner['prefix']), ['owner' => $owner, 'sites' => array_values(array_filter($sites, fn (array $s): bool => $s['status'] !== 'trashed')), 'users' => $users]);
+        $sites = array_values(array_filter($sites, fn (array $s): bool => $s['status'] !== 'trashed'));
+        // "Open this site" ends on that site's host: the CSP form-action must allow it (Kernel::page, admin.php)
+        foreach ($sites as $s) {
+            if (($host = (string) ($s['domains'][0]['host'] ?? '')) !== '') {
+                $this->kernel->formOrigins[] = SiteRegistry::originOn($this->request, $host);
+            }
+        }
+
+        return $this->view('edit', (string) ($owner['name'] !== '' ? $owner['name'] : $owner['prefix']), ['owner' => $owner, 'sites' => $sites, 'users' => $users]);
     }
 }

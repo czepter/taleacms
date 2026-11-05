@@ -24,13 +24,33 @@ if ($username !== null) {
     foreach ($modules as $ident => $class) {
         $statements[] = ['n' => t($class::NAME), 'u' => $adminUrl('module=' . $ident), 's' => t($class::GROUP)];
     }
-    $quick = [
-        'pages' => [['New page', 'module=pages&action=new']],
-        'news' => [['New news item', 'module=news&action=new'], ['Broken links', 'module=news&action=links']],
-        'categories' => [['New category', 'module=categories&action=new']],
-        'users' => [['New user', 'module=users&action=new']],
-        'transfer' => [['Import from WordPress', 'module=transfer']],
+    // what can be created in one step: the "New" menu at the top (c) and the palette
+    $create = [
+        'pages' => ['New page', 'module=pages&action=new'], 'news' => ['New news item', 'module=news&action=new'], 'forms' => ['New form', 'module=forms&action=new'],
+        'bookings' => ['New booking', 'module=bookings&action=new'], 'newsletters' => ['New newsletter', 'module=newsletters&action=new'],
+        'requests' => ['New request', 'module=requests&action=new'], 'popups' => ['New pop-up', 'module=popups&action=new'],
+        'components' => ['New component', 'module=components&action=new'], 'categories' => ['New category', 'module=categories&action=new'], 'users' => ['New user', 'module=users&action=new'],
     ];
+    $createLinks = [];
+    foreach (array_intersect_key($create, $modules) as [$name, $query]) {
+        $createLinks[] = [t($name), $adminUrl($query)];
+    }
+    $quick = array_map(fn (array $entry): array => [$entry], $create);
+    $quick['news'][] = ['Broken links', 'module=news&action=links'];
+    $quick['transfer'] = [['Import from WordPress', 'module=transfer']];
+    // starting points of a site, found by what people call them (they live in Business details and Appearance)
+    $quick['wizard'] = [['Set up your site', 'module=wizard']];
+    $quick['blueprints'] = [['Apply a blueprint', 'module=blueprints']];
+    $quick['appearance'] = [['Site templates', 'module=appearance&action=templates'], ['Try on another look', 'module=appearance&action=looks']];
+    // keyboard: g and a letter goes to a section the person may open (the list in the shortcuts dialog, ?)
+    $goTo = [];
+    foreach (['h' => ['Home', ''], 'w' => ['Website', 'module=pages&action=website', 'pages'], 'p' => ['Pages', 'module=pages', 'pages'], 'n' => ['News', 'module=news', 'news'],
+        'c' => ['Collections', 'module=collections', 'collections'], 'm' => ['Media', 'module=media', 'media'], 'e' => ['Enquiries', 'module=enquiries', 'enquiries'],
+        'b' => ['Bookings', 'module=bookings', 'bookings'], 'a' => ['Analytics', 'module=stats', 'stats'], 's' => ['Settings', 'module=settings&tab=overview', 'settings']] as $key => $target) {
+        if (!isset($target[2]) || isset($modules[$target[2]])) {
+            $goTo[$key] = [t($target[0]), $adminUrl($target[1])];
+        }
+    }
     foreach ($quick as $ident => $items) {
         foreach (isset($modules[$ident]) ? $items : [] as [$name, $query]) {
             $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => t($modules[$ident]::NAME)];
@@ -43,12 +63,21 @@ if ($username !== null) {
         }
         $statements[] = ['n' => t('Settings') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Settings')];
     }
+    // single settings by the name their form gives them ("Time zone", "Sender address"): the link jumps to the field
+    array_push($statements, ...Talea\Admin\Kernel::settingsSearch($modules, $app->settings(), $adminUrl));
     // site pages can be found in the palette by name (news is searched on the server, there are more of them)
     foreach (isset($modules['pages']) ? $app->db()->all('SELECT public_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY sort_order, title LIMIT 300') : [] as $pageRow) {
         $statements[] = ['n' => $pageRow['title'], 'u' => $adminUrl('module=pages&action=edit&id=' . $pageRow['public_id']), 's' => t('Page')];
     }
     foreach ($collections as $collection) {
         $statements[] = ['n' => $collection['name'], 'u' => $adminUrl('module=collections&action=items&id=' . $collection['public_id']), 's' => t('Collection')];
+    }
+    // multisite: "Switch to …" submits the switcher's form of that site (opening a site is a POST, Modules\Sites::actionHandoff)
+    foreach (isset($modules['sites']) ? (Talea\Admin\Modules\Sites::switcher($app)['others'] ?? []) : [] as $other) {
+        $statements[] = ['n' => t('Switch to %s', $other['name']), 'u' => $adminUrl('module=sites'), 's' => t('Site') . ' · ' . $other['host'], 'f' => 'switch-' . $other['public_id']];
+    }
+    foreach (isset($modules['sites']) ? Talea\Admin\Modules\Sites::otherOwners($app, $modules) : [] as $owner) { // agency mode, operators
+        $statements[] = ['n' => $owner['name'], 'u' => $adminUrl('module=owners&action=edit&id=' . $owner['public_id']), 's' => t('Owner')];
     }
     $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
     $statements[] = ['n' => t('View site'), 'u' => $app->url(''), 's' => ''];
@@ -64,7 +93,9 @@ if ($username !== null) {
 <?php if (Talea\Core\ErrorReport::enabled()): // browser errors to the error tracking (TALEA_ERROR_DSN), before the other scripts run ?>
 <script src="<?= e($app->url('image/errors.js')) ?>?v=<?= e(TALEA_VERSION) ?>" data-errors="<?= e($app->url('js-error')) ?>" data-errors-area="admin"></script>
 <?php endif ?>
-<title><?= $heading !== '' ? e($heading) . ' – ' : '' ?>Talea</title>
+<?php // several sites: the tab says which one, so two tabs of two sites are not mixed up
+$siteTitle = $username !== null && isset($modules['sites']) ? (string) (Talea\Admin\Modules\Sites::switcher($app)['current'] ?? '') : ''; ?>
+<title><?= $heading !== '' ? e($heading) . ' – ' : '' ?><?= $siteTitle !== '' ? e($siteTitle) . ' – ' : '' ?>Talea</title>
 <?= Talea\Front\SiteIdentity::icons($app->settings(), $app->request->basePath(), true) ?>
 <link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= e(TALEA_VERSION) ?>">
 <link rel="stylesheet" href="<?= e($app->url('image/editor.css')) ?>?v=<?= e(TALEA_VERSION) ?>">
@@ -88,6 +119,12 @@ if ($menuCollections !== []) {
 }
 // how many things wait (new enquiries, bookings to confirm): next to the module, or next to its section while that is closed
 $waiting = Talea\Admin\Kernel::waiting($app, $modules);
+// the bell at the top starts with the same counts on every screen; opening it fetches everything else that waits
+$waitingLinks = array_values(array_filter([
+    isset($modules['enquiries']) ? ['New enquiries', $app->url('admin.php?module=enquiries'), $waiting['enquiries'] ?? 0] : null,
+    isset($modules['bookings']) ? ['Bookings to confirm', $app->url('admin.php?module=bookings'), $waiting['bookings'] ?? 0] : null,
+]));
+$waitingTotal = array_sum(array_column($waitingLinks, 2));
 $waitingCount = fn (int $n): string => $n > 0 ? ' <span class="menu-count" aria-hidden="true">' . ($n > 99 ? '99+' : $n) . '</span><span class="visually-hidden"> – ' . e(t('%s new', (string) $n)) . '</span>' : '';
 // the settings are the gear at the bottom; inside them the sidebar lists their screens instead of the sections
 $settingsMenu = [];
@@ -114,23 +151,67 @@ $userName = $username['name'] ?: $username['username'];
 		<a class="brand" href="<?= e($app->url('admin.php')) ?>" aria-label="Talea – <?= e(t('Home')) ?>"><?= $app->view->render('admin/logo', ['height' => 26]) ?></a>
 		<?= $app->view->render('admin/claude_chip', ['app' => $app, 'modules' => $modules]) ?>
 		<button class="palette-start" type="button" data-palette title="<?= e(t('Quick search and commands')) ?> (Ctrl K)" aria-label="<?= e(t('Quick search and commands')) ?>"><?= $icon('b-search') ?></button>
+<?php if ($createLinks !== []): // the "New" menu: what can be created in one step (c) ?>
+		<button class="palette-start create-start" type="button" popovertarget="create" title="<?= e(t('Create something new')) ?> (C)" aria-label="<?= e(t('Create something new')) ?>"><svg class="icon" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+		<div class="header-popover create-popover" id="create" popover>
+			<p class="header-popover-title"><?= e(t('New')) ?></p>
+			<ul>
+<?php foreach ($createLinks as [$name, $link]): ?>
+				<li><a href="<?= e($link) ?>"><?= e($name) ?></a></li>
+<?php endforeach ?>
+			</ul>
+		</div>
+<?php endif ?>
+		<button class="palette-start waiting-start" type="button" popovertarget="waiting" title="<?= e(t('Waiting for you')) ?>" aria-label="<?= e(t('Waiting for you') . ($waitingTotal > 0 ? ' – ' . t('%s new', (string) $waitingTotal) : '')) ?>"><svg class="icon" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><?php if ($waitingTotal > 0): ?><span class="waiting-dot" aria-hidden="true"><?= $waitingTotal > 99 ? '99+' : $waitingTotal ?></span><?php endif ?></button>
+		<div class="header-popover waiting-popover" id="waiting" popover data-waiting="<?= e($app->url('admin.php?action=waiting')) ?>">
+			<p class="header-popover-title"><?= e(t('Waiting for you')) ?></p>
+			<div class="waiting-list" aria-live="polite"><?php /* what the menu counts already; admin.js fetches the whole list (drafts, comments, Claude's results…) when the bell opens */ ?>
+<?php if ($waitingTotal > 0): ?>
+<?= $app->view->render('admin/waiting_list', ['app' => $app, 'items' => array_map(fn (array $w): array => ['label' => $w[0], 'url' => $w[1], 'count' => $w[2], 'examples' => []], array_values(array_filter($waitingLinks, fn (array $w): bool => $w[2] > 0)))]) ?>
+<?php endif ?>
+			</div>
+			<a class="navigation" href="<?= e($app->url('admin.php')) ?>"><?= e(t('Everything that waits, on Home')) ?></a>
+		</div>
 		<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	</div>
-<?php if (isset($modules['sites']) && ($switcher = Talea\Admin\Modules\Sites::switcher($app)) !== null): // multisite: the site you work on and the way to the others ?>
-	<details class="site-switcher">
-		<summary><?= bdi($switcher['current']) ?></summary>
+<?php if (isset($modules['sites']) && ($switcher = Talea\Admin\Modules\Sites::switcher($app)) !== null): // multisite: the site you work on and the way to the others
+    // switching keeps the section you work in (Enquiries here → Enquiries there); a screen of one row (an id) has no counterpart, so only the module
+    $landing = $active !== '' && $active !== 'sites' && Talea\Core\Sites::landing('module=' . $active) !== null ? 'module=' . $active : '';
+    $siteStatus = fn (string $status): string => '<span class="badge' . ($status === 'live' ? ' badge-published' : ($status === 'paused' ? ' badge-draft' : '')) . '">' . e(t(['live' => 'Live', 'paused' => 'Paused', 'archived' => 'Archived'][$status] ?? $status)) . '</span>'; ?>
+	<div class="site-switcher">
+		<button class="site-switcher-start" type="button" popovertarget="sites" aria-label="<?= e(t('Switch site') . ' – ' . $switcher['current']) ?>"><?= Talea\Admin\Modules\Sites::mark($switcher['current'], $switcher['current_id']) ?><span class="site-switcher-kicker"><?= e(t('Site')) ?></span><span class="site-switcher-name"><?= bdi($switcher['current']) ?></span><svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
+		<div class="header-popover sites-popover" id="sites" popover data-site-counts="<?= e($app->url('admin.php?action=site_counts')) ?>">
+			<p class="header-popover-title"><?= e(t('Your sites')) ?></p>
+<?php if (count($switcher['others']) >= Talea\Admin\Modules\Sites::PICKER_FILTER): // many sites: a filter (typing narrows the list; Enter searches the Sites list) ?>
+			<form class="sites-filter" method="get" action="<?= e($app->url('admin.php?module=sites')) ?>" role="search"><label class="visually-hidden" for="sites-filter"><?= e(t('Find a site')) ?></label><input class="textfield" type="search" id="sites-filter" name="search" placeholder="<?= e(t('Find a site')) ?>" autocomplete="off" data-sites-filter></form>
+<?php endif ?>
+			<ul>
+				<li class="sites-current" aria-current="true"><span class="sites-name"><?= Talea\Admin\Modules\Sites::mark($switcher['current'], $switcher['current_id']) ?><span><?= bdi($switcher['current']) ?><small><?= $switcher['current_host'] !== '' ? bdi($switcher['current_host']) . ' · ' : '' ?><?= e(t('You are working on this site')) ?></small></span></span><?= $siteStatus($switcher['current_status']) ?></li>
 <?php foreach ($switcher['others'] as $other): ?>
-		<form method="post" action="<?= e($app->url('admin.php?module=sites&action=handoff')) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="id" value="<?= e($other['public_id']) ?>"><button type="submit"><?= bdi($other['name']) ?></button></form>
+				<li><form id="switch-<?= e($other['public_id']) ?>" method="post" action="<?= e($app->url('admin.php?module=sites&action=handoff')) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="id" value="<?= e($other['public_id']) ?>"><?php if ($landing !== ''): ?><input type="hidden" name="to" value="<?= e($landing) ?>"><?php endif ?><button type="submit"><span class="sites-name"><?= Talea\Admin\Modules\Sites::mark($other['name'], $other['public_id']) ?><span><?= bdi($other['name']) ?><small><?= bdi($other['host']) ?></small></span></span><span class="sites-side"><span class="sites-count" data-site-count="<?= e($other['public_id']) ?>"></span><?= $siteStatus($other['status']) ?></span></button></form></li>
 <?php endforeach ?>
-		<a href="<?= e($app->url('admin.php?module=sites')) ?>"><?= e(t('All sites')) ?></a>
-	</details>
+			</ul>
+<?php if (($owners = Talea\Admin\Modules\Sites::otherOwners($app, $modules)) !== []): // agency mode: the operator's other owners, each opens its page with its sites ?>
+			<p class="waiting-group"><?= e(t('Other owners')) ?></p>
+			<ul class="sites-owners">
+<?php foreach ($owners as $owner): ?>
+				<li><a href="<?= e($app->url('admin.php?module=owners&action=edit&id=' . $owner['public_id'])) ?>"><span class="sites-name"><?= Talea\Admin\Modules\Sites::mark($owner['name'], $owner['public_id']) ?><span><?= bdi($owner['name']) ?><small><?= e(t('Their sites')) ?></small></span></span><?= $siteStatus($owner['status']) ?></a></li>
+<?php endforeach ?>
+			</ul>
+<?php endif ?>
+			<p class="navigation-row"><a class="navigation" href="<?= e($app->url('admin.php?module=sites')) ?>"><?= e(t('All sites')) ?></a><a class="navigation" href="<?= e($app->url('admin.php?module=sites&action=overview')) ?>"><?= e(t('Overview')) ?></a><a class="navigation" href="<?= e($app->url('admin.php?module=sites&action=new')) ?>"><?= e(t('New site')) ?></a></p>
+		</div>
+	</div>
 <?php endif ?>
 	<nav class="menu-wrap" aria-label="<?= e(t('Main menu')) ?>">
 <?php if (($sidebar ?? '') !== ''): ?>
 	<?= $sidebar ?>
 <?php elseif ($settingsMenu !== []): ?>
-	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>"><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><?= e(t('Home')) ?></a>
+	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>" data-return><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><span><?= e(t('Home')) ?></span></a>
 	<p class="menu-title"><a href="<?= e($app->url('admin.php?module=settings&tab=overview')) ?>"><?= e(t('Settings')) ?></a></p>
+<?php if (isset($modules['settings']) && !($inMenu === 'settings' && $tab === 'overview')): // the overview has its own search field ?>
+	<form class="menu-search" method="get" action="<?= e($app->url('admin.php?module=settings')) ?>" role="search"><input class="textfield" type="search" name="search" placeholder="<?= e(t('Search settings')) ?>" aria-label="<?= e(t('Search settings')) ?>" required></form>
+<?php endif ?>
 	<ul class="menu menu-settings" id="menu">
 <?php foreach ($settingsMenu as $menuGroup => $entries): ?>
 		<li><span class="menu-heading"><?= e(t($menuGroup)) ?></span>
@@ -193,11 +274,29 @@ $userName = $username['name'] ?: $username['username'];
 <dialog class="palette" id="palette" aria-label="<?= e(t('Quick search and commands')) ?>"<?= isset($modules['news']) ? ' data-articles="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?>>
 	<input class="palette-field" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Where do you want to go? Type the name of a section, action, page or news item…')) ?>" aria-label="<?= e(t('Quick search and commands')) ?>" aria-controls="palette-list">
 	<ul class="palette-list" id="palette-list" role="listbox"></ul>
-	<p class="palette-help"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('select')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>
+	<p class="palette-help"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('select')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?> · <button class="navigation" type="button" data-shortcuts-open><kbd>?</kbd> <?= e(t('Keyboard shortcuts')) ?></button></p>
 	<script type="application/json" id="palette-data"><?= json_encode($statements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </dialog>
+<dialog class="palette shortcuts" id="shortcuts" aria-labelledby="shortcuts-title">
+	<h2 id="shortcuts-title"><?= e(t('Keyboard shortcuts')) ?></h2>
+	<dl>
+		<dt><kbd>Ctrl</kbd> <kbd>K</kbd> <?= e(t('or')) ?> <kbd>/</kbd></dt><dd><?= e(t('Quick search and commands')) ?></dd>
+<?php if ($createLinks !== []): ?>
+		<dt><kbd>C</kbd></dt><dd><?= e(t('Create something new')) ?></dd>
 <?php endif ?>
-<main class="content" id="main" tabindex="-1">
+		<dt><kbd>?</kbd></dt><dd><?= e(t('Show the keyboard shortcuts')) ?></dd>
+	</dl>
+	<h3><?= e(t('Go to')) ?></h3>
+	<dl>
+<?php foreach ($goTo as $key => [$name]): ?>
+		<dt><kbd>G</kbd> <kbd><?= e(strtoupper($key)) ?></kbd></dt><dd><?= e($name) ?></dd>
+<?php endforeach ?>
+	</dl>
+	<form method="dialog"><button class="btn" type="submit"><?= e(t('Close')) ?></button></form>
+	<script type="application/json" id="shortcut-data"><?= json_encode(array_map(fn (array $target): string => $target[1], $goTo), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+</dialog>
+<?php endif ?>
+<main class="content" id="main" tabindex="-1"<?= $username !== null ? ' data-screen="' . e($onDashboard ? t('Home') : $heading) . '"' : '' ?>>
 <?php if (Talea\Core\Demo::active()): ?>
 <p class="notice notice-warning" role="status"><?= e(t('Public demo: everything you change here is reset in %s minutes. E-mail, imports, updates, users and the Claude connection are switched off.', (string) max(1, (int) ceil(Talea\Core\Demo::secondsToReset() / 60)))) ?></p>
 <?php endif ?>
@@ -226,6 +325,7 @@ $userName = $username['name'] ?: $username['username'];
 <script src="<?= e($app->url($dictionary)) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <?php endforeach ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
+<script src="<?= e($app->url('image/navigation.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <script src="<?= e($app->url('image/editor.js')) ?>?v=<?= e(TALEA_VERSION) ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-file="<?= Talea\Core\Files::limit() ?>" data-max-file-text="<?= e(Talea\Core\Files::limitText()) ?>" data-max-page="<?= Talea\Core\Images::MAX_SIDE ?>" defer></script>
 <script src="<?= e($app->url('image/picker.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 </body>

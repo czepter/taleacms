@@ -33,7 +33,7 @@ final class SharedAcrossSitesTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']];
     }
 
     /** @return list<string> */
@@ -84,7 +84,7 @@ final class SharedAcrossSitesTest extends SiteTestCase
         $this->firstPost('/admin.php?module=sites&action=create', ['name' => 'Second', 'from' => '']);
         $second = $site->publicId('sites', 2);
         $this->firstPost('/admin.php?module=sites&action=domain_add', ['id' => $second, 'host' => 'second.test']);
-        $this->assertStringContainsString('site tl2_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1']));
+        $this->assertStringContainsString('site tl2_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']));
         $this->firstPost('/admin.php?module=sites&action=save', ['id' => $second, 'name' => 'Second', 'status' => 'live', 'redirect_to' => '']);
         $this->firstPost('/admin.php?module=sites&action=save', ['id' => $site->publicId('sites', 1), 'name' => 'First', 'status' => 'live', 'redirect_to' => '']);
 
@@ -412,7 +412,7 @@ final class SharedAcrossSitesTest extends SiteTestCase
         $this->firstPost('/admin.php?module=sites&action=create', ['name' => 'Twin', 'from' => $first]);
         $twin = $site->publicId('sites', 3);
         $this->firstPost('/admin.php?module=sites&action=domain_add', ['id' => $twin, 'host' => 'twin.test']);
-        $this->assertStringContainsString('site tl3_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1']));
+        $this->assertStringContainsString('site tl3_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']));
         $this->firstPost('/admin.php?module=sites&action=save', ['id' => $twin, 'name' => 'Twin', 'status' => 'live', 'redirect_to' => '']);
         $this->assertNotSame($component, (int) $site->value("SELECT component_id FROM tl_components WHERE name = 'Clone banner' AND site_id = 3"), 'the clone has its own copy of the component');
 

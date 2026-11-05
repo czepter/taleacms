@@ -59,6 +59,33 @@ final class Preview
             'Content-Security-Policy' => "script-src 'none'; form-action 'none'; base-uri 'none'"]);
     }
 
+    /**
+     * The home page of a site template (Builder\SiteTemplates) for the gallery in Appearance: the same scratch database, the template's
+     * look and its own home page instead of the starter one, rendered by the public Kernel. Cached per template and language; null when
+     * the preview cannot be built here (no SQLite or Phinx) or the template does not exist.
+     */
+    public static function siteTemplate(string $key, string $language, string $register, Request $request): ?string
+    {
+        if (!\Talea\Builder\SiteTemplates::exists($key) || !isset(Language::AVAILABLE[$language]) || !in_array($register, Language::REGISTERS, true) || !self::available()) {
+            return null;
+        }
+        $cache = self::FOLDER . '/template-page-' . md5(TALEA_VERSION . '|' . array_key_last(Migrator::files()) . '|' . $request->basePath() . '|' . $key . '|' . $language . '|' . $register) . '.html';
+        if (!is_file($cache)) {
+            @set_time_limit(300); // the first request migrates the scratch database
+            $look = Looks::get(\Talea\Builder\SiteTemplates::TEMPLATES[$key][2]);
+            $html = self::render($look, $language, $register, $request, function (Db $db) use ($key, $language): void {
+                $home = \Talea\Builder\SiteTemplates::pages($key, $language)[0];
+                \Talea\Builder\Library::createClasses($db, $home['classes']);
+                $db->update('pages', ['build' => \Talea\Builder\Build::toJson($home['build']), 'text' => \Talea\Builder\Build::asText($home['build'])], ['page_id' => (int) $db->value("SELECT value FROM {settings} WHERE name = 'home_page'")]);
+            });
+            $temporary = $cache . '.' . bin2hex(random_bytes(6)) . '.tmp'; // two requests that miss the cache at once must not write one file
+            file_put_contents($temporary, $html, LOCK_EX);
+            rename($temporary, $cache);
+        }
+
+        return (string) file_get_contents($cache);
+    }
+
     /** Removes the scratch databases and the cached pages (after a successful installation). */
     public static function forget(): void
     {
@@ -68,17 +95,30 @@ final class Preview
         @rmdir(self::FOLDER);
     }
 
-    /** @param array<string, mixed> $look */
-    private static function render(array $look, string $language, string $register, Request $request): string
+    /**
+     * @param array<string, mixed> $look
+     * @param (callable(Db): void)|null $after changes the scratch site after the starter content (a site template's home page)
+     */
+    private static function render(array $look, string $language, string $register, Request $request, ?callable $after = null): string
     {
         $work = self::FOLDER . '/work-' . bin2hex(random_bytes(6)) . '.sqlite';
         copy(self::template(), $work);
+        // in the administration (a site template's picture) the signed-in person's session and cookies stay out of the scratch site:
+        // it renders for an anonymous visitor and must neither read nor take over the admin session
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        $cookies = $_COOKIE;
+        $_COOKIE = [];
         try {
             $config = ['db' => ['driver' => 'sqlite', 'name' => $work, 'prefix' => 'tl_'], 'debug' => false];
             $db = Db::fromConfig($config['db']);
             $siteName = Language::runWith($language, fn (): string => t('My website'));
             $db->transaction(fn () => Starter::create($db, $siteName, $language, $look, Extensions::fromValue(''), $request->basePath(),
                 ['site_url' => $request->origin(), 'site_email' => '', 'german_register' => $register, 'time_zone' => date_default_timezone_get(), 'tasks_token' => '', 'page_cache' => '0']));
+            if ($after !== null) {
+                $db->transaction(fn () => $after($db));
+            }
             $server = ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => $request->basePath() . '/', 'SCRIPT_NAME' => $request->serverValues()['SCRIPT_NAME'] ?? '/install.php'] + $request->serverValues();
             $answer = (new Kernel(new App($config, new Request([], [], $server))))->handle();
             if ($answer->status !== 200) {
@@ -88,6 +128,7 @@ final class Preview
             // links, buttons and fields do nothing in the frame
             return str_replace('</head>', '<style>a, button, input, select, textarea, summary { pointer-events: none; }</style></head>', $answer->body);
         } finally {
+            $_COOKIE = $cookies;
             foreach (['', '-wal', '-shm', '-journal'] as $suffix) {
                 @unlink($work . $suffix);
             }

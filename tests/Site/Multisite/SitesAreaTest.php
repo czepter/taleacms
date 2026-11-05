@@ -18,7 +18,7 @@ final class SitesAreaTest extends SiteTestCase
 {
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']];
     }
 
     private function host(string $host): string
@@ -87,11 +87,11 @@ final class SitesAreaTest extends SiteTestCase
         $r = $site->client('visitor')->get('/', [$this->host('second.test')]);
         $this->assertSame(503, $r->status, 'a site cron has not set up has no tables yet');
 
-        $cron = $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1']);
+        $cron = $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']);
         $this->assertStringContainsString('site tl2_: ready', $cron);
         $this->assertNotNull($site->value('SELECT ready_at FROM tl_sites WHERE site_id = 2'));
         $this->assertSame(0, (int) $site->value('SELECT COUNT(*) FROM tl2_pages'));
-        $this->assertStringNotContainsString('site tl2_', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1']), 'set up once');
+        $this->assertStringNotContainsString('site tl2_', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']), 'set up once');
     }
 
     public function testDomainsAndTheStateOfASite(): void
@@ -113,6 +113,19 @@ final class SitesAreaTest extends SiteTestCase
         $live = $site->client('visitor')->get('/', [$this->host('second.test')]);
         $this->assertNotSame(503, $live->status);
         $this->assertNotSame("Not found\n", $live->body, 'the second site answers with its own pages');
+    }
+
+    /** a browser follows the handoff's redirect to the other host only when the page's CSP form-action allows that host */
+    public function testTheSwitcherMayLeadToTheOtherSite(): void
+    {
+        $r = $this->site()->admin()->get('/admin.php');
+        $this->assertStringContainsString("form-action 'self' http://second.test:" . $this->site()->port, $r->headers['content-security-policy'] ?? '', 'the other site is a form target');
+        $this->assertStringContainsString('id="switch-' . $this->secondId() . '"', $r->body, 'the switcher has a form per site, the palette submits it');
+        $this->assertStringContainsString('second.test', $r->body, 'the switcher shows the address of each site');
+        $this->assertStringContainsString('name="to" value="module=pages"', $this->site()->admin()->get('/admin.php?module=pages')->body, 'switching keeps the section you work in');
+        $counts = $this->site()->admin()->get('/admin.php?action=site_counts');
+        $this->assertSame(200, $counts->status);
+        $this->assertArrayHasKey($this->secondId(), (array) json_decode($counts->body, true), 'the picker gets what waits on each other site');
     }
 
     public function testTheHandoffSignsTheAdministratorInOnTheOtherSite(): void

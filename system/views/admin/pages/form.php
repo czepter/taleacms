@@ -11,6 +11,11 @@
  * @var list<array{revision_id:int, created_at:string, title:string, user_id:?string}> $versions  older versions of the text
  * @var ?string $translationOf  the title of the original when this is a new translation
  * @var string $languageName  the name of the page's language version
+ * @var array<string, array{0: string, 1: list<string>}> $starts  New page: what it can start from (Builder\PageTemplates::startOptions), [] when editing
+ * @var string $start  the start asked for (?template=)
+ * @var array<string, string> $sectionNames  section key => name
+ * @var array<string, string> $copyable  builder pages to start from (public id => title)
+ * @var list<array{id: string, name: string, sections: int, updated_at: string}> $mine  your own page templates (Builder\PageTemplates)
  */
 // the content fields of a right-to-left version (Arabic) are written from the right; the administration around them stays as it is
 $contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($app->settings(), (string) ($page['language'] ?? '')));
@@ -46,16 +51,25 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<label for="title"><?= e(t('Page title')) ?></label>
 	<input class="textfield wide title-field" type="text" id="title" name="title" value="<?= e($page['title']) ?>" maxlength="200" required placeholder="<?= e(t('e.g. Garden design')) ?>"<?= $page['page_id'] ? '' : ' autofocus' ?><?= $contentDir ?>><?= $error('title') ?>
 </div>
-<?php if (!$page['page_id'] && ($translationOf ?? null) === null): ?>
-<div class="row">
-	<label for="template"><?= e(t('Start from a template')) ?></label>
-	<div><select id="template" name="template">
-		<option value=""><?= e(t('blank page (text)')) ?></option>
-<?php foreach (Talea\Builder\Library::PAGE_TEMPLATES as $key => [$name]): ?>
-		<option value="<?= e($key) ?>"><?= e(t($name)) ?></option>
+<?php if (!$page['page_id'] && ($translationOf ?? null) === null && $starts !== []): // what the page starts from: cards, the sections of each one listed ?>
+<fieldset class="row span-all page-starts">
+	<legend><?= e(t('Start with')) ?></legend>
+	<div class="page-start-grid">
+		<label class="card-option page-start"><input type="radio" name="template" value=""<?= $start === '' || !isset($starts[$start]) ? ' checked' : '' ?>><strong><?= e(t('Text page')) ?></strong><span><?= e(t('A page of text with headings, images and links – written right here.')) ?></span></label>
+<?php foreach ($starts as $value => [$name, $keys]): ?>
+		<label class="card-option page-start"><input type="radio" name="template" value="<?= e($value) ?>"<?= $start === $value ? ' checked' : '' ?>><strong><?= e(t($name)) ?></strong><span><?= $value === 'blank' ? e(t('An empty page in the builder: add sections, columns and buttons yourself.'))
+            : ($keys === [] ? e(t('An outline that follows what your site has switched on – fill in the details in square brackets.')) : e(implode(' · ', array_map(fn (string $key): string => $sectionNames[$key] ?? $key, $keys)))) ?></span></label>
 <?php endforeach ?>
-	</select><span class="help"><?= e(t('A template builds the page from ready-made sections with sample texts and opens it in the builder.')) ?></span></div>
-</div>
+<?php foreach ($mine as $own): // your own templates (Save as template in Pages) ?>
+		<label class="card-option page-start"><input type="radio" name="template" value="mine:<?= e($own['id']) ?>"<?= $start === 'mine:' . $own['id'] ? ' checked' : '' ?>><strong><?= e($own['name']) ?></strong><span><?= e(t('Your template · %d sections', $own['sections'])) ?></span></label>
+<?php endforeach ?>
+<?php if ($copyable !== []): // any finished builder page of the site ?>
+		<label class="card-option page-start"><input type="radio" name="template" value="copy"<?= $start === 'copy' ? ' checked' : '' ?>><strong><?= e(t('A copy of a page')) ?></strong><span><?= e(t('Start from one of your own pages – its layout and texts, to change.')) ?></span>
+			<select name="copy_of" aria-label="<?= e(t('Page to copy')) ?>"><?php foreach ($copyable as $copyId => $copyTitle): ?><option value="<?= e($copyId) ?>"><?= e($copyTitle) ?></option><?php endforeach ?></select></label>
+<?php endif ?>
+	</div>
+	<span class="help"><?= e(t('A start in the builder puts ready-made sections with placeholders on the page and opens it in the builder.')) ?> <?= e(t('Save any page as a template from its menu in Pages.')) ?><?php if ($mine !== []): ?> <a href="<?= e($app->url('admin.php?module=page_templates')) ?>"><?= e(t('Your templates')) ?></a><?php endif ?></span>
+</fieldset>
 <?php endif ?>
 <?php if ($copyBuild): ?>
 <input type="hidden" name="text" value="">
@@ -65,7 +79,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<input type="hidden" name="text" value="<?= e($page['text']) ?>">
 </div>
 <?php else: ?>
-<div class="row span-all">
+<div class="row span-all page-text">
 	<label for="text"><?= e(t('Content')) ?></label>
 	<textarea class="textbox tall" id="text" name="text" rows="18" data-editor<?= $contentDir ?>><?= e($page['text']) ?></textarea>
 <?php if ($page['page_id']): ?>
@@ -137,6 +151,10 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <?php endif ?>
 	</div>
 </div>
+<?php if (!$page['page_id']): // a new page rarely needs these: folded away ?>
+<details class="advanced">
+<summary><?= e(t('More options')) ?></summary>
+<?php endif ?>
 <div class="row">
 	<label for="valid_until"><?= e(t('Visible until')) ?></label>
 	<div><input class="textfield" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($page['valid_until'] ?? '')) ?>">
@@ -152,6 +170,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<div><input class="textfield" type="number" id="sort_order" name="sort_order" value="<?= (int) $page['sort_order'] ?>" min="0" max="65535">
 	<span class="help"><?= e(t('Lower number = earlier in the page list and in the automatic menu.')) ?></span></div>
 </div>
+<?php if (!$page['page_id']): ?>
+</details>
+<?php endif ?>
 <?php if ($copyBuild): ?>
 <p class="buttons"><button class="btn" type="submit"><?= e(t('Create the translation and open the builder')) ?></button></p>
 <?php else: ?>

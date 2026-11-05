@@ -18,7 +18,7 @@ final class SoloSitesTest extends SiteTestCase
 {
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']];
     }
 
     /** @param array<string, string> $fields */
@@ -41,7 +41,7 @@ final class SoloSitesTest extends SiteTestCase
         $site->signIn($site->admin());
         $this->firstPost('/admin.php?module=sites&action=create', ['name' => 'Second', 'from' => '']);
         $this->firstPost('/admin.php?module=sites&action=domain_add', ['id' => $this->secondId(), 'host' => 'second.test']);
-        $this->assertStringContainsString('site tl2_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1']));
+        $this->assertStringContainsString('site tl2_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']));
         $this->firstPost('/admin.php?module=sites&action=save', ['id' => $this->secondId(), 'name' => 'Second', 'status' => 'live', 'redirect_to' => '']);
         $this->firstPost('/admin.php?module=sites&action=save', ['id' => $site->publicId('sites', 1), 'name' => 'First', 'status' => 'live', 'redirect_to' => '']);
         $this->assertSame('live', $site->value('SELECT status FROM tl_sites WHERE site_id = 2'));

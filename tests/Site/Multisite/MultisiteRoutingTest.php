@@ -17,7 +17,7 @@ final class MultisiteRoutingTest extends SiteTestCase
 {
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']];
     }
 
     private function port(): int

@@ -32,7 +32,7 @@ final class ClientFilesTest extends SiteTestCase
     /** @return array<string, string> */
     private static function envVars(): array
     {
-        return ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_SECRET, 'TALEA_TRUSTED_PROXIES' => '127.0.0.1'];
+        return ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_SECRET, 'TALEA_TRUSTED_PROXIES' => '127.0.0.1'];
     }
 
     /** @return list<string> */

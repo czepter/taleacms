@@ -16,7 +16,7 @@ use Talea\Core\Extensions;
 final class Kernel
 {
     /** Actions that belong to no module: /admin/account, /admin/oauth … (no module ident may take these names). */
-    public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step'];
+    public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step', 'waiting', 'site_counts'];
 
     /**
      * The editors' ongoing requests (unsaved state, assistant, build draft, the SEO tab's live check): they do not change the site, so they neither clear the
@@ -94,6 +94,7 @@ final class Kernel
      */
     public const array MODULES = [
         Modules\Pages::class,
+        Modules\PageTemplates::class,
         Modules\Appearance::class,
         Modules\SiteParts::class,
         Modules\Menu::class,
@@ -160,6 +161,69 @@ final class Kernel
         'Features and system' => [['extensions', '', 'Features and add-ons'], ['settings', 'ai', 'AI'], ['users', '', 'Users and roles'], ['fleet', '', 'Fleet'], ['settings', 'console', 'Fleet console'], ['status', '', 'System status']],
         'Installation' => [['sites', '', 'Websites', 'multisite'], ['owners', '', 'Owners', 'agency']],
     ];
+
+    /**
+     * Single settings the command palette finds by name, the way people look for them ("time zone", "sender address"):
+     * [module ident, settings tab ('' = the module's own screen), id of the field on that screen, the label the form shows].
+     * The label is the form's own text, so it is translated already; the link jumps to the field (#id).
+     */
+    public const array SETTINGS_SEARCH = [
+        ['settings', 'general', 'site_name', 'Site name'], ['settings', 'general', 'site_url', 'Site address'], ['settings', 'general', 'site_email', 'Site email'],
+        ['settings', 'general', 'site_description', 'Site description'], ['settings', 'general', 'time_zone', 'Time zone'], ['settings', 'general', 'site_language', 'Site language'],
+        ['settings', 'general', 'home_page', 'Site home page'], ['settings', 'general', 'footer_text', 'Footer text'], ['settings', 'general', 'require_2fa', 'Two-factor sign-in'],
+        ['settings', 'general', 'news_per_page', 'News items per page'], ['settings', 'general', 'page_cache', 'Page cache'],
+        ['settings', 'address', 'indexing', 'Allow the site in search engines'], ['settings', 'address', 'redirect_to_site_url', 'Redirect other addresses to the site address'],
+        ['settings', 'seo', 'share_image', 'Sharing image'], ['settings', 'seo', 'robots_extra', 'Custom robots.txt rules'], ['settings', 'seo', 'ai_crawlers', 'AI search engines and assistants'],
+        ['settings', 'seo', 'llms_txt', 'llms.txt file'],
+        ['settings', 'cookies', 'cookies_text', 'Banner text'], ['settings', 'cookies', 'captcha_provider', 'Extra spam check'], ['settings', 'cookies', 'accessibility_toolbar', 'Accessibility toolbar for visitors'],
+        ['settings', 'enquiries', 'enquiries_months', 'Delete enquiries older than'],
+        ['settings', 'mail', 'mail_from', 'Sender address'], ['settings', 'mail', 'mail_from_name', 'Sender name'], ['settings', 'mail', 'mail_reply_to', 'Send replies to'],
+        ['settings', 'mail', 'smtp_host', 'Server address'],
+        ['settings', 'reports', 'report_recipients', 'Recipients'], ['settings', 'backups', 'auto_backups', 'Automatic backups'],
+        ['business', '', 'company_phone', 'Phone'], ['business', '', 'company_email', 'Public email'], ['business', '', 'company_street', 'Street and number'],
+    ];
+
+    /**
+     * The palette entries of SETTINGS_SEARCH the person may open: name, address with the field, and where it lives
+     * ("Settings → Mail"). Tabs of a feature that is off are left out, like in the sidebar.
+     *
+     * @param array<string, class-string<Module>> $modules the modules the person may open
+     * @param callable(string): string $url admin query => address
+     * @return list<array{n: string, u: string, s: string}>
+     */
+    public static function settingsSearch(array $modules, \Talea\Core\Settings $settings, callable $url): array
+    {
+        $screens = []; // "module:tab" => the label of its entry in the Settings sidebar
+        foreach (self::SETTINGS_MENU as $entries) {
+            foreach ($entries as $entry) {
+                $screens[$entry[0] . ':' . $entry[1]] = $entry[2];
+            }
+        }
+        $found = [];
+        foreach (self::SETTINGS_SEARCH as [$ident, $tab, $id, $label]) {
+            if (!isset($modules[$ident]) || ($ident === 'settings' && !Modules\Settings::tabAvailable($tab, $settings))) {
+                continue;
+            }
+            $found[] = ['n' => t($label), 'u' => $url('module=' . $ident . ($tab !== '' ? '&tab=' . $tab : '') . '#' . $id),
+                's' => t('Settings') . ' → ' . t($screens[$ident . ':' . $tab] ?? $modules[$ident]::NAME)];
+        }
+
+        return $found;
+    }
+
+    /** Does a text hold every word of a search, the way people type it (any case, with or without diacritics)? An empty search matches nothing. */
+    public static function textMatches(string $search, string $text): bool
+    {
+        $words = array_filter(explode(' ', \Talea\Core\Search::normalize($search)));
+        $haystack = \Talea\Core\Search::normalize($text);
+        foreach ($words as $word) {
+            if (!str_contains($haystack, $word)) {
+                return false;
+            }
+        }
+
+        return $words !== [];
+    }
 
     /** SETTINGS_MENU without the entries the deployment does not have (several websites, agency mode). */
     public static function settingsMenu(): array
@@ -318,12 +382,35 @@ final class Kernel
 
             return Response::redirect($app->url('admin.php?action=account&tab=sign-in'));
         }
+        // multisite: a new site created from a site template gets it as drafts the first time an administrator opens it (Modules\Sites::actionCreate)
+        if ($app->site !== null && (string) ($app->site['template'] ?? '') !== '' && $app->auth()->isAdmin() && !$request->isPost()) {
+            $template = (string) $app->site['template'];
+            $app->db()->update('sites', ['template' => null], ['site_id' => (int) $app->site['site_id']]); // once, even if applying fails
+            if (\Talea\Builder\SiteTemplates::exists($template) && \Talea\Core\LookFamily::refusal($app->db()) === null) {
+                $pages = \Talea\Builder\SiteTemplates::apply($app, $template);
+                ChangeLog::write($app, 'appearance', 'apply template', $template);
+                $app->session->flash('ok', t('This site starts from the template %s: its look and %d pages are waiting as drafts. Check them in the builder and publish them when they are ready.', t(\Talea\Builder\SiteTemplates::TEMPLATES[$template][0]), count($pages)));
+            }
+        }
         if ($action === 'token') {
             // after a new sign-in in another tab, the editor takes the valid form token here and continues saving
             return Response::json(['csrf' => $app->session->csrfToken()]);
         }
         if ($action === 'account') {
             return (new Account($this))->handle();
+        }
+        if ($action === 'waiting') {
+            // the list under the bell, fetched when it opens: everything that waits, not only what the menu counts (Core\PendingReview)
+            return Response::html($app->view->render('admin/waiting_list', ['app' => $app, 'items' => $this->waitingList()]));
+        }
+        if ($action === 'site_counts') {
+            // the badges of the site picker, fetched when it opens: public id => what waits there (Kernel::otherSitesWaiting)
+            $counts = [];
+            foreach ($this->otherSitesWaiting($this->modules()) as $site) {
+                $counts[$site['public_id']] = $site['enquiries'] + $site['bookings'];
+            }
+
+            return Response::json($counts);
         }
         if ($action === 'oauth') {
             return $this->handleOAuthConsent();
@@ -389,21 +476,89 @@ final class Kernel
         return $modules;
     }
 
+    /** @var list<string> origins a module adds for its forms that lead to another host (the Owners area opens another owner's sites) */
+    public array $formOrigins = [];
+
     /** Wraps the content in the common admin frame (menu, sign-in bar, messages). */
     public function page(string $heading, string $content, int $status = 200): Response
     {
         $app = $this->app;
+        $modules = $app->auth()->user() !== null ? $this->modules() : [];
+        // switching to another site posts a form that ends on that site's host: the CSP form-action must allow it (admin.php)
+        $origins = [...$this->formOrigins, ...(isset($modules['sites']) ? Modules\Sites::formOrigins($app) : [])];
+        $headers = $origins !== [] ? ['X-Talea-Form-Action' => implode(' ', array_unique($origins))] : [];
 
-        return Response::html($app->view->render('admin/layout', [
+        return new Response($app->view->render('admin/layout', [
             'app' => $app,
             'heading' => t($heading),
             'content' => $content,
-            'modules' => $app->auth()->user() !== null ? $this->modules() : [],
+            'modules' => $modules,
             'active' => $app->request->get('module'),
             'username' => $app->auth()->user(),
             'flashes' => $app->session->takeFlashes(),
             'sidebar' => $this->sidebar,
-        ]), $status);
+        ]), $status, $headers);
+    }
+
+    /**
+     * Everything that waits for the signed-in person, for the bell: new enquiries, bookings to confirm, news from authors and
+     * the drafts and proposals of Core\PendingReview – only what the person may open.
+     *
+     * @return list<array{label: string, url: string, count: int, examples: list<string>, site?: string, site_name?: string, to?: string}> url is an address of the
+     *         admin; a row of another site has its public id, name and the screen to open there instead (a handoff, Modules\Sites::actionHandoff)
+     */
+    public function waitingList(): array
+    {
+        $modules = $this->modules();
+        $counts = self::waiting($this->app, $modules);
+        $items = [];
+        foreach (['enquiries' => ['New enquiries', 'admin.php?module=enquiries'], 'bookings' => ['Bookings to confirm', 'admin.php?module=bookings']] as $ident => [$label, $url]) {
+            if (($counts[$ident] ?? 0) > 0) {
+                $items[] = ['label' => $label, 'url' => $this->app->url($url), 'count' => $counts[$ident], 'examples' => []];
+            }
+        }
+        if (isset($modules['news']) && ($awaiting = Modules\News::countAwaitingPublication($this->app)) > 0) {
+            $items[] = ['label' => 'News from authors awaiting publication', 'url' => $this->app->url('admin.php?module=news&status=awaiting_publication'), 'count' => $awaiting, 'examples' => []];
+        }
+        foreach (\Talea\Core\PendingReview::all($this->app, $modules) as $p) {
+            $items[] = ['label' => $p['label'], 'url' => $this->app->url($p['url']), 'count' => $p['count'], 'examples' => $p['examples']];
+        }
+        // multisite: what waits on the other sites (administrators, as the "all sites" inboxes); a row opens that site's list there
+        foreach ($this->otherSitesWaiting($modules) as $site) {
+            foreach (['enquiries' => 'New enquiries', 'bookings' => 'Bookings to confirm'] as $ident => $label) {
+                if ($site[$ident] > 0) {
+                    $items[] = ['label' => $label, 'url' => '', 'count' => $site[$ident], 'examples' => [], 'site' => $site['public_id'], 'site_name' => $site['name'], 'to' => 'module=' . $ident];
+                }
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * New enquiries and bookings to confirm on each other site this person may open (administrators with several sites, as the
+     * "all sites" inboxes): for the bell and the badges of the site picker. One query per site, asked only when a list is opened.
+     *
+     * @param array<string, class-string<Module>> $modules
+     * @return list<array{public_id: string, name: string, enquiries: int, bookings: int}>
+     */
+    public function otherSitesWaiting(array $modules): array
+    {
+        $out = [];
+        foreach (isset($modules['sites']) ? Modules\Sites::inboxSites($this->app) : [] as $site) {
+            if ($site['current'] || !$site['can_open']) {
+                continue;
+            }
+            try {
+                $row = $this->app->db()->forSite($site['prefix'])->one("SELECT (SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND category <> 'spam' AND deleted_at IS NULL) AS enquiries,"
+                    . " (SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW()) AS bookings") ?? [];
+            } catch (\Throwable) {
+                continue; // a site whose tables are behind must not break the list
+            }
+            $out[] = ['public_id' => $site['public_id'], 'name' => $site['name'], 'enquiries' => (int) ($row['enquiries'] ?? 0), 'bookings' => (int) ($row['bookings'] ?? 0)];
+        }
+
+        return $out;
     }
 
     /**
