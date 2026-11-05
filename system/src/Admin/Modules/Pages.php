@@ -625,8 +625,8 @@ final class Pages extends Module
 
                 return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
             }
-            $template = \Talea\Builder\Library::PAGE_TEMPLATES[$r->post('template')] ?? null;
-            if ($template !== null && $template[1] !== []) {
+            $template = self::startSections($r->post('template'));
+            if ($template !== null && ($template[1] !== [] || $r->post('template') === 'blank')) {
                 // new page from a template: sections from the library as a draft and straight into the builder
                 $build = \Talea\Builder\Library::page($this->db, $template[1], $data['title'], $this->contentLanguage($data['language']));
                 $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $id]);
@@ -1062,6 +1062,28 @@ final class Pages extends Module
      * @param array<string, mixed> $page
      * @param array<string, string> $errors
      */
+    /**
+     * What a new page can start from (the cards of New page): a blank builder page, a page template of the library, or the sections a
+     * look suggests (Appearance → Looks, "New page from these sections"). value => [name, section keys]; the text page is ''.
+     *
+     * @return array<string, array{0: string, 1: list<string>}>
+     */
+    public static function startOptions(string $look = ''): array
+    {
+        $options = ['blank' => ['Blank builder page', []]] + \Talea\Builder\Library::PAGE_TEMPLATES;
+        if (($definition = \Talea\Builder\Looks::get($look)) !== null && $definition['sections'] !== []) {
+            $options = ['look:' . $look => [t('Sections of the look %s', $definition['name']), $definition['sections']]] + $options;
+        }
+
+        return $options;
+    }
+
+    /** The start a posted template value names, or null (a text page, or a value that is not offered). @return array{0: string, 1: list<string>}|null */
+    private static function startSections(string $value): ?array
+    {
+        return self::startOptions(str_starts_with($value, 'look:') ? substr($value, 5) : '')[$value] ?? null;
+    }
+
     private function form(array $page, array $errors = [], ?string $translationOf = null): Response
     {
         $page['public_id'] ??= $this->publicId((int) $page['page_id']);
@@ -1073,6 +1095,10 @@ final class Pages extends Module
         // a new translation says so in its heading: "Translation: Garden design → Português"
         return $this->view('form', $page['page_id'] ? 'Edit page' : ($translationOf !== null ? t('Translation: %s → %s', $translationOf, $languageName) : 'New page'), [
             'page' => $page, 'errors' => $errors, 'translationOf' => $translationOf, 'languageName' => $languageName, 'parentPublicId' => $this->publicId((int) ($page['parent_id'] ?? 0)),
+            // New page: the cards to start from (?template=look:<key> from the looks gallery adds that look's sections and picks them)
+            'starts' => $page['page_id'] ? [] : self::startOptions(str_starts_with($start = $this->request->post('template', $this->request->get('template')), 'look:') ? substr($start, 5) : ''),
+            'start' => $page['page_id'] ? '' : $this->request->post('template', $this->request->get('template')),
+            'sectionNames' => $page['page_id'] ? [] : array_column(\Talea\Builder\Library::listAll(), 'name', 'key'),
             // possible parent pages: the same language, not the page itself nor its subpages
             'parents' => array_values(array_filter($this->db->all('SELECT page_id, public_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, (int) $page['page_id']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['slug'] . '/', $custom . '/'))),
