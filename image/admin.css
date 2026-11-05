@@ -351,6 +351,67 @@ body:not(.login) {
 	width: 19px;
 	height: 19px;
 }
+/* the bell next to the search: what waits (new enquiries, bookings to confirm) from every screen, the list in a popover under it */
+.waiting-start {
+	position: relative;
+	anchor-name: --waiting;
+}
+.waiting-dot {
+	position: absolute;
+	top: 2px;
+	right: 0;
+	min-width: 16px;
+	padding: 0 4px;
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--on-accent);
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 16px;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+.waiting-popover {
+	position-anchor: --waiting;
+	position-area: bottom span-right;
+	position-try-fallbacks: flip-inline;
+	inset: auto;
+	width: min(300px, calc(100vw - 32px));
+	margin: 6px 0 0;
+	padding: 14px 16px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-float);
+	background: var(--surface);
+	color: var(--text);
+	box-shadow: 0 16px 40px rgba(15, 17, 21, 0.18);
+}
+.waiting-title { margin: 0 0 8px; font-weight: 600; }
+.waiting-popover ul { margin: 0 0 10px; padding: 0; list-style: none; }
+.waiting-popover li a {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--line);
+	color: var(--text);
+	text-decoration: none;
+}
+.waiting-popover li a:hover span:first-child { text-decoration: underline; }
+.waiting-popover .small-text { margin: 0 0 10px; }
+/* a setting reached from the palette (#field): it clears the sticky phone header and its row stands out for a moment */
+.content :target { scroll-margin-top: 96px; }
+.row:has(:target) {
+	animation: setting-found 1.6s ease-out;
+	border-radius: var(--radius);
+}
+@keyframes setting-found {
+	from { background: color-mix(in oklch, var(--accent) 16%, transparent); }
+	to { background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.row:has(:target) { animation: none; outline: 2px solid var(--accent); outline-offset: 4px; }
+}
 .avatar {
 	display: grid;
 	place-items: center;

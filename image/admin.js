@@ -497,7 +497,35 @@
 
 	var autoSubmit = document.querySelector('form[data-auto-submit]');
 	if (autoSubmit) { setTimeout(function () { autoSubmit.requestSubmit ? autoSubmit.requestSubmit() : autoSubmit.submit(); }, parseInt(autoSubmit.getAttribute('data-auto-submit'), 10) || 1200); }
-	/* ---------- command palette: Ctrl/⌘+K – sections, quick actions and news item search ---------- */
+	/* ---------- where you were: the recently opened screens (in the palette) and the way back out of Settings, Website mode and My account ---------- */
+	var screenName = (document.querySelector('main[data-screen]') || { getAttribute: function () { return ''; } }).getAttribute('data-screen') || '';
+	var hereUrl = location.pathname + location.search;
+	var storage = function (kind) { try { return window[kind]; } catch (e) { return null; } }; // private mode or blocked site data: no memory, nothing breaks
+	var remembered = function (kind, key) { try { return JSON.parse(storage(kind).getItem(key) || 'null'); } catch (e) { return null; } };
+	var remember = function (kind, key, value) { try { storage(kind).setItem(key, JSON.stringify(value)); } catch (e) { /* nothing */ } };
+	var recentKey = 'talea-recent:' + (document.documentElement.getAttribute('data-admin-url') || '');
+	var recentScreens = remembered('localStorage', recentKey);
+	recentScreens = Array.isArray(recentScreens) ? recentScreens.filter(function (r) { return r && typeof r.n === 'string' && typeof r.u === 'string'; }) : [];
+	var returnLinks = document.querySelectorAll('[data-return]');
+	if (screenName !== '' && !/\/new(?:$|\?)/.test(location.pathname)) {
+		// an edit screen is remembered by what it edits ("Contact"), the rest by its heading
+		var titleField = document.querySelector('main form input[name="title"], main form input[name="name"]');
+		var named = titleField && titleField.value.trim() !== '' ? titleField.value.trim() : '';
+		recentScreens = [{ n: named || screenName, u: hereUrl, s: named ? screenName : '' }].concat(recentScreens.filter(function (r) { return r.u !== hereUrl; })).slice(0, 8);
+		remember('localStorage', recentKey, recentScreens);
+		// Settings, Website mode and My account lead back to the last screen outside them (per browser tab), not always to Home
+		if (returnLinks.length === 0) { remember('sessionStorage', 'talea-return', { n: screenName, u: hereUrl }); }
+	}
+	var returnTo = remembered('sessionStorage', 'talea-return');
+	if (returnTo && typeof returnTo.u === 'string' && typeof returnTo.n === 'string' && returnTo.u !== hereUrl && returnTo.u.charAt(0) === '/') {
+		returnLinks.forEach(function (link) {
+			link.href = returnTo.u;
+			var label = link.querySelector('span');
+			if (label) { label.textContent = returnTo.n; }
+		});
+	}
+
+	/* ---------- command palette: Ctrl/⌘+K – recently opened, sections, quick actions, single settings and news item search ---------- */
 
 	var palette = document.getElementById('palette');
 	if (palette && typeof palette.showModal === 'function') {
@@ -513,11 +541,15 @@
 		var paletteItems = function () {
 			var q = removeDiacritics(paletteField.value.trim());
 			var words = q.split(/\s+/).filter(Boolean);
-			var matching = paletteCommands.filter(function (p) {
+			// what was opened lately comes first with an empty field; while typing it is searched too (an edited news item the list does not carry)
+			var recent = recentScreens.filter(function (r) { return r.u !== hereUrl; }).map(function (r) { return { n: r.n, u: r.u, s: r.s !== '' ? T('Recently opened') + ' · ' + r.s : T('Recently opened') }; });
+			if (q === '') { return recent.slice(0, 5).concat(paletteCommands.slice(0, 9)); }
+			var known = paletteCommands.map(function (p) { return p.u; });
+			var matching = paletteCommands.concat(recent.filter(function (r) { return known.indexOf(r.u) === -1; })).filter(function (p) {
 				var haystack = removeDiacritics(p.n + ' ' + p.s);
 				return words.every(function (s) { return haystack.indexOf(s) !== -1; });
 			});
-			return (q === '' ? matching.slice(0, 9) : matching.slice(0, 7)).concat(q === '' ? [] : paletteNews);
+			return matching.slice(0, 9).concat(paletteNews);
 		};
 		var paletteRender = function () {
 			var items = paletteItems();

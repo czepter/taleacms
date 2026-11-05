@@ -1656,6 +1656,7 @@ window.TALEA_TRANSLATIONS = {
 	"Received": "Eingegangen",
 	"Recent messages": "Letzte Nachrichten",
 	"Recently edited": "Zuletzt bearbeitet",
+	"Recently opened": "Zuletzt geöffnet",
 	"Recently uploaded": "Zuletzt hochgeladen",
 	"Recommended": "Empfohlen",
 	"Recommended. Shown only when there is something to consent to; tracking starts only after consent.": "Empfohlen. Wird nur angezeigt, wenn es etwas zu bestätigen gibt; das Tracking startet erst nach der Einwilligung.",

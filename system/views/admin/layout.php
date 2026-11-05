@@ -28,6 +28,12 @@ if ($username !== null) {
         'pages' => [['New page', 'module=pages&action=new']],
         'news' => [['New news item', 'module=news&action=new'], ['Broken links', 'module=news&action=links']],
         'categories' => [['New category', 'module=categories&action=new']],
+        'forms' => [['New form', 'module=forms&action=new']],
+        'popups' => [['New pop-up', 'module=popups&action=new']],
+        'components' => [['New component', 'module=components&action=new']],
+        'bookings' => [['New booking', 'module=bookings&action=new']],
+        'newsletters' => [['New newsletter', 'module=newsletters&action=new']],
+        'requests' => [['New request', 'module=requests&action=new']],
         'users' => [['New user', 'module=users&action=new']],
         'transfer' => [['Import from WordPress', 'module=transfer']],
     ];
@@ -43,6 +49,8 @@ if ($username !== null) {
         }
         $statements[] = ['n' => t('Settings') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Settings')];
     }
+    // single settings by the name their form gives them ("Time zone", "Sender address"): the link jumps to the field
+    array_push($statements, ...Talea\Admin\Kernel::settingsSearch($modules, $app->settings(), $adminUrl));
     // site pages can be found in the palette by name (news is searched on the server, there are more of them)
     foreach (isset($modules['pages']) ? $app->db()->all('SELECT public_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY sort_order, title LIMIT 300') : [] as $pageRow) {
         $statements[] = ['n' => $pageRow['title'], 'u' => $adminUrl('module=pages&action=edit&id=' . $pageRow['public_id']), 's' => t('Page')];
@@ -88,6 +96,12 @@ if ($menuCollections !== []) {
 }
 // how many things wait (new enquiries, bookings to confirm): next to the module, or next to its section while that is closed
 $waiting = Talea\Admin\Kernel::waiting($app, $modules);
+// the bell at the top lists the same, from every screen (only for whoever may open one of them)
+$waitingLinks = array_values(array_filter([
+    isset($modules['enquiries']) ? ['New enquiries', $app->url('admin.php?module=enquiries'), $waiting['enquiries'] ?? 0] : null,
+    isset($modules['bookings']) ? ['Bookings to confirm', $app->url('admin.php?module=bookings'), $waiting['bookings'] ?? 0] : null,
+]));
+$waitingTotal = array_sum(array_column($waitingLinks, 2));
 $waitingCount = fn (int $n): string => $n > 0 ? ' <span class="menu-count" aria-hidden="true">' . ($n > 99 ? '99+' : $n) . '</span><span class="visually-hidden"> – ' . e(t('%s new', (string) $n)) . '</span>' : '';
 // the settings are the gear at the bottom; inside them the sidebar lists their screens instead of the sections
 $settingsMenu = [];
@@ -114,6 +128,22 @@ $userName = $username['name'] ?: $username['username'];
 		<a class="brand" href="<?= e($app->url('admin.php')) ?>" aria-label="Talea – <?= e(t('Home')) ?>"><?= $app->view->render('admin/logo', ['height' => 26]) ?></a>
 		<?= $app->view->render('admin/claude_chip', ['app' => $app, 'modules' => $modules]) ?>
 		<button class="palette-start" type="button" data-palette title="<?= e(t('Quick search and commands')) ?> (Ctrl K)" aria-label="<?= e(t('Quick search and commands')) ?>"><?= $icon('b-search') ?></button>
+<?php if ($waitingLinks !== []): // what waits, from every screen: a bell with the number, the list in a popover (no script) ?>
+		<button class="palette-start waiting-start" type="button" popovertarget="waiting" title="<?= e(t('Waiting for you')) ?>" aria-label="<?= e(t('Waiting for you') . ($waitingTotal > 0 ? ' – ' . t('%s new', (string) $waitingTotal) : '')) ?>"><svg class="icon" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><?php if ($waitingTotal > 0): ?><span class="waiting-dot" aria-hidden="true"><?= $waitingTotal > 99 ? '99+' : $waitingTotal ?></span><?php endif ?></button>
+		<div class="waiting-popover" id="waiting" popover>
+			<p class="waiting-title"><?= e(t('Waiting for you')) ?></p>
+<?php if ($waitingTotal > 0): ?>
+			<ul>
+<?php foreach ($waitingLinks as [$label, $url, $n]): if ($n === 0) { continue; } ?>
+				<li><a href="<?= e($url) ?>"><span><?= e(t($label)) ?></span><span class="menu-count"><?= $n > 99 ? '99+' : $n ?></span></a></li>
+<?php endforeach ?>
+			</ul>
+<?php else: ?>
+			<p class="small-text"><?= e(t('Nothing waits for you right now.')) ?></p>
+<?php endif ?>
+			<a class="navigation" href="<?= e($app->url('admin.php')) ?>"><?= e(t('Everything that waits, on Home')) ?></a>
+		</div>
+<?php endif ?>
 		<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	</div>
 <?php if (isset($modules['sites']) && ($switcher = Talea\Admin\Modules\Sites::switcher($app)) !== null): // multisite: the site you work on and the way to the others ?>
@@ -129,7 +159,7 @@ $userName = $username['name'] ?: $username['username'];
 <?php if (($sidebar ?? '') !== ''): ?>
 	<?= $sidebar ?>
 <?php elseif ($settingsMenu !== []): ?>
-	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>"><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><?= e(t('Home')) ?></a>
+	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>" data-return><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><span><?= e(t('Home')) ?></span></a>
 	<p class="menu-title"><a href="<?= e($app->url('admin.php?module=settings&tab=overview')) ?>"><?= e(t('Settings')) ?></a></p>
 	<ul class="menu menu-settings" id="menu">
 <?php foreach ($settingsMenu as $menuGroup => $entries): ?>
@@ -197,7 +227,7 @@ $userName = $username['name'] ?: $username['username'];
 	<script type="application/json" id="palette-data"><?= json_encode($statements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </dialog>
 <?php endif ?>
-<main class="content" id="main" tabindex="-1">
+<main class="content" id="main" tabindex="-1"<?= $username !== null ? ' data-screen="' . e($onDashboard ? t('Home') : $heading) . '"' : '' ?>>
 <?php if (Talea\Core\Demo::active()): ?>
 <p class="notice notice-warning" role="status"><?= e(t('Public demo: everything you change here is reset in %s minutes. E-mail, imports, updates, users and the Claude connection are switched off.', (string) max(1, (int) ceil(Talea\Core\Demo::secondsToReset() / 60)))) ?></p>
 <?php endif ?>

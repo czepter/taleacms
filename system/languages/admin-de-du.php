@@ -473,6 +473,7 @@ return [
     'Not what you wanted? The whole run can be taken back in one step.' => 'Nicht das, was du wolltest? Der gesamte Durchlauf lässt sich in einem Schritt zurücknehmen.',
     'Nothing matches your search.' => 'Keine Treffer für deine Suche.',
     'Nothing to do – when you change the address of a page or news item, a redirect is created automatically.' => 'Du musst nichts tun – wenn du die Adresse einer Seite oder eines News-Beitrags änderst, wird automatisch eine Weiterleitung angelegt.',
+    'Nothing waits for you right now.' => 'Gerade wartet nichts auf dich.',
     'Nothing was emptied: the export before it could not be made.' => 'Es wurde nichts geleert: Der Export davor konnte nicht erstellt werden.',
     'Notices stay in the archive – change the takedown date instead.' => 'Bekanntmachungen bleiben im Archiv – ändere stattdessen das Abnahmedatum.',
     'Numbers the site works out when a page is shown, so they never go stale – years since a date and counts of what is on the site. Write the token into a text, or into the number of a counter.' => 'Zahlen, die die Website beim Anzeigen einer Seite berechnet, damit sie nie veralten – Jahre seit einem Datum und Anzahlen dessen, was auf der Website ist. Schreibe den Platzhalter in einen Text oder in die Zahl eines Zählers.',

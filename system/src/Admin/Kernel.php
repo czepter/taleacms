@@ -161,6 +161,55 @@ final class Kernel
         'Installation' => [['sites', '', 'Websites', 'multisite'], ['owners', '', 'Owners', 'agency']],
     ];
 
+    /**
+     * Single settings the command palette finds by name, the way people look for them ("time zone", "sender address"):
+     * [module ident, settings tab ('' = the module's own screen), id of the field on that screen, the label the form shows].
+     * The label is the form's own text, so it is translated already; the link jumps to the field (#id).
+     */
+    public const array SETTINGS_SEARCH = [
+        ['settings', 'general', 'site_name', 'Site name'], ['settings', 'general', 'site_url', 'Site address'], ['settings', 'general', 'site_email', 'Site email'],
+        ['settings', 'general', 'site_description', 'Site description'], ['settings', 'general', 'time_zone', 'Time zone'], ['settings', 'general', 'site_language', 'Site language'],
+        ['settings', 'general', 'home_page', 'Site home page'], ['settings', 'general', 'footer_text', 'Footer text'], ['settings', 'general', 'require_2fa', 'Two-factor sign-in'],
+        ['settings', 'general', 'news_per_page', 'News items per page'], ['settings', 'general', 'page_cache', 'Page cache'],
+        ['settings', 'address', 'indexing', 'Allow the site in search engines'], ['settings', 'address', 'redirect_to_site_url', 'Redirect other addresses to the site address'],
+        ['settings', 'seo', 'share_image', 'Sharing image'], ['settings', 'seo', 'robots_extra', 'Custom robots.txt rules'], ['settings', 'seo', 'ai_crawlers', 'AI search engines and assistants'],
+        ['settings', 'seo', 'llms_txt', 'llms.txt file'],
+        ['settings', 'cookies', 'cookies_text', 'Banner text'], ['settings', 'cookies', 'captcha_provider', 'Extra spam check'], ['settings', 'cookies', 'accessibility_toolbar', 'Accessibility toolbar for visitors'],
+        ['settings', 'enquiries', 'enquiries_months', 'Delete enquiries older than'],
+        ['settings', 'mail', 'mail_from', 'Sender address'], ['settings', 'mail', 'mail_from_name', 'Sender name'], ['settings', 'mail', 'mail_reply_to', 'Send replies to'],
+        ['settings', 'mail', 'smtp_host', 'Server address'],
+        ['settings', 'reports', 'report_recipients', 'Recipients'], ['settings', 'backups', 'auto_backups', 'Automatic backups'],
+        ['business', '', 'company_phone', 'Phone'], ['business', '', 'company_email', 'Public email'], ['business', '', 'company_street', 'Street and number'],
+    ];
+
+    /**
+     * The palette entries of SETTINGS_SEARCH the person may open: name, address with the field, and where it lives
+     * ("Settings → Mail"). Tabs of a feature that is off are left out, like in the sidebar.
+     *
+     * @param array<string, class-string<Module>> $modules the modules the person may open
+     * @param callable(string): string $url admin query => address
+     * @return list<array{n: string, u: string, s: string}>
+     */
+    public static function settingsSearch(array $modules, \Talea\Core\Settings $settings, callable $url): array
+    {
+        $screens = []; // "module:tab" => the label of its entry in the Settings sidebar
+        foreach (self::SETTINGS_MENU as $entries) {
+            foreach ($entries as $entry) {
+                $screens[$entry[0] . ':' . $entry[1]] = $entry[2];
+            }
+        }
+        $found = [];
+        foreach (self::SETTINGS_SEARCH as [$ident, $tab, $id, $label]) {
+            if (!isset($modules[$ident]) || ($ident === 'settings' && !Modules\Settings::tabAvailable($tab, $settings))) {
+                continue;
+            }
+            $found[] = ['n' => t($label), 'u' => $url('module=' . $ident . ($tab !== '' ? '&tab=' . $tab : '') . '#' . $id),
+                's' => t('Settings') . ' → ' . t($screens[$ident . ':' . $tab] ?? $modules[$ident]::NAME)];
+        }
+
+        return $found;
+    }
+
     /** SETTINGS_MENU without the entries the deployment does not have (several websites, agency mode). */
     public static function settingsMenu(): array
     {

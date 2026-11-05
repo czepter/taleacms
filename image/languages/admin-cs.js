@@ -1653,6 +1653,7 @@ window.TALEA_TRANSLATIONS = {
 	"Received": "Přijato",
 	"Recent messages": "Poslední zprávy",
 	"Recently edited": "Naposledy upravené",
+	"Recently opened": "Naposledy otevřené",
 	"Recently uploaded": "Nedávno nahrané",
 	"Recommended": "Doporučeno",
 	"Recommended. Shown only when there is something to consent to; tracking starts only after consent.": "Doporučeno. Zobrazí se jen tehdy, když je co odsouhlasit; měření se spustí až po souhlasu.",
