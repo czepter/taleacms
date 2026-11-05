@@ -164,7 +164,7 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
   (`Migrator::migratePrefix` finds the owner from the prefix).
 - **Routing.** `Sites::resolve` reads every set-up owner's `site_domains` in one `UNION ALL` and returns the owner prefix and status;
   `App::boot` sets `owner_prefix` and `site_prefix`. A host is unique in the whole install: `Owners::hostTaken` counts the hosts of all owners
-  whatever their status. A paused owner answers 503 on all its hosts (admin too, `/health` excepted), an archived owner 404; owner 1 can be
+  whatever their status. A paused owner answers 503 on all its hosts (admin too; `/health`, Claude's `/mcp`, its upload links and OAuth excepted), an archived owner 404; owner 1 can be
   neither (`Owners::setStatus`). The page cache folder is `pages-<site prefix>`; `Cache::clearAll()` clears only the owner being served.
 - **Signing.** `Antispam::key()` derives a key for every site prefix but the install's own, so owner B's site 1 differs from owner A's.
   `TALEA_SITE_URL` locks only the install's site 1 (`SiteUrl::locked`).

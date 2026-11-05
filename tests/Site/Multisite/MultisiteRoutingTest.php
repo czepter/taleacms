@@ -92,6 +92,8 @@ final class MultisiteRoutingTest extends SiteTestCase
         $this->assertSame('noindex', $r->headers['x-robots-tag']);
         $this->assertStringContainsString('This site is not public yet', $r->body);
         $this->assertSame(200, $this->on('second.test', '/health')->status);
+        $link = $this->site()->client('visitor')->put('/mcp/upload/' . str_repeat('a', 48), 'x', ['Host: second.test:' . $this->port()]);
+        $this->assertNotSame(503, $link->status, 'an upload link of Claude works on a paused site');
         $this->assertNotSame(503, $this->on('second.test', '/', admin: true)->status, 'a signed-in administrator passes');
         $this->assertNotSame(503, $this->on('127.0.0.1', '/')->status, 'the other site is unaffected');
     }

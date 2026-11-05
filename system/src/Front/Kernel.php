@@ -78,13 +78,13 @@ final class Kernel
      * Multisite (docs/specs/multisite.md): the state of the site this host belongs to. Paused: visitors get a 503 (signed-in people, the
      * whole-site preview and signed page links pass). Archived: a 301 to the site it points at, else read-only: every request that is not
      * GET or HEAD answers 403, except the page password, unsubscribing and cancelling a booking (reading, or withdrawing consent). No GET route writes
-     * (confirmations, unsubscribing and choosing a time only show a button; the POST does the work). The probe, cron, Claude and OAuth answer in every state; the administration has its own kernel.
+     * (confirmations, unsubscribing and choosing a time only show a button; the POST does the work). The probe, cron, Claude (the connection and its upload links) and OAuth answer in every state; the administration has its own kernel.
      */
     private function siteLifecycle(): ?Response
     {
         $site = $this->app->site;
         $r = $this->app->request;
-        if ($site === null || $site['status'] === 'live' || preg_match('#^/(health|tasks|mcp|oauth/.*|\.well-known/.*)$#', $r->path()) === 1) {
+        if ($site === null || $site['status'] === 'live' || preg_match('#^/(health|tasks|mcp|mcp/upload/[a-f0-9]{48}|oauth/.*|\.well-known/.*)$#', $r->path()) === 1) {
             return null;
         }
         if ($site['status'] === 'archived') {
