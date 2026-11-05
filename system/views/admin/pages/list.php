@@ -121,7 +121,8 @@ echo $app->view->render('admin/list/head', [
     }
     $menu = [['url' => $settings, 'label' => t('Settings and SEO')], ['url' => $address, 'label' => t('View on the site'), 'external' => true],
         ['url' => $module->url('new', ['parent' => $s['public_id']]), 'label' => t('New page under this one'), 'icon' => 'subpage'],
-        ['post' => $module->url('duplicate'), 'fields' => $fields, 'label' => t('Duplicate'), 'icon' => 'copy'], '-',
+        ['post' => $module->url('duplicate'), 'fields' => $fields, 'label' => t('Duplicate'), 'icon' => 'copy'],
+        ...($hasBuild ? [['post' => $module->url('save_template'), 'fields' => $fields, 'label' => t('Save as template'), 'icon' => 'copy']] : []), '-',
         $isHome ? ['note' => t('The home page cannot be deleted.')]
             : ['post' => $module->url('delete'), 'fields' => $fields, 'label' => t('Move to trash'), 'confirm' => t('Move the page to the trash? It disappears from the site; you can restore it for 30 days.'), 'danger' => true]];
 ?>

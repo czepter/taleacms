@@ -15,6 +15,7 @@
  * @var string $start  the start asked for (?template=)
  * @var array<string, string> $sectionNames  section key => name
  * @var array<string, string> $copyable  builder pages to start from (public id => title)
+ * @var list<array{id: string, name: string, sections: int, updated_at: string}> $mine  your own page templates (Builder\PageTemplates)
  */
 // the content fields of a right-to-left version (Arabic) are written from the right; the administration around them stays as it is
 $contentDir = Talea\Core\Language::dirAttribute(Talea\Core\Language::ofContent($app->settings(), (string) ($page['language'] ?? '')));
@@ -59,12 +60,15 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 		<label class="card-option page-start"><input type="radio" name="template" value="<?= e($value) ?>"<?= $start === $value ? ' checked' : '' ?>><strong><?= e(t($name)) ?></strong><span><?= $value === 'blank' ? e(t('An empty page in the builder: add sections, columns and buttons yourself.'))
             : ($keys === [] ? e(t('An outline that follows what your site has switched on – fill in the details in square brackets.')) : e(implode(' · ', array_map(fn (string $key): string => $sectionNames[$key] ?? $key, $keys)))) ?></span></label>
 <?php endforeach ?>
-<?php if ($copyable !== []): // your own templates: any finished builder page of the site ?>
+<?php foreach ($mine as $own): // your own templates (Save as template in Pages) ?>
+		<label class="card-option page-start"><input type="radio" name="template" value="mine:<?= e($own['id']) ?>"<?= $start === 'mine:' . $own['id'] ? ' checked' : '' ?>><strong><?= e($own['name']) ?></strong><span><?= e(t('Your template · %d sections', $own['sections'])) ?></span></label>
+<?php endforeach ?>
+<?php if ($copyable !== []): // any finished builder page of the site ?>
 		<label class="card-option page-start"><input type="radio" name="template" value="copy"<?= $start === 'copy' ? ' checked' : '' ?>><strong><?= e(t('A copy of a page')) ?></strong><span><?= e(t('Start from one of your own pages – its layout and texts, to change.')) ?></span>
 			<select name="copy_of" aria-label="<?= e(t('Page to copy')) ?>"><?php foreach ($copyable as $copyId => $copyTitle): ?><option value="<?= e($copyId) ?>"><?= e($copyTitle) ?></option><?php endforeach ?></select></label>
 <?php endif ?>
 	</div>
-	<span class="help"><?= e(t('A start in the builder puts ready-made sections with placeholders on the page and opens it in the builder.')) ?></span>
+	<span class="help"><?= e(t('A start in the builder puts ready-made sections with placeholders on the page and opens it in the builder.')) ?> <?= e(t('Save any page as a template from its menu in Pages.')) ?><?php if ($mine !== []): ?> <a href="<?= e($module->url('templates')) ?>"><?= e(t('Your templates')) ?></a><?php endif ?></span>
 </fieldset>
 <?php endif ?>
 <?php if ($copyBuild): ?>

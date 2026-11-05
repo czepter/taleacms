@@ -40,7 +40,8 @@ final class ParityTest extends TestCase
         $parity = [
             'pages' => $builderParity + ['list' => $readOnly, 'website' => $readOnly, 'settings_save' => 'update_page', 'seo_bulk_save' => 'update_page', 'seo_add_type' => 'edit_build', 'seo_keyword_add' => 'update_page', 'seo_check' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'export' => $readOnly, 'save' => 'update_page', 'save_text' => 'update_page',
                 'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
-                'duplicate' => 'admin: a copy of a page – Claude creates the page and saves the build', 'import' => 'admin: upload of a page export file',
+                'duplicate' => 'admin: a copy of a page – Claude creates the page and saves the build', 'save_template' => 'save_page_template', 'templates' => 'list_page_templates', 'template_rename' => 'admin: renaming one of the own page templates – Claude saves a new one with the name and deletes the old',
+                'template_delete' => 'delete_page_template', 'import' => 'admin: upload of a page export file',
                 'build_text' => 'admin: back from the builder to a text page', 'restore_version' => 'admin: text revisions of a text page', 'compare' => $readOnly,
                 'translations' => 'translation_status', 'bulk' => 'update_page'],
             'news' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'compare' => $readOnly, 'versions' => $readOnly, 'search_json' => $readOnly,

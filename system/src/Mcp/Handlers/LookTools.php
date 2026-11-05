@@ -216,6 +216,45 @@ trait LookTools
             'preview' => \Talea\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
     }
 
+    /** list_page_templates */
+    private function toolListPageTemplates(string $name, array $a): mixed
+    {
+        return ['templates' => \Talea\Builder\PageTemplates::all($this->app->db()), 'note' => 'create_page with page_template starts a new page from one.'];
+    }
+
+    /** save_page_template */
+    private function toolSavePageTemplate(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->hasModule('pages')) {
+            throw new \DomainException('Only editors and administrators can save page templates.');
+        }
+        $db = $this->app->db();
+        $page = $db->byPublicId('pages', (string) ($a['page'] ?? ''));
+        $json = $page === null || $page['deleted_at'] !== null ? null : ($page['build_draft'] ?? $page['build']);
+        if ($json === null) {
+            throw new \InvalidArgumentException('No such builder page – only a page built in the builder can be saved as a template.');
+        }
+        $saved = \Talea\Builder\PageTemplates::save($db, (string) (($a['name'] ?? '') !== '' ? $a['name'] : $page['title']), \Talea\Builder\Build::fromJson((string) $json) ?? [], $this->app->auth()->isAdmin());
+        if (is_array($saved)) {
+            throw new \InvalidArgumentException($saved['error']);
+        }
+
+        return ['id' => $saved, 'status' => 'saved – New page and create_page (page_template) offer it'];
+    }
+
+    /** delete_page_template */
+    private function toolDeletePageTemplate(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->hasModule('pages')) {
+            throw new \DomainException('Only editors and administrators can delete page templates.');
+        }
+        if (!\Talea\Builder\PageTemplates::delete($this->app->db(), (string) ($a['id'] ?? ''))) {
+            throw new \InvalidArgumentException('No such page template – list_page_templates lists them.');
+        }
+
+        return ['status' => 'deleted – pages started from it stay as they are'];
+    }
+
     /** list_look_versions */
     private function toolListLookVersions(string $name, array $a): mixed
     {

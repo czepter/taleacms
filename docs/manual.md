@@ -122,7 +122,10 @@ A page that used to be plain text is converted by the builder automatically. You
 sharing). A deleted page goes to the **trash** and can be restored for 30 days; **Duplicate** creates a hidden copy including the build.
 
 **New page** starts from a card: a text page, a blank builder page, a page template (each card lists its sections), the sections a
-look suggests (Looks → *New page with these sections*) or **a copy of one of your own pages** – your own pages are your templates.
+look suggests (Looks → *New page with these sections*), **your own templates** or a copy of one of your pages. **Save as template**
+in a page's menu (Pages) keeps a copy of its build as a template: New page offers it as a card, and *Your page templates* (linked
+from New page) renames and deletes them; the template is a copy, so the page it came from and the pages started from it stay as they
+are. Claude uses `list_page_templates`, `save_page_template`, `delete_page_template` and `create_page` with `page_template`.
 
 ## 3. Site appearance
 

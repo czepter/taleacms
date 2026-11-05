@@ -544,7 +544,7 @@ final class Sites
 
     /** Columns of the copied tables that store a build (or one element) with component elements; the experiments' variant is a component too. */
     private const array BUILD_COLUMNS = ['pages' => ['build', 'build_draft'], 'site_parts' => ['build', 'build_draft'], 'popups' => ['build', 'build_draft'],
-        'collections' => ['build', 'build_draft'], 'collection_templates' => ['build', 'build_draft'], 'build_revisions' => ['build'], 'experiments' => ['previous_build']];
+        'collections' => ['build', 'build_draft'], 'collection_templates' => ['build', 'build_draft'], 'build_revisions' => ['build'], 'experiments' => ['previous_build'], 'page_templates' => ['build']];
 
     /**
      * A clone's own rows of the shared tables: the source site's local components and facts (shared ones are not copied – the clone

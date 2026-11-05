@@ -625,8 +625,13 @@ final class Pages extends Module
 
                 return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
             }
-            // a copy of one of the site's builder pages: its build as the draft, straight into the builder
-            if ($r->post('template') === 'copy' && ($copy = $this->copiedBuild($r->post('copy_of'), $data['language'])) !== null) {
+            // a copy of one of the site's builder pages, or one of your own templates: its build as the draft, straight into the builder
+            $copy = match (true) {
+                $r->post('template') === 'copy' => $this->copiedBuild($r->post('copy_of'), $data['language']),
+                str_starts_with($r->post('template'), 'mine:') => \Talea\Builder\PageTemplates::build($this->db, substr($r->post('template'), 5)),
+                default => null,
+            };
+            if ($copy !== null) {
                 $this->db->update('pages', ['build_draft' => Build::toJson($copy)], ['page_id' => $id]);
                 \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
                 \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
@@ -1044,6 +1049,46 @@ final class Pages extends Module
     }
 
     /** Copy of the page including the build and the work-in-progress draft – hidden, with a free slug. */
+    /** "Save as template" (Pages list): a copy of the page's build (its draft, otherwise the published one) becomes a template for New page. */
+    protected function actionSaveTemplate(): Response
+    {
+        $page = $this->request->isPost() ? $this->loadPage($this->idParam('page_id')) : null;
+        $json = $page['build_draft'] ?? $page['build'] ?? null;
+        if ($page === null || $json === null) {
+            return $this->back('Only a page built in the builder can be saved as a template.', '', [], 'error');
+        }
+        $saved = \Talea\Builder\PageTemplates::save($this->db, (string) $page['title'], Build::fromJson((string) $json) ?? ['v' => Build::VERSION, 'children' => []], $this->app->auth()->isAdmin());
+        if (is_array($saved)) {
+            return $this->back($saved['error'], '', [], 'error');
+        }
+
+        return $this->back(t('“%s” is saved as a template – New page offers it.', (string) $page['title']), 'templates');
+    }
+
+    /** Your templates: rename or delete them (they are copies, the pages they came from stay as they are). */
+    protected function actionTemplates(): Response
+    {
+        return $this->view('templates', 'Your page templates', ['templates' => \Talea\Builder\PageTemplates::all($this->db)]);
+    }
+
+    protected function actionTemplateRename(): Response
+    {
+        if ($this->request->isPost() && \Talea\Builder\PageTemplates::rename($this->db, $this->request->post('id'), $this->request->post('name'))) {
+            return $this->back('The template is renamed.', 'templates');
+        }
+
+        return $this->back('Give the template a name.', 'templates', [], 'error');
+    }
+
+    protected function actionTemplateDelete(): Response
+    {
+        if ($this->request->isPost()) {
+            \Talea\Builder\PageTemplates::delete($this->db, $this->request->post('id'));
+        }
+
+        return $this->back('The template is deleted. Pages started from it stay as they are.', 'templates');
+    }
+
     protected function actionDuplicate(): Response
     {
         $page = $this->request->isPost() ? $this->loadPage($this->idParam('page_id')) : null;
@@ -1127,6 +1172,7 @@ final class Pages extends Module
             'start' => $page['page_id'] ? '' : $this->request->post('template', $this->request->get('template')),
             'sectionNames' => $page['page_id'] ? [] : array_column(\Talea\Builder\Library::listAll(), 'name', 'key'),
             // "A copy of a page": the builder pages of this language version to start from
+            'mine' => $page['page_id'] ? [] : \Talea\Builder\PageTemplates::all($this->db),
             'copyable' => $page['page_id'] ? [] : $this->db->pairs('SELECT public_id, title FROM {pages} WHERE language = ? AND deleted_at IS NULL AND (build IS NOT NULL OR build_draft IS NOT NULL) ORDER BY title', [$language]),
             // possible parent pages: the same language, not the page itself nor its subpages
             'parents' => array_values(array_filter($this->db->all('SELECT page_id, public_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, (int) $page['page_id']]),
