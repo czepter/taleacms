@@ -314,6 +314,9 @@ final class OwnersIsolationTest extends SiteTestCase
         $this->assertSame(['3600', 'noindex'], [$paused->headers['retry-after'] ?? '', $paused->headers['x-robots-tag'] ?? '']);
         $this->assertSame(503, $this->get(true, '/admin.php', $this->betaAdmin())->status, 'the administration too');
         $this->assertSame(200, $this->get(true, '/health')->status);
+        $link = $this->site()->client('visitor')->put('/mcp/upload/' . str_repeat('a', 48), 'x', $this->host(true));
+        $this->assertSame(404, $link->status, 'Claude\'s upload links reach the site of a paused owner (unknown link, not 503)');
+        $this->assertNotSame(503, $this->site()->client('visitor')->post('/mcp', [], $this->host(true))->status, 'so does the connection');
         $this->assertSame(200, $this->get(false, '/about')->status, 'owner A is unaffected');
 
         $site->exec("UPDATE tl_owners SET status = 'archived' WHERE prefix = 'tlb_'");

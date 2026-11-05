@@ -109,8 +109,9 @@ final class App
             }
             $site = ['site_id' => 1, 'public_id' => '', 'prefix' => $db->ownerPrefix, 'owner_prefix' => $db->ownerPrefix, 'status' => 'live', 'redirect_to_site_id' => null, 'is_primary' => true, 'redirect_to_primary' => false, 'primary_host' => null, 'ready' => true, 'verified' => true, 'kind' => 'domain'];
         }
-        if (($site['owner_status'] ?? 'live') !== 'live' && $request->path() !== '/health') {
-            // a paused owner: every one of its sites answers 503 (admin too), an archived owner's hosts are unknown
+        $claude = preg_match('#^/(mcp|mcp/upload/[a-f0-9]{48}|oauth/.*|\.well-known/.*)$#', $request->path()) === 1;
+        if (($site['owner_status'] ?? 'live') !== 'live' && $request->path() !== '/health' && !($claude && $site['owner_status'] === 'paused')) {
+            // a paused owner: every one of its sites answers 503 (admin too; Claude's connection, OAuth and upload links pass), an archived owner's hosts are unknown
             $paused = $site['owner_status'] === 'paused';
             http_response_code($paused ? 503 : 404);
             header('Content-Type: text/plain; charset=utf-8');
