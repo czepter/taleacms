@@ -31,11 +31,13 @@ settings and users stay with you), **Writer** (news for someone else to publish)
 guide (in the admin language, if the guide has it); in the builder the article is in Help (**?**). The admin speaks
 Czech, English and German – each user chooses in **My account**.
 
-**Getting around.** The magnifier next to the logo (or **Ctrl K** / **⌘K**) opens the quick search: the screens you opened
+**Getting around.** The magnifier next to the logo (or **Ctrl K** / **⌘K** / **/**) opens the quick search: the screens you opened
 last come first, then every section, quick actions (New page, New form, New booking…), pages, news and single settings by the
-name their form gives them (*Time zone*, *Sender address*, *Banner text*), which jump straight to the field. The bell next to it
-shows what waits – new enquiries, bookings to confirm – from every screen. **Settings**, **Website** and **My account** lead back
-to the screen you came from, not always to Home.
+name their form gives them (*Time zone*, *Sender address*, *Banner text*), which jump straight to the field. **+** (or **C**) lists
+what you can create in one step. The bell shows what waits – new enquiries, bookings to confirm, drafts to publish, comments on
+drafts, Claude's finished requests, files to approve – from every screen. **G** and a letter goes to a section (**G P** Pages,
+**G E** Enquiries, **G S** Settings…); **?** lists all shortcuts. **Settings** has a search field of its own, on the overview
+and in its sidebar. **Settings**, **Website** and **My account** lead back to the screen you came from, not always to Home.
 
 **Building the site for a client?** In **Settings → General → Built and looked after by** fill in your name, website,
 e-mail, phone and logo: the sign-in screen and the foot of the admin show the client whom to ask for help. Before

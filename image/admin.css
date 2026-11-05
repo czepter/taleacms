@@ -351,7 +351,8 @@ body:not(.login) {
 	width: 19px;
 	height: 19px;
 }
-/* the bell next to the search: what waits (new enquiries, bookings to confirm) from every screen, the list in a popover under it */
+/* the "New" menu and the bell next to the search: what can be created, and what waits (layout.php), each in a popover under its button */
+.create-start { anchor-name: --create; }
 .waiting-start {
 	position: relative;
 	anchor-name: --waiting;
@@ -371,12 +372,13 @@ body:not(.login) {
 	text-align: center;
 	font-variant-numeric: tabular-nums;
 }
-.waiting-popover {
-	position-anchor: --waiting;
+.header-popover {
 	position-area: bottom span-right;
 	position-try-fallbacks: flip-inline;
 	inset: auto;
-	width: min(300px, calc(100vw - 32px));
+	width: min(320px, calc(100vw - 32px));
+	max-height: min(70vh, 520px);
+	overflow-y: auto;
 	margin: 6px 0 0;
 	padding: 14px 16px;
 	border: 1px solid var(--line);
@@ -385,9 +387,11 @@ body:not(.login) {
 	color: var(--text);
 	box-shadow: 0 16px 40px rgba(15, 17, 21, 0.18);
 }
-.waiting-title { margin: 0 0 8px; font-weight: 600; }
-.waiting-popover ul { margin: 0 0 10px; padding: 0; list-style: none; }
-.waiting-popover li a {
+.create-popover { position-anchor: --create; width: min(240px, calc(100vw - 32px)); }
+.waiting-popover { position-anchor: --waiting; }
+.header-popover-title { margin: 0 0 8px; font-weight: 600; }
+.header-popover ul { margin: 0 0 10px; padding: 0; list-style: none; }
+.header-popover li a {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -397,8 +401,38 @@ body:not(.login) {
 	color: var(--text);
 	text-decoration: none;
 }
-.waiting-popover li a:hover span:first-child { text-decoration: underline; }
-.waiting-popover .small-text { margin: 0 0 10px; }
+.create-popover ul { margin: 0; }
+.create-popover li:last-child a { border-bottom: 0; }
+.header-popover li a:hover > span:first-child,
+.create-popover li a:hover { text-decoration: underline; }
+.header-popover small { display: block; margin-top: 2px; color: var(--text-weak); font-size: 12px; }
+.header-popover .small-text { margin: 0 0 10px; }
+/* the keyboard shortcuts (?): two columns of keys and what they do */
+.shortcuts { padding: 20px 24px; }
+.shortcuts h2 { margin: 0 0 12px; font-size: 18px; }
+.shortcuts h3 { margin: 16px 0 8px; font-size: 14px; color: var(--text-weak); }
+.shortcuts dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.shortcuts dt { white-space: nowrap; }
+.shortcuts dd { margin: 0; }
+.shortcuts form { margin: 18px 0 0; text-align: end; }
+.shortcuts kbd, .palette-help button kbd {
+	padding: 1px 6px;
+	border: 1px solid var(--line-field);
+	border-radius: var(--radius);
+	background: var(--base);
+	font: 600 11px/1.5 system-ui, sans-serif;
+	color: var(--text-weak);
+}
+.palette-help button { font-size: inherit; }
+/* Settings overview: the search and the single settings it finds; the same search in the Settings sidebar */
+.menu-search { margin: -6px 0 18px; }
+.menu-search .textfield { box-sizing: border-box; width: 100%; }
+.settings-search { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
+.settings-search .textfield { flex: 1 1 260px; max-width: 480px; }
+.settings-found { margin: 0 0 28px; padding: 0; list-style: none; }
+.settings-found a { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--text); text-decoration: none; }
+.settings-found a:hover > span:first-child { text-decoration: underline; }
+.settings-found small { color: var(--text-weak); }
 /* a setting reached from the palette (#field): it clears the sticky phone header and its row stands out for a moment */
 .content :target { scroll-margin-top: 96px; }
 .row:has(:target) {

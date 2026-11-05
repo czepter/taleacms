@@ -24,19 +24,29 @@ if ($username !== null) {
     foreach ($modules as $ident => $class) {
         $statements[] = ['n' => t($class::NAME), 'u' => $adminUrl('module=' . $ident), 's' => t($class::GROUP)];
     }
-    $quick = [
-        'pages' => [['New page', 'module=pages&action=new']],
-        'news' => [['New news item', 'module=news&action=new'], ['Broken links', 'module=news&action=links']],
-        'categories' => [['New category', 'module=categories&action=new']],
-        'forms' => [['New form', 'module=forms&action=new']],
-        'popups' => [['New pop-up', 'module=popups&action=new']],
-        'components' => [['New component', 'module=components&action=new']],
-        'bookings' => [['New booking', 'module=bookings&action=new']],
-        'newsletters' => [['New newsletter', 'module=newsletters&action=new']],
-        'requests' => [['New request', 'module=requests&action=new']],
-        'users' => [['New user', 'module=users&action=new']],
-        'transfer' => [['Import from WordPress', 'module=transfer']],
+    // what can be created in one step: the "New" menu at the top (c) and the palette
+    $create = [
+        'pages' => ['New page', 'module=pages&action=new'], 'news' => ['New news item', 'module=news&action=new'], 'forms' => ['New form', 'module=forms&action=new'],
+        'bookings' => ['New booking', 'module=bookings&action=new'], 'newsletters' => ['New newsletter', 'module=newsletters&action=new'],
+        'requests' => ['New request', 'module=requests&action=new'], 'popups' => ['New pop-up', 'module=popups&action=new'],
+        'components' => ['New component', 'module=components&action=new'], 'categories' => ['New category', 'module=categories&action=new'], 'users' => ['New user', 'module=users&action=new'],
     ];
+    $createLinks = [];
+    foreach (array_intersect_key($create, $modules) as [$name, $query]) {
+        $createLinks[] = [t($name), $adminUrl($query)];
+    }
+    $quick = array_map(fn (array $entry): array => [$entry], $create);
+    $quick['news'][] = ['Broken links', 'module=news&action=links'];
+    $quick['transfer'] = [['Import from WordPress', 'module=transfer']];
+    // keyboard: g and a letter goes to a section the person may open (the list in the shortcuts dialog, ?)
+    $goTo = [];
+    foreach (['h' => ['Home', ''], 'w' => ['Website', 'module=pages&action=website', 'pages'], 'p' => ['Pages', 'module=pages', 'pages'], 'n' => ['News', 'module=news', 'news'],
+        'c' => ['Collections', 'module=collections', 'collections'], 'm' => ['Media', 'module=media', 'media'], 'e' => ['Enquiries', 'module=enquiries', 'enquiries'],
+        'b' => ['Bookings', 'module=bookings', 'bookings'], 'a' => ['Analytics', 'module=stats', 'stats'], 's' => ['Settings', 'module=settings&tab=overview', 'settings']] as $key => $target) {
+        if (!isset($target[2]) || isset($modules[$target[2]])) {
+            $goTo[$key] = [t($target[0]), $adminUrl($target[1])];
+        }
+    }
     foreach ($quick as $ident => $items) {
         foreach (isset($modules[$ident]) ? $items : [] as [$name, $query]) {
             $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => t($modules[$ident]::NAME)];
@@ -96,7 +106,7 @@ if ($menuCollections !== []) {
 }
 // how many things wait (new enquiries, bookings to confirm): next to the module, or next to its section while that is closed
 $waiting = Talea\Admin\Kernel::waiting($app, $modules);
-// the bell at the top lists the same, from every screen (only for whoever may open one of them)
+// the bell at the top starts with the same counts on every screen; opening it fetches everything else that waits
 $waitingLinks = array_values(array_filter([
     isset($modules['enquiries']) ? ['New enquiries', $app->url('admin.php?module=enquiries'), $waiting['enquiries'] ?? 0] : null,
     isset($modules['bookings']) ? ['Bookings to confirm', $app->url('admin.php?module=bookings'), $waiting['bookings'] ?? 0] : null,
@@ -128,22 +138,27 @@ $userName = $username['name'] ?: $username['username'];
 		<a class="brand" href="<?= e($app->url('admin.php')) ?>" aria-label="Talea – <?= e(t('Home')) ?>"><?= $app->view->render('admin/logo', ['height' => 26]) ?></a>
 		<?= $app->view->render('admin/claude_chip', ['app' => $app, 'modules' => $modules]) ?>
 		<button class="palette-start" type="button" data-palette title="<?= e(t('Quick search and commands')) ?> (Ctrl K)" aria-label="<?= e(t('Quick search and commands')) ?>"><?= $icon('b-search') ?></button>
-<?php if ($waitingLinks !== []): // what waits, from every screen: a bell with the number, the list in a popover (no script) ?>
-		<button class="palette-start waiting-start" type="button" popovertarget="waiting" title="<?= e(t('Waiting for you')) ?>" aria-label="<?= e(t('Waiting for you') . ($waitingTotal > 0 ? ' – ' . t('%s new', (string) $waitingTotal) : '')) ?>"><svg class="icon" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><?php if ($waitingTotal > 0): ?><span class="waiting-dot" aria-hidden="true"><?= $waitingTotal > 99 ? '99+' : $waitingTotal ?></span><?php endif ?></button>
-		<div class="waiting-popover" id="waiting" popover>
-			<p class="waiting-title"><?= e(t('Waiting for you')) ?></p>
-<?php if ($waitingTotal > 0): ?>
+<?php if ($createLinks !== []): // the "New" menu: what can be created in one step (c) ?>
+		<button class="palette-start create-start" type="button" popovertarget="create" title="<?= e(t('Create something new')) ?> (C)" aria-label="<?= e(t('Create something new')) ?>"><svg class="icon" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+		<div class="header-popover create-popover" id="create" popover>
+			<p class="header-popover-title"><?= e(t('New')) ?></p>
 			<ul>
-<?php foreach ($waitingLinks as [$label, $url, $n]): if ($n === 0) { continue; } ?>
-				<li><a href="<?= e($url) ?>"><span><?= e(t($label)) ?></span><span class="menu-count"><?= $n > 99 ? '99+' : $n ?></span></a></li>
+<?php foreach ($createLinks as [$name, $link]): ?>
+				<li><a href="<?= e($link) ?>"><?= e($name) ?></a></li>
 <?php endforeach ?>
 			</ul>
-<?php else: ?>
-			<p class="small-text"><?= e(t('Nothing waits for you right now.')) ?></p>
-<?php endif ?>
-			<a class="navigation" href="<?= e($app->url('admin.php')) ?>"><?= e(t('Everything that waits, on Home')) ?></a>
 		</div>
 <?php endif ?>
+		<button class="palette-start waiting-start" type="button" popovertarget="waiting" title="<?= e(t('Waiting for you')) ?>" aria-label="<?= e(t('Waiting for you') . ($waitingTotal > 0 ? ' – ' . t('%s new', (string) $waitingTotal) : '')) ?>"><svg class="icon" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><?php if ($waitingTotal > 0): ?><span class="waiting-dot" aria-hidden="true"><?= $waitingTotal > 99 ? '99+' : $waitingTotal ?></span><?php endif ?></button>
+		<div class="header-popover waiting-popover" id="waiting" popover data-waiting="<?= e($app->url('admin.php?action=waiting')) ?>">
+			<p class="header-popover-title"><?= e(t('Waiting for you')) ?></p>
+			<div class="waiting-list" aria-live="polite"><?php /* what the menu counts already; admin.js fetches the whole list (drafts, comments, Claude's results…) when the bell opens */ ?>
+<?php if ($waitingTotal > 0): ?>
+<?= $app->view->render('admin/waiting_list', ['app' => $app, 'items' => array_map(fn (array $w): array => ['label' => $w[0], 'url' => $w[1], 'count' => $w[2], 'examples' => []], array_values(array_filter($waitingLinks, fn (array $w): bool => $w[2] > 0)))]) ?>
+<?php endif ?>
+			</div>
+			<a class="navigation" href="<?= e($app->url('admin.php')) ?>"><?= e(t('Everything that waits, on Home')) ?></a>
+		</div>
 		<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	</div>
 <?php if (isset($modules['sites']) && ($switcher = Talea\Admin\Modules\Sites::switcher($app)) !== null): // multisite: the site you work on and the way to the others ?>
@@ -161,6 +176,9 @@ $userName = $username['name'] ?: $username['username'];
 <?php elseif ($settingsMenu !== []): ?>
 	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>" data-return><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><span><?= e(t('Home')) ?></span></a>
 	<p class="menu-title"><a href="<?= e($app->url('admin.php?module=settings&tab=overview')) ?>"><?= e(t('Settings')) ?></a></p>
+<?php if (isset($modules['settings']) && !($inMenu === 'settings' && $tab === 'overview')): // the overview has its own search field ?>
+	<form class="menu-search" method="get" action="<?= e($app->url('admin.php?module=settings')) ?>" role="search"><input type="hidden" name="tab" value="overview"><input class="textfield" type="search" name="search" placeholder="<?= e(t('Search settings')) ?>" aria-label="<?= e(t('Search settings')) ?>"></form>
+<?php endif ?>
 	<ul class="menu menu-settings" id="menu">
 <?php foreach ($settingsMenu as $menuGroup => $entries): ?>
 		<li><span class="menu-heading"><?= e(t($menuGroup)) ?></span>
@@ -223,8 +241,26 @@ $userName = $username['name'] ?: $username['username'];
 <dialog class="palette" id="palette" aria-label="<?= e(t('Quick search and commands')) ?>"<?= isset($modules['news']) ? ' data-articles="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?>>
 	<input class="palette-field" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Where do you want to go? Type the name of a section, action, page or news item…')) ?>" aria-label="<?= e(t('Quick search and commands')) ?>" aria-controls="palette-list">
 	<ul class="palette-list" id="palette-list" role="listbox"></ul>
-	<p class="palette-help"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('select')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>
+	<p class="palette-help"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('select')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?> · <button class="navigation" type="button" data-shortcuts-open><kbd>?</kbd> <?= e(t('Keyboard shortcuts')) ?></button></p>
 	<script type="application/json" id="palette-data"><?= json_encode($statements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+</dialog>
+<dialog class="palette shortcuts" id="shortcuts" aria-labelledby="shortcuts-title">
+	<h2 id="shortcuts-title"><?= e(t('Keyboard shortcuts')) ?></h2>
+	<dl>
+		<dt><kbd>Ctrl</kbd> <kbd>K</kbd> <?= e(t('or')) ?> <kbd>/</kbd></dt><dd><?= e(t('Quick search and commands')) ?></dd>
+<?php if ($createLinks !== []): ?>
+		<dt><kbd>C</kbd></dt><dd><?= e(t('Create something new')) ?></dd>
+<?php endif ?>
+		<dt><kbd>?</kbd></dt><dd><?= e(t('Show the keyboard shortcuts')) ?></dd>
+	</dl>
+	<h3><?= e(t('Go to')) ?></h3>
+	<dl>
+<?php foreach ($goTo as $key => [$name]): ?>
+		<dt><kbd>G</kbd> <kbd><?= e(strtoupper($key)) ?></kbd></dt><dd><?= e($name) ?></dd>
+<?php endforeach ?>
+	</dl>
+	<form method="dialog"><button class="btn" type="submit"><?= e(t('Close')) ?></button></form>
+	<script type="application/json" id="shortcut-data"><?= json_encode(array_map(fn (array $target): string => $target[1], $goTo), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </dialog>
 <?php endif ?>
 <main class="content" id="main" tabindex="-1"<?= $username !== null ? ' data-screen="' . e($onDashboard ? t('Home') : $heading) . '"' : '' ?>>

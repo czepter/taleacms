@@ -16,7 +16,7 @@ use Talea\Core\Extensions;
 final class Kernel
 {
     /** Actions that belong to no module: /admin/account, /admin/oauth … (no module ident may take these names). */
-    public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step'];
+    public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step', 'waiting'];
 
     /**
      * The editors' ongoing requests (unsaved state, assistant, build draft, the SEO tab's live check): they do not change the site, so they neither clear the
@@ -210,6 +210,20 @@ final class Kernel
         return $found;
     }
 
+    /** Does a text hold every word of a search, the way people type it (any case, with or without diacritics)? An empty search matches nothing. */
+    public static function textMatches(string $search, string $text): bool
+    {
+        $words = array_filter(explode(' ', \Talea\Core\Search::normalize($search)));
+        $haystack = \Talea\Core\Search::normalize($text);
+        foreach ($words as $word) {
+            if (!str_contains($haystack, $word)) {
+                return false;
+            }
+        }
+
+        return $words !== [];
+    }
+
     /** SETTINGS_MENU without the entries the deployment does not have (several websites, agency mode). */
     public static function settingsMenu(): array
     {
@@ -374,6 +388,10 @@ final class Kernel
         if ($action === 'account') {
             return (new Account($this))->handle();
         }
+        if ($action === 'waiting') {
+            // the list under the bell, fetched when it opens: everything that waits, not only what the menu counts (Core\PendingReview)
+            return Response::html($app->view->render('admin/waiting_list', ['app' => $app, 'items' => $this->waitingList()]));
+        }
         if ($action === 'oauth') {
             return $this->handleOAuthConsent();
         }
@@ -453,6 +471,32 @@ final class Kernel
             'flashes' => $app->session->takeFlashes(),
             'sidebar' => $this->sidebar,
         ]), $status);
+    }
+
+    /**
+     * Everything that waits for the signed-in person, for the bell: new enquiries, bookings to confirm, news from authors and
+     * the drafts and proposals of Core\PendingReview – only what the person may open.
+     *
+     * @return list<array{label: string, url: string, count: int, examples: list<string>}> url is an address of the admin
+     */
+    public function waitingList(): array
+    {
+        $modules = $this->modules();
+        $counts = self::waiting($this->app, $modules);
+        $items = [];
+        foreach (['enquiries' => ['New enquiries', 'admin.php?module=enquiries'], 'bookings' => ['Bookings to confirm', 'admin.php?module=bookings']] as $ident => [$label, $url]) {
+            if (($counts[$ident] ?? 0) > 0) {
+                $items[] = ['label' => $label, 'url' => $this->app->url($url), 'count' => $counts[$ident], 'examples' => []];
+            }
+        }
+        if (isset($modules['news']) && ($awaiting = Modules\News::countAwaitingPublication($this->app)) > 0) {
+            $items[] = ['label' => 'News from authors awaiting publication', 'url' => $this->app->url('admin.php?module=news&status=awaiting_publication'), 'count' => $awaiting, 'examples' => []];
+        }
+        foreach (\Talea\Core\PendingReview::all($this->app, $modules) as $p) {
+            $items[] = ['label' => $p['label'], 'url' => $this->app->url($p['url']), 'count' => $p['count'], 'examples' => $p['examples']];
+        }
+
+        return $items;
     }
 
     /**

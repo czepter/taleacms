@@ -39,4 +39,13 @@ final class PaletteSettingsTest extends TestCase
             $this->assertSame('Settings → Company', $entry['s'], 'it says where the setting lives');
         }
     }
+
+    /** the Settings search: every word, any case, with or without diacritics; an empty search finds nothing */
+    public function testSearchWords(): void
+    {
+        $this->assertTrue(Kernel::textMatches('zone TIME', 'Time zone'));
+        $this->assertTrue(Kernel::textMatches('casove', 'Časové pásmo'), 'without diacritics'); // check-english: allow
+        $this->assertFalse(Kernel::textMatches('mail backup', 'Mail'), 'every word must be there');
+        $this->assertFalse(Kernel::textMatches('  ', 'Mail'), 'an empty search matches nothing');
+    }
 }

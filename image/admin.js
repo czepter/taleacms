@@ -543,7 +543,10 @@
 			var words = q.split(/\s+/).filter(Boolean);
 			// what was opened lately comes first with an empty field; while typing it is searched too (an edited news item the list does not carry)
 			var recent = recentScreens.filter(function (r) { return r.u !== hereUrl; }).map(function (r) { return { n: r.n, u: r.u, s: r.s !== '' ? T('Recently opened') + ' · ' + r.s : T('Recently opened') }; });
-			if (q === '') { return recent.slice(0, 5).concat(paletteCommands.slice(0, 9)); }
+			if (q === '') {
+				var latest = recent.slice(0, 5).map(function (r) { return r.u; });
+				return recent.slice(0, 5).concat(paletteCommands.filter(function (p) { return latest.indexOf(p.u) === -1; }).slice(0, 9));
+			}
 			var known = paletteCommands.map(function (p) { return p.u; });
 			var matching = paletteCommands.concat(recent.filter(function (r) { return known.indexOf(r.u) === -1; })).filter(function (p) {
 				var haystack = removeDiacritics(p.n + ' ' + p.s);
@@ -629,6 +632,66 @@
 		if (/Mac|iPhone|iPad/.test(navigator.platform || '')) {
 			Array.prototype.forEach.call(document.querySelectorAll('[data-palette] kbd'), function (k) { k.textContent = '⌘K'; });
 		}
+	}
+	/* ---------- the bell: opening it fetches everything that waits (drafts, comments, Claude's results…), not only what the menu counts ---------- */
+	var waitingBox = document.querySelector('[data-waiting]');
+	if (waitingBox) {
+		var waitingLoaded = 0;
+		waitingBox.addEventListener('toggle', function (e) {
+			if (e.newState !== 'open' || Date.now() - waitingLoaded < 60000) { return; } // once a minute is fresh enough
+			waitingLoaded = Date.now();
+			fetch(waitingBox.getAttribute('data-waiting'), { credentials: 'same-origin', headers: { Accept: 'text/html' } }).then(function (r) {
+				if (!r.ok) { throw new Error(String(r.status)); }
+				return r.text();
+			}).then(function (html) {
+				var list = waitingBox.querySelector('.waiting-list');
+				if (list && html.indexOf('<html') === -1) { list.innerHTML = html; } // signed out meanwhile: the sign-in page is not shown in the popover
+			}).catch(function () { waitingLoaded = 0; });
+		});
+	}
+
+	/* ---------- keyboard: / quick search, ? the shortcuts, c the New menu, g and a letter goes to a section ---------- */
+	var shortcutsDialog = document.getElementById('shortcuts');
+	if (shortcutsDialog && typeof shortcutsDialog.showModal === 'function') {
+		var goTo = {};
+		try { goTo = JSON.parse(document.getElementById('shortcut-data').textContent) || {}; } catch (e) { /* nothing */ }
+		var createMenu = document.getElementById('create');
+		var awaitingG = false;
+		var gTimer = null;
+		document.addEventListener('click', function (e) {
+			if (e.target.closest && e.target.closest('[data-shortcuts-open]')) {
+				var open = document.querySelector('dialog[open]');
+				if (open) { open.close(); }
+				shortcutsDialog.showModal();
+			}
+		});
+		document.addEventListener('keydown', function (e) {
+			if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) { return; }
+			var target = e.target;
+			if (target.isContentEditable || (target.closest && target.closest('input, textarea, select, [contenteditable]')) || document.querySelector('dialog[open]')) { return; }
+			if (awaitingG) {
+				awaitingG = false;
+				clearTimeout(gTimer);
+				var address = goTo[e.key.toLowerCase()];
+				if (address) { e.preventDefault(); window.location.href = address; }
+				return;
+			}
+			if (e.key === 'g' || e.key === 'G') {
+				awaitingG = true;
+				gTimer = setTimeout(function () { awaitingG = false; }, 1500);
+			} else if (e.key === '/') {
+				var search = document.querySelector('[data-palette]');
+				if (search) { e.preventDefault(); search.click(); }
+			} else if (e.key === '?') {
+				e.preventDefault();
+				shortcutsDialog.showModal();
+			} else if ((e.key === 'c' || e.key === 'C') && createMenu && typeof createMenu.showPopover === 'function') {
+				e.preventDefault();
+				createMenu.showPopover();
+				var first = createMenu.querySelector('a');
+				if (first) { first.focus(); }
+			}
+		});
 	}
 	// Media: crop focal point – a tap in the preview sets both fields (in percent)
 	document.querySelectorAll('[data-focal]').forEach(function (box) {
