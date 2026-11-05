@@ -210,7 +210,7 @@ $userName = $username['name'] ?: $username['username'];
 	<a class="menu-back" href="<?= e($app->url('admin.php')) ?>" data-return><svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><span><?= e(t('Home')) ?></span></a>
 	<p class="menu-title"><a href="<?= e($app->url('admin.php?module=settings&tab=overview')) ?>"><?= e(t('Settings')) ?></a></p>
 <?php if (isset($modules['settings']) && !($inMenu === 'settings' && $tab === 'overview')): // the overview has its own search field ?>
-	<form class="menu-search" method="get" action="<?= e($app->url('admin.php?module=settings')) ?>" role="search"><input type="hidden" name="tab" value="overview"><input class="textfield" type="search" name="search" placeholder="<?= e(t('Search settings')) ?>" aria-label="<?= e(t('Search settings')) ?>"></form>
+	<form class="menu-search" method="get" action="<?= e($app->url('admin.php?module=settings')) ?>" role="search"><input class="textfield" type="search" name="search" placeholder="<?= e(t('Search settings')) ?>" aria-label="<?= e(t('Search settings')) ?>" required></form>
 <?php endif ?>
 	<ul class="menu menu-settings" id="menu">
 <?php foreach ($settingsMenu as $menuGroup => $entries): ?>

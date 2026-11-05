@@ -189,7 +189,8 @@ class Settings extends Module
         if (static::IDENT === 'settings' && isset(self::MOVED_TABS[$this->request->get('tab')])) {
             return Response::redirect($this->app->url('admin.php?module=' . self::MOVED_TABS[$this->request->get('tab')]));
         }
-        if (static::IDENT === 'settings' && $this->request->get('tab') === 'overview') {
+        // the overview, also for a search sent without a tab (the search field in the Settings sidebar)
+        if (static::IDENT === 'settings' && ($this->request->get('tab') === 'overview' || ($this->request->get('tab') === '' && $this->request->get('search') !== ''))) {
             return $this->view('overview', 'Settings', ['modules' => $this->kernel->modules()]); // the groups of Kernel::SETTINGS_MENU as tiles
         }
         $tab = $this->tab($this->request->get('tab'));
