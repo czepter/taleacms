@@ -50,7 +50,7 @@ final class Sites
      * null = no such domain. With several owners (TALEA_OWNERS) the domains of every set-up owner are read in one query – a host is
      * unique in the whole install – and the result names the owner's prefix; without, only this owner's.
      *
-     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, owner_status: string, owner_public_id: string, status: string, transferring: bool, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool, verified: bool, kind: string}|null
+     * @return array{site_id: int, public_id: string, prefix: string, owner_prefix: string, owner_status: string, owner_public_id: string, status: string, transferring: bool, redirect_to_site_id: ?int, is_primary: bool, redirect_to_primary: bool, primary_host: ?string, ready: bool, verified: bool, kind: string, template: ?string}|null
      */
     public static function resolve(Db $db, string $host): ?array
     {
@@ -62,7 +62,7 @@ final class Sites
             $o = $db->forOwner($owner);
             $sites = $db->dialect()->quote($o->table('sites'));
             $domains = $db->dialect()->quote($o->table('site_domains'));
-            $selects[] = 'SELECT ' . $i . ' AS owner_idx, s.site_id, s.public_id, s.prefix, s.status, s.transfer_to, s.redirect_to_site_id, s.ready_at, d.is_primary, d.redirect_to_primary, d.verified_at, d.kind,
+            $selects[] = 'SELECT ' . $i . ' AS owner_idx, s.site_id, s.public_id, s.prefix, s.status, s.transfer_to, s.redirect_to_site_id, s.ready_at, s.template, d.is_primary, d.redirect_to_primary, d.verified_at, d.kind,
                 (SELECT p.host FROM ' . $domains . ' p WHERE p.site_id = s.site_id AND p.is_primary = TRUE ORDER BY p.domain_id LIMIT 1) AS primary_host
              FROM ' . $domains . ' d JOIN ' . $sites . ' s ON s.site_id = d.site_id WHERE d.host = ?';
         }
@@ -76,6 +76,7 @@ final class Sites
             'redirect_to_site_id' => $r['redirect_to_site_id'] === null ? null : (int) $r['redirect_to_site_id'],
             'is_primary' => (bool) $r['is_primary'], 'redirect_to_primary' => (bool) $r['redirect_to_primary'], 'primary_host' => $r['primary_host'] === null ? null : (string) $r['primary_host'], 'ready' => $r['ready_at'] !== null,
             'verified' => $r['verified_at'] !== null || ($owners[(int) $r['owner_idx']] === $db->installPrefix && Domains::envVerified($host)), 'kind' => (string) $r['kind'],
+            'template' => $r['template'] === null ? null : (string) $r['template'], // a site template waiting for the first visit of an administrator (Admin\Kernel)
         ];
     }
 

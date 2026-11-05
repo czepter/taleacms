@@ -381,6 +381,16 @@ final class Kernel
 
             return Response::redirect($app->url('admin.php?action=account&tab=sign-in'));
         }
+        // multisite: a new site created from a site template gets it as drafts the first time an administrator opens it (Modules\Sites::actionCreate)
+        if ($app->site !== null && (string) ($app->site['template'] ?? '') !== '' && $app->auth()->isAdmin() && !$request->isPost()) {
+            $template = (string) $app->site['template'];
+            $app->db()->update('sites', ['template' => null], ['site_id' => (int) $app->site['site_id']]); // once, even if applying fails
+            if (\Talea\Builder\SiteTemplates::exists($template) && \Talea\Core\LookFamily::refusal($app->db()) === null) {
+                $pages = \Talea\Builder\SiteTemplates::apply($app, $template);
+                ChangeLog::write($app, 'appearance', 'apply template', $template);
+                $app->session->flash('ok', t('This site starts from the template %s: its look and %d pages are waiting as drafts. Check them in the builder and publish them when they are ready.', t(\Talea\Builder\SiteTemplates::TEMPLATES[$template][0]), count($pages)));
+            }
+        }
         if ($action === 'token') {
             // after a new sign-in in another tab, the editor takes the valid form token here and continues saving
             return Response::json(['csrf' => $app->session->csrfToken()]);

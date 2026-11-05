@@ -22,7 +22,7 @@ final class OwnersLimitsTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_KEY]];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_KEY]];
     }
 
     /** @return list<string> */
@@ -34,7 +34,7 @@ final class OwnersLimitsTest extends SiteTestCase
     public function testASecondOwnerWithALockedPageOnEachHost(): void
     {
         $site = $this->site();
-        $env = ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_KEY];
+        $env = ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_KEY];
         $this->assertStringContainsString('exit:0', (string) shell_exec('cd ' . escapeshellarg($site->root) . ' && TALEA_MULTISITE=1 TALEA_OWNERS=1 ' . escapeshellarg(PHP_BINARY) . ' bin/migrate 2>&1; echo "exit:$?"'));
         $site->exec("INSERT INTO tl_owners (public_id, name, kind, prefix, status, created_at) VALUES ('" . self::BETA_ID . "', 'Beta', 'organisation', 'tlb_', 'live', NOW())");
         $this->assertStringContainsString('owner tlb_: ready', $site->cli(['system/docker.php', 'cron'], $env));

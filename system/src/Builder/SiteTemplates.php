@@ -83,7 +83,7 @@ final class SiteTemplates
      * Applies a template as drafts: the look goes into the draft look and every page into a draft. A page lands on the site's own page
      * where there is one – the home page, or the page with the same title – as its build draft (visitors keep seeing the published page
      * until it is published); a page that already has a draft is never overwritten, the template's page then comes in as a new hidden page
-     * (in the menu once it is published).
+     * (in the menu once it is published). A site without a home page (a new, empty one) gets the template's home page as its home page.
      *
      * @return list<array{id: string, title: string, home: bool, existing: bool}> the pages that got a draft
      */
@@ -109,12 +109,17 @@ final class SiteTemplates
                 $changed[] = ['id' => $db->publicId('pages', (int) $own['page_id']), 'title' => (string) $own['title'], 'home' => $page['home'], 'existing' => true];
                 continue;
             }
-            $title = $page['home'] ? t('%s (%s)', $page['title'], t(self::TEMPLATES[$key][0])) : $page['title'];
+            // a site without a home page (a new, empty one) takes the template's as its home page; otherwise it is an extra draft beside it
+            $becomesHome = $page['home'] && $own === null;
+            $title = $page['home'] && !$becomesHome ? t('%s (%s)', $page['title'], t(self::TEMPLATES[$key][0])) : $page['title'];
             $slug = Slug::makeUnique(slugify($title, 90), fn (string $s): bool => Slug::taken($db, 'pages', $s, $language)
                 || in_array($s, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$s]), 100);
             $id = $db->insert('pages', ['title' => $title, 'slug' => $slug, 'language' => $language, 'text' => '', 'visible' => 0, 'in_menu' => $page['home'] ? 0 : 1,
                 'build_draft' => $json, 'updated_at' => date('Y-m-d H:i:s')]);
             Menu::setPage($db, $id, $language, !$page['home']);
+            if ($becomesHome && $language === '') {
+                $app->settings()->set('home_page', (string) $id);
+            }
             $changed[] = ['id' => $db->publicId('pages', $id), 'title' => $title, 'home' => $page['home'], 'existing' => false];
         }
 

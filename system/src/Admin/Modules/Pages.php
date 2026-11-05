@@ -625,6 +625,14 @@ final class Pages extends Module
 
                 return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
             }
+            // a copy of one of the site's builder pages: its build as the draft, straight into the builder
+            if ($r->post('template') === 'copy' && ($copy = $this->copiedBuild($r->post('copy_of'), $data['language'])) !== null) {
+                $this->db->update('pages', ['build_draft' => Build::toJson($copy)], ['page_id' => $id]);
+                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
+                \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
+
+                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
+            }
             $template = self::startSections($r->post('template'));
             if ($template !== null && ($template[1] !== [] || $r->post('template') === 'blank')) {
                 // new page from a template: sections from the library as a draft and straight into the builder
@@ -1084,6 +1092,25 @@ final class Pages extends Module
         return self::startOptions(str_starts_with($value, 'look:') ? substr($value, 5) : '')[$value] ?? null;
     }
 
+    /**
+     * "A copy of a page" (your own templates): the build of a builder page of the same language version – its draft, otherwise the
+     * published one – with new element ids, or null when the posted page is not one.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function copiedBuild(string $publicId, string $language): ?array
+    {
+        $row = $publicId === '' ? null : $this->db->one('SELECT build, build_draft FROM {pages} WHERE public_id = ? AND language = ? AND deleted_at IS NULL', [$publicId, $language]);
+        $json = $row['build_draft'] ?? $row['build'] ?? null;
+        if ($json === null) {
+            return null;
+        }
+        [$build] = Build::sanitize(Build::fromJson((string) $json) ?? ['v' => Build::VERSION, 'children' => []], $this->app->auth()->isAdmin());
+        $build['children'] = array_map(\Talea\Builder\Library::withNewIds(...), $build['children']);
+
+        return $build;
+    }
+
     private function form(array $page, array $errors = [], ?string $translationOf = null): Response
     {
         $page['public_id'] ??= $this->publicId((int) $page['page_id']);
@@ -1099,6 +1126,8 @@ final class Pages extends Module
             'starts' => $page['page_id'] ? [] : self::startOptions(str_starts_with($start = $this->request->post('template', $this->request->get('template')), 'look:') ? substr($start, 5) : ''),
             'start' => $page['page_id'] ? '' : $this->request->post('template', $this->request->get('template')),
             'sectionNames' => $page['page_id'] ? [] : array_column(\Talea\Builder\Library::listAll(), 'name', 'key'),
+            // "A copy of a page": the builder pages of this language version to start from
+            'copyable' => $page['page_id'] ? [] : $this->db->pairs('SELECT public_id, title FROM {pages} WHERE language = ? AND deleted_at IS NULL AND (build IS NOT NULL OR build_draft IS NOT NULL) ORDER BY title', [$language]),
             // possible parent pages: the same language, not the page itself nor its subpages
             'parents' => array_values(array_filter($this->db->all('SELECT page_id, public_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, (int) $page['page_id']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['slug'] . '/', $custom . '/'))),

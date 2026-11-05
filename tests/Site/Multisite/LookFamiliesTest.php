@@ -22,7 +22,7 @@ final class LookFamiliesTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']];
     }
 
     /** @param array<string, mixed> $arguments @return array{error: bool, text: string} */
@@ -68,7 +68,7 @@ final class LookFamiliesTest extends SiteTestCase
         $this->assertTrue($this->call('create_site', ['name' => 'Nope', 'parent' => self::$second])['error'], 'a site that is not set up cannot be a parent');
 
         $site->mcpResult('add_site_domain', ['id' => self::$second, 'host' => 'second.test']);
-        $this->assertStringContainsString('site tl2_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1']));
+        $this->assertStringContainsString('site tl2_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']));
         $site->mcpResult('update_site', ['id' => self::$second, 'status' => 'live']);
         $this->assertSame(1, (int) $site->value('SELECT look_parent_id FROM tl_sites WHERE site_id = 2'));
         $this->assertSame($first, $site->mcpResult('list_owner_sites')['sites'][1]['look_parent']);

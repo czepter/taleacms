@@ -27,13 +27,13 @@ final class OwnersOperatorsTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_SECRET, 'TALEA_TRUSTED_PROXIES' => '127.0.0.1']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_SECRET, 'TALEA_TRUSTED_PROXIES' => '127.0.0.1']];
     }
 
     /** @return array<string, string> */
     private function env(): array
     {
-        return ['TALEA_MULTISITE' => '1', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_SECRET, 'TALEA_TRUSTED_PROXIES' => '127.0.0.1'];
+        return ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_OWNERS' => '1', 'TALEA_SECRET_KEY' => self::ENV_SECRET, 'TALEA_TRUSTED_PROXIES' => '127.0.0.1'];
     }
 
     /** @return list<string> */

@@ -18,7 +18,7 @@ final class SitesAreaTest extends SiteTestCase
 {
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']];
     }
 
     private function host(string $host): string
@@ -87,11 +87,11 @@ final class SitesAreaTest extends SiteTestCase
         $r = $site->client('visitor')->get('/', [$this->host('second.test')]);
         $this->assertSame(503, $r->status, 'a site cron has not set up has no tables yet');
 
-        $cron = $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1']);
+        $cron = $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']);
         $this->assertStringContainsString('site tl2_: ready', $cron);
         $this->assertNotNull($site->value('SELECT ready_at FROM tl_sites WHERE site_id = 2'));
         $this->assertSame(0, (int) $site->value('SELECT COUNT(*) FROM tl2_pages'));
-        $this->assertStringNotContainsString('site tl2_', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1']), 'set up once');
+        $this->assertStringNotContainsString('site tl2_', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']), 'set up once');
     }
 
     public function testDomainsAndTheStateOfASite(): void

@@ -11,6 +11,9 @@
  * @var list<array{file: string, size: int, time: int}> $files  Talea exports in storage/import (the first owner only)
  * @var string $existing  a file already in storage/import that was chosen
  * @var int $uploadLimit
+ * @var list<array<string, mixed>> $templates  site templates an empty site may start from (Builder\SiteTemplates::all)
+ * @var string $template  the template chosen
+ * @var bool $previews  the templates' pictures can be rendered here
  */
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to sites')) ?></a></p>
@@ -20,12 +23,29 @@
 <legend><?= e(t('Start from')) ?></legend>
 <div class="cards-options cards-options-text">
 	<label class="card-option"><input type="radio" name="from" value=""<?= $from === '' ? ' checked' : '' ?>><strong><?= e(t('An empty site')) ?></strong><span><?= e(t('No pages or news. Mail, AI, time zone and language settings are taken over.')) ?></span></label>
-<?php foreach ($sites as $s): ?>
-	<label class="card-option"><input type="radio" name="from" value="<?= e($s['public_id']) ?>"<?= $from === $s['public_id'] ? ' checked' : '' ?>><strong><?= e(t('A copy of %s', $s['name'] !== '' ? $s['name'] : $s['slug'])) ?></strong><span><?= e(t('Pages, news, collections, look and settings are copied. Statistics, queues and logs start empty.')) ?></span></label>
-<?php endforeach ?>
+<?php if ($sites !== []): $copying = $from !== '' && $from !== 'file'; // one card for copying, the site chosen in its list ?>
+	<label class="card-option"><input type="radio" name="from" value="copy"<?= $copying ? ' checked' : '' ?>><strong><?= e(t('A copy of a site')) ?></strong><span><?= e(t('Pages, news, collections, look and settings are copied. Statistics, queues and logs start empty.')) ?></span>
+		<select name="copy_of" aria-label="<?= e(t('Site to copy')) ?>"><?php foreach ($sites as $s): ?><option value="<?= e($s['public_id']) ?>"<?= $from === $s['public_id'] ? ' selected' : '' ?>><?= bdi($s['name'] !== '' ? $s['name'] : $s['slug']) ?></option><?php endforeach ?></select></label>
+<?php endif ?>
 	<label class="card-option"><input type="radio" name="from" value="file"<?= $from === 'file' ? ' checked' : '' ?>><strong><?= e(t('Import from a file')) ?></strong><span><?= e(t('A Talea export (.zip) of another site becomes this new site.')) ?></span></label>
 </div>
 </fieldset>
+<?php if ($templates !== []): // an empty site may start from a finished design: applied as drafts when an administrator first opens it ?>
+<fieldset class="panel-card site-design">
+<legend><?= e(t('Design of the empty site')) ?></legend>
+<div class="site-design-grid">
+	<label class="card-option"><input type="radio" name="template" value=""<?= $template === '' ? ' checked' : '' ?>><strong><?= e(t('No template')) ?></strong><span><?= e(t('Start without pages and choose a look later.')) ?></span></label>
+<?php foreach ($templates as $tpl): ?>
+	<label class="card-option site-design-option"><input type="radio" name="template" value="<?= e($tpl['key']) ?>"<?= $template === $tpl['key'] ? ' checked' : '' ?>>
+<?php if ($previews): ?>
+		<span class="template-preview"><iframe src="<?= e($app->url('admin.php?module=appearance&action=template_preview&key=' . rawurlencode($tpl['key']))) ?>" title="<?= e(t('Home page of the template %s', $tpl['name'])) ?>" loading="lazy" tabindex="-1" inert></iframe></span>
+<?php endif ?>
+		<strong><?= e($tpl['name']) ?></strong><span><?= e(implode(' · ', $tpl['pages'])) ?></span></label>
+<?php endforeach ?>
+</div>
+<p class="small-text"><?= e(t('The template waits as drafts until you first open the new site; nothing is public before you publish it.')) ?></p>
+</fieldset>
+<?php endif ?>
 <section class="panel-card start-file">
 <h2><?= e(t('The file')) ?></h2>
 <label class="dropzone" data-dropzone data-dropzone-manual for="site-file">

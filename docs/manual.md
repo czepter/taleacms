@@ -121,7 +121,18 @@ A page that used to be plain text is converted by the builder automatically. You
 **Pages** have their own search-engine title, sharing image and a noindex option (page settings → Search engines and
 sharing). A deleted page goes to the **trash** and can be restored for 30 days; **Duplicate** creates a hidden copy including the build.
 
+**New page** starts from a card: a text page, a blank builder page, a page template (each card lists its sections), the sections a
+look suggests (Looks → *New page with these sections*) or **a copy of one of your own pages** – your own pages are your templates.
+
 ## 3. Site appearance
+
+**Site templates** (Appearance → Site templates) are finished designs, not only colours and fonts: a look with its header and
+footer plus pages composed for it – Portrait (photography and art), Workshop (trades) and Editorial (consultants and agencies).
+Each card shows the template's real home page. *Use this template* puts its look into the draft look and its pages into drafts:
+on your own pages where they match (the home page, a page of the same name, never one that already has unpublished changes),
+otherwise as new hidden pages. Texts are placeholders in square brackets and photos are tinted frames until you choose your own;
+nothing is public until you publish. With several sites, **New site** offers the templates for an empty site: the template waits as
+drafts until you first open the new site. Claude uses `list_site_templates` and `apply_site_template`.
 
 **Appearance → Site appearance** changes the whole site at once. Two words, used the same way everywhere: a **starter
 site** is sample content plus a style (you choose it at installation), and a **style** is a ready set of colours, fonts,

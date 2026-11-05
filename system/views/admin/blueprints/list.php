@@ -67,7 +67,7 @@ $groups = array_filter(array_replace(array_fill_keys(array_keys(Blueprint::GROUP
 <h3><?= e(t(Blueprint::GROUPS[$group] ?? Blueprint::GROUPS['other'])) ?></h3>
 <div class="presets-collections-grid">
 <?php foreach ($items as $key => $m): ?>
-	<button type="submit" name="key" value="<?= e($key) ?>" data-filter-card data-confirm="<?= e(t('Apply the blueprint %s? It creates its collections with hidden list pages and adds its facts, questions and checks. You can take it off again.', Blueprint::text($m['name']))) ?>"><strong><?= e(Blueprint::text($m['name'])) ?></strong><span><?= e(Blueprint::text($m['description'])) ?></span></button>
+	<button type="submit" name="key" value="<?= e($key) ?>" data-filter-card data-confirm="<?= e(t('Apply the blueprint %s? It creates its collections with hidden list pages and adds its facts, questions and checks. You can take it off again.', Blueprint::text($m['name']))) ?>"><strong><?= e(Blueprint::text($m['name'])) ?></strong><span><?= e(Blueprint::text($m['description'])) ?></span><small class="blueprint-adds"><?= e(t('Adds %d collections, %d facts to fill in, %d questions and %d checks', count($m['presets'] ?? []), count($m['facts'] ?? []), count($m['questions'] ?? []), count($m['audit'] ?? []))) ?></small></button>
 <?php endforeach ?>
 </div>
 </section>

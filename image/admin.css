@@ -2887,3 +2887,11 @@ form:not(:has(input[name=from][value=file]:checked)) .start-file { display: none
 .template-body h2 { margin: 0 0 6px; font-size: 20px; }
 .template-body p { margin: 0 0 10px; }
 .template-body form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 12px 0 0; }
+/* a blueprint card says what applying it adds, before the click */
+.presets-collections-grid .blueprint-adds { margin-top: auto; padding-top: 6px; color: var(--text-weak); font-size: 12px; }
+.page-start select { margin-top: 8px; max-width: 100%; }
+/* New site: the design of an empty site – a picture of each site template's home page (views/admin/sites/form.php) */
+form:not(:has(input[name=from][value=""]:checked)) .site-design { display: none; }
+.site-design-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 10px; }
+.site-design-option .template-preview { display: block; margin: -4px -4px 8px; border: 0; border-radius: 6px; }
+.card-option select { display: block; margin-top: 8px; max-width: 100%; }

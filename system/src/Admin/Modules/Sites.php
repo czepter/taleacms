@@ -256,6 +256,9 @@ final class Sites extends Module
         }
         $name = trim(mb_substr($this->request->post('name'), 0, 120));
         $from = $this->request->post('from');
+        $from = $from === 'copy' ? $this->request->post('copy_of') : $from; // "A copy of" with the site chosen in its list
+        // an empty site may start from a site template: applied as drafts when an administrator first opens it (Admin\Kernel)
+        $template = $from === '' && \Talea\Builder\SiteTemplates::exists($this->request->post('template')) ? $this->request->post('template') : '';
         if (($limit = SiteRegistry::limitRefusal($this->db)) !== null) {
             return $this->form($name, $from, $limit);
         }
@@ -288,9 +291,14 @@ final class Sites extends Module
             }
             $source = (int) $row['site_id'];
         }
-        SiteRegistry::add($this->db, $name, SiteRegistry::freeSlug($this->db, $name), $source, $from !== '', '', (int) ($parent['site_id'] ?? 0));
+        $prefix = SiteRegistry::add($this->db, $name, SiteRegistry::freeSlug($this->db, $name), $source, $from !== '', '', (int) ($parent['site_id'] ?? 0));
+        if ($template !== '') {
+            $this->db->update('sites', ['template' => $template], ['prefix' => $prefix]);
+        }
+        // set up now in a process of its own, as an import is; where that is not possible the next cron run does it
+        OwnerRegistry::isFirst($this->db) && Background::start('provision');
 
-        return $this->back('The site is created. It is being set up in the background and appears as ready within a few minutes.');
+        return $this->back($template !== '' ? 'The site is created and being set up in the background. When you first open it, the template is waiting there as drafts.' : 'The site is created. It is being set up in the background and appears as ready within a few minutes.');
     }
 
     /** The old address of the import form: the new-site page with "Import from a file" chosen. */
@@ -703,6 +711,7 @@ final class Sites extends Module
         $ready = array_values(array_filter(SiteRegistry::overview($this->db), fn (array $s): bool => $s['ready'] && $s['status'] !== 'trashed'));
 
         return $this->view('form', 'New site', ['files' => OwnerRegistry::isFirst($this->db) ? SiteImport::listAll() : [], 'existing' => $this->request->post('existing'),
+            'templates' => \Talea\Builder\SiteTemplates::all(), 'template' => $this->request->post('template'), 'previews' => isset($this->kernel->modules()['appearance']) && \Talea\Install\Preview::available(),
             'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))), 'name' => $name, 'from' => $from, 'error' => $error, 'sites' => $ready, 'parent' => $parent, 'parents' => self::familyParents($ready, null)]);
     }
 

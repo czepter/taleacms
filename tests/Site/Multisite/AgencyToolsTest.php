@@ -20,7 +20,7 @@ final class AgencyToolsTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_MAX_SITES' => '3']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_MAX_SITES' => '3']];
     }
 
     private function host(string $host): string
@@ -73,7 +73,7 @@ final class AgencyToolsTest extends SiteTestCase
         $site->signIn($site->admin());
         self::$second = $site->mcpResult('create_site', ['name' => 'Second'])['site']['id'];
         $site->mcpResult('add_site_domain', ['id' => self::$second, 'host' => 'second.test']);
-        $this->assertStringContainsString('site tl2_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1']));
+        $this->assertStringContainsString('site tl2_: ready', $site->cli(['system/docker.php', 'cron'], ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0']));
         $site->mcpResult('update_site', ['id' => self::$second, 'status' => 'live']);
         $this->assertSame(0, (int) $site->value('SELECT COUNT(*) FROM tl_user_sites'));
     }

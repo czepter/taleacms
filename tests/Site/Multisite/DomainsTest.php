@@ -20,7 +20,7 @@ final class DomainsTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_PREVIEW_DOMAIN' => 'preview.test', 'TALEA_VERIFIED_HOSTS' => 'vouched.test', 'TALEA_TRUSTED_PROXIES' => '127.0.0.1']];
+        return ['env' => ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_PREVIEW_DOMAIN' => 'preview.test', 'TALEA_VERIFIED_HOSTS' => 'vouched.test', 'TALEA_TRUSTED_PROXIES' => '127.0.0.1']];
     }
 
     private function on(string $host, string $path): Response
@@ -39,7 +39,7 @@ final class DomainsTest extends SiteTestCase
     public function testPreviewsAreAddedByCronAndSiteOneKeepsItsFirstHost(): void
     {
         $site = $this->site();
-        $env = ['TALEA_MULTISITE' => '1', 'TALEA_PREVIEW_DOMAIN' => 'preview.test'];
+        $env = ['TALEA_MULTISITE' => '1', 'TALEA_BACKGROUND' => '0', 'TALEA_PREVIEW_DOMAIN' => 'preview.test'];
         $this->assertStringContainsString('Site 1 answers to 127.0.0.1', (string) shell_exec('cd ' . escapeshellarg($site->root) . ' && TALEA_MULTISITE=1 ' . escapeshellarg(PHP_BINARY) . ' bin/migrate 2>&1'));
         $this->assertNotNull($site->value("SELECT verified_at FROM tl_site_domains WHERE host = '127.0.0.1'"), 'the first domain is the owner\'s own');
         $this->assertStringContainsString('preview hosts added: 1', $site->cli(['system/docker.php', 'cron'], $env));
