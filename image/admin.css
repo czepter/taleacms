@@ -351,6 +351,9 @@ body:not(.login) {
 	width: 19px;
 	height: 19px;
 }
+/* search, New and bell share the row of the logo: a little narrower than the other tool buttons so the three fit beside it */
+.header-top { column-gap: 2px; }
+.header-top .palette-start { width: 34px; }
 /* the "New" menu and the bell next to the search: what can be created, and what waits (layout.php), each in a popover under its button */
 .create-start { anchor-name: --create; }
 .waiting-start {

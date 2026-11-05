@@ -509,7 +509,7 @@
 	var returnLinks = document.querySelectorAll('[data-return]');
 	if (screenName !== '' && !/\/new(?:$|\?)/.test(location.pathname)) {
 		// an edit screen is remembered by what it edits ("Contact"), the rest by its heading
-		var titleField = document.querySelector('main form input[name="title"], main form input[name="name"]');
+		var titleField = /\/(edit|item)\//.test(location.pathname) ? document.querySelector('main form input[name="title"], main form input[name="name"]') : null;
 		var named = titleField && titleField.value.trim() !== '' ? titleField.value.trim() : '';
 		recentScreens = [{ n: named || screenName, u: hereUrl, s: named ? screenName : '' }].concat(recentScreens.filter(function (r) { return r.u !== hereUrl; })).slice(0, 8);
 		remember('localStorage', recentKey, recentScreens);
