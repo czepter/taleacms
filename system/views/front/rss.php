@@ -20,7 +20,7 @@ echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 		<guid isPermaLink="false">news-<?= e($c['public_id']) ?></guid>
 		<pubDate><?= e(date(DATE_RSS, strtotime($c['published_at']))) ?></pubDate>
 		<category><?= e($c['category_name']) ?></category>
-		<description><?= e($c['intro']) ?></description>
+		<description><?= e(Talea\Core\Html::plain((string) $c['intro'])) ?></description>
 	</item>
 <?php endforeach ?>
 </channel>
