@@ -126,4 +126,40 @@ final class DialectMySqlTest extends TestCase
     {
         $this->assertSame('INSERT IGNORE INTO {t} (`a`, `b`) SELECT 1, 2', $this->d->insertIgnoreSelect('t', ['a', 'b'], 'SELECT 1, 2'));
     }
+
+    public function testSqlModeWithoutTheModesThatChangeHowSqlIsRead(): void
+    {
+        $this->assertNull(MySql::safeSqlMode('ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES'));
+        $this->assertNull(MySql::safeSqlMode(''));
+        $this->assertSame('ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES', MySql::safeSqlMode('ONLY_FULL_GROUP_BY,ANSI_QUOTES,NO_BACKSLASH_ESCAPES,STRICT_TRANS_TABLES'));
+        $this->assertSame('', MySql::safeSqlMode('ANSI_QUOTES'));
+        $this->assertSame('pipes_as_concat', MySql::safeSqlMode('pipes_as_concat,ansi_quotes'), 'the case does not matter');
+    }
+
+    public function testDumpLiteralsDoNotDependOnTheSession(): void
+    {
+        $pdo = new class () extends \PDO {
+            public function __construct()
+            {
+            }
+        };
+        $this->assertSame("'a\\\\b\\'c\\nd\\re\\0f\\Zé'", $this->d->dumpLiteral($pdo, "a\\b'c\nd\re\0f\x1aé"), 'backslash, quote, line breaks, NUL and Ctrl-Z are escaped, UTF-8 stays');
+    }
+
+    public function testAHostThatRefusesSqlModeKeepsRunning(): void
+    {
+        $refusing = new class () extends \PDO {
+            public function __construct()
+            {
+            }
+
+            public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): \PDOStatement|false
+            {
+                throw new \PDOException('SELECT command denied');
+            }
+        };
+        $this->d->useSafeSqlMode($refusing);
+        $this->d->connect($refusing);
+        $this->addToAssertionCount(1); // no exception: the connection is used as it is
+    }
 }
