@@ -2091,6 +2091,7 @@ return [
     'Filter by field (key, optional)' => 'Nach Feld filtern (Schlüssel, optional)',
     'Find' => 'Suchen',
     'Find a folder' => 'Ordner suchen',
+    'Find a site' => 'Website finden',
     'Find broken links and missing image descriptions and fix them as drafts.' => 'Finden Sie defekte Links und fehlende Bildbeschreibungen und korrigieren Sie sie als Entwürfe.',
     'Find the pages' => 'Seiten finden',
     'Finding pages: %s found so far. Keep this page open, it continues by itself.' => 'Seiten werden gesucht: bisher %s gefunden. Lassen Sie diese Seite offen, es geht von selbst weiter.',

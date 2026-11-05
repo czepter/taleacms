@@ -31,6 +31,7 @@ window.TALEA_TRANSLATIONS = {
 	"%s is busy right now or the key's limit is used up. Try again shortly.": "%s ist gerade ausgelastet oder das Limit des Schlüssels ist erschöpft. Versuchen Sie es in Kürze erneut.",
 	"%s is down. Try again shortly.": "%s ist ausgefallen. Versuchen Sie es in Kürze erneut.",
 	"%s visits": "%s Besuche",
+	"%s waiting": "%s warten",
 	"%s – the extension is switched off and will not appear on the website.": "%s – die Erweiterung ist ausgeschaltet und erscheint nicht auf der Website.",
 	"%s, news items: %d": "%s, News-Beiträge: %d",
 	"%s: %s page views, %s visits": "%s: %s Seitenaufrufe, %s Besuche",

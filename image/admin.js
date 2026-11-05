@@ -662,6 +662,49 @@
 		});
 	}
 
+	/* ---------- the site picker (multisite): what waits on each site when it opens, and a filter for many sites ---------- */
+	var sitesBox = document.querySelector('[data-site-counts]');
+	if (sitesBox) {
+		var sitesLoaded = 0;
+		sitesBox.addEventListener('toggle', function (e) {
+			if (e.newState !== 'open') { return; }
+			var filter = sitesBox.querySelector('[data-sites-filter]');
+			if (filter) { filter.focus(); }
+			if (Date.now() - sitesLoaded < 60000) { return; }
+			sitesLoaded = Date.now();
+			fetch(sitesBox.getAttribute('data-site-counts'), { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (r) {
+				if (!r.ok) { throw new Error(String(r.status)); }
+				return r.json();
+			}).then(function (counts) {
+				sitesBox.querySelectorAll('[data-site-count]').forEach(function (slot) {
+					var n = parseInt(counts[slot.getAttribute('data-site-count')], 10) || 0;
+					slot.textContent = '';
+					if (n > 0) {
+						var badge = document.createElement('span');
+						badge.className = 'menu-count';
+						badge.textContent = n > 99 ? '99+' : String(n);
+						badge.title = T('%s waiting').replace('%s', String(n));
+						var label = document.createElement('span');
+						label.className = 'visually-hidden';
+						label.textContent = ' – ' + badge.title;
+						slot.appendChild(badge);
+						slot.appendChild(label);
+					}
+				});
+			}).catch(function () { sitesLoaded = 0; });
+		});
+		var sitesFilter = sitesBox.querySelector('[data-sites-filter]');
+		if (sitesFilter) {
+			var fold = function (text) { return String(text).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+			sitesFilter.addEventListener('input', function () {
+				var q = fold(sitesFilter.value.trim());
+				sitesBox.querySelectorAll('li').forEach(function (li) {
+					li.hidden = q !== '' && fold(li.textContent).indexOf(q) === -1;
+				});
+			});
+		}
+	}
+
 	/* ---------- keyboard: / quick search, ? the shortcuts, c the New menu, g and a letter goes to a section ---------- */
 	var shortcutsDialog = document.getElementById('shortcuts');
 	if (shortcutsDialog && typeof shortcutsDialog.showModal === 'function') {

@@ -31,6 +31,7 @@ window.TALEA_TRANSLATIONS = {
 	"%s is busy right now or the key's limit is used up. Try again shortly.": "Služba %s je teď vytížená nebo je vyčerpaný limit klíče. Zkuste to za chvíli.",
 	"%s is down. Try again shortly.": "Služba %s má výpadek. Zkuste to za chvíli.",
 	"%s visits": "%s návštěv",
+	"%s waiting": "%s čeká",
 	"%s – the extension is switched off and will not appear on the website.": "%s – rozšíření je vypnuté, na webu se nezobrazí.",
 	"%s, news items: %d": "%s, novinek: %d",
 	"%s: %s page views, %s visits": "%s: %s zobrazení, %s návštěv",

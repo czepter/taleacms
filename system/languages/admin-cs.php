@@ -2086,6 +2086,7 @@ return [
     'Filter by field (key, optional)' => 'Filtrovat podle pole (klíč, nepovinné)',
     'Find' => 'Najít',
     'Find a folder' => 'Najít složku',
+    'Find a site' => 'Najít web',
     'Find broken links and missing image descriptions and fix them as drafts.' => 'Najděte rozbité odkazy a chybějící popisky obrázků a opravte je jako koncepty.',
     'Find the pages' => 'Najít stránky',
     'Finding pages: %s found so far. Keep this page open, it continues by itself.' => 'Hledají se stránky: zatím nalezeno %s. Nechte stránku otevřenou, pokračuje sama.',

@@ -313,6 +313,14 @@ body:not(.login) {
 	cursor: pointer;
 }
 .header-popover li button:hover > span:first-child { text-decoration: underline; }
+.sites-side { display: inline-flex; flex: none; align-items: center; gap: 6px; }
+.sites-count:empty { display: none; }
+.sites-filter { margin: 0 0 8px; }
+.sites-filter .textfield { box-sizing: border-box; width: 100%; }
+.sites-popover { max-height: min(85vh, 680px); }
+.sites-popover ul { max-height: min(45vh, 380px); overflow-y: auto; }
+.sites-popover .navigation-row { flex-wrap: nowrap; }
+.sites-popover .navigation-row .navigation { padding: 6px 10px; font-size: 13px; white-space: nowrap; }
 .sites-current { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-weight: 600; }
 .sites-current small { font-weight: 400; }
 .sites-popover .navigation-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; }

@@ -41,6 +41,9 @@ final class Sites extends Module
         return SiteRegistry::enabled();
     }
 
+    /** From this many other sites the site picker has a filter field. */
+    public const int PICKER_FILTER = 5;
+
     /** @var array<string, array<string, mixed>|null> switcher() per site and person, once per request (the layout, the CSP and the palette ask) */
     private static array $switchers = [];
 

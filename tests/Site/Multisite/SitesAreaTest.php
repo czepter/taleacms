@@ -122,6 +122,10 @@ final class SitesAreaTest extends SiteTestCase
         $this->assertStringContainsString("form-action 'self' http://second.test:" . $this->site()->port, $r->headers['content-security-policy'] ?? '', 'the other site is a form target');
         $this->assertStringContainsString('id="switch-' . $this->secondId() . '"', $r->body, 'the switcher has a form per site, the palette submits it');
         $this->assertStringContainsString('second.test', $r->body, 'the switcher shows the address of each site');
+        $this->assertStringContainsString('name="to" value="module=pages"', $this->site()->admin()->get('/admin.php?module=pages')->body, 'switching keeps the section you work in');
+        $counts = $this->site()->admin()->get('/admin.php?action=site_counts');
+        $this->assertSame(200, $counts->status);
+        $this->assertArrayHasKey($this->secondId(), (array) json_decode($counts->body, true), 'the picker gets what waits on each other site');
     }
 
     public function testTheHandoffSignsTheAdministratorInOnTheOtherSite(): void

@@ -166,15 +166,20 @@ $userName = $username['name'] ?: $username['username'];
 		<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	</div>
 <?php if (isset($modules['sites']) && ($switcher = Talea\Admin\Modules\Sites::switcher($app)) !== null): // multisite: the site you work on and the way to the others
+    // switching keeps the section you work in (Enquiries here → Enquiries there); a screen of one row (an id) has no counterpart, so only the module
+    $landing = $active !== '' && $active !== 'sites' && Talea\Core\Sites::landing('module=' . $active) !== null ? 'module=' . $active : '';
     $siteStatus = fn (string $status): string => '<span class="badge' . ($status === 'live' ? ' badge-published' : ($status === 'paused' ? ' badge-draft' : '')) . '">' . e(t(['live' => 'Live', 'paused' => 'Paused', 'archived' => 'Archived'][$status] ?? $status)) . '</span>'; ?>
 	<div class="site-switcher">
 		<button class="site-switcher-start" type="button" popovertarget="sites" aria-label="<?= e(t('Switch site') . ' – ' . $switcher['current']) ?>"><span class="site-switcher-kicker"><?= e(t('Site')) ?></span><span class="site-switcher-name"><?= bdi($switcher['current']) ?></span><svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
-		<div class="header-popover sites-popover" id="sites" popover>
+		<div class="header-popover sites-popover" id="sites" popover data-site-counts="<?= e($app->url('admin.php?action=site_counts')) ?>">
 			<p class="header-popover-title"><?= e(t('Your sites')) ?></p>
+<?php if (count($switcher['others']) >= Talea\Admin\Modules\Sites::PICKER_FILTER): // many sites: a filter (typing narrows the list; Enter searches the Sites list) ?>
+			<form class="sites-filter" method="get" action="<?= e($app->url('admin.php?module=sites')) ?>" role="search"><label class="visually-hidden" for="sites-filter"><?= e(t('Find a site')) ?></label><input class="textfield" type="search" id="sites-filter" name="search" placeholder="<?= e(t('Find a site')) ?>" autocomplete="off" data-sites-filter></form>
+<?php endif ?>
 			<ul>
 				<li class="sites-current" aria-current="true"><span><?= bdi($switcher['current']) ?><small><?= $switcher['current_host'] !== '' ? bdi($switcher['current_host']) . ' · ' : '' ?><?= e(t('You are working on this site')) ?></small></span><?= $siteStatus($switcher['current_status']) ?></li>
 <?php foreach ($switcher['others'] as $other): ?>
-				<li><form id="switch-<?= e($other['public_id']) ?>" method="post" action="<?= e($app->url('admin.php?module=sites&action=handoff')) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="id" value="<?= e($other['public_id']) ?>"><button type="submit"><span><?= bdi($other['name']) ?><small><?= bdi($other['host']) ?></small></span><?= $siteStatus($other['status']) ?></button></form></li>
+				<li><form id="switch-<?= e($other['public_id']) ?>" method="post" action="<?= e($app->url('admin.php?module=sites&action=handoff')) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="id" value="<?= e($other['public_id']) ?>"><?php if ($landing !== ''): ?><input type="hidden" name="to" value="<?= e($landing) ?>"><?php endif ?><button type="submit"><span><?= bdi($other['name']) ?><small><?= bdi($other['host']) ?></small></span><span class="sites-side"><span class="sites-count" data-site-count="<?= e($other['public_id']) ?>"></span><?= $siteStatus($other['status']) ?></span></button></form></li>
 <?php endforeach ?>
 			</ul>
 			<p class="navigation-row"><a class="navigation" href="<?= e($app->url('admin.php?module=sites')) ?>"><?= e(t('All sites')) ?></a><a class="navigation" href="<?= e($app->url('admin.php?module=sites&action=overview')) ?>"><?= e(t('Overview')) ?></a><a class="navigation" href="<?= e($app->url('admin.php?module=sites&action=new')) ?>"><?= e(t('New site')) ?></a></p>

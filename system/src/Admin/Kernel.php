@@ -16,7 +16,7 @@ use Talea\Core\Extensions;
 final class Kernel
 {
     /** Actions that belong to no module: /admin/account, /admin/oauth … (no module ident may take these names). */
-    public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step', 'waiting'];
+    public const array OWN_ACTIONS = ['account', 'oauth', 'token', 'logout', 'password', 'hide_first_steps', 'skip_first_step', 'waiting', 'site_counts'];
 
     /**
      * The editors' ongoing requests (unsaved state, assistant, build draft, the SEO tab's live check): they do not change the site, so they neither clear the
@@ -392,6 +392,15 @@ final class Kernel
             // the list under the bell, fetched when it opens: everything that waits, not only what the menu counts (Core\PendingReview)
             return Response::html($app->view->render('admin/waiting_list', ['app' => $app, 'items' => $this->waitingList()]));
         }
+        if ($action === 'site_counts') {
+            // the badges of the site picker, fetched when it opens: public id => what waits there (Kernel::otherSitesWaiting)
+            $counts = [];
+            foreach ($this->otherSitesWaiting($this->modules()) as $site) {
+                $counts[$site['public_id']] = $site['enquiries'] + $site['bookings'];
+            }
+
+            return Response::json($counts);
+        }
         if ($action === 'oauth') {
             return $this->handleOAuthConsent();
         }
@@ -504,6 +513,27 @@ final class Kernel
             $items[] = ['label' => $p['label'], 'url' => $this->app->url($p['url']), 'count' => $p['count'], 'examples' => $p['examples']];
         }
         // multisite: what waits on the other sites (administrators, as the "all sites" inboxes); a row opens that site's list there
+        foreach ($this->otherSitesWaiting($modules) as $site) {
+            foreach (['enquiries' => 'New enquiries', 'bookings' => 'Bookings to confirm'] as $ident => $label) {
+                if ($site[$ident] > 0) {
+                    $items[] = ['label' => $label, 'url' => '', 'count' => $site[$ident], 'examples' => [], 'site' => $site['public_id'], 'site_name' => $site['name'], 'to' => 'module=' . $ident];
+                }
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * New enquiries and bookings to confirm on each other site this person may open (administrators with several sites, as the
+     * "all sites" inboxes): for the bell and the badges of the site picker. One query per site, asked only when a list is opened.
+     *
+     * @param array<string, class-string<Module>> $modules
+     * @return list<array{public_id: string, name: string, enquiries: int, bookings: int}>
+     */
+    public function otherSitesWaiting(array $modules): array
+    {
+        $out = [];
         foreach (isset($modules['sites']) ? Modules\Sites::inboxSites($this->app) : [] as $site) {
             if ($site['current'] || !$site['can_open']) {
                 continue;
@@ -514,14 +544,10 @@ final class Kernel
             } catch (\Throwable) {
                 continue; // a site whose tables are behind must not break the list
             }
-            foreach (['enquiries' => 'New enquiries', 'bookings' => 'Bookings to confirm'] as $ident => $label) {
-                if ((int) ($row[$ident] ?? 0) > 0) {
-                    $items[] = ['label' => $label, 'url' => '', 'count' => (int) $row[$ident], 'examples' => [], 'site' => $site['public_id'], 'site_name' => $site['name'], 'to' => 'module=' . $ident];
-                }
-            }
+            $out[] = ['public_id' => $site['public_id'], 'name' => $site['name'], 'enquiries' => (int) ($row['enquiries'] ?? 0), 'bookings' => (int) ($row['bookings'] ?? 0)];
         }
 
-        return $items;
+        return $out;
     }
 
     /**
