@@ -378,7 +378,6 @@ O link é válido por %d dias.
     'The page you are looking for is not here. It may have a different address.' => 'A página que você procura não está aqui. Ela pode ter outro endereço.',
     'The password is not right.' => 'A senha não está correta.',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => 'A solicitação de conexão do aplicativo expirou ou não existe. Inicie a conexão novamente no aplicativo.',
-    'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'O servidor não consegue usar FTP criptografado (FTPS). Envie os backups para um armazenamento S3 ou baixe-os manualmente.',
     'The site has no database backup yet.' => 'O site ainda não tem nenhum backup do banco de dados.',
     'The state before the restore is in backup %s – please restore it.' => 'O estado anterior à restauração está no backup %s – restaure-o.',
     'The structured data “%s” is missing required properties: %s.' => 'Faltam propriedades obrigatórias nos dados estruturados “%s”: %s.',

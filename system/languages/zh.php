@@ -937,7 +937,6 @@ The link works for %d days.
     'The path to the page (Home › News › …) – built automatically for the page shown.' => '页面路径（首页 › 新闻 › …）——会为当前显示的页面自动生成。',
     'The photos of each item’s gallery appear here.' => '此处显示每个条目图库中的照片。',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => '连接应用程序的请求已过期或不存在。请在应用程序中重新开始连接。',
-    'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => '服务器无法使用加密 FTP（FTPS）。请将备份发送到 S3 存储，或手动下载。',
     'The site has no database backup yet.' => '网站还没有数据库备份。',
     'The state before the restore is in backup %s – please restore it.' => '恢复前的状态保存在备份 %s 中——请恢复该备份。',
     'The structured data has no valid type – choose one or remove the element.' => '结构化数据没有有效类型——请选择一个类型或删除该元素。',
