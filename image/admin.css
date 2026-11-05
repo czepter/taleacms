@@ -278,9 +278,9 @@ body:not(.login) {
 .site-switcher-start {
 	anchor-name: --sites;
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
-	column-gap: 8px;
+	column-gap: 10px;
 	width: 100%;
 	padding: 8px 10px;
 	border: 1px solid var(--line);
@@ -292,9 +292,26 @@ body:not(.login) {
 	cursor: pointer;
 }
 .site-switcher-start:hover { border-color: var(--line-field); }
-.site-switcher-kicker { grid-column: 1; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-weak); }
-.site-switcher-name { grid-column: 1; overflow: hidden; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
-.site-switcher-start .icon { grid-column: 2; grid-row: 1 / span 2; }
+.site-switcher-start .site-mark { grid-column: 1; grid-row: 1 / span 2; }
+.site-switcher-kicker { grid-column: 2; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-weak); }
+.site-switcher-name { grid-column: 2; overflow: hidden; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
+.site-switcher-start .icon { grid-column: 3; grid-row: 1 / span 2; }
+/* a site's mark: its initial on a hue of its own (Modules\Sites::mark); white text on a dark enough tone in both themes */
+.site-mark {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 7px;
+	background: oklch(0.5 0.12 var(--site-hue, 250));
+	color: #fff;
+	font-size: 14px;
+	font-weight: 700;
+	line-height: 1;
+}
+.sites-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sites-name small { display: block; }
 .sites-popover { position-anchor: --sites; position-area: bottom span-right; width: min(340px, calc(100vw - 32px)); }
 .sites-popover form { margin: 0; }
 .header-popover li button {
@@ -312,13 +329,15 @@ body:not(.login) {
 	text-align: start;
 	cursor: pointer;
 }
-.header-popover li button:hover > span:first-child { text-decoration: underline; }
+.header-popover li button:hover > span:first-child:not(.sites-name),
+.header-popover li button:hover .sites-name > span { text-decoration: underline; }
+.header-popover li button:hover .sites-name > span small { text-decoration: none; }
 .sites-side { display: inline-flex; flex: none; align-items: center; gap: 6px; }
 .sites-count:empty { display: none; }
 .sites-filter { margin: 0 0 8px; }
 .sites-filter .textfield { box-sizing: border-box; width: 100%; }
-.sites-popover { max-height: min(85vh, 680px); }
-.sites-popover ul { max-height: min(45vh, 380px); overflow-y: auto; }
+/* as tall as the window allows under the button (about 180 px from the top), the whole popover scrolls */
+.header-popover.sites-popover { max-height: max(240px, calc(100dvh - 200px)); }
 .sites-popover .navigation-row { flex-wrap: nowrap; }
 .sites-popover .navigation-row .navigation { padding: 6px 10px; font-size: 13px; white-space: nowrap; }
 .sites-current { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-weight: 600; }

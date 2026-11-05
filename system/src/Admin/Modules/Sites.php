@@ -41,6 +41,18 @@ final class Sites extends Module
         return SiteRegistry::enabled();
     }
 
+    /**
+     * The mark of a site in the picker: its initial on a colour of its own, the same on every screen and for everybody (one of
+     * MARK_HUES, from the public id), so a glance tells the sites apart. The text colour is computed in CSS (admin.css, .site-mark).
+     */
+    public static function mark(string $name, string $publicId): string
+    {
+        return '<span class="site-mark" style="--site-hue: ' . self::MARK_HUES[crc32($publicId) % count(self::MARK_HUES)] . '" aria-hidden="true">' . e(mb_strtoupper(mb_substr(trim($name) !== '' ? trim($name) : '?', 0, 1))) . '</span>';
+    }
+
+    /** The hues a site mark takes (OKLCH), far enough apart to tell at a glance; which one comes from the site's public id. */
+    private const array MARK_HUES = [25, 70, 140, 185, 235, 275, 320, 355];
+
     /** From this many other sites the site picker has a filter field. */
     public const int PICKER_FILTER = 5;
 
@@ -51,7 +63,7 @@ final class Sites extends Module
      * The site switcher: the site you work on and the other sites you can open (set up, not trashed, with a host name), each with its
      * status and primary host. null while the host is not routed to a site.
      *
-     * @return array{current: string, current_status: string, current_host: string, others: list<array{public_id: string, name: string, status: string, host: string}>}|null
+     * @return array{current: string, current_id: string, current_status: string, current_host: string, others: list<array{public_id: string, name: string, status: string, host: string}>}|null
      */
     public static function switcher(\Talea\Core\App $app): ?array
     {
@@ -65,11 +77,12 @@ final class Sites extends Module
             return self::$switchers[$key];
         }
         $name = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (string) $s['slug'];
-        $out = ['current' => '', 'current_status' => '', 'current_host' => '', 'others' => []];
+        $out = ['current' => '', 'current_id' => '', 'current_status' => '', 'current_host' => '', 'others' => []];
         foreach (SiteRegistry::overview($app->db(), false) as $s) {
             $host = (string) ($s['domains'][0]['host'] ?? '');
             if ((int) $s['site_id'] === $current) {
                 $out['current'] = $name($s);
+                $out['current_id'] = (string) $s['public_id'];
                 $out['current_status'] = (string) $s['status'];
                 $out['current_host'] = $host;
             } elseif ($s['ready'] && $s['status'] !== 'trashed' && $s['domains'] !== [] && SiteRegistry::allows($app->db(), $user, (int) $s['site_id'])) {
@@ -79,6 +92,28 @@ final class Sites extends Module
         }
 
         return self::$switchers[$key] = $out;
+    }
+
+    /**
+     * Agency mode: the other owners an operator looks after, for the site picker and the palette (one query, operators only). Each leads to
+     * the owner's page, which lists its sites and opens them (Owners::actionHandoff).
+     *
+     * @param array<string, class-string> $modules
+     * @return list<array{public_id: string, name: string, status: string}>
+     */
+    public static function otherOwners(\Talea\Core\App $app, array $modules): array
+    {
+        if (!isset($modules['owners']) || !OwnerRegistry::enabled() || !OwnerRegistry::isOperator($app->db(), $app->auth()->user())) {
+            return [];
+        }
+        $out = [];
+        foreach (OwnerRegistry::all($app->db()) as $owner) {
+            if ($owner['prefix'] !== $app->db()->ownerPrefix && $owner['ready_at'] !== null && $owner['status'] !== 'trashed' && (string) $owner['public_id'] !== '') {
+                $out[] = ['public_id' => (string) $owner['public_id'], 'name' => (string) ($owner['name'] !== '' ? $owner['name'] : $owner['prefix']), 'status' => (string) $owner['status']];
+            }
+        }
+
+        return $out;
     }
 
     /**

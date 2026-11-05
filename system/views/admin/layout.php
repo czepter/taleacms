@@ -72,6 +72,9 @@ if ($username !== null) {
     foreach (isset($modules['sites']) ? (Talea\Admin\Modules\Sites::switcher($app)['others'] ?? []) : [] as $other) {
         $statements[] = ['n' => t('Switch to %s', $other['name']), 'u' => $adminUrl('module=sites'), 's' => t('Site') . ' · ' . $other['host'], 'f' => 'switch-' . $other['public_id']];
     }
+    foreach (isset($modules['sites']) ? Talea\Admin\Modules\Sites::otherOwners($app, $modules) : [] as $owner) { // agency mode, operators
+        $statements[] = ['n' => $owner['name'], 'u' => $adminUrl('module=owners&action=edit&id=' . $owner['public_id']), 's' => t('Owner')];
+    }
     $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
     $statements[] = ['n' => t('View site'), 'u' => $app->url(''), 's' => ''];
 }
@@ -86,7 +89,9 @@ if ($username !== null) {
 <?php if (Talea\Core\ErrorReport::enabled()): // browser errors to the error tracking (TALEA_ERROR_DSN), before the other scripts run ?>
 <script src="<?= e($app->url('image/errors.js')) ?>?v=<?= e(TALEA_VERSION) ?>" data-errors="<?= e($app->url('js-error')) ?>" data-errors-area="admin"></script>
 <?php endif ?>
-<title><?= $heading !== '' ? e($heading) . ' – ' : '' ?>Talea</title>
+<?php // several sites: the tab says which one, so two tabs of two sites are not mixed up
+$siteTitle = $username !== null && isset($modules['sites']) ? (string) (Talea\Admin\Modules\Sites::switcher($app)['current'] ?? '') : ''; ?>
+<title><?= $heading !== '' ? e($heading) . ' – ' : '' ?><?= $siteTitle !== '' ? e($siteTitle) . ' – ' : '' ?>Talea</title>
 <?= Talea\Front\SiteIdentity::icons($app->settings(), $app->request->basePath(), true) ?>
 <link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= e(TALEA_VERSION) ?>">
 <link rel="stylesheet" href="<?= e($app->url('image/editor.css')) ?>?v=<?= e(TALEA_VERSION) ?>">
@@ -170,18 +175,26 @@ $userName = $username['name'] ?: $username['username'];
     $landing = $active !== '' && $active !== 'sites' && Talea\Core\Sites::landing('module=' . $active) !== null ? 'module=' . $active : '';
     $siteStatus = fn (string $status): string => '<span class="badge' . ($status === 'live' ? ' badge-published' : ($status === 'paused' ? ' badge-draft' : '')) . '">' . e(t(['live' => 'Live', 'paused' => 'Paused', 'archived' => 'Archived'][$status] ?? $status)) . '</span>'; ?>
 	<div class="site-switcher">
-		<button class="site-switcher-start" type="button" popovertarget="sites" aria-label="<?= e(t('Switch site') . ' – ' . $switcher['current']) ?>"><span class="site-switcher-kicker"><?= e(t('Site')) ?></span><span class="site-switcher-name"><?= bdi($switcher['current']) ?></span><svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
+		<button class="site-switcher-start" type="button" popovertarget="sites" aria-label="<?= e(t('Switch site') . ' – ' . $switcher['current']) ?>"><?= Talea\Admin\Modules\Sites::mark($switcher['current'], $switcher['current_id']) ?><span class="site-switcher-kicker"><?= e(t('Site')) ?></span><span class="site-switcher-name"><?= bdi($switcher['current']) ?></span><svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
 		<div class="header-popover sites-popover" id="sites" popover data-site-counts="<?= e($app->url('admin.php?action=site_counts')) ?>">
 			<p class="header-popover-title"><?= e(t('Your sites')) ?></p>
 <?php if (count($switcher['others']) >= Talea\Admin\Modules\Sites::PICKER_FILTER): // many sites: a filter (typing narrows the list; Enter searches the Sites list) ?>
 			<form class="sites-filter" method="get" action="<?= e($app->url('admin.php?module=sites')) ?>" role="search"><label class="visually-hidden" for="sites-filter"><?= e(t('Find a site')) ?></label><input class="textfield" type="search" id="sites-filter" name="search" placeholder="<?= e(t('Find a site')) ?>" autocomplete="off" data-sites-filter></form>
 <?php endif ?>
 			<ul>
-				<li class="sites-current" aria-current="true"><span><?= bdi($switcher['current']) ?><small><?= $switcher['current_host'] !== '' ? bdi($switcher['current_host']) . ' · ' : '' ?><?= e(t('You are working on this site')) ?></small></span><?= $siteStatus($switcher['current_status']) ?></li>
+				<li class="sites-current" aria-current="true"><span class="sites-name"><?= Talea\Admin\Modules\Sites::mark($switcher['current'], $switcher['current_id']) ?><span><?= bdi($switcher['current']) ?><small><?= $switcher['current_host'] !== '' ? bdi($switcher['current_host']) . ' · ' : '' ?><?= e(t('You are working on this site')) ?></small></span></span><?= $siteStatus($switcher['current_status']) ?></li>
 <?php foreach ($switcher['others'] as $other): ?>
-				<li><form id="switch-<?= e($other['public_id']) ?>" method="post" action="<?= e($app->url('admin.php?module=sites&action=handoff')) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="id" value="<?= e($other['public_id']) ?>"><?php if ($landing !== ''): ?><input type="hidden" name="to" value="<?= e($landing) ?>"><?php endif ?><button type="submit"><span><?= bdi($other['name']) ?><small><?= bdi($other['host']) ?></small></span><span class="sites-side"><span class="sites-count" data-site-count="<?= e($other['public_id']) ?>"></span><?= $siteStatus($other['status']) ?></span></button></form></li>
+				<li><form id="switch-<?= e($other['public_id']) ?>" method="post" action="<?= e($app->url('admin.php?module=sites&action=handoff')) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="id" value="<?= e($other['public_id']) ?>"><?php if ($landing !== ''): ?><input type="hidden" name="to" value="<?= e($landing) ?>"><?php endif ?><button type="submit"><span class="sites-name"><?= Talea\Admin\Modules\Sites::mark($other['name'], $other['public_id']) ?><span><?= bdi($other['name']) ?><small><?= bdi($other['host']) ?></small></span></span><span class="sites-side"><span class="sites-count" data-site-count="<?= e($other['public_id']) ?>"></span><?= $siteStatus($other['status']) ?></span></button></form></li>
 <?php endforeach ?>
 			</ul>
+<?php if (($owners = Talea\Admin\Modules\Sites::otherOwners($app, $modules)) !== []): // agency mode: the operator's other owners, each opens its page with its sites ?>
+			<p class="waiting-group"><?= e(t('Other owners')) ?></p>
+			<ul class="sites-owners">
+<?php foreach ($owners as $owner): ?>
+				<li><a href="<?= e($app->url('admin.php?module=owners&action=edit&id=' . $owner['public_id'])) ?>"><span class="sites-name"><?= Talea\Admin\Modules\Sites::mark($owner['name'], $owner['public_id']) ?><span><?= bdi($owner['name']) ?><small><?= e(t('Their sites')) ?></small></span></span><?= $siteStatus($owner['status']) ?></a></li>
+<?php endforeach ?>
+			</ul>
+<?php endif ?>
 			<p class="navigation-row"><a class="navigation" href="<?= e($app->url('admin.php?module=sites')) ?>"><?= e(t('All sites')) ?></a><a class="navigation" href="<?= e($app->url('admin.php?module=sites&action=overview')) ?>"><?= e(t('Overview')) ?></a><a class="navigation" href="<?= e($app->url('admin.php?module=sites&action=new')) ?>"><?= e(t('New site')) ?></a></p>
 		</div>
 	</div>
