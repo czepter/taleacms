@@ -1048,6 +1048,7 @@ return [
     'Your rights' => 'Deine Rechte',
     'Your session has expired. Sign in again in a new tab – your unsaved changes stay here and will save automatically.' => 'Deine Sitzung ist abgelaufen. Melde dich in einem neuen Tab erneut an – deine nicht gespeicherten Änderungen bleiben hier erhalten und werden automatisch gespeichert.',
     'Your site as drafts' => 'Deine Website als Entwürfe',
+    'Your sites' => 'Deine Websites',
     'a connection ends %s, connect Claude again before then' => 'eine Verbindung endet am %s, verbinde Claude vorher erneut',
     'debug = true is set in config.php; turn it off on a live site' => 'debug = true ist in config.php gesetzt; schalte ihn auf einer Live-Website aus',
     'does not seem to include the SMTP server %s; add %s (or the value your mail provider publishes)' => 'scheint den SMTP-Server %s nicht einzuschließen; ergänze %s (oder den Wert, den dein E-Mail-Anbieter veröffentlicht)',

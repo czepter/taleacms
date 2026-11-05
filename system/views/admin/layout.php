@@ -68,6 +68,10 @@ if ($username !== null) {
     foreach ($collections as $collection) {
         $statements[] = ['n' => $collection['name'], 'u' => $adminUrl('module=collections&action=items&id=' . $collection['public_id']), 's' => t('Collection')];
     }
+    // multisite: "Switch to …" submits the switcher's form of that site (opening a site is a POST, Modules\Sites::actionHandoff)
+    foreach (isset($modules['sites']) ? (Talea\Admin\Modules\Sites::switcher($app)['others'] ?? []) : [] as $other) {
+        $statements[] = ['n' => t('Switch to %s', $other['name']), 'u' => $adminUrl('module=sites'), 's' => t('Site') . ' · ' . $other['host'], 'f' => 'switch-' . $other['public_id']];
+    }
     $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
     $statements[] = ['n' => t('View site'), 'u' => $app->url(''), 's' => ''];
 }
@@ -161,14 +165,21 @@ $userName = $username['name'] ?: $username['username'];
 		</div>
 		<button class="menu-switch" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	</div>
-<?php if (isset($modules['sites']) && ($switcher = Talea\Admin\Modules\Sites::switcher($app)) !== null): // multisite: the site you work on and the way to the others ?>
-	<details class="site-switcher">
-		<summary><?= bdi($switcher['current']) ?></summary>
+<?php if (isset($modules['sites']) && ($switcher = Talea\Admin\Modules\Sites::switcher($app)) !== null): // multisite: the site you work on and the way to the others
+    $siteStatus = fn (string $status): string => '<span class="badge' . ($status === 'live' ? ' badge-published' : ($status === 'paused' ? ' badge-draft' : '')) . '">' . e(t(['live' => 'Live', 'paused' => 'Paused', 'archived' => 'Archived'][$status] ?? $status)) . '</span>'; ?>
+	<div class="site-switcher">
+		<button class="site-switcher-start" type="button" popovertarget="sites" aria-label="<?= e(t('Switch site') . ' – ' . $switcher['current']) ?>"><span class="site-switcher-kicker"><?= e(t('Site')) ?></span><span class="site-switcher-name"><?= bdi($switcher['current']) ?></span><svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
+		<div class="header-popover sites-popover" id="sites" popover>
+			<p class="header-popover-title"><?= e(t('Your sites')) ?></p>
+			<ul>
+				<li class="sites-current" aria-current="true"><span><?= bdi($switcher['current']) ?><small><?= $switcher['current_host'] !== '' ? bdi($switcher['current_host']) . ' · ' : '' ?><?= e(t('You are working on this site')) ?></small></span><?= $siteStatus($switcher['current_status']) ?></li>
 <?php foreach ($switcher['others'] as $other): ?>
-		<form method="post" action="<?= e($app->url('admin.php?module=sites&action=handoff')) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="id" value="<?= e($other['public_id']) ?>"><button type="submit"><?= bdi($other['name']) ?></button></form>
+				<li><form id="switch-<?= e($other['public_id']) ?>" method="post" action="<?= e($app->url('admin.php?module=sites&action=handoff')) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="id" value="<?= e($other['public_id']) ?>"><button type="submit"><span><?= bdi($other['name']) ?><small><?= bdi($other['host']) ?></small></span><?= $siteStatus($other['status']) ?></button></form></li>
 <?php endforeach ?>
-		<a href="<?= e($app->url('admin.php?module=sites')) ?>"><?= e(t('All sites')) ?></a>
-	</details>
+			</ul>
+			<p class="navigation-row"><a class="navigation" href="<?= e($app->url('admin.php?module=sites')) ?>"><?= e(t('All sites')) ?></a><a class="navigation" href="<?= e($app->url('admin.php?module=sites&action=overview')) ?>"><?= e(t('Overview')) ?></a><a class="navigation" href="<?= e($app->url('admin.php?module=sites&action=new')) ?>"><?= e(t('New site')) ?></a></p>
+		</div>
+	</div>
 <?php endif ?>
 	<nav class="menu-wrap" aria-label="<?= e(t('Main menu')) ?>">
 <?php if (($sidebar ?? '') !== ''): ?>

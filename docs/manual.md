@@ -591,8 +591,10 @@ site is set up and how much space it takes.
   a plain 404.
 - **States:** paused sites answer visitors with a short "not public yet" page, archived sites either redirect to another site or become
   read-only. A deleted site stays in the trash for 30 days.
-- **Switcher:** the site name in the sidebar opens another site and signs you in there. Enquiries and Bookings can list every
-  site; a row opens on its own site.
+- **Switcher:** the **Site** button under the logo lists your sites with their address and status (live, paused, archived);
+  choosing one opens it and signs you in there. **Ctrl K** finds them too (*Switch to …*). The bell lists what waits on the other
+  sites under **Other sites** (new enquiries, bookings to confirm) and opens that list on its own site. Enquiries and Bookings can
+  list every site; a row opens on its own site.
 - **Shared and own:** media, users, components and facts are shared by default across sites; a component or fact can be shared with
   every site or kept for one.
 - **Claude:** one connection works on all sites. A tool acts on the site the connection calls, or on another site when you pass its id as

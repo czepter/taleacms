@@ -41,11 +41,14 @@ final class Sites extends Module
         return SiteRegistry::enabled();
     }
 
+    /** @var array<string, array<string, mixed>|null> switcher() per site and person, once per request (the layout, the CSP and the palette ask) */
+    private static array $switchers = [];
+
     /**
-     * The sidebar switcher: the name of the site you work on and the other sites you can open (set up, not trashed, with a host name).
-     * null while the host is not routed to a site.
+     * The site switcher: the site you work on and the other sites you can open (set up, not trashed, with a host name), each with its
+     * status and primary host. null while the host is not routed to a site.
      *
-     * @return array{current: string, others: list<array{public_id: string, name: string}>}|null
+     * @return array{current: string, current_status: string, current_host: string, others: list<array{public_id: string, name: string, status: string, host: string}>}|null
      */
     public static function switcher(\Talea\Core\App $app): ?array
     {
@@ -53,18 +56,39 @@ final class Sites extends Module
             return null;
         }
         $current = (int) $app->site['site_id'];
-        $name = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (string) $s['slug'];
-        $out = ['current' => '', 'others' => []];
         $user = $app->auth()->user();
+        $key = $app->db()->ownerPrefix . ':' . $current . ':' . (int) ($user['user_id'] ?? 0);
+        if (array_key_exists($key, self::$switchers)) {
+            return self::$switchers[$key];
+        }
+        $name = fn (array $s): string => $s['name'] !== '' ? (string) $s['name'] : (string) $s['slug'];
+        $out = ['current' => '', 'current_status' => '', 'current_host' => '', 'others' => []];
         foreach (SiteRegistry::overview($app->db(), false) as $s) {
+            $host = (string) ($s['domains'][0]['host'] ?? '');
             if ((int) $s['site_id'] === $current) {
                 $out['current'] = $name($s);
+                $out['current_status'] = (string) $s['status'];
+                $out['current_host'] = $host;
             } elseif ($s['ready'] && $s['status'] !== 'trashed' && $s['domains'] !== [] && SiteRegistry::allows($app->db(), $user, (int) $s['site_id'])) {
-                $out['others'][] = ['public_id' => (string) $s['public_id'], 'name' => $name($s)];
+                $out['others'][] = ['public_id' => (string) $s['public_id'], 'name' => $name($s), 'status' => (string) $s['status'],
+                    'host' => (string) (SiteRegistry::primaryHost($app->db(), (int) $s['site_id']) ?? $host)];
             }
         }
 
-        return $out;
+        return self::$switchers[$key] = $out;
+    }
+
+    /**
+     * The origins a form on this admin page may lead to: opening another site ends in a redirect to its host, and the admin's CSP
+     * form-action guards redirects too (admin.php) – without them the browser blocks the switch. Only the sites the person may open.
+     *
+     * @return list<string>
+     */
+    public static function formOrigins(\Talea\Core\App $app): array
+    {
+        $switcher = self::switcher($app);
+
+        return $switcher === null ? [] : array_values(array_unique(array_map(fn (array $s): string => SiteRegistry::originOn($app->request, $s['host']), $switcher['others'])));
     }
 
     /**

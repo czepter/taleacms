@@ -565,6 +565,7 @@
 				var a = document.createElement('a');
 				a.href = p.u;
 				a.textContent = p.n;
+				if (p.f) { a.setAttribute('data-form', p.f); } // opening another site is a POST: the entry submits the switcher's form
 				var s = document.createElement('small');
 				s.textContent = p.s;
 				a.appendChild(s);
@@ -581,6 +582,17 @@
 			var selected = paletteList.querySelector('[aria-selected="true"]');
 			if (selected && selected.scrollIntoView) { selected.scrollIntoView({ block: 'nearest' }); }
 		};
+		var paletteSubmit = function (link) {
+			var form = link.getAttribute('data-form') ? document.getElementById(link.getAttribute('data-form')) : null;
+			if (!form) { return false; }
+			palette.close();
+			form.requestSubmit();
+			return true;
+		};
+		paletteList.addEventListener('click', function (e) {
+			var link = e.target.closest && e.target.closest('a[data-form]');
+			if (link && paletteSubmit(link)) { e.preventDefault(); }
+		});
 		var paletteOpen = function () {
 			if (palette.open) { return; }
 			paletteField.value = '';
@@ -625,7 +637,7 @@
 			} else if (e.key === 'Enter') {
 				e.preventDefault();
 				var target = paletteList.querySelector('[aria-selected="true"] a');
-				if (target) { window.location.href = target.href; }
+				if (target && !paletteSubmit(target)) { window.location.href = target.href; }
 			}
 		});
 		// show ⌘K on a Mac

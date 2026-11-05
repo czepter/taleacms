@@ -456,28 +456,36 @@ final class Kernel
         return $modules;
     }
 
+    /** @var list<string> origins a module adds for its forms that lead to another host (the Owners area opens another owner's sites) */
+    public array $formOrigins = [];
+
     /** Wraps the content in the common admin frame (menu, sign-in bar, messages). */
     public function page(string $heading, string $content, int $status = 200): Response
     {
         $app = $this->app;
+        $modules = $app->auth()->user() !== null ? $this->modules() : [];
+        // switching to another site posts a form that ends on that site's host: the CSP form-action must allow it (admin.php)
+        $origins = [...$this->formOrigins, ...(isset($modules['sites']) ? Modules\Sites::formOrigins($app) : [])];
+        $headers = $origins !== [] ? ['X-Talea-Form-Action' => implode(' ', array_unique($origins))] : [];
 
-        return Response::html($app->view->render('admin/layout', [
+        return new Response($app->view->render('admin/layout', [
             'app' => $app,
             'heading' => t($heading),
             'content' => $content,
-            'modules' => $app->auth()->user() !== null ? $this->modules() : [],
+            'modules' => $modules,
             'active' => $app->request->get('module'),
             'username' => $app->auth()->user(),
             'flashes' => $app->session->takeFlashes(),
             'sidebar' => $this->sidebar,
-        ]), $status);
+        ]), $status, $headers);
     }
 
     /**
      * Everything that waits for the signed-in person, for the bell: new enquiries, bookings to confirm, news from authors and
      * the drafts and proposals of Core\PendingReview – only what the person may open.
      *
-     * @return list<array{label: string, url: string, count: int, examples: list<string>}> url is an address of the admin
+     * @return list<array{label: string, url: string, count: int, examples: list<string>, site?: string, site_name?: string, to?: string}> url is an address of the
+     *         admin; a row of another site has its public id, name and the screen to open there instead (a handoff, Modules\Sites::actionHandoff)
      */
     public function waitingList(): array
     {
@@ -494,6 +502,23 @@ final class Kernel
         }
         foreach (\Talea\Core\PendingReview::all($this->app, $modules) as $p) {
             $items[] = ['label' => $p['label'], 'url' => $this->app->url($p['url']), 'count' => $p['count'], 'examples' => $p['examples']];
+        }
+        // multisite: what waits on the other sites (administrators, as the "all sites" inboxes); a row opens that site's list there
+        foreach (isset($modules['sites']) ? Modules\Sites::inboxSites($this->app) : [] as $site) {
+            if ($site['current'] || !$site['can_open']) {
+                continue;
+            }
+            try {
+                $row = $this->app->db()->forSite($site['prefix'])->one("SELECT (SELECT COUNT(*) FROM {enquiries} WHERE status = 0 AND category <> 'spam' AND deleted_at IS NULL) AS enquiries,"
+                    . " (SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW()) AS bookings") ?? [];
+            } catch (\Throwable) {
+                continue; // a site whose tables are behind must not break the list
+            }
+            foreach (['enquiries' => 'New enquiries', 'bookings' => 'Bookings to confirm'] as $ident => $label) {
+                if ((int) ($row[$ident] ?? 0) > 0) {
+                    $items[] = ['label' => $label, 'url' => '', 'count' => (int) $row[$ident], 'examples' => [], 'site' => $site['public_id'], 'site_name' => $site['name'], 'to' => 'module=' . $ident];
+                }
+            }
         }
 
         return $items;

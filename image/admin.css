@@ -273,12 +273,50 @@ body:not(.login) {
 	border-radius: 50%;
 	background: var(--signal);
 }
-.site-switcher { margin: 4px 0 10px; font-size: 14px; }
-.site-switcher summary { cursor: pointer; font-weight: 600; min-height: 32px; display: flex; align-items: center; }
-.site-switcher form { margin: 0; }
-.site-switcher button, .site-switcher a { display: block; width: 100%; padding: 6px 0; border: 0; background: none; font: inherit; color: var(--text); text-align: start; text-decoration: none; cursor: pointer; }
-.site-switcher a { color: var(--text-weak); }
-.site-switcher button:hover, .site-switcher a:hover { text-decoration: underline; }
+/* multisite: the site you work on, a button under the logo; the popover lists every site with its address and status (layout.php) */
+.site-switcher { margin: 0 0 18px; }
+.site-switcher-start {
+	anchor-name: --sites;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	column-gap: 8px;
+	width: 100%;
+	padding: 8px 10px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	background: var(--surface);
+	color: var(--text);
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+.site-switcher-start:hover { border-color: var(--line-field); }
+.site-switcher-kicker { grid-column: 1; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-weak); }
+.site-switcher-name { grid-column: 1; overflow: hidden; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
+.site-switcher-start .icon { grid-column: 2; grid-row: 1 / span 2; }
+.sites-popover { position-anchor: --sites; position-area: bottom span-right; width: min(340px, calc(100vw - 32px)); }
+.sites-popover form { margin: 0; }
+.header-popover li button {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	width: 100%;
+	padding: 8px 0;
+	border: 0;
+	border-bottom: 1px solid var(--line);
+	background: none;
+	color: var(--text);
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+.header-popover li button:hover > span:first-child { text-decoration: underline; }
+.sites-current { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-weight: 600; }
+.sites-current small { font-weight: 400; }
+.sites-popover .navigation-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; }
+.waiting-group { margin: 12px 0 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-weak); }
 .menu-back {
 	display: inline-flex;
 	align-items: center;

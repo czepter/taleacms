@@ -115,6 +115,15 @@ final class SitesAreaTest extends SiteTestCase
         $this->assertNotSame("Not found\n", $live->body, 'the second site answers with its own pages');
     }
 
+    /** a browser follows the handoff's redirect to the other host only when the page's CSP form-action allows that host */
+    public function testTheSwitcherMayLeadToTheOtherSite(): void
+    {
+        $r = $this->site()->admin()->get('/admin.php');
+        $this->assertStringContainsString("form-action 'self' http://second.test:" . $this->site()->port, $r->headers['content-security-policy'] ?? '', 'the other site is a form target');
+        $this->assertStringContainsString('id="switch-' . $this->secondId() . '"', $r->body, 'the switcher has a form per site, the palette submits it');
+        $this->assertStringContainsString('second.test', $r->body, 'the switcher shows the address of each site');
+    }
+
     public function testTheHandoffSignsTheAdministratorInOnTheOtherSite(): void
     {
         $site = $this->site();
