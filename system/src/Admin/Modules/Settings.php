@@ -24,7 +24,7 @@ class Settings extends Module
     public const string GROUP = 'Settings';
     public const string ICON = 'settings';
     public const bool ADMIN_ONLY = true;
-    public const array INSTALL_FILE_ACTIONS = ['backup', 'download_backup', 'delete_backup', 'restore_backup', 'media_backup', 'delete_log'];
+    public const array INSTALL_FILE_ACTIONS = ['backup', 'download_backup', 'delete_backup', 'restore_backup', 'media_backup', 'delete_log', 'protect_config'];
 
     /** Tabs that became screens of their own in 3.2: the old address leads there, a form posted to the old tab still saves. */
     public const array MOVED_TABS = ['company' => 'business', 'health' => 'status'];
@@ -556,6 +556,21 @@ class Settings extends Module
         }
 
         return $this->back('The choice about the shared kit is saved.', '', ['tab' => 'console']);
+    }
+
+    /** One click: config.php readable by its owner only. */
+    protected function actionProtectConfig(): Response
+    {
+        $file = TALEA_ROOT . '/config.php';
+        if (!$this->request->isPost() || !\Talea\Core\Owners::isFirst($this->db) || !is_file($file)) {
+            return $this->back('', '', ['tab' => 'health']);
+        }
+        if (!\Talea\Core\Config::protectFile($file)) {
+            return $this->back('The permissions of config.php could not be changed – change them on the server (chmod 600 config.php).', '', ['tab' => 'health'], 'error');
+        }
+        \Talea\Admin\ChangeLog::write($this->app, 'settings', 'protect_config', 'config.php');
+
+        return $this->back('config.php can now be read only by the site\'s own user.', '', ['tab' => 'health']);
     }
 
     protected function actionDeleteLog(): Response

@@ -24,6 +24,28 @@ final class Config
         return self::env('DB_NAME') !== '' || self::env('DB_DRIVER') === 'sqlite';
     }
 
+    /** config.php holds the database password and the secret key: only the site's own user may read it. */
+    public const int FILE_MODE = 0600;
+
+    /** Can every user of the server read the file? (false for a missing file) */
+    public static function readableByEveryone(string $file): bool
+    {
+        clearstatcache(true, $file);
+        $mode = is_file($file) ? fileperms($file) : false;
+
+        return $mode !== false && ($mode & 0004) !== 0;
+    }
+
+    /** Takes the read rights of the others away. Returns whether the file is protected afterwards. */
+    public static function protectFile(string $file): bool
+    {
+        if (is_file($file) && !self::readableByEveryone($file)) {
+            return true;
+        }
+
+        return is_file($file) && @chmod($file, self::FILE_MODE) && !self::readableByEveryone($file);
+    }
+
     /** @return array<string, mixed>|null */
     public static function load(): ?array
     {

@@ -54,6 +54,10 @@ final class Health
         if (!Config::fromEnv()) { // in a container install.php belongs to the image and refuses to run once installed
             $add(t('Security'), t('Installer'), !is_file(TALEA_ROOT . '/install.php') ? 'ok' : 'warning', is_file(TALEA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
         }
+        if (!Config::fromEnv() && is_file(TALEA_ROOT . '/config.php')) {
+            $open = Config::readableByEveryone(TALEA_ROOT . '/config.php');
+            $add(t('Security'), t('Permissions of config.php'), $open ? 'warning' : 'ok', $open ? t('every user of the server can read config.php (database password, secret key) – restrict it below') : t('only the site\'s own user can read config.php'));
+        }
         $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'warning', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
         [$keyState, $keyInfo] = Connectors::keyStatus($siteSettings);

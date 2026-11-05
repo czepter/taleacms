@@ -329,6 +329,7 @@ final class Installer
         if (file_put_contents(TALEA_ROOT . '/config.php', $content, LOCK_EX) === false) {
             return ['db_name' => t('The tables were created, but config.php could not be written. Check the write permissions.')];
         }
+        @chmod(TALEA_ROOT . '/config.php', Config::FILE_MODE); // the database password is not for the other users of the server (System status warns when this did not work)
 
         return [];
     }
