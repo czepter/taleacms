@@ -102,6 +102,43 @@ final class Appearance extends Module
             'library' => DesignSystem::libraryFonts(), 'sections' => array_column(\Talea\Builder\Library::listAll(\Talea\Core\Extensions::enabled($this->app->settings())), 'name', 'key')]);
     }
 
+    /** Site templates (Builder\SiteTemplates): finished designs with pages of their own, each with a live picture of its home page. */
+    protected function actionTemplates(): Response
+    {
+        return $this->view('templates', 'Site templates', ['templates' => \Talea\Builder\SiteTemplates::all(), 'previews' => \Talea\Install\Preview::available()]);
+    }
+
+    /** The home page of a site template, rendered from a scratch database (Install\Preview::siteTemplate) for the gallery's frame. */
+    protected function actionTemplatePreview(): Response
+    {
+        $language = \Talea\Core\Language::ofContent($this->app->settings(), '');
+        $html = \Talea\Install\Preview::siteTemplate($this->request->get('key'), $language, $this->app->settings()->get('german_register') === 'formal' ? 'formal' : 'informal', $this->request);
+
+        // the frame runs no script and sends nothing anywhere
+        return $html === null ? new Response('Not found', 404, ['Content-Type' => 'text/plain; charset=utf-8'])
+            : new Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8', 'Content-Security-Policy' => "script-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'"]);
+    }
+
+    /** Applies a site template as drafts: its look into the draft look, its pages as hidden drafts; nothing public changes. */
+    protected function actionApplyTemplate(): Response
+    {
+        $key = $this->request->post('template');
+        if (!$this->request->isPost() || !\Talea\Builder\SiteTemplates::exists($key)) {
+            return $this->back('The template does not exist.', 'templates', [], 'error');
+        }
+        if (($lock = LookFamily::refusal($this->db)) !== null) {
+            return $this->back($lock, 'templates', [], 'error');
+        }
+        $pages = \Talea\Builder\SiteTemplates::apply($this->app, $key);
+        $this->app->settings()->set('appearance_saved', '1');
+        \Talea\Admin\ChangeLog::write($this->app, 'appearance', 'apply template', $key);
+        $home = array_values(array_filter($pages, fn (array $p): bool => $p['home']))[0] ?? $pages[0];
+        $existing = count(array_filter($pages, fn (array $p): bool => $p['existing']));
+        $this->app->session->flash('ok', t('The template is in as drafts: the look, %d of your pages with unpublished changes and %d new hidden pages. Visitors see nothing of it until you publish.', $existing, count($pages) - $existing));
+
+        return Response::redirect($this->app->url('admin.php?module=pages&action=builder&id=' . $home['id']));
+    }
+
     protected function actionApplyLook(): Response
     {
         if (!$this->request->isPost()) {

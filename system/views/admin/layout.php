@@ -41,7 +41,7 @@ if ($username !== null) {
     // starting points of a site, found by what people call them (they live in Business details and Appearance)
     $quick['wizard'] = [['Set up your site', 'module=wizard']];
     $quick['blueprints'] = [['Apply a blueprint', 'module=blueprints']];
-    $quick['appearance'] = [['Try on another look', 'module=appearance&action=looks']];
+    $quick['appearance'] = [['Site templates', 'module=appearance&action=templates'], ['Try on another look', 'module=appearance&action=looks']];
     // keyboard: g and a letter goes to a section the person may open (the list in the shortcuts dialog, ?)
     $goTo = [];
     foreach (['h' => ['Home', ''], 'w' => ['Website', 'module=pages&action=website', 'pages'], 'p' => ['Pages', 'module=pages', 'pages'], 'n' => ['News', 'module=news', 'news'],

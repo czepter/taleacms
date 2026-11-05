@@ -69,6 +69,19 @@
             "openWorldHint": false
         }
     },
+    "apply_site_template": {
+        "parameters": {
+            "template": "string"
+        },
+        "required": [
+            "template"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "booking_availability": {
         "parameters": {
             "day": "string",
@@ -1425,6 +1438,15 @@
         }
     },
     "list_site_parts": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_site_templates": {
         "parameters": [],
         "required": [],
         "annotations": {

@@ -77,7 +77,7 @@ final class ParityTest extends TestCase
                 'cleanup' => 'list_media_without_alt', 'save_alts' => 'update_media', 'shrink' => 'admin: re-encoding a stored image in place (2.14) – Claude uploads a smaller file instead',
                 'approve' => 'admin: a file a drafts-only connection uploaded goes public on a person\'s approval (#150) – a connection with full access never waits, and publish_build makes the files a published draft uses public'],
             'appearance' => ['list' => $readOnly, 'preview' => $readOnly, 'tokens' => $readOnly, 'save' => 'update_design_system', 'tokens_import' => 'admin: upload of a design tokens file',
-                'looks' => 'list_looks', 'apply_look' => 'apply_look', 'publish_look' => 'publish_look', 'discard_look' => 'discard_look', 'restore_look' => 'restore_look_version', 'preview_site' => 'preview_link'],
+                'looks' => 'list_looks', 'apply_look' => 'apply_look', 'templates' => 'list_site_templates', 'template_preview' => $readOnly, 'apply_template' => 'apply_site_template', 'publish_look' => 'publish_look', 'discard_look' => 'discard_look', 'restore_look' => 'restore_look_version', 'preview_site' => 'preview_link'],
             'parts' => $builderParity + ['list' => $readOnly, 'variant' => $readOnly, 'save_variant' => 'save_part_variant', 'template' => 'save_part_variant',
                 'templates' => $readOnly, 'apply_template' => 'apply_part_template'],
             'menu' => ['list' => $readOnly, 'save' => 'save_menu', 'automatic' => 'save_menu'],

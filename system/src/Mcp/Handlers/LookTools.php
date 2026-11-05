@@ -190,6 +190,32 @@ trait LookTools
             'readability' => \Talea\Builder\DesignSystem::contrasts(\Talea\Core\Look::designSystem($this->app->settings())), 'preview' => \Talea\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
     }
 
+    /** list_site_templates */
+    private function toolListSiteTemplates(string $name, array $a): mixed
+    {
+        return ['templates' => \Talea\Builder\SiteTemplates::all(), 'note' => 'apply_site_template puts the look and the pages into drafts; nothing public changes until they are published.'];
+    }
+
+    /** apply_site_template */
+    private function toolApplySiteTemplate(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('Only the site administrator can use this tool.');
+        }
+        if (($lock = \Talea\Core\LookFamily::refusal($this->app->db(), false)) !== null) {
+            throw new \DomainException($lock);
+        }
+        if (!\Talea\Builder\SiteTemplates::exists((string) ($a['template'] ?? ''))) {
+            throw new \InvalidArgumentException('The template does not exist: ' . implode(', ', array_column(\Talea\Builder\SiteTemplates::all(), 'key')) . '.');
+        }
+        $pages = \Talea\Builder\SiteTemplates::apply($this->app, (string) $a['template']);
+        $this->app->settings()->set('appearance_saved', '1');
+        \Talea\Front\Cache::clear();
+
+        return ['status' => 'drafts – visitors see nothing until the pages and the look are published', 'pages' => $pages,
+            'preview' => \Talea\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
+    }
+
     /** list_look_versions */
     private function toolListLookVersions(string $name, array $a): mixed
     {
