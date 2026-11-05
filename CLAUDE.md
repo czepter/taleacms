@@ -192,8 +192,8 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 
 One install serves several sites of one owner: the owner is the database, a site is a table prefix (`Db::OWNER_TABLES` use the owner prefix and are shared:
 users, media, components/facts with `site_id`, tokens, the agent journal, `sites`/`site_domains`). `App::boot()` routes the host through `Core\Sites::resolve()`
-(unknown host = 404, `App::$site`); the lifecycle (paused, archived) is in `Front\Kernel`; new sites are provisioned by cron (`Sites::provision`), never on a
-request; admin area `Modules\Sites` with the sign-in handoff between hosts. Signing keys are per site (`Antispam::key()`). MCP: every tool takes an optional
+(unknown host = 404, `App::$site`); the lifecycle (paused, archived) is in `Front\Kernel`; new sites are provisioned in a process of their own (`Sites::provision`, started right after the row with
+`Background::start('provision')`, the next cron run where that is not possible), never inside a request; admin area `Modules\Sites` with the sign-in handoff between hosts. Signing keys are per site (`Antispam::key()`). MCP: every tool takes an optional
 `site` (public id; added like `reason`, not in the contract file; `Server::onSite()` runs the call on an `App` of that site and switches the static state),
 the site tools are `Mcp\Handlers\SiteTools` (administrators, flag on). `agent_journal.site_prefix` makes undo write back on the right site. A Talea archive
 import is refused with several sites (`SiteImport::refusal()`). Flag off = nothing here is consulted. Never fall back to site 1 when a prefix or a
