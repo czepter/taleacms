@@ -46,7 +46,7 @@ final class SocialDraftsTest extends SiteTestCase
         $this->assertStringContainsString('utm_source=facebook', end($lines), 'social drafts: the link closes the text');
 
         // a user agent not seen today = a new visitor
-        $site->client('social')->get($result['drafts'][0]['link'], [], 'Mozilla/5.0 (Windows NT 10.0) Chrome/120 Social');
+        $this->countView($site->client('social'), $result['drafts'][0]['link'], 'Mozilla/5.0 (Windows NT 10.0) Chrome/120 Social');
         $this->assertSame('1', (string) $site->value("SELECT COALESCE(SUM(visits), 0) > 0 FROM tl_stats_campaigns WHERE campaign LIKE 'facebook / social / new-hall-for-production%'"), 'social drafts: a visit through the tracked link counts in the campaign statistics');
     }
 

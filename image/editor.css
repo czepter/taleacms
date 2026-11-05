@@ -137,6 +137,7 @@ button.gallery-item:hover, button.gallery-item:focus-visible { border-color: var
 .chart-column i { display: flex; align-items: flex-end; width: 100%; min-height: 1px; background: color-mix(in srgb, var(--ed-accent) 35%, transparent); border-radius: 2px 2px 0 0; }
 .chart-column b { display: block; width: 100%; background: var(--ed-accent); border-radius: 2px 2px 0 0; }
 .chart-column:hover i { background: color-mix(in srgb, var(--ed-accent) 55%, transparent); }
+.chart-column[data-counting-change] { border-inline-start: 1px dashed var(--ed-accent); }
 .stats-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 24px; }
 .stats-tables > .stats-wide { grid-column: 1 / -1; } /* five columns (real-user speed) take the whole row */
 

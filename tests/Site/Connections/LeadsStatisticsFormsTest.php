@@ -126,7 +126,7 @@ PHP);
     {
         $site = $this->site();
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'formular'");
-        $site->client()->get('/?utm_source=facebook&utm_medium=paid&utm_campaign=autumn', [], self::PHONE);
+        $this->countView($site->client(), '/?utm_source=facebook&utm_medium=paid&utm_campaign=autumn', self::PHONE);
 
         $this->assertSame('1|1', $site->value("SELECT CONCAT(COALESCE((SELECT SUM(visits) FROM tl_stats_campaigns WHERE campaign = 'facebook / paid / autumn'), 0), '|', COALESCE((SELECT SUM(visits) FROM tl_stats_devices WHERE device = 'phone'), 0) > 0)"),
             'a visit from a campaign on a phone counts in the statistics');
@@ -187,6 +187,7 @@ PHP);
         $site = $this->site();
         $visitor = $site->client();
         $this->clearCache();
+        $this->countView($visitor, '/services');
         $this->assertMatchesRegularExpression('#<script src="/image/vitals.js\?v=[^"]*" defer data-vitals="/vitals"></script>#', $visitor->get('/services')->body, '2.8: the speed beacon script loads deferred with the statistics on');
         $this->assertStringNotContainsString('blocking="render" data-vitals', $visitor->get('/services')->body, '2.8: the beacon script does not block rendering');
         $this->assertStringNotContainsString('vitals.js', $site->admin()->get('/services')->body, '2.8: no speed beacon for signed-in users');

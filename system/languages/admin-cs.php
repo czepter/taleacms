@@ -6101,6 +6101,7 @@ return [
     'Visitors who reach the site under another address (with or without www, an old domain) are sent to the same page on the site address. The administration, the Claude connection and preview links are not redirected.' => 'Návštěvník, který web otevře na jiné adrese (s www nebo bez, stará doména), skončí na stejné stránce na adrese webu. Administrace, připojení Clauda a odkazy na náhled se nepřesměrovávají.',
     'Visitors’ data' => 'Data návštěvníků',
     'Visits' => 'Návštěvy',
+    'Visits are counted when the visitor’s browser confirms the page was shown. Figures before %s counted every request and are not comparable with the days after it.' => 'Návštěvy se počítají, když prohlížeč návštěvníka potvrdí, že se stránka zobrazila. Údaje před %s počítaly každý požadavek a nejsou srovnatelné s dny po tomto datu.',
     'Visits in 7 days' => 'Návštěvy za 7 dní',
     'Visits in the last 14 days' => 'Návštěvnost za 14 dní',
     'Visits that became a lead' => 'Návštěvy, ze kterých byl zájemce',

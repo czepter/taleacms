@@ -410,7 +410,7 @@ final class Seo
         // script is downloading, and prints the unhandled error „Transition was aborted because of invalid state“ to the console.
         // contact clicks (2.12, Core\Conversions) follow the same switch as the speed beacon below: the script counts a click on a
         // phone number, an e-mail address or a WhatsApp link only when the tag names the endpoint in data-conversion
-        $clicks = !empty($meta['vitals']) ? ' data-conversion="' . e($this->app->url('conversion')) . '"' : '';
+        $clicks = !empty($meta['vitals']) ? ' data-conversion="' . e($this->app->url('conversion')) . '"' . Stats::viewAttributes($this->app, (string) ($meta['count_news'] ?? '')) : '';
         $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::SCRIPT_TEXTS) . $clicks . '></script>';
         // forms (steps, conditions, the estimate): a script of their own, kept by Front\PageFrame only on a page with a form
         $h[] = '<script src="' . e($this->app->url('image/forms.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::FORM_SCRIPT_TEXTS) . '></script>';

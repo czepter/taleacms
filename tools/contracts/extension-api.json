@@ -119,6 +119,7 @@
         "_form",
         "_popup",
         "_section",
+        "_view",
         "admin",
         "api",
         "consent",

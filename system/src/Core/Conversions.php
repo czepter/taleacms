@@ -63,7 +63,7 @@ final class Conversions
         $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
         $type = self::type($request->post('type'));
         $path = self::path($request->post('path'));
-        if ($type === null || $path === null || !Stats::isOn($app) || $ua === '' || Stats::isBot($ua) || $app->auth()->user() !== null) {
+        if ($type === null || $path === null || !Stats::isOn($app) || $ua === '' || Stats::isBot($ua) || Stats::isAdvance($_SERVER) || $app->auth()->user() !== null) {
             return new Response('', 204);
         }
         $db = $app->db();

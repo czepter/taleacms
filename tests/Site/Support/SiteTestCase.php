@@ -97,4 +97,22 @@ abstract class SiteTestCase extends TestCase
 
         return $this->site()->admin()->post($path, ['_csrf' => $csrf] + $fields);
     }
+
+    /**
+     * A visitor opens a page and its browser confirms the view (Front\Stats::view): fetches $path, reads the data-view* attributes
+     * of the script tag and posts the beacon the way image/web.js does. Returns the beacon's answer; the page is in $page when given.
+     */
+    protected function countView(Http $client, string $path, string $userAgent = 'Mozilla/5.0 test', ?Response &$page = null, string $referrer = ''): Response
+    {
+        $page = $client->get($path, [], $userAgent);
+        $attribute = static fn (string $name): ?string => preg_match('/ ' . $name . '="([^"]*)"/', $page->body, $m) === 1 ? html_entity_decode($m[1]) : null;
+        $endpoint = $attribute('data-view');
+        if ($endpoint === null) {
+            return $page;
+        }
+        $query = (string) parse_url($path, PHP_URL_QUERY);
+
+        return $client->post($endpoint, ['path' => $attribute('data-view-path'), 'news' => $attribute('data-view-news'), 'sig' => $attribute('data-view-sig'),
+            'ref' => $referrer, 'query' => $query === '' ? '' : '?' . $query], ['Sec-Fetch-Site: same-origin', 'Sec-Fetch-Dest: empty'], $userAgent);
+    }
 }
