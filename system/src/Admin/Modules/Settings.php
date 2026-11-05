@@ -558,6 +558,22 @@ class Settings extends Module
         return $this->back('The choice about the shared kit is saved.', '', ['tab' => 'console']);
     }
 
+    /** A new signing key: the links and signatures made with the old one stop working (the form lists them). */
+    protected function actionNewKey(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        if (!(new \Talea\Core\Antispam($this->db, $this->app->settings()))->renew()) {
+            return $this->back('The signing key comes from TALEA_SECRET_KEY – change the variable on the server instead.', '', ['tab' => 'backups'], 'error');
+        }
+        \Talea\Front\Cache::clearAll();
+        \Talea\Admin\ChangeLog::write($this->app, 'settings', 'new_key', 'signing key renewed');
+        \Talea\Core\Events::record($this->db, 'security.key_renewed', 'warning', t('The signing key was renewed.'));
+
+        return $this->back('The signing key is renewed.', '', ['tab' => 'backups']);
+    }
+
     /** One click: config.php readable by its owner only. */
     protected function actionProtectConfig(): Response
     {
