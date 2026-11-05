@@ -94,6 +94,7 @@ final class Kernel
      */
     public const array MODULES = [
         Modules\Pages::class,
+        Modules\PageTemplates::class,
         Modules\Appearance::class,
         Modules\SiteParts::class,
         Modules\Menu::class,

@@ -16,6 +16,80 @@ final class PageTemplates
     /** How many templates a site keeps. */
     public const int LIMIT = 50;
 
+    /**
+     * What a new page can start from (the cards of New page): a blank builder page, a page template of the library, or the sections a
+     * look suggests (Appearance → Looks, "New page with these sections"). value => [name, section keys]; the text page is ''.
+     *
+     * @return array<string, array{0: string, 1: list<string>}>
+     */
+    public static function startOptions(string $look = ''): array
+    {
+        $options = ['blank' => ['Blank builder page', []]] + Library::PAGE_TEMPLATES;
+        if (($definition = Looks::get($look)) !== null && $definition['sections'] !== []) {
+            $options = ['look:' . $look => [t('Sections of the look %s', $definition['name']), $definition['sections']]] + $options;
+        }
+
+        return $options;
+    }
+
+    /** The start a posted template value names, or null (a text page, or a value that is not offered). @return array{0: string, 1: list<string>}|null */
+    public static function startSections(string $value): ?array
+    {
+        return self::startOptions(str_starts_with($value, 'look:') ? substr($value, 5) : '')[$value] ?? null;
+    }
+
+    /**
+     * The draft a new page starts with in the builder, or null for a text page (and the privacy policy outline, which is text): the sections
+     * of a template or a look (in the page's language, classes created), a blank build, a copy of one of the site's pages ("copy" with
+     * $copyOf) or one of your own templates ("mine:<id>").
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function startBuild(Db $db, string $value, string $copyOf, string $title, string $language, string $contentLanguage, bool $admin): ?array
+    {
+        if ($value === 'copy') {
+            return self::copyOf($db, $copyOf, $language, $admin);
+        }
+        if (str_starts_with($value, 'mine:')) {
+            return self::build($db, substr($value, 5));
+        }
+        $start = self::startSections($value);
+
+        return $start !== null && ($start[1] !== [] || $value === 'blank') ? Library::page($db, $start[1], $title, $contentLanguage) : null;
+    }
+
+    /**
+     * "A copy of a page": the build of a builder page of the same language version – its draft, otherwise the published one – with new
+     * element ids, or null when the posted page is not one.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function copyOf(Db $db, string $publicId, string $language, bool $admin): ?array
+    {
+        $row = $publicId === '' ? null : $db->one('SELECT build, build_draft FROM {pages} WHERE public_id = ? AND language = ? AND deleted_at IS NULL', [$publicId, $language]);
+        $json = $row['build_draft'] ?? $row['build'] ?? null;
+        if ($json === null) {
+            return null;
+        }
+        [$build] = Build::sanitize(Build::fromJson((string) $json) ?? ['v' => Build::VERSION, 'children' => []], $admin);
+        $build['children'] = array_map(Library::withNewIds(...), $build['children']);
+
+        return $build;
+    }
+
+    /**
+     * What the New page form shows: the starts (?template=look:<key> from the looks gallery adds that look's sections and picks them),
+     * the start asked for, the names of the sections, your own templates and the builder pages of this language version to copy.
+     *
+     * @return array{starts: array<string, array{0: string, 1: list<string>}>, start: string, sectionNames: array<string, string>, mine: list<array<string, mixed>>, copyable: array<string, string>}
+     */
+    public static function newPage(Db $db, string $language, string $start): array
+    {
+        return ['starts' => self::startOptions(str_starts_with($start, 'look:') ? substr($start, 5) : ''), 'start' => $start,
+            'sectionNames' => array_column(Library::listAll(), 'name', 'key'), 'mine' => self::all($db),
+            'copyable' => $db->pairs('SELECT public_id, title FROM {pages} WHERE language = ? AND deleted_at IS NULL AND (build IS NOT NULL OR build_draft IS NOT NULL) ORDER BY title', [$language])];
+    }
+
     /** @return list<array{id: string, name: string, sections: int, updated_at: string}> newest first */
     public static function all(Db $db): array
     {

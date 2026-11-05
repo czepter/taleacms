@@ -21,7 +21,6 @@ return [
     'A short label, a big headline and a button – all centred.' => 'Uma etiqueta curta, um título grande e um botão – tudo centralizado.',
     'A simple icon (check, phone, star…) – set its colour and size with the style.' => 'Um ícone simples (marca de seleção, telefone, estrela…) – defina a cor e o tamanho no estilo.',
     'A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.' => 'Uma subpágina tem um endereço sob a página superior (/servicos/cozinhas) e aparece na trilha de navegação dela.',
-    'A template builds the page from ready-made sections with sample texts and opens it in the builder.' => 'Um modelo cria a página a partir de seções prontas com textos de exemplo e a abre no editor.',
     'Accept it, decline it or propose other times there.' => 'Lá você pode aceitar, recusar ou propor outros horários.',
     'Add it to your calendar: %s' => 'Adicione à sua agenda: %s',
     'Add social networks under Settings.' => 'Adicione as redes sociais em Configurações.',

@@ -22,6 +22,7 @@ final class Guide
         '' => 'first-steps#the-dashboard',
         'account' => 'claude-connect',
         'pages' => 'page-settings',
+        'page_templates' => 'page-settings',
         'news' => 'news#writing',
         'categories' => 'news',
         'tags' => 'news',

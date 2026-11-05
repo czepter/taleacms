@@ -11,7 +11,7 @@
  * @var list<array{revision_id:int, created_at:string, title:string, user_id:?string}> $versions  older versions of the text
  * @var ?string $translationOf  the title of the original when this is a new translation
  * @var string $languageName  the name of the page's language version
- * @var array<string, array{0: string, 1: list<string>}> $starts  New page: what it can start from (Pages::startOptions), [] when editing
+ * @var array<string, array{0: string, 1: list<string>}> $starts  New page: what it can start from (Builder\PageTemplates::startOptions), [] when editing
  * @var string $start  the start asked for (?template=)
  * @var array<string, string> $sectionNames  section key => name
  * @var array<string, string> $copyable  builder pages to start from (public id => title)
@@ -68,7 +68,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 			<select name="copy_of" aria-label="<?= e(t('Page to copy')) ?>"><?php foreach ($copyable as $copyId => $copyTitle): ?><option value="<?= e($copyId) ?>"><?= e($copyTitle) ?></option><?php endforeach ?></select></label>
 <?php endif ?>
 	</div>
-	<span class="help"><?= e(t('A start in the builder puts ready-made sections with placeholders on the page and opens it in the builder.')) ?> <?= e(t('Save any page as a template from its menu in Pages.')) ?><?php if ($mine !== []): ?> <a href="<?= e($module->url('templates')) ?>"><?= e(t('Your templates')) ?></a><?php endif ?></span>
+	<span class="help"><?= e(t('A start in the builder puts ready-made sections with placeholders on the page and opens it in the builder.')) ?> <?= e(t('Save any page as a template from its menu in Pages.')) ?><?php if ($mine !== []): ?> <a href="<?= e($app->url('admin.php?module=page_templates')) ?>"><?= e(t('Your templates')) ?></a><?php endif ?></span>
 </fieldset>
 <?php endif ?>
 <?php if ($copyBuild): ?>

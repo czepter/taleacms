@@ -625,23 +625,8 @@ final class Pages extends Module
 
                 return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
             }
-            // a copy of one of the site's builder pages, or one of your own templates: its build as the draft, straight into the builder
-            $copy = match (true) {
-                $r->post('template') === 'copy' => $this->copiedBuild($r->post('copy_of'), $data['language']),
-                str_starts_with($r->post('template'), 'mine:') => \Talea\Builder\PageTemplates::build($this->db, substr($r->post('template'), 5)),
-                default => null,
-            };
-            if ($copy !== null) {
-                $this->db->update('pages', ['build_draft' => Build::toJson($copy)], ['page_id' => $id]);
-                \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
-                \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
-
-                return \Talea\Core\Response::redirect($this->url('builder', ['id' => $this->publicId($id)]));
-            }
-            $template = self::startSections($r->post('template'));
-            if ($template !== null && ($template[1] !== [] || $r->post('template') === 'blank')) {
-                // new page from a template: sections from the library as a draft and straight into the builder
-                $build = \Talea\Builder\Library::page($this->db, $template[1], $data['title'], $this->contentLanguage($data['language']));
+            $template = \Talea\Builder\PageTemplates::startSections($r->post('template')); // a start in the builder: its draft, straight into the builder
+            if (($build = \Talea\Builder\PageTemplates::startBuild($this->db, $r->post('template'), $r->post('copy_of'), $data['title'], $data['language'], $this->contentLanguage($data['language']), $this->app->auth()->isAdmin())) !== null) {
                 $this->db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $id]);
                 \Talea\Core\SeoScore::refresh($this->app, 'page', $id);
                 \Talea\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
@@ -1049,46 +1034,6 @@ final class Pages extends Module
     }
 
     /** Copy of the page including the build and the work-in-progress draft – hidden, with a free slug. */
-    /** "Save as template" (Pages list): a copy of the page's build (its draft, otherwise the published one) becomes a template for New page. */
-    protected function actionSaveTemplate(): Response
-    {
-        $page = $this->request->isPost() ? $this->loadPage($this->idParam('page_id')) : null;
-        $json = $page['build_draft'] ?? $page['build'] ?? null;
-        if ($page === null || $json === null) {
-            return $this->back('Only a page built in the builder can be saved as a template.', '', [], 'error');
-        }
-        $saved = \Talea\Builder\PageTemplates::save($this->db, (string) $page['title'], Build::fromJson((string) $json) ?? ['v' => Build::VERSION, 'children' => []], $this->app->auth()->isAdmin());
-        if (is_array($saved)) {
-            return $this->back($saved['error'], '', [], 'error');
-        }
-
-        return $this->back(t('“%s” is saved as a template – New page offers it.', (string) $page['title']), 'templates');
-    }
-
-    /** Your templates: rename or delete them (they are copies, the pages they came from stay as they are). */
-    protected function actionTemplates(): Response
-    {
-        return $this->view('templates', 'Your page templates', ['templates' => \Talea\Builder\PageTemplates::all($this->db)]);
-    }
-
-    protected function actionTemplateRename(): Response
-    {
-        if ($this->request->isPost() && \Talea\Builder\PageTemplates::rename($this->db, $this->request->post('id'), $this->request->post('name'))) {
-            return $this->back('The template is renamed.', 'templates');
-        }
-
-        return $this->back('Give the template a name.', 'templates', [], 'error');
-    }
-
-    protected function actionTemplateDelete(): Response
-    {
-        if ($this->request->isPost()) {
-            \Talea\Builder\PageTemplates::delete($this->db, $this->request->post('id'));
-        }
-
-        return $this->back('The template is deleted. Pages started from it stay as they are.', 'templates');
-    }
-
     protected function actionDuplicate(): Response
     {
         $page = $this->request->isPost() ? $this->loadPage($this->idParam('page_id')) : null;
@@ -1115,47 +1060,6 @@ final class Pages extends Module
      * @param array<string, mixed> $page
      * @param array<string, string> $errors
      */
-    /**
-     * What a new page can start from (the cards of New page): a blank builder page, a page template of the library, or the sections a
-     * look suggests (Appearance → Looks, "New page from these sections"). value => [name, section keys]; the text page is ''.
-     *
-     * @return array<string, array{0: string, 1: list<string>}>
-     */
-    public static function startOptions(string $look = ''): array
-    {
-        $options = ['blank' => ['Blank builder page', []]] + \Talea\Builder\Library::PAGE_TEMPLATES;
-        if (($definition = \Talea\Builder\Looks::get($look)) !== null && $definition['sections'] !== []) {
-            $options = ['look:' . $look => [t('Sections of the look %s', $definition['name']), $definition['sections']]] + $options;
-        }
-
-        return $options;
-    }
-
-    /** The start a posted template value names, or null (a text page, or a value that is not offered). @return array{0: string, 1: list<string>}|null */
-    private static function startSections(string $value): ?array
-    {
-        return self::startOptions(str_starts_with($value, 'look:') ? substr($value, 5) : '')[$value] ?? null;
-    }
-
-    /**
-     * "A copy of a page" (your own templates): the build of a builder page of the same language version – its draft, otherwise the
-     * published one – with new element ids, or null when the posted page is not one.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function copiedBuild(string $publicId, string $language): ?array
-    {
-        $row = $publicId === '' ? null : $this->db->one('SELECT build, build_draft FROM {pages} WHERE public_id = ? AND language = ? AND deleted_at IS NULL', [$publicId, $language]);
-        $json = $row['build_draft'] ?? $row['build'] ?? null;
-        if ($json === null) {
-            return null;
-        }
-        [$build] = Build::sanitize(Build::fromJson((string) $json) ?? ['v' => Build::VERSION, 'children' => []], $this->app->auth()->isAdmin());
-        $build['children'] = array_map(\Talea\Builder\Library::withNewIds(...), $build['children']);
-
-        return $build;
-    }
-
     private function form(array $page, array $errors = [], ?string $translationOf = null): Response
     {
         $page['public_id'] ??= $this->publicId((int) $page['page_id']);
@@ -1167,13 +1071,8 @@ final class Pages extends Module
         // a new translation says so in its heading: "Translation: Garden design → Português"
         return $this->view('form', $page['page_id'] ? 'Edit page' : ($translationOf !== null ? t('Translation: %s → %s', $translationOf, $languageName) : 'New page'), [
             'page' => $page, 'errors' => $errors, 'translationOf' => $translationOf, 'languageName' => $languageName, 'parentPublicId' => $this->publicId((int) ($page['parent_id'] ?? 0)),
-            // New page: the cards to start from (?template=look:<key> from the looks gallery adds that look's sections and picks them)
-            'starts' => $page['page_id'] ? [] : self::startOptions(str_starts_with($start = $this->request->post('template', $this->request->get('template')), 'look:') ? substr($start, 5) : ''),
-            'start' => $page['page_id'] ? '' : $this->request->post('template', $this->request->get('template')),
-            'sectionNames' => $page['page_id'] ? [] : array_column(\Talea\Builder\Library::listAll(), 'name', 'key'),
-            // "A copy of a page": the builder pages of this language version to start from
-            'mine' => $page['page_id'] ? [] : \Talea\Builder\PageTemplates::all($this->db),
-            'copyable' => $page['page_id'] ? [] : $this->db->pairs('SELECT public_id, title FROM {pages} WHERE language = ? AND deleted_at IS NULL AND (build IS NOT NULL OR build_draft IS NOT NULL) ORDER BY title', [$language]),
+            // New page: the cards to start from (Builder\PageTemplates::newPage)
+            ...($page['page_id'] ? ['starts' => [], 'start' => '', 'sectionNames' => [], 'mine' => [], 'copyable' => []] : \Talea\Builder\PageTemplates::newPage($this->db, $language, $this->request->post('template', $this->request->get('template')))),
             // possible parent pages: the same language, not the page itself nor its subpages
             'parents' => array_values(array_filter($this->db->all('SELECT page_id, public_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, (int) $page['page_id']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['slug'] . '/', $custom . '/'))),
