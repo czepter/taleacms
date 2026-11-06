@@ -163,6 +163,13 @@ a.signed-in { color: inherit; text-decoration: none; display: inline-flex; align
 .confirmation::backdrop { background: rgb(0 0 0 / 0.45); }
 .confirmation p { margin: 0 0 16px; font-weight: bold; white-space: pre-line; }
 .confirmation div { display: flex; gap: 8px; }
+/* the button of a dangerous action is held down: a darker fill runs across it (admin.js); a plain click without a pointer still confirms */
+.confirmation small { display: block; margin-top: 8px; font-size: 12px; color: var(--ed-text-weak); }
+.confirmation small[hidden] { display: none; }
+.confirmation [data-hold] { position: relative; overflow: hidden; isolation: isolate; user-select: none; touch-action: none; }
+.confirmation [data-hold]::before { content: ""; position: absolute; inset: 0; z-index: -1; background: rgb(0 0 0 / .28); transform: scaleX(0); transform-origin: left; transition: transform .15s ease-out; }
+.confirmation [data-holding]::before { transform: scaleX(1); transition: transform .8s linear; }
+@media (prefers-reduced-motion: reduce) { .confirmation [data-holding]::before { transition-duration: .8s; } }
 /* a confirmation that asks for the current password (My account, the e-mail): a title, what happens, a full-width field */
 .reauth { box-sizing: border-box; width: min(420px, calc(100vw - 32px)); }
 .reauth h2 { margin: 0 0 8px; font-size: 17px; }

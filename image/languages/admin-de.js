@@ -1012,6 +1012,7 @@ window.TALEA_TRANSLATIONS = {
 	"Highlighted plan": "Hervorgehobenes Paket",
 	"History": "Geschichte",
 	"Hits": "Aufrufe",
+	"Hold to confirm": "Zum Bestätigen gedrückt halten",
 	"Home page and news": "Startseite und News",
 	"Home page preview": "Vorschau der Startseite",
 	"Honest workmanship": "Ehrliche Ausführung",
