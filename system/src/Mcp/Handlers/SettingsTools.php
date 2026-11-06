@@ -324,7 +324,9 @@ trait SettingsTools
         $report = \Talea\Core\Report::build($this->app->db(), $days);
         $report['form_steps'] = \Talea\Front\FormSteps::overview($this->app->db(), $days);
 
-        return $report + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings())];
+        // counting.since: the day visits began to be counted by the browser's beacon (null when no older figures exist); the figures
+        // of earlier days counted every request and are not comparable
+        return $report + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings()), 'counting' => ['method' => \Talea\Front\Stats::method(), 'changed_on' => $report['counting_since']]];
     }
 
     /** get_search_performance: what Search engines → Performance shows, for whoever may open it (the Statistics right) */

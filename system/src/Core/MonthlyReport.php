@@ -67,6 +67,8 @@ final class MonthlyReport
                 'campaigns' => $top('SELECT campaign AS k, SUM(visits) AS n FROM {stats_campaigns} WHERE day >= ? AND day < ? GROUP BY campaign ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'campaign'),
                 // contact clicks (2.12, Core\Conversions): calls, e-mails and WhatsApp – leads next to the enquiries, counts only
                 'contact_clicks' => array_diff_key(Conversions::summary($db, $fromDay, $toDay), ['by_page' => true]),
+                // the day visits began to be counted by the browser's beacon, when it falls in this or the previous month (the comparison breaks there)
+                'counting_since' => (($since = \Talea\Front\Stats::countingChange($db, $s)) !== null && $since >= $previousStart->format('Y-m-d') && $since < $toDay) ? $since : null,
             ];
         }
 
@@ -375,6 +377,10 @@ final class MonthlyReport
             if (is_array($stats)) {
                 $rows = [$row(e(t('Visits')), e($change((int) $stats['visits'], (int) $stats['previous_visits']))), $row(e(t('Page views')), e($change((int) $stats['views'], (int) $stats['previous_views'])))];
                 $pairs = [[t('Visits'), $change((int) $stats['visits'], (int) $stats['previous_visits'])], [t('Page views'), $change((int) $stats['views'], (int) $stats['previous_views'])]];
+                if (($stats['counting_since'] ?? null) !== null) {
+                    $rows[] = '<tr><td colspan="2" style="padding:6px 0;color:#555;font-size:13px;">' . e(\Talea\Front\Stats::countingNote((string) $stats['counting_since'])) . '</td></tr>';
+                    $pairs[] = [\Talea\Front\Stats::countingNote((string) $stats['counting_since']), ''];
+                }
                 $list = function (string $title, array $items, string $key) use (&$rows, &$pairs, $row, $safe, $n): void {
                     if ($items === []) {
                         return;

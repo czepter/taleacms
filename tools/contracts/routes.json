@@ -227,6 +227,14 @@
         "methods": [
             "POST"
         ],
+        "pattern": "/_view",
+        "when": "",
+        "handler": "Endpoints::view"
+    },
+    {
+        "methods": [
+            "POST"
+        ],
         "pattern": "/conversion",
         "when": "",
         "handler": "Endpoints::conversion"

@@ -85,6 +85,9 @@ $waiting = $warnings !== [] || $pending !== [];
 <?php if ($line !== ''): ?>
 			<svg viewBox="0 0 320 64" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,64 <?= $line ?>320,64"/><polyline points="<?= trim($line) ?>"/></svg>
 <?php endif ?>
+<?php if ($report['counting_since'] !== null && $report['counting_since'] > date('Y-m-d', strtotime('-' . (2 * $glance['days']) . ' days'))): ?>
+			<span class="small-text"><?= e(Talea\Front\Stats::countingNote($report['counting_since'])) ?></span>
+<?php endif ?>
 		</a>
 <?php endif ?>
 <?php if (isset($has['enquiries'])): ?>

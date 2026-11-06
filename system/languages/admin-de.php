@@ -6123,6 +6123,7 @@ return [
     'Visitors who reach the site under another address (with or without www, an old domain) are sent to the same page on the site address. The administration, the Claude connection and preview links are not redirected.' => 'Wer die Website unter einer anderen Adresse erreicht (mit oder ohne www, eine alte Domain), landet auf derselben Seite unter der Website-Adresse. Die Administration, die Claude-Verbindung und Vorschau-Links werden nicht umgeleitet.',
     'Visitors’ data' => 'Besucherdaten',
     'Visits' => 'Besuche',
+    'Visits are counted when the visitor’s browser confirms the page was shown. Figures before %s counted every request and are not comparable with the days after it.' => 'Besuche werden gezählt, wenn der Browser des Besuchers bestätigt, dass die Seite angezeigt wurde. Die Zahlen vor dem %s zählten jede Anfrage und sind mit den Tagen danach nicht vergleichbar.',
     'Visits in 7 days' => 'Besuche in 7 Tagen',
     'Visits in the last 14 days' => 'Besuche in den letzten 14 Tagen',
     'Visits that became a lead' => 'Besuche, die zu einem Lead wurden',

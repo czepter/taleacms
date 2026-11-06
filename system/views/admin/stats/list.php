@@ -61,12 +61,16 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
 	<div class="tiles-item"><strong><?= $percent($totals['conversion']) ?></strong><span><?= e(t('Visits that became a lead')) ?></span></div>
 	<div class="tiles-item"><strong><?= format_count(Talea\Core\Conversions::total($report['contact_clicks'])) ?></strong><span><?= e(t('Contact clicks (calls, e-mails, WhatsApp)')) ?></span></div>
 </div>
+<?php $countingSince = $report['counting_since']; ?>
+<?php if ($countingSince !== null): ?>
+<p class="small-text stats-counting"><?= e(Talea\Front\Stats::countingNote($countingSince)) ?></p>
+<?php endif ?>
 <figure class="stats-chart">
 <figcaption><?= e(t('Page views and visits by day')) ?></figcaption>
 <div class="chart" role="img" aria-label="<?= e(t('Bar chart of page views by day')) ?>">
 <?php foreach ($chart as $h): ?>
 <?php $dayLabel = t('%s: %s page views, %s visits', format_date($h['day']), $h['views'], $h['visits']) . ($h['enquiries'] + $h['signups'] > 0 ? ', ' . t('%s leads', $h['enquiries'] + $h['signups']) : ''); ?>
-	<div class="chart-column" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"><i data-tip-anchor style="height:<?= round($h['views'] / $max * 100, 1) ?>%"><b style="height:<?= $h['views'] > 0 ? round($h['visits'] / $h['views'] * 100, 1) : 0 ?>%"></b></i></div>
+	<div class="chart-column"<?= $h['day'] === $countingSince ? ' data-counting-change' : '' ?> data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"><i data-tip-anchor style="height:<?= round($h['views'] / $max * 100, 1) ?>%"><b style="height:<?= $h['views'] > 0 ? round($h['visits'] / $h['views'] * 100, 1) : 0 ?>%"></b></i></div>
 <?php endforeach ?>
 </div>
 <p class="small-text"><?= e(format_date($chart[0]['day'])) ?> – <?= e(format_date($chart[count($chart) - 1]['day'])) ?> · <?= e(t('the light part of each bar is page views, the dark part visits. Measurement uses no cookies and stores no IP addresses; bots are not counted.')) ?></p>

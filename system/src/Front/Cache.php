@@ -95,7 +95,6 @@ final class Cache
         if (!is_array($meta) || $html === '') {
             return null;
         }
-        Stats::record($app, $meta['news_id'] ?? null);
         if (!empty($meta['news_id']) && ($_SERVER['HTTP_USER_AGENT'] ?? '') !== '') { // the warm-up sends no user agent
             $app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [(int) $meta['news_id']]);
         }
