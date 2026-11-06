@@ -937,7 +937,6 @@ A link %d napig érvényes.
     'The path to the page (Home › News › …) – built automatically for the page shown.' => 'Az oldalhoz vezető útvonal (Kezdőlap › Hírek › …) – a megjelenített oldalhoz automatikusan készül.',
     'The photos of each item’s gallery appear here.' => 'Itt jelennek meg az egyes elemek galériájának fotói.',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => 'Az alkalmazás összekapcsolására irányuló kérés lejárt vagy nem létezik. Kezdje újra az összekapcsolást az alkalmazásban.',
-    'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'A szerver nem tud titkosított FTP-t (FTPS) használni. Küldje a biztonsági mentéseket S3-tárhelyre, vagy töltse le őket kézzel.',
     'The site has no database backup yet.' => 'A weboldalról még nincs adatbázis-mentés.',
     'The state before the restore is in backup %s – please restore it.' => 'A visszaállítás előtti állapot a(z) %s mentésben található – kérjük, állítsa vissza.',
     'The structured data has no valid type – choose one or remove the element.' => 'A strukturált adatoknak nincs érvényes típusa – válasszon egyet, vagy távolítsa el az elemet.',

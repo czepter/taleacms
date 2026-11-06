@@ -174,7 +174,6 @@ Der Link gilt %d Tage.
     'The page has been imported as hidden – check it and publish it.' => 'Die Seite wurde als ausgeblendet importiert – prüfe und veröffentliche sie.',
     'The page has more than one main heading (h1) – keep just one.' => 'Die Seite hat mehr als eine Hauptüberschrift (h1) – behalte nur eine.',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => 'Die Anfrage zur Verbindung der Anwendung ist abgelaufen oder existiert nicht. Starte die Verbindung in der Anwendung erneut.',
-    'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'Der Server unterstützt kein verschlüsseltes FTP (FTPS). Sende Sicherungen an einen S3-Speicher oder lade sie manuell herunter.',
     'The state before the restore is in backup %s – please restore it.' => 'Der Zustand vor der Wiederherstellung liegt in der Sicherung %s – bitte stelle sie wieder her.',
     'The website measures traffic without cookies. It uses third-party cookies only with your consent.' => 'Die Website misst Besucherzahlen ohne Cookies. Cookies von Drittanbietern setzt sie nur mit deiner Einwilligung.',
     'The website requires two-step sign-in – you can create a token once you turn it on.' => 'Die Website erfordert die Zwei-Faktor-Anmeldung – ein Token kannst du erstellen, sobald du sie aktiviert hast.',

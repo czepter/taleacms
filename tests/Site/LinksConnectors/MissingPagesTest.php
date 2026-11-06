@@ -12,6 +12,17 @@ final class MissingPagesTest extends \Talea\Tests\Site\Support\SiteTestCase
 {
     use FakeServices;
 
+    public function testATraversalProbeInTheLogDoesNotBreakTheScreens(): void
+    {
+        $site = $this->site();
+        $site->exec('DELETE FROM tl_not_found');
+        $site->exec("INSERT INTO tl_not_found (path, count, last_seen_at, referrer, first_seen_at) VALUES ('@fs/../../proc/self/environ', 9, NOW(), '', NOW()), ('a/../../etc/passwd', 9, NOW(), '', NOW())");
+        $this->assertPage('/admin.php?module=missing_pages', 200, [], message: 'the list opens with a path-traversal probe in the log');
+        $this->assertPage('/admin.php', 200, [], message: 'and so does the dashboard');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_not_found WHERE path LIKE '%..%'"), 'the probes are dropped from the log, not offered as addresses to redirect');
+        $this->assertSame([true, true], [\Talea\Core\NotFound::isBot('@fs/../../proc/self/environ'), \Talea\Core\NotFound::isBot('a/../../etc/passwd')]);
+    }
+
     public function testTheScreenListsAddressesWithReferrerAndDecidesThem(): void
     {
         $site = $this->site();

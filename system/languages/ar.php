@@ -937,7 +937,6 @@ The link works for %d days.
     'The path to the page (Home › News › …) – built automatically for the page shown.' => 'مسار الصفحة (الرئيسية › الأخبار › …) – يُنشأ تلقائيًا للصفحة المعروضة.',
     'The photos of each item’s gallery appear here.' => 'تظهر هنا صور معرض كل عنصر.',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => 'انتهت صلاحية طلب ربط التطبيق أو لم يعد موجودًا. ابدأ الربط من جديد في التطبيق.',
-    'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'لا يستطيع الخادم استخدام FTP المشفّر (FTPS). أرسل النسخ الاحتياطية إلى تخزين S3 أو نزّلها يدويًا.',
     'The site has no database backup yet.' => 'لا توجد نسخة احتياطية لقاعدة بيانات الموقع حتى الآن.',
     'The state before the restore is in backup %s – please restore it.' => 'الحالة قبل الاستعادة موجودة في النسخة الاحتياطية %s – يرجى استعادتها.',
     'The structured data has no valid type – choose one or remove the element.' => 'ليس للبيانات المنظمة نوع صالح – اختر نوعًا أو احذف العنصر.',

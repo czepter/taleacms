@@ -68,3 +68,10 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <p class="help"><?= e(t('Moving a site to another Talea installation without accounts and secrets is simpler with Export of the whole site and Import from Talea (Import and export).')) ?></p>
 </details>
 </fieldset>
+<?php if (Talea\Core\Antispam::environmentSecret($app->settings()) === null): ?>
+<fieldset>
+<legend><?= e(t('Signing key')) ?></legend>
+<p class="help"><?= e(t('The signing key signs preview links, download links and form signatures. Renew it when it may have leaked, for example after a backup or an export ended up in the wrong hands.')) ?></p>
+<p><button class="navigation danger" type="submit" formaction="<?= e($module->url('new_key')) ?>" data-confirm="<?= e(t('Renew the signing key? These stop working: preview links already shared, links to protected downloads, forms that are open in a visitor\'s browser (they must be reloaded), and Custom HTML copied from this site that has not been pasted yet. Saved connections to outside services keep working.')) ?>"><?= e(t('Renew the signing key')) ?></button></p>
+</fieldset>
+<?php endif ?>

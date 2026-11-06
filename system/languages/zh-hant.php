@@ -937,7 +937,6 @@ The link works for %d days.
     'The path to the page (Home › News › …) – built automatically for the page shown.' => '通往頁面的路徑（首頁 › 最新消息 › …）– 會針對顯示的頁面自動產生。',
     'The photos of each item’s gallery appear here.' => '此處顯示每個條目圖庫中的照片。',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => '連結應用程式的請求已過期或不存在。請在應用程式中重新開始連結。',
-    'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => '伺服器無法使用加密 FTP（FTPS）。請將備份傳送到 S3 儲存空間，或手動下載。',
     'The site has no database backup yet.' => '此網站尚無資料庫備份。',
     'The state before the restore is in backup %s – please restore it.' => '還原前的狀態保存在備份 %s 中 – 請將其還原。',
     'The structured data has no valid type – choose one or remove the element.' => '結構化資料沒有有效的類型 – 請選擇一個類型或移除此元素。',

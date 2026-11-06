@@ -92,6 +92,20 @@ final class AccountSecurityTest extends SiteTestCase
     }
 
     #[Depends('testPasswordResetRevokesTheConnectionTokens')]
+    public function testAPasswordLinkForAnotherAccountSignsTheBrowserOut(): void
+    {
+        $site = $this->site();
+        $client = $site->client('shared-browser');
+        $site->signIn($client);
+        $this->assertStringNotContainsString('name="username"', $client->get('/admin.php')->body, 'the browser is signed in as the administrator');
+        $token = str_repeat('e', 64);
+        $site->exec("UPDATE tl_users SET reset_token_hash = ?, reset_sent_at = NOW() + INTERVAL 1 DAY WHERE username = 'salesperson'", [hash('sha256', $token)]);
+        $client->get('/admin.php?action=password&token=' . $token);
+
+        $this->assertStringContainsString('name="username"', $client->get('/admin.php')->body, 'opening the password link of another account ends the sign-in of the account that was open in this browser');
+    }
+
+    #[Depends('testPasswordResetRevokesTheConnectionTokens')]
     public function testAPasswordSetByAnAdministratorRevokesPersonalTokensToo(): void
     {
         $site = $this->site();

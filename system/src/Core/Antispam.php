@@ -51,6 +51,34 @@ final class Antispam
         return $key;
     }
 
+    /**
+     * A new signing key (links, previews, form signatures). The stored connector credentials are sealed with it, so they are
+     * sealed again in the same transaction. false = nothing changed: the key comes from TALEA_SECRET_KEY (change the variable
+     * instead), or the change failed.
+     */
+    public function renew(): bool
+    {
+        if (self::environmentSecret($this->settings) !== null) {
+            return false;
+        }
+        $old = $this->key();
+        $fresh = bin2hex(random_bytes(32));
+        try {
+            $this->db->transaction(function (Db $db) use ($old, $fresh): void {
+                if ($db->tableExists('connectors')) {
+                    Connectors::rekey($db, $old, $fresh);
+                }
+                $this->settings->set('secret_key', $fresh);
+            });
+        } catch (\Throwable $e) {
+            error_log('Talea: the signing key could not be renewed: ' . $e->getMessage());
+
+            return false;
+        }
+
+        return true;
+    }
+
     /** The shortest TALEA_SECRET_KEY that is used (`openssl rand -hex 32` gives 64 characters); a shorter one is ignored and System status says so. */
     public const int SECRET_MIN_LENGTH = 32;
 
