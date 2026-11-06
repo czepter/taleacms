@@ -101,7 +101,7 @@
 		if (!confirmDialog) {
 			confirmDialog = document.createElement('dialog');
 			confirmDialog.className = 'confirmation';
-			confirmDialog.innerHTML = '<p></p><div><button type="button" class="btn" data-yes>' + T('Yes, do it') + '</button> <button type="button" class="navigation" data-no>' + T('Cancel') + '</button></div>';
+			confirmDialog.innerHTML = '<p></p><div><button type="button" class="btn" data-yes>' + T('Yes, do it') + '</button> <button type="button" class="navigation" data-no>' + T('Cancel') + '</button></div><small hidden>' + T('Hold to confirm') + '</small>';
 			document.body.appendChild(confirmDialog);
 			confirmDialog.querySelector('[data-no]').addEventListener('click', function () { confirmDialog.close(); });
 		}
@@ -110,12 +110,30 @@
 		var yes = confirmDialog.querySelector('[data-yes]'), label = button && button.tagName === 'BUTTON' ? button.textContent.trim() : '';
 		yes.textContent = label !== '' && label.length <= 40 ? label : T('Yes, do it');
 		yes.classList.toggle('btn-danger', !!(button && button.classList.contains('danger')));
-		confirmDialog.querySelector('[data-yes]').onclick = function () {
+		var proceed = function () {
 			confirmDialog.close();
 			form.confirmed = true;
 			if (form.requestSubmit) { form.requestSubmit(button || undefined); } else { form.submit(); }
 			form.confirmed = false;
 		};
+		// a dangerous action is confirmed by holding the button (the fill shows how long); a click without a pointer
+		// (detail 0: keyboard Enter on a button, a screen reader, a script) confirms at once, so nobody is locked out
+		var holdTimer = 0;
+		var release = function () { clearTimeout(holdTimer); yes.removeAttribute('data-holding'); };
+		var hold = !!(button && button.classList.contains('danger'));
+		yes.toggleAttribute('data-hold', hold);
+		confirmDialog.querySelector('small').hidden = !hold;
+		yes.onpointerdown = yes.onkeydown = null; yes.onpointerup = yes.onpointerleave = yes.onpointercancel = yes.onkeyup = yes.onblur = null;
+		if (hold) {
+			var begin = function () { if (holdTimer) { clearTimeout(holdTimer); } yes.setAttribute('data-holding', ''); holdTimer = setTimeout(function () { holdTimer = 0; yes.removeAttribute('data-holding'); yes.held = true; proceed(); }, 800); };
+			yes.onpointerdown = function (ev) { if (ev.button === 0) { begin(); } };
+			yes.onpointerup = yes.onpointerleave = yes.onpointercancel = yes.onblur = release;
+			yes.onkeydown = function (ev) { if ((ev.key === ' ' || ev.key === 'Enter') && !ev.repeat) { ev.preventDefault(); begin(); } };
+			yes.onkeyup = release;
+			yes.onclick = function (ev) { if (ev.detail === 0 && !yes.held) { proceed(); } yes.held = false; };
+		} else {
+			yes.onclick = proceed;
+		}
 		confirmDialog.showModal();
 		confirmDialog.querySelector('[data-no]').focus();
 	});
@@ -330,7 +348,7 @@
 			var preview = document.querySelector('[data-signature-preview]');
 			var plain = document.querySelector('[data-signature-text]');
 			var html = preview.innerHTML, text = plain ? plain.value : preview.innerText;
-			var done = function () { signatureButton.textContent = T('Copied'); };
+			var done = function () { flashLabel(signatureButton, T('Copied')); };
 			var select = function () {
 				var range = document.createRange(); range.selectNodeContents(preview);
 				var selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
@@ -350,7 +368,7 @@
 			var source = document.querySelector(button.getAttribute('data-copy'));
 			if (!source) { return; }
 			var text = (/^(TEXTAREA|INPUT)$/.test(source.tagName) ? source.value : source.textContent).trim();
-			var done = function () { button.textContent = T('Copied'); };
+			var done = function () { flashLabel(button, T('Copied')); };
 			var select = function () { // without the Clipboard API the address is selected for Ctrl+C
 				var range = document.createRange(); range.selectNodeContents(source);
 				var selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
@@ -774,4 +792,35 @@
 		});
 		actions.appendChild(save);
 	}
+	// A label that confirms for a moment ("Copied") and then comes back; the button keeps its width, so nothing around it shifts.
+	function flashLabel(button, text) {
+		if (!button.flashing) { button.flashing = { label: button.textContent, width: button.style.minWidth }; button.style.minWidth = button.offsetWidth + 'px'; }
+		clearTimeout(button.flashing.timer);
+		button.textContent = text;
+		button.setAttribute('data-flash', '');
+		button.flashing.timer = setTimeout(function () {
+			button.textContent = button.flashing.label;
+			button.style.minWidth = button.flashing.width;
+			button.removeAttribute('data-flash');
+			button.flashing = null;
+		}, 1600);
+	}
+
+	// A saving form shows it: the button that sent it keeps its size and label and gets a spinner (aria-busy), and a second click
+	// cannot send the form twice. Not for forms that do not leave the page (a download, a new tab, a script that took the submit over).
+	document.addEventListener('submit', function (e) {
+		var form = e.target, button = e.submitter;
+		if (form.pending) { e.preventDefault(); return; }
+		setTimeout(function () {
+			if (e.defaultPrevented || form.target === '_blank' || (button && button.getAttribute('formtarget') === '_blank') || !button || button.tagName !== 'BUTTON') { return; }
+			form.pending = true;
+			button.style.minWidth = button.offsetWidth + 'px';
+			button.setAttribute('aria-busy', 'true');
+			// a download keeps the page where it is: release the button after a while, a navigation replaces the page anyway
+			setTimeout(function () { form.pending = false; button.removeAttribute('aria-busy'); button.style.minWidth = ''; }, 15000);
+		}, 0);
+	});
+	window.addEventListener('pageshow', function (e) { // back button: the page comes from memory with the spinner still on
+		if (e.persisted) { document.querySelectorAll('[aria-busy="true"]').forEach(function (b) { b.removeAttribute('aria-busy'); b.style.minWidth = ''; if (b.form) { b.form.pending = false; } }); }
+	});
 })();

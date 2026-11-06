@@ -1009,6 +1009,7 @@ window.TALEA_TRANSLATIONS = {
 	"Highlighted plan": "Zvýrazněný balíček",
 	"History": "Historie",
 	"Hits": "Kolikrát",
+	"Hold to confirm": "Podržte pro potvrzení",
 	"Home page and news": "Úvodní stránka a novinky",
 	"Home page preview": "Náhled úvodní stránky",
 	"Honest workmanship": "Poctivé provedení",

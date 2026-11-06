@@ -658,6 +658,17 @@ label.navigation {
 	background: var(--accent);
 	color: var(--on-accent);
 }
+/* a button whose form is being sent (admin.js): same size and label, a spinner over it, no second click */
+button[aria-busy="true"] { position: relative; color: transparent; pointer-events: none; }
+button[aria-busy="true"]::after {
+	content: ""; position: absolute; inset: 0; margin: auto; width: 1em; height: 1em;
+	border: 2px solid var(--on-accent, currentColor); border-inline-end-color: transparent; border-radius: 50%;
+	animation: button-spin .7s linear infinite;
+}
+button.navigation[aria-busy="true"]::after { border-color: var(--text); border-inline-end-color: transparent; }
+@keyframes button-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { button[aria-busy="true"]::after { animation-duration: 2.4s; } }
+button[data-flash] { transition: background-color .2s; }
 .btn.btn-danger { background: var(--error); color: var(--surface); } /* --surface: white in light mode, the dark surface on the light red of dark mode */
 .btn.btn-danger:hover { background: color-mix(in srgb, var(--error) 85%, var(--text)); color: var(--surface); }
 .btn:hover {
@@ -1868,7 +1879,14 @@ body.login {
 .segmented input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
 .segmented span { display: block; padding: 8px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: var(--radius); font-size: 13px; font-weight: 500; text-align: center; color: var(--text-weak); }
 .segmented label:hover span { color: var(--text); }
-.segmented input:checked + span { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+/* the chosen option is a pill behind the labels that slides to the next one (three options; the pill is as wide as one) */
+.segmented { position: relative; isolation: isolate; --seg-width: calc((100% - 16px) / 3); }
+.segmented::before { content: ""; position: absolute; z-index: -1; inset-block: 4px; inset-inline-start: 4px; width: var(--seg-width); border-radius: var(--radius); background: var(--accent); opacity: 0; transition: transform .22s cubic-bezier(.3, 1.2, .5, 1); }
+.segmented:has(input:checked)::before { opacity: 1; }
+.segmented:has(label:nth-child(2) input:checked)::before { transform: translateX(calc(100% + 4px)); }
+.segmented:has(label:nth-child(3) input:checked)::before { transform: translateX(calc(200% + 8px)); }
+@media (prefers-reduced-motion: reduce) { .segmented::before { transition: none; } }
+.segmented input:checked + span { color: var(--on-accent); font-weight: 600; }
 .segmented input:focus-visible + span { outline: 2px solid var(--signal); outline-offset: 2px; }
 @media (max-width: 860px) { .enquiry-side { max-width: none; } .enquiry-bar-end { margin-inline-start: 0; } }
 
@@ -2865,7 +2883,10 @@ form:not(:has(input[name=from][value=file]:checked)) .start-file { display: none
 
 /* a yes/no setting as a switch: the checkbox itself, so the form posts as before */
 .flag-switch { appearance: none; position: relative; flex: none; width: 42px; height: 24px; margin: 0 8px 0 0; border-radius: 999px; background: var(--line-field); cursor: pointer; vertical-align: middle; transition: background-color .12s; }
-.flag-switch::after { content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); transition: inset-inline-start .12s; }
+.flag-switch::after { content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); transition: inset-inline-start .18s cubic-bezier(.3, 1.4, .5, 1), width .12s; }
+@media (prefers-reduced-motion: reduce) { .flag-switch::after { transition: none; } }
+.flag-switch:active::after { width: 23px; }
+.flag-switch:checked:active::after { width: 23px; inset-inline-start: 16px; }
 .flag-switch:checked { background: var(--ok); }
 .flag-switch:checked::after { inset-inline-start: 21px; }
 .flag-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
