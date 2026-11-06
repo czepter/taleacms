@@ -604,6 +604,7 @@
 	if (website && settingsToggles.length) {
 		var foldSettings = function (closed) {
 			website.classList.toggle('settings-closed', closed);
+			document.documentElement.toggleAttribute('data-settings-closed', closed);
 			settingsToggles.forEach(function (b) { b.setAttribute('aria-expanded', closed ? 'false' : 'true'); });
 			try { localStorage.setItem('talea.websiteSettings', closed ? 'closed' : 'open'); } catch (e) { /* private mode */ }
 		};
