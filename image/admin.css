@@ -1980,9 +1980,9 @@ body.login {
 .website-add-type select { flex: 1; min-width: 0; }
 .website-settings-foot { padding: 12px 16px; }
 .website-settings-rail { display: none; }
-.website.settings-closed .website-settings { flex-basis: 56px; }
-.website.settings-closed .website-settings > :not(.website-settings-rail) { display: none; }
-.website.settings-closed .website-settings-rail { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
+:is(.website.settings-closed, :root[data-settings-closed] .website) .website-settings { flex-basis: 56px; }
+:is(.website.settings-closed, :root[data-settings-closed] .website) .website-settings > :not(.website-settings-rail) { display: none; }
+:is(.website.settings-closed, :root[data-settings-closed] .website) .website-settings-rail { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
 .website-settings-rail .website-score { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 2px solid currentColor; border-radius: 50%; }
 .website-settings-rail .website-score::before { content: none; }
 /* score dots of the page tree (website_sidebar.php): the number beside a coloured dot, an empty ring without a focus keyword */
@@ -2091,9 +2091,9 @@ body.login {
 .item-history li > span { flex: 1; min-width: 0; }
 .item-history small { display: block; color: var(--text-weak); }
 .item-history .navigation { padding: 3px 10px; font-size: 12px; }
-.item-editor.settings-closed .item-settings { flex-basis: 56px; }
-.item-editor.settings-closed .item-settings > :not(.website-settings-rail) { display: none; }
-.item-editor.settings-closed .website-settings-rail { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
+:is(.item-editor.settings-closed, :root[data-settings-closed] .item-editor) .item-settings { flex-basis: 56px; }
+:is(.item-editor.settings-closed, :root[data-settings-closed] .item-editor) .item-settings > :not(.website-settings-rail) { display: none; }
+:is(.item-editor.settings-closed, :root[data-settings-closed] .item-editor) .website-settings-rail { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
 .item-settings .website-settings-rail .website-score { background: none; font-family: inherit; cursor: pointer; }
 .item-notice-log { margin-top: 24px; }
 /* the collection form (collections/form.php): the item form as tiles on the same grid, each as wide as its field; a tile
@@ -2140,14 +2140,14 @@ body.login {
 }
 @media (max-width: 1100px) {
 	.form.item-editor { margin-inline-end: 0; }
-	.item-settings, .item-editor.settings-closed .item-settings { position: static; flex: 1 1 100%; max-height: none; }
-	.item-editor.settings-closed .website-settings-rail { flex-direction: row; justify-content: center; }
+	.item-settings, :is(.item-editor.settings-closed, :root[data-settings-closed] .item-editor) .item-settings { position: static; flex: 1 1 100%; max-height: none; }
+	:is(.item-editor.settings-closed, :root[data-settings-closed] .item-editor) .website-settings-rail { flex-direction: row; justify-content: center; }
 }
 @media (max-width: 1100px) {
 	.website { flex-wrap: wrap; height: auto; }
 	.website-stage { flex-basis: 100%; height: 80vh; }
-	.website-settings, .website.settings-closed .website-settings { flex: 1 1 100%; }
-	.website.settings-closed .website-settings-rail { flex-direction: row; justify-content: center; }
+	.website-settings, :is(.website.settings-closed, :root[data-settings-closed] .website) .website-settings { flex: 1 1 100%; }
+	:is(.website.settings-closed, :root[data-settings-closed] .website) .website-settings-rail { flex-direction: row; justify-content: center; }
 }
 
 /* empty state of a listing (views/admin/empty.php) */
