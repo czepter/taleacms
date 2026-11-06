@@ -76,9 +76,10 @@ final class PageFrame
         $newsItem = $meta['article'] ?? null;
         unset($meta['article']);
         if ($status === 200 && empty($meta['noindex'])) {
-            Stats::record($this->app, $newsItem === null ? null : (int) $newsItem['news_id']);
-            // real-user speed (2.8) is measured on the same page views the statistics count – never in previews or the
+            // visits are counted by the browser's beacon (image/vitals.js -> Front\Stats::view), not by this request: the page only says where
+            // to send it, and for which news item. Real-user speed (2.8) is measured on the same page views – never in previews or the
             // builder (noindex), and not for signed-in users, whose pages carry the editing bar
+            $meta['count_news'] = $newsItem === null ? '' : (string) ($newsItem['public_id'] ?? '');
             $meta['vitals'] = Stats::isOn($this->app) && $this->app->request->get('preview') === '' && $this->app->auth()->user() === null;
         }
 

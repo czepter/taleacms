@@ -68,6 +68,22 @@ final class PublicSiteTest extends SiteTestCase
         $this->assertPage('/llms.txt', 200, '## Pages');
     }
 
+    public function testTheFeedDescribesANewsItemInPlainText(): void
+    {
+        $site = $this->site();
+        $old = (string) $site->value("SELECT intro FROM tl_news WHERE slug = 'our-new-website-is-live'");
+        $site->exec("UPDATE tl_news SET intro = ? WHERE slug = 'our-new-website-is-live'", ['<p>Opened in&nbsp;May &amp; <b>June</b></p><p>Second</p>']);
+        $site->clearPageCache();
+        try {
+            $rss = $this->assertPage('/rss.xml');
+            $this->assertStringContainsString('<description>Opened in May &amp; June Second</description>', $rss->body, 'RSS: the stored HTML is text – no tags, no &nbsp;');
+            $this->assertStringContainsString('"summary":"Opened in May & June Second"', $this->assertPage('/feed.json')->body, 'and the JSON feed says the same');
+        } finally {
+            $site->exec("UPDATE tl_news SET intro = ? WHERE slug = 'our-new-website-is-live'", [$old]);
+            $site->clearPageCache();
+        }
+    }
+
     public function testEveryPageHasAMarkdownVersionForLanguageModels(): void
     {
         $markdown = $this->assertPage('/services.md', 200, ['# Services', '- Source: ' . $this->site()->base . '/services', '](' . $this->site()->base . '/contact)']);

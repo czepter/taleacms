@@ -12,6 +12,20 @@ use Talea\Core\App;
  */
 final class ChangeLog
 {
+    /**
+     * A restore or a deletion of a backup: the change log and the events (type backup.restored | backup.deleted). A restore replaces the
+     * tables, so this is written AFTER it – into the restored change log, where the person can still find it.
+     */
+    public static function backup(App $app, string $module, string $action, string $file): void
+    {
+        self::write($app, $module, $action, basename($file));
+        try {
+            \Talea\Core\Events::record($app->db(), $action === 'backup_restore' ? 'backup.restored' : 'backup.deleted', 'info', $action === 'backup_restore' ? t('Backup %s was restored.', basename($file)) : t('Backup %s was deleted.', basename($file)), ['file' => basename($file)]);
+        } catch (\Throwable) {
+            // like the change log: recording must not break the action
+        }
+    }
+
     /** $detail: what does not fit the description (#149: the whole instructions for Claude before and after, as JSON). */
     public static function write(App $app, string $module, string $action, string $description = '', string $reason = '', string $detail = ''): void
     {

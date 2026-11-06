@@ -937,7 +937,6 @@ O link é válido durante %d dias.
     'The path to the page (Home › News › …) – built automatically for the page shown.' => 'O caminho até à página (Início › Notícias › …) – criado automaticamente para a página apresentada.',
     'The photos of each item’s gallery appear here.' => 'Aqui aparecem as fotos da galeria de cada item.',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => 'O pedido de ligação da aplicação expirou ou não existe. Inicie novamente a ligação na aplicação.',
-    'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'O servidor não consegue usar FTP encriptado (FTPS). Envie as cópias de segurança para um armazenamento S3 ou transfira-as manualmente.',
     'The site has no database backup yet.' => 'O site ainda não tem nenhuma cópia de segurança da base de dados.',
     'The state before the restore is in backup %s – please restore it.' => 'O estado anterior ao restauro está na cópia de segurança %s – restaure-a.',
     'The structured data has no valid type – choose one or remove the element.' => 'Os dados estruturados não têm um tipo válido – escolha um ou remova o elemento.',

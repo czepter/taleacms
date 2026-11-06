@@ -39,6 +39,7 @@ final class Settings
         'spam_assistant' => '0',        // the AI assistant checks a new enquiry for spam before anyone is notified (Core\Triage::spam) – off: the text goes to the AI provider
         'enquiry_kinds' => '',          // the kinds enquiries are sorted into (JSON, Core\Triage::kinds, Settings → Enquiries); empty = the built-in ones
         'job_applications_months' => '0', // applications to job openings (enquiries from a Job openings item page, Core\Jobs) are deleted after this many months; 0 = like other enquiries
+        'stats_counting_since' => '',  // the day visits began to be counted by the browser's beacon (YYYY-MM-DD, internal; Front\Stats::countingChange)
         'look_draft' => '',           // draft of the look not published yet (JSON, Core\Look): design system, classes, menus
         'design_system' => '',        // colors, fonts, scale and dimensions of the site (JSON, Builder\DesignSystem); empty = default
         'dark_mode' => 'off',      // dark appearance of the site: off | auto (by the visitor's device) | dark (always dark)

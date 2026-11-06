@@ -21,6 +21,12 @@ $group = '';
 </tbody>
 </table>
 </div>
+<?php if (!Talea\Core\Config::fromEnv() && Talea\Core\Config::readableByEveryone(TALEA_ROOT . '/config.php') && Talea\Core\Owners::isFirst($app->db())): ?>
+<fieldset>
+<legend><?= e(t('Permissions of config.php')) ?></legend>
+<p><button class="navigation" type="submit" formaction="<?= e($module->url('protect_config')) ?>"><?= e(t('Restrict config.php to the site\'s own user')) ?></button></p>
+</fieldset>
+<?php endif ?>
 <fieldset>
 <legend><?= e(t('Mail')) ?></legend>
 <p><button class="navigation" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Send a test e-mail to the site address')) ?></button></p>

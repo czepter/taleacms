@@ -875,7 +875,6 @@ Odkaz platí %d dní.
     'The path to the page (Home › News › …) – built automatically for the page shown.' => 'Cesta k stránke (Úvod › Novinky › …) – zostaví sa sama podľa zobrazenej stránky.',
     'The photos of each item’s gallery appear here.' => 'Tu sa zobrazia fotky z galérie každej položky.',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => 'Žiadosť o pripojenie aplikácie vypršala alebo neexistuje. Spustite pripojenie v aplikácii znova.',
-    'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'Server nepodporuje šifrované FTP (FTPS). Zálohu posielajte do úložiska S3 alebo si ju sťahujte ručne.',
     'The site has no database backup yet.' => 'Web zatiaľ nemá žiadnu zálohu databázy.',
     'The state before the restore is in backup %s – please restore it.' => 'Stav pred obnovou je v zálohe %s – obnovte ju, prosím.',
     'The subscriber has been deleted.' => 'Odberateľ bol zmazaný.',

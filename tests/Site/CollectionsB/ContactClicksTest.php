@@ -37,7 +37,7 @@ final class ContactClicksTest extends SiteTestCase
         $site->mcp('create_page', ['title' => 'Call 212', 'visible' => true, 'content' => '<p>Call us: <a href="tel:+420777000212">+420 777 000 212</a></p>']);
         $site->clearPageCache();
 
-        $page = $site->client()->get('/call-212');
+        $this->countView($site->client(), '/call-212', 'Mozilla/5.0 test', $page);
         $this->assertMatchesRegularExpression('#image/web\.js\?v=[^"]*" defer blocking="render"[^>]* data-conversion="/conversion"></script>#', $page->body, '2.12: a page with only a tel: link keeps web.js with the /conversion endpoint when the statistics are on');
         $this->assertStringNotContainsString('data-conversion', $site->admin()->get('/call-212')->body, '2.12: no click counter for signed-in users');
 

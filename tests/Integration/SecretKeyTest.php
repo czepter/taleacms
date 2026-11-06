@@ -141,4 +141,30 @@ final class SecretKeyTest extends DatabaseTestCase
         $this->assertSame('', $this->databaseKey());
         $this->assertSame('access', Connectors::decrypt($this->settings(), $this->stored()['access_token']));
     }
+
+    public function testRenewingTheKeyChangesTheSignaturesAndKeepsTheCredentialsReadable(): void
+    {
+        $this->storeCredentials();
+        $settings = $this->settings();
+        $old = (new Antispam($this->db(), $settings))->key();
+
+        $this->assertTrue((new Antispam($this->db(), $settings))->renew());
+
+        $fresh = $this->settings();
+        $new = (new Antispam($this->db(), $fresh))->key();
+        $this->assertNotSame($old, $new, 'a link signed with the old key no longer matches');
+        $this->assertSame($new, $this->databaseKey());
+        $this->assertSame(['api-token', 'access'], [Connectors::decrypt($fresh, $this->stored()['secret']), Connectors::decrypt($fresh, $this->stored()['access_token'])], 'the saved connections keep working');
+    }
+
+    public function testRenewingIsRefusedWhenTheKeyComesFromTheVariable(): void
+    {
+        putenv('TALEA_SECRET_KEY=' . self::SECRET);
+        $settings = $this->settings();
+        $signing = (new Antispam($this->db(), $settings))->key();
+
+        $this->assertFalse((new Antispam($this->db(), $settings))->renew());
+        $this->assertSame($signing, (new Antispam($this->db(), $this->settings()))->key());
+        $this->assertSame('', $this->databaseKey());
+    }
 }

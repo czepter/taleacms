@@ -188,6 +188,9 @@ final class ReportPage
         // traffic and conversions
         if ($stats !== null) {
             $rows = [[t('Visits'), $change((int) ($stats['visits'] ?? 0), (int) ($stats['previous_visits'] ?? 0))], [t('Page views'), $change((int) ($stats['views'] ?? 0), (int) ($stats['previous_views'] ?? 0))]];
+            if (($stats['counting_since'] ?? null) !== null) {
+                $rows[] = [\Talea\Front\Stats::countingNote((string) $stats['counting_since']), ''];
+            }
             foreach (['calls' => 'Calls – clicks on a phone number', 'emails' => 'E-mails – clicks on an e-mail address', 'whatsapp' => 'WhatsApp – clicks on a WhatsApp link'] as $key => $label) {
                 if ((int) ($stats['contact_clicks'][$key] ?? 0) > 0) {
                     $rows[] = [t($label), $n($stats['contact_clicks'][$key])];

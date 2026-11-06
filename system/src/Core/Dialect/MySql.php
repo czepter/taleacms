@@ -30,6 +30,42 @@ final class MySql extends Dialect
             : sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $c['host'] ?? 'localhost', $c['port'] ?? 3306, $c['name']);
     }
 
+    /** Session modes that change how SQL text is read: Talea's statements (and the ones in a backup) assume neither. */
+    private const array UNSAFE_MODES = ['ANSI_QUOTES', 'NO_BACKSLASH_ESCAPES'];
+
+    /**
+     * The sql_mode without ANSI_QUOTES (a "…" is then an identifier, not a string) and NO_BACKSLASH_ESCAPES (a backslash is then an
+     * ordinary character, so a dump written by another session reads wrongly); null when the mode has neither.
+     */
+    public static function safeSqlMode(string $mode): ?string
+    {
+        $modes = array_values(array_filter(array_map('trim', explode(',', $mode)), fn (string $m): bool => $m !== ''));
+        $kept = array_values(array_filter($modes, fn (string $m): bool => !in_array(strtoupper($m), self::UNSAFE_MODES, true)));
+
+        return count($kept) === count($modes) ? null : implode(',', $kept);
+    }
+
+    /**
+     * Takes the two modes out of this session. A host that does not allow changing sql_mode (or a server that refuses the
+     * value) is left as it is: the site keeps running, only a backup made in such a session may not read back elsewhere.
+     */
+    public function useSafeSqlMode(PDO $pdo): void
+    {
+        try {
+            $safe = self::safeSqlMode((string) $pdo->query('SELECT @@SESSION.sql_mode')->fetchColumn());
+            if ($safe !== null) {
+                $pdo->exec('SET SESSION sql_mode = ' . $pdo->quote($safe));
+            }
+        } catch (\Throwable) {
+            // not allowed here
+        }
+    }
+
+    public function connect(PDO $pdo): void
+    {
+        $this->useSafeSqlMode($pdo);
+    }
+
     public function phinx(): array
     {
         // charset and collation are set here once; the database is created with the same ones and tables inherit them
@@ -167,6 +203,7 @@ final class MySql extends Dialect
 
     public function dumpTables(PDO $pdo, string $prefix): array
     {
+        $this->useSafeSqlMode($pdo); // first call of a dump and of a restore: SHOW CREATE TABLE and the literals follow the session's mode
         $stmt = $pdo->prepare('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name');
         $stmt->execute([addcslashes($prefix, '_%') . '%']);
 
@@ -202,11 +239,17 @@ final class MySql extends Dialect
 
     public function dumpLiteral(PDO $pdo, string $value): string
     {
-        return $pdo->quote($value); // MySQL escapes line breaks itself
+        // escaped here, not by PDO::quote(): that follows the session's sql_mode (NO_BACKSLASH_ESCAPES would write a line break as it is,
+        // and the file is read line by line), and the file must read the same in any session that restores it
+        return "'" . strtr($value, ['\\' => '\\\\', "'" => "\\'", "\n" => '\\n', "\r" => '\\r', "\0" => '\\0', "\x1a" => '\\Z']) . "'";
     }
 
     public function restoreBegin(PDO $pdo): void
     {
+        $this->useSafeSqlMode($pdo);
+        if (preg_match('/NO_BACKSLASH_ESCAPES/i', (string) $pdo->query('SELECT @@SESSION.sql_mode')->fetchColumn()) === 1) {
+            throw new \RuntimeException('The database session reads backslashes literally (sql_mode NO_BACKSLASH_ESCAPES) and the host does not allow changing it, so a backup cannot be restored here.');
+        }
     }
 
     public function restoreEnd(PDO $pdo, bool $failed): void

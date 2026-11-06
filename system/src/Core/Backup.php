@@ -91,6 +91,12 @@ final class Backup
                 }
             }
         }
+        if ($sites === []) {
+            // no table found (a session that reads the table list differently): a file with a header and nothing else must never replace a good backup
+            $gz ? gzclose($f) : fclose($f);
+            @unlink($path);
+            throw new \RuntimeException('The backup would be empty – no tables of this site were found in the database.');
+        }
         $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n-- prefixes: " . implode(',', $prefixes) . "\n" . $dialect->dumpPrologue(array_keys($sites)));
         foreach ($sites as $table => $site) {
             $name = substr($table, strlen($site->prefix));
@@ -283,6 +289,7 @@ final class Backup
         $checked = false;
         $statement = '';
         $count = 0;
+        $holdsData = false;
         while (($row = $gz ? gzgets($f) : fgets($f)) !== false) {
             if ($statement === '' && (trim($row) === '' || str_starts_with($row, '--'))) {
                 $fileEngine = preg_match('/^-- engine: (\w+)/', $row, $m) === 1 ? $m[1] : $fileEngine;
@@ -294,6 +301,7 @@ final class Backup
             $checked = true;
             $statement .= $row;
             if (str_ends_with(rtrim($row), ';')) {
+                $holdsData = $holdsData || preg_match('/^(CREATE TABLE|INSERT INTO) /', $statement) === 1;
                 // a backup can contain only tables of this installation
                 if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO|TRUNCATE|DELETE FROM) ([^(;]+)/', $statement, $m) && preg_match_all('/[`"]([^`"]+)[`"]/', $m[2], $names) > 0) {
                     foreach ($names[1] as $name) {
@@ -312,6 +320,9 @@ final class Backup
         $gz ? gzclose($f) : fclose($f);
         if (trim($statement) !== '' || $count === 0) {
             throw new \RuntimeException('The backup is incomplete or damaged (the end of the file is missing) – the restore was stopped.');
+        }
+        if (!$holdsData) {
+            throw new \RuntimeException('The backup holds no tables – the restore was stopped.');
         }
 
         return $count;

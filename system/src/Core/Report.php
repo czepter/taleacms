@@ -20,7 +20,7 @@ final class Report
      * The few figures Home shows "at a glance": the totals of the period next to those of the period before it, visits per
      * day for the line, and the most viewed page. Cheaper than build(): no tables by page, campaign or device.
      *
-     * @return array{period_days: int, totals: array<string, int>, previous: array<string, int>, conversion: ?float, visits_by_day: list<int>, top_page: ?string}
+     * @return array{period_days: int, totals: array<string, int>, previous: array<string, int>, conversion: ?float, visits_by_day: list<int>, counting_since: ?string, top_page: ?string}
      */
     public static function glance(Db $db, int $days): array
     {
@@ -48,6 +48,7 @@ final class Report
             'previous' => $totals(date('Y-m-d', strtotime('-' . (2 * $days - 1) . ' days')), $since),
             'conversion' => $current['visits'] > 0 ? round(100 * ($current['enquiries'] + $current['signups']) / $current['visits'], 1) : null,
             'visits_by_day' => $byDay,
+            'counting_since' => \Talea\Front\Stats::countingChange($db, new Settings($db)),
             'top_page' => $top === null || $top === false ? null : (string) $top,
         ];
     }
@@ -130,6 +131,8 @@ final class Report
             'totals' => ['visits' => $visits, 'views' => array_sum(array_column($daysOut, 'views')), 'enquiries' => $enquiries, 'signups' => $signups,
                 'conversion' => $visits > 0 ? round(100 * ($enquiries + $signups) / $visits, 2) : null],
             'days' => $daysOut,
+            // the day visits began to be counted by the browser's beacon (Front\Stats), when older figures exist: the break in the chart
+            'counting_since' => \Talea\Front\Stats::countingChange($db, new Settings($db)),
             'pages' => $topPages,
             'landing_pages' => $list($leadsBy('landing_page', 'landing_page'), 'path'),
             'campaigns' => array_slice($campaignRows, 0, 20),

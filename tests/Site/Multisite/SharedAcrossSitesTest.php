@@ -418,12 +418,14 @@ final class SharedAcrossSitesTest extends SiteTestCase
 
         $onFirst = ['Host: 127.0.0.1:' . $site->port];
         $onTwin = ['Host: twin.test:' . $site->port];
-        // what legitimately differs between the two renderings; the pages hold no forms or inline scripts, so no per-request tokens turn up
+        // what legitimately differs between the two renderings; the pages hold no forms, so no per-request tokens turn up
         $normalise = static function (string $html, string $host) use ($site): string {
             // the host name (and port) in absolute URLs is the site's own
             $html = str_replace([$host . ':' . $site->port, $host], 'HOST', $html);
             // the share image address is an HMAC with the site's own secret key (Front\ShareImage), so it differs; what it draws is the same brief
             $html = (string) preg_replace('~/og/[a-f0-9]{32}\.png~', '/og/HASH.png', $html);
+            // the visit beacon's signature of the page path (Core\Settings signing key of the site) differs as well
+            $html = (string) preg_replace('~data-view-sig="[a-f0-9]+"~', 'data-view-sig="SIG"', $html);
 
             return $html;
         };

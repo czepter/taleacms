@@ -112,6 +112,12 @@ final class PasswordReset
         if ($user === null) {
             return $this->page(['step' => 'invalid', 'sent' => false, 'error' => t('The link has expired or has already been used. Request a new one.')], 400);
         }
+        // a link for another account opened in a browser that is signed in: that sign-in ends, so the new password can never
+        // be set (or the new account used) under somebody else's session
+        $signedIn = $app->auth()->user();
+        if ($signedIn !== null && (int) $signedIn['user_id'] !== (int) $user['user_id']) {
+            $app->auth()->logout();
+        }
         $error = null;
         if ($app->request->isPost()) {
             $password = (string) ($_POST['password'] ?? '');

@@ -363,7 +363,7 @@ final class Experiments
         $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
         $variant = $request->post('variant');
         $event = $request->post('event');
-        if (!in_array($variant, ['a', 'b'], true) || !in_array($event, ['view', 'goal'], true) || !Stats::isOn($app) || $ua === '' || Stats::isBot($ua) || $app->auth()->user() !== null) {
+        if (!in_array($variant, ['a', 'b'], true) || !in_array($event, ['view', 'goal'], true) || !Stats::isOn($app) || $ua === '' || Stats::isBot($ua) || Stats::isAdvance($_SERVER) || $app->auth()->user() !== null) {
             return new Response('', 204);
         }
         $db = $app->db();

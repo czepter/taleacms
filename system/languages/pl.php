@@ -891,7 +891,6 @@ Link jest ważny %d dni.
     'The path to the page (Home › News › …) – built automatically for the page shown.' => 'Ścieżka do strony (Strona główna › Aktualności › …) – tworzy się automatycznie dla wyświetlanej strony.',
     'The photos of each item’s gallery appear here.' => 'Tu pojawią się zdjęcia z galerii każdego elementu.',
     'The request to connect the application has expired or does not exist. Start connecting again in the application.' => 'Żądanie połączenia aplikacji wygasło lub nie istnieje. Rozpocznij łączenie w aplikacji ponownie.',
-    'The server cannot use encrypted FTP (FTPS). Send backups to S3 storage, or download them manually.' => 'Serwer nie obsługuje szyfrowanego FTP (FTPS). Wysyłaj kopie zapasowe do magazynu S3 lub pobieraj je ręcznie.',
     'The site has no database backup yet.' => 'Witryna nie ma jeszcze kopii zapasowej bazy danych.',
     'The state before the restore is in backup %s – please restore it.' => 'Stan sprzed przywracania znajduje się w kopii zapasowej %s – przywróć ją.',
     'The subscriber has been deleted.' => 'Subskrybent został usunięty.',

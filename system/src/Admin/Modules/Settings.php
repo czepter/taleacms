@@ -11,6 +11,7 @@ use Talea\Core\Response;
 use Talea\Core\Extensions;
 use Talea\Core\Health;
 use Talea\Core\Messages;
+use Talea\Admin\ChangeLog;
 use Talea\Core\Backup;
 
 /**
@@ -19,12 +20,14 @@ use Talea\Core\Backup;
  */
 class Settings extends Module
 {
+    use \Talea\Admin\ServerActions;
+
     public const string IDENT = 'settings';
     public const string NAME = 'Settings';
     public const string GROUP = 'Settings';
     public const string ICON = 'settings';
     public const bool ADMIN_ONLY = true;
-    public const array INSTALL_FILE_ACTIONS = ['backup', 'download_backup', 'delete_backup', 'restore_backup', 'media_backup', 'delete_log'];
+    public const array INSTALL_FILE_ACTIONS = ['backup', 'download_backup', 'delete_backup', 'restore_backup', 'media_backup', 'delete_log', 'protect_config'];
 
     /** Tabs that became screens of their own in 3.2: the old address leads there, a form posted to the old tab still saves. */
     public const array MOVED_TABS = ['company' => 'business', 'health' => 'status'];
@@ -443,6 +446,7 @@ class Settings extends Module
         $path = Backup::path($this->request->post('file'), $this->db);
         if ($this->request->isPost() && $path !== null && !Backup::refusedInDemo()) {
             unlink($path);
+            ChangeLog::backup($this->app, 'settings', 'backup_delete', $path);
         }
 
         return $this->back('Backup deleted.', '', ['tab' => 'backups']);
@@ -558,15 +562,6 @@ class Settings extends Module
         return $this->back('The choice about the shared kit is saved.', '', ['tab' => 'console']);
     }
 
-    protected function actionDeleteLog(): Response
-    {
-        if ($this->request->isPost() && \Talea\Core\Owners::isFirst($this->db) && is_file(TALEA_ROOT . '/storage/log/errors.log')) {
-            file_put_contents(TALEA_ROOT . '/storage/log/errors.log', '');
-        }
-
-        return $this->back('The error log is empty.', '', ['tab' => 'health']);
-    }
-
     /**
      * The last N lines of a file without loading the whole file into memory.
      *
@@ -610,6 +605,7 @@ class Settings extends Module
             return $this->back(t('Restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'error');
         }
         \Talea\Front\Cache::clear();
+        ChangeLog::backup($this->app, 'settings', 'backup_restore', $this->request->post('file'));
 
         return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
     }
