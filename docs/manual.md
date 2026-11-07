@@ -288,7 +288,9 @@ is chosen" saves a click on single-choice questions. Options carry amounts as `L
 them up and shows a range (percent below and above, rounded to a multiple, with a lowest amount) and a breakdown.
 Texts in square brackets in the starter section are placeholders: replace every one with your own wording and amounts.
 
-*Show the estimate* has two modes. **While answering** shows the running total. **After the visitor sent their contact details**
+*Show the estimate* has two modes. **While answering** shows the running total, and a result variant chosen by a rule appears
+at the estimate as soon as the answers lead to it (without "show the amount" it takes the estimate's place); the enquiry stores
+the variant's heading. **After the visitor sent their contact details**
 puts no amount in the page at all: the visitor answers, leaves name and e-mail, and is taken back to the same page, where the
 result appears at the form. The result belongs to a signed link that works for 24 hours; after that, or if the enquiry was
 deleted or anonymised, the visitor sees "This result is no longer available." with the form's button, never any contact

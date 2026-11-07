@@ -383,6 +383,8 @@ final class Form extends Element
         [$steps, $stepTitle, $current] = [[], '', ''];
         $afterContact = ($o['calculation'] ?? 'live') === 'after_contact';
         [$logic, $targets] = self::logicForPage($o, $afterContact);
+        // a live form whose rules choose a result variant: the variants wait hidden after the estimate (or after the last question)
+        $variants = self::liveVariants($o, $logic, $k);
         $widths = \Talea\Builder\FormRecords::widths($o['widths'] ?? []);
         foreach ($o['fields'] as $i => $field) {
             if ($field['type'] === 'hidden') {
@@ -410,8 +412,12 @@ final class Form extends Element
             $one = $one !== '' && isset($targets[$i]) ? '<div class="tl-condition" data-field="' . $i . '">' . $one . '</div>' : $one;
             // its width where the form is placed (Elements\FormEmbed): columns of six, on the outermost tag of the field
             $current .= self::span($one, (int) ($widths[(string) ($field['key'] ?? '')] ?? 0));
+            if ($field['type'] === 'estimate' && $variants !== '') {
+                $current .= $variants;
+                $variants = '';
+            }
         }
-        $current .= $seatsField; // a form without a consent checkbox: after the last field
+        $current .= $seatsField . $variants; // a form without a consent checkbox: after the last field
         if ($steps === []) {
             $html .= $current;
         } else {
@@ -440,8 +446,8 @@ final class Form extends Element
 
     /**
      * What the browser may know of the logic (data-logic of the form) and which fields a rule shows or skips. Rules that are not
-     * broken, without labels; amounts only in a live form (add, quantity) and only those, multiply and result variants stay on the
-     * server; a form that shows its result after the contact details carries no amount at all.
+     * broken, without labels; amounts and result variants only in a live form (add, quantity, result), multiply stays on the
+     * server; a form that shows its result after the contact details carries no amount and no variant at all.
      *
      * @return array{0: array<string, mixed>, 1: array<int, true>} [data-logic or [], field index => true]
      */
@@ -453,7 +459,7 @@ final class Form extends Element
                 $index[(string) $f['key']] = $i;
             }
         }
-        $allowed = $afterContact ? ['skip', 'show_when'] : ['skip', 'show_when', 'add', 'quantity'];
+        $allowed = $afterContact ? ['skip', 'show_when'] : ['skip', 'show_when', 'add', 'quantity', 'result'];
         [$rules, $targets] = [[], []];
         foreach (FormLogic::rules($o) as $rule) {
             $then = [];
@@ -490,6 +496,40 @@ final class Form extends Element
         }
 
         return [$logic, $targets];
+    }
+
+    /**
+     * The result variants of a live form whose rules choose one (data-logic carries those rules): each one hidden, image/forms.js
+     * shows the one the answers lead to, as Builder\FormLogic picks it on the server. Without the script none is shown.
+     */
+    private static function liveVariants(array $o, array $logic, Context $k): string
+    {
+        $used = [];
+        foreach ($logic['rules'] ?? [] as $rule) {
+            foreach ($rule['then'] as $action) {
+                if ($action['do'] === 'result') {
+                    $used[(string) $action['variant']] = true;
+                }
+            }
+        }
+        $html = '';
+        foreach ($o['logic']['results'] ?? [] as $v) {
+            $v = is_array($v) ? \Talea\Front\FormResult::variant($o, (string) ($v['key'] ?? '')) : null;
+            if ($v === null || !isset($used[$v['key']])) {
+                continue;
+            }
+            $link = '';
+            if ($v['button_text'] !== '' && $v['button_link'] !== '') {
+                $k->types['button'] = true;
+                $link = '<p><a class="tl-button tl-button--primary" href="' . e($v['button_link']) . '">' . e($v['button_text']) . '</a></p>';
+            }
+            $html .= '<div class="tl-form-done tl-form-variant" data-variant="' . e($v['key']) . '"' . ($v['show_amount'] ? ' data-amount' : '') . ' hidden>'
+                . ($v['image'] !== '' ? '<img class="tl-result-image" src="' . e($k->image($v['image'])) . '" alt="" loading="lazy">' : '')
+                . ($v['heading'] !== '' ? '<p class="tl-result-heading"><strong>' . e($v['heading']) . '</strong></p>' : '')
+                . ($v['text'] !== '' ? '<p>' . nl2br(e($v['text'])) . '</p>' : '') . $link . '</div>';
+        }
+
+        return $html === '' ? '' : '<div class="tl-field tl-form-variants" aria-live="polite">' . $html . '</div>';
     }
 
     /**

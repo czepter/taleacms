@@ -134,7 +134,7 @@
 			return x < 0 ? -r : r;
 		}
 		// the sum: base, prices of the chosen options, numbers times their price per unit (shown questions only), then the add and
-		// quantity rules top to bottom (factors and result variants never reach the browser)
+		// quantity rules top to bottom (factors never reach the browser)
 		function total(form, logic, shown) {
 			var position = positions(logic), given = answers(form, logic), sum = (logic.estimate && logic.estimate.base) || 0;
 			logic.fields.forEach(function (f, i) {
@@ -182,7 +182,16 @@
 			if (kind === 'from') { return T('from %s').replace('%s', function () { return money(low); }); }
 			return kind === 'range' ? money(low) + ' – ' + money(high) : money(low);
 		}
-		return { visible: visible, total: total, answers: answers, shownRange: shownRange };
+		// the result variant: the first rule that holds and chooses one (FormLogic::amounts), '' when none does
+		function variant(form, logic, shown) {
+			var position = positions(logic), given = answers(form, logic), chosen = '';
+			(logic.rules || []).forEach(function (rule) {
+				if (chosen || !ruleHolds(logic, position, shown, given, rule, logic.fields.length)) { return; }
+				(rule.then || []).forEach(function (action) { if (!chosen && action.do === 'result') { chosen = String(action.variant || ''); } });
+			});
+			return chosen;
+		}
+		return { visible: visible, total: total, answers: answers, shownRange: shownRange, variant: variant };
 	})();
 	window.taleaFormLogic = FormLogic;
 
@@ -197,6 +206,17 @@
 		if (logic.estimate) {
 			var text = FormLogic.shownRange(FormLogic.total(form, logic, shown), logic.estimate);
 			form.querySelectorAll('[data-estimate] output').forEach(function (out) { out.textContent = text; });
+		}
+		// a live quiz: the variant the answers lead to replaces the estimate (or sits beside it when it shows the amount)
+		var variants = form.querySelectorAll('[data-variant]');
+		if (variants.length) {
+			var chosen = FormLogic.variant(form, logic, shown), amount = true;
+			variants.forEach(function (box) {
+				var on = box.getAttribute('data-variant') === chosen;
+				box.hidden = !on;
+				if (on) { amount = box.hasAttribute('data-amount'); }
+			});
+			form.querySelectorAll('[data-estimate]').forEach(function (estimate) { estimate.hidden = !amount; });
 		}
 	}
 

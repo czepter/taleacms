@@ -215,7 +215,7 @@ final class BrowserWalkTest extends TestCase
                     $publish($slug, $content);
                     $cases[] = ['name' => $case['name'] . ($live ? ' (live)' : ''), 'slug' => $slug, 'fields' => $content['fields'], 'answers' => $case['answers'],
                         'visible' => array_values(array_map('boolval', $server['visible'])), 'total' => $live ? $server['total'] : null,
-                        'shown' => $live ? str_replace("\u{a0}", ' ', $server['shown']) : null];
+                        'shown' => $live ? str_replace("\u{a0}", ' ', $server['shown']) : null, 'variant' => $live ? $server['variant'] : null];
                 }
             }
             $publish('quiz', ['name' => 'Roof quiz', 'fields' => [

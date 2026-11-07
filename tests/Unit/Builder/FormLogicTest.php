@@ -186,7 +186,7 @@ final class FormLogicTest extends TestCase
         $this->assertSame('v1', $out['variant']);
         $this->assertSame(['Base price', 'Hours', 'Abroad'], array_column($out['lines'], 0));
         $live = FormLogic::amounts($fields, $rules, $answers, FormLogic::visible($fields, $rules, $answers), 1000.0, false);
-        $this->assertSame(['', 1000.0 + 8 * 180], [$live['variant'], $live['total']], 'live: no multiply, no variant');
+        $this->assertSame(['v1', 1000.0 + 8 * 180], [$live['variant'], $live['total']], 'live: no multiply, but the variant');
     }
 
     public function testUnconditionalAmountRuleSurvivesSanitize(): void

@@ -6,7 +6,8 @@ namespace Talea\Builder;
 
 /**
  * The logic of a form (rules with conditions and actions, result variants) and the visibility of its fields.
- * Pure: the server and the tests use it; image/forms.js mirrors only the visibility part (never amounts).
+ * Pure: the server and the tests use it; image/forms.js mirrors what a live form shows (visibility, add and quantity amounts,
+ * the result variant), never the factors.
  *
  * A rule is {label, broken?, match: all|any, when: [{field: key, op, value?, to?}], then: [{do, …}]}. A rule that names an option
  * the field no longer has is kept with broken: true so that the editor can show it, but rules() leaves it out: it does nothing on the site.
@@ -398,7 +399,8 @@ final class FormLogic
 
     /**
      * The amounts of a form: the base, the prices of the chosen options, numbers x unit price (shown fields only), then the rules
-     * top to bottom. In "live" mode (not $afterContact) factors and result variants are ignored: the browser never sees them.
+     * top to bottom; the first rule that holds and chooses a result variant sets it. In "live" mode (not $afterContact) factors are
+     * ignored: the browser never sees them.
      *
      * @param list<array<string, mixed>> $fields
      * @param list<array<string, mixed>> $rules
@@ -457,7 +459,7 @@ final class FormLogic
                         $amount = $afterContact ? $total * ((float) ($action['by'] ?? 1) - 1) : null;
                         break;
                     case 'result':
-                        $variant = $afterContact && $variant === '' ? (string) ($action['variant'] ?? '') : $variant;
+                        $variant = $variant === '' ? (string) ($action['variant'] ?? '') : $variant;
                         break;
                 }
                 if ($amount !== null && round($amount, 2) != 0.0) {

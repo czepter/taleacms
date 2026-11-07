@@ -259,17 +259,18 @@ trait BuildTargets
     private function targetPreviewUrl(array $target, int $minutes, bool $comments = false): string
     {
         $r = $target['row'];
-        if ($target['kind'] === 'component' || $target['kind'] === 'form') {
-            return $this->targetUrl($target) . ($target['kind'] === 'form' ? '?build=draft' : ''); // the component or form canvas: for a signed-in user only
+        if ($target['kind'] === 'component') {
+            return $this->targetUrl($target); // the component canvas: for a signed-in administrator only
         }
         $signature = match ($target['kind']) {
             'page' => 'page:' . (int) $r['page_id'],
+            'form' => 'form:' . (int) $r['form_id'],
             'collection' => \Talea\Builder\Collections::templateKey($r),
             'popup' => 'popup:' . (int) $r['popup_id'],
             default => 'part:' . $r['type'] . ':' . $r['language'] . ($r['variant'] !== '' ? ':' . $r['variant'] : ''), // a link to the header would not show the variant's draft
         };
         $key = \Talea\Core\Preview::key($this->app->db(), $this->app->settings(), $signature, $minutes, $comments && $target['kind'] === 'page');
-        if ($target['kind'] === 'popup') {
+        if ($target['kind'] === 'popup' || $target['kind'] === 'form') {
             return $this->targetUrl($target) . '?build=draft&preview_key=' . $key;
         }
 

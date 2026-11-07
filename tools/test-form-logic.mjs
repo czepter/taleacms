@@ -50,6 +50,11 @@ for (const c of cases) {
     const text = (await page.locator('[data-estimate] output').first().textContent()).replace(/ /g, ' ');
     check(text === c.shown, `${c.name}: estimate "${text}", server "${c.shown}"`);
   }
+  if (c.variant !== null) {
+    // a live form shows the result variant the server picks, and only that one
+    const shownVariants = await page.evaluate(() => [...document.querySelectorAll('[data-variant]')].filter((v) => !v.hidden).map((v) => v.dataset.variant));
+    check(JSON.stringify(shownVariants) === JSON.stringify(c.variant ? [c.variant] : []), `${c.name}: variant ${JSON.stringify(shownVariants)}, server "${c.variant}"`);
+  }
   console.log(`  ${failures.length ? 'FAIL' : 'ok  '}  ${c.name}`);
 }
 

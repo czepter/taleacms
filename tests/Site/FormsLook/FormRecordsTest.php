@@ -73,10 +73,18 @@ final class FormRecordsTest extends SiteTestCase
     #[Depends('testThePlacementSetsWidthsAndButtonText')]
     public function testTheFormsBuildChangesItWhereverItIsPlacedOncePublished(): void
     {
-        $this->call('edit_build', ['form' => self::$form, 'operations' => [['op' => 'update', 'id' => self::$definition, 'content' => ['fields' => array_merge(
+        $saved = $this->call('edit_build', ['form' => self::$form, 'operations' => [['op' => 'update', 'id' => self::$definition, 'content' => ['fields' => array_merge(
             $this->call('get_build', ['form' => self::$form])['build']['children'][0]['content']['fields'], [['label' => 'Wedding date', 'type' => 'date']])]]]]);
         $this->assertStringNotContainsString('Wedding date', $this->site()->client()->get('/contact')->body, 'a draft of the form is not on the site');
         $this->assertPage('/_form/' . self::$form . '?build=draft', 200, 'Wedding date', message: 'the form builder’s canvas shows the draft');
+        $anonymous = $this->site()->client();
+        $this->assertSame(404, $anonymous->get('/_form/' . self::$form . '?build=draft')->status, 'without the right or a signed link the draft stays closed');
+        $preview = (string) preg_replace('#^https?://[^/]+#', '', (string) ($saved['preview'] ?? ''));
+        $this->assertStringContainsString('preview_key=', $preview);
+        $signed = $anonymous->get($preview);
+        $this->assertSame(200, $signed->status, 'the signed preview link of a write opens the draft without a session');
+        $this->assertStringContainsString('Wedding date', $signed->body);
+        $this->assertSame(404, $anonymous->get((string) preg_replace('/preview_key=[^&]+/', 'preview_key=1.x', $preview))->status, 'a forged key does not');
         $this->call('publish_build', ['form' => self::$form]);
         $this->assertStringContainsString('Wedding date', $this->site()->client()->get('/contact')->body, 'published, it shows on the page that places it');
         $this->assertSame('1', $this->sql("SELECT COUNT(*) FROM tl_build_revisions WHERE part = 'form:" . $this->sql('SELECT form_id FROM tl_forms') . "'"), 'the previous version is kept');
