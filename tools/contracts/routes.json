@@ -448,7 +448,7 @@
             "ANY"
         ],
         "pattern": "/_form/{id:[a-f0-9-]{36}}",
-        "when": "permission:enquiries",
+        "when": "",
         "handler": "Kernel::previewForm"
     },
     {

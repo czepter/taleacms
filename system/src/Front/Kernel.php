@@ -299,7 +299,7 @@ final class Kernel
             ->add('ANY', '/_section/{key:[a-z0-9-]{1,40}}', [self::class, 'previewSection'], fn (App $app): bool => $app->auth()->hasModule('pages'), 'permission:pages')
             ->add('ANY', '/_popup/{id:[a-f0-9-]{36}}', [self::class, 'previewPopup'])
             ->add('ANY', '/_component/{id:[a-f0-9-]{36}}', [self::class, 'previewComponent'], fn (App $app): bool => $app->auth()->isAdmin(), 'administrator')
-            ->add('ANY', '/_form/{id:[a-f0-9-]{36}}', [self::class, 'previewForm'], fn (App $app): bool => $app->auth()->hasModule('enquiries'), 'permission:enquiries')
+            ->add('ANY', '/_form/{id:[a-f0-9-]{36}}', [self::class, 'previewForm']) // the Enquiries right or a signed preview link of the form's draft
             ->add('ANY', '/' . $collection . '.ics', [CollectionPages::class, 'calendarFile']) // only an events collection answers
             ->add('ANY', '/' . $collection . '/' . $item . '.ics', [CollectionPages::class, 'calendarFile'])
             ->add('ANY', '/_f/' . $token, [self::class, 'linkForm'])
@@ -460,7 +460,8 @@ final class Kernel
     public function previewForm(string $id): Response
     {
         $form = \Talea\Builder\FormRecords::byPublicId($this->app->db(), $id);
-        if ($form === null) {
+        // without the Enquiries right only a signed link to the draft (MCP preview, Core\Preview) opens it
+        if ($form === null || (!$this->app->auth()->hasModule('enquiries') && !($this->wantsDraft() && $this->canSeeDraft('form:' . (int) $form['form_id'])))) {
             return $this->notFound();
         }
         $k = $this->frame->context();
@@ -778,7 +779,12 @@ final class Kernel
             return true;
         }
         $auth = $this->app->auth();
-        if (str_starts_with($target, 'part:') || str_starts_with($target, 'collection:') || str_starts_with($target, 'popup:') ? $auth->isAdmin() : $auth->hasModule('pages')) {
+        $right = match (true) {
+            str_starts_with($target, 'part:'), str_starts_with($target, 'collection:'), str_starts_with($target, 'popup:') => $auth->isAdmin(),
+            str_starts_with($target, 'form:') => $auth->hasModule('enquiries'),
+            default => $auth->hasModule('pages'),
+        };
+        if ($right) {
             return true;
         }
         $key = $this->app->request->get('preview_key');

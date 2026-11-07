@@ -98,6 +98,43 @@ final class QuizFormTest extends SiteTestCase
         $this->assertStringContainsString('We plan this one personally', json_encode($stored));
     }
 
+    public function testLiveQuizCarriesItsVariantsAndStoresTheChosenOne(): void
+    {
+        // the reported quiz: options without amounts, an estimate field, a variant per occasion, the estimate shown while answering
+        $this->quiz(['calculation' => 'live', 'fields' => [
+            ['key' => 'kocc0', 'label' => 'What are the photos for?', 'type' => 'radio', 'required' => true, 'choices' => "Wedding\nCouple\nFamily"],
+            ['key' => 'kfee0', 'label' => 'What should feel right?', 'type' => 'radio', 'required' => true, 'choices' => "Real moments\nSome direction"],
+            ['key' => 'kest0', 'label' => 'Your guide', 'type' => 'estimate'],
+        ], 'logic' => [
+            'rules' => [
+                ['label' => '', 'match' => 'all', 'when' => [['field' => 'kocc0', 'op' => 'is', 'value' => 'Wedding']], 'then' => [['do' => 'result', 'variant' => 'vwed']]],
+                ['label' => '', 'match' => 'all', 'when' => [['field' => 'kocc0', 'op' => 'is', 'value' => 'Family']], 'then' => [['do' => 'result', 'variant' => 'vfam']]],
+            ],
+            'results' => [
+                ['key' => 'vwed', 'heading' => 'Your wedding story', 'text' => 'Full-day coverage.', 'show_amount' => false, 'button_text' => 'See weddings', 'button_link' => '/weddings'],
+                ['key' => 'vfam', 'heading' => 'Family time', 'text' => 'Two relaxed hours.', 'show_amount' => true, 'button_text' => '', 'button_link' => ''],
+                ['key' => 'vnone', 'heading' => 'Never chosen', 'text' => '', 'show_amount' => false, 'button_text' => '', 'button_link' => ''],
+            ],
+        ]]);
+        $body = $this->visitor->get($this->path)->body;
+        $this->assertMatchesRegularExpression('/data-variant="vwed" hidden>.*Your wedding story.*Full-day coverage\..*href="[^"]*weddings"[^>]*>See weddings/s', $body, 'the variant waits hidden in the page');
+        $this->assertMatchesRegularExpression('/data-variant="vfam" data-amount hidden>/', $body, 'a variant that shows the amount says so');
+        $this->assertStringNotContainsString('Never chosen', $body, 'a variant no rule chooses is left out');
+        $logic = json_decode(html_entity_decode((string) preg_replace('/^.*data-logic="([^"]*)".*$/s', '$1', $body)), true);
+        $this->assertSame(['do' => 'result', 'variant' => 'vwed'], $logic['rules'][0]['then'][0] ?? null, 'the rules that choose a variant reach the script');
+
+        $redirect = $this->send(['p0' => 'Wedding', 'p1' => 'Real moments', 'p3' => 'o@example.com']);
+        $this->assertStringNotContainsString('enquiry=', $redirect, 'a live form ends in the plain thank-you, not in a result link');
+        $stored = json_decode((string) $this->site()->value('SELECT data FROM tl_enquiries ORDER BY enquiry_id DESC LIMIT 1'), true);
+        $this->assertSame('Your wedding story', array_column($stored, 1, 0)['Your guide'] ?? null, 'the enquiry records the variant the visitor saw');
+
+        // publishing made the form a record (FormRecords::adopt): try_form runs on it
+        $form = (string) $this->site()->value('SELECT public_id FROM tl_forms ORDER BY form_id DESC LIMIT 1');
+        $element = (string) $this->site()->mcpResult('get_build', ['form' => $form])['build']['children'][0]['id'];
+        $tried = $this->site()->mcpResult('try_form', ['form' => $form, 'element' => $element, 'answers' => ['kocc0' => 'Family'], 'published' => true]);
+        $this->assertSame('vfam', $tried['variant'], 'try_form picks the variant of a live form too');
+    }
+
     public function testHiddenRequiredQuestionDoesNotBlock(): void
     {
         $this->quiz();

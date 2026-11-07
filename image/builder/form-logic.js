@@ -322,7 +322,7 @@ function overlay(id) {
 					el('li', { class: 'bd-logic-total' }, el('span', {}, T('Total')), el('span', {}, amount(j.total))));
 				const v = work.results.find((x) => x.key === j.variant);
 				variant.textContent = j.variant ? T('Result variant: %s').replace('%s', v ? v.heading || v.key : j.variant) : '';
-				status.textContent = live ? T('The estimate shows while answering: factors and result variants are not applied.') : '';
+				status.textContent = live ? T('The estimate shows while answering: factors are not applied.') : '';
 			});
 		};
 		const later = () => { clearTimeout(timer); timer = setTimeout(run, 300); };
@@ -380,7 +380,7 @@ function overlay(id) {
 			el('aside', { class: 'bd-logic-questions', 'aria-label': T('Questions') }, el('span', { class: 'bd-logic-title' }, T('Questions')),
 				questions.length ? el('ol', {}, questions.map((q) => el('li', {}, el('button', { type: 'button', title: T('Use in a condition'), disabled: q.type === 'file', onclick: () => pickQuestion(q) }, q.label || T('(no label)'))))) : el('p', { class: 'bd-empty' }, T('The form has no questions yet.'))),
 			pane),
-		el('footer', {}, live ? el('p', { class: 'bd-logic-hint' }, T('The estimate shows while answering: “Multiply” and result variants work only when it shows after the contact details (Show the estimate, in the inspector).')) : null,
+		el('footer', {}, live ? el('p', { class: 'bd-logic-hint' }, T('The estimate shows while answering: “Multiply” works only when it shows after the contact details (Show the estimate, in the inspector).')) : null,
 			el('button', { type: 'button', class: 'bd-btn bd-btn-main', onclick: () => d.close() }, T('Done'))));
 	d.addEventListener('close', () => {
 		clearTimeout(timer);

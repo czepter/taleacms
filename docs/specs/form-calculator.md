@@ -90,8 +90,10 @@ A per-form switch, form property `calculation` **(my call for the name)**:
 - **Result after contact** (`after_contact`): no amounts in the page. The visitor answers, leaves contact details,
   submits, and the server computes and shows the result.
 
-Only `after_contact` supports the *multiply* action and result variants. In `live` mode the amount actions are *add* and
-*quantity × amount*, evaluated in the browser on the same conditions as the visibility (prices are public there anyway).
+Only `after_contact` supports the *multiply* action. In `live` mode the amount actions are *add* and *quantity × amount*,
+evaluated in the browser on the same conditions as the visibility (prices are public there anyway). Result variants work in
+both modes (changed 2026-11-07, a quiz with recommendations needs no contact details first): a live form carries the variants
+its rules choose, hidden, and the script shows the one the server would pick, at the estimate (or after the last question).
 
 Existing forms are `live` and behave exactly as today.
 
@@ -146,7 +148,7 @@ Actions:
 | Multiply | multiplies the sum so far (`after_contact` only) |
 | Skip question | hides a question |
 | Show question only when | shows a question only if the rule holds |
-| Show result variant | ends in that variant instead of the range (`after_contact` only); the first matching variant rule wins **(my call)** |
+| Show result variant | ends in that variant instead of the range (live: shown while answering); the first matching variant rule wins **(my call)** |
 
 - How visibility rules combine **(my call)**: a question is hidden when any *skip* rule for it holds. If it has *show
   only when* rules, at least one of them must hold. Skip wins over show. A step whose questions are all hidden is
