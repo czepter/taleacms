@@ -25,6 +25,38 @@ final class ImagesTest extends TestCase
         @unlink($imageTmp);
     }
 
+    /** the main image (loads at once, cannot use sizes="auto") is usually full width: a fixed 900 px picked the 1200 px variant for a 1920 px hero */
+    public function testMainImageSizesAreFullWidth(): void
+    {
+        $this->assertSame(2560, \Talea\Core\Images::MAX_SIDE, 'uploads keep up to 2560 px, the same as MediaHygiene::OVERSIZED_WIDTH');
+        @mkdir(TALEA_ROOT . '/media/' . date('Y/m'), 0775, true);
+        $tmp = tempnam(sys_get_temp_dir(), 'obr');
+        imagepng(imagecreatetruecolor(2000, 1000), $tmp);
+        $saved = \Talea\Core\Images::saveFile($tmp, 'hero-test.png');
+        $app = (new \ReflectionClass(\Talea\Core\App::class))->newInstanceWithoutConstructor();
+        $request = new \Talea\Core\Request([], [], ['SCRIPT_NAME' => '/index.php', 'REQUEST_URI' => '/']);
+        (function () use ($request): void { $this->request = $request; })->call($app); // the property is readonly: only App itself may set it
+        $render = fn (bool $priority): string => \Talea\Builder\Elements\Image::render(['content' => ['src' => $saved['image_path'], 'alt' => '', 'caption' => '', 'link' => '', 'priority' => $priority]], '', '', new \Talea\Builder\Context($app));
+        try {
+            $this->assertStringContainsString('sizes="100vw" alt="" fetchpriority="high"', $render(true), 'main image: the browser is told it is as wide as the window');
+            $this->assertStringContainsString('sizes="auto, (max-width: 900px) 100vw, 900px"', $render(false), 'a lazy image keeps auto');
+        } finally {
+            \Talea\Core\Images::delete($saved['image_path'], $saved['thumb_path']);
+            @unlink($tmp);
+        }
+    }
+
+    /** a WebP original gets only photo.webp.avif from Images (no WebP sibling): every server config must serve it, or the AVIF file is dead weight */
+    public function testEveryServerServesTheAvifOfAWebpOriginal(): void
+    {
+        $htaccess = (string) file_get_contents(TALEA_ROOT . '/.htaccess');
+        $this->assertMatchesRegularExpression('#image/avif\s+RewriteCond [^\n]*\.avif -f\s+RewriteRule \^\(media/\.\+\\\.\(\?:jpe\?g\|png\|webp\)\)\$#', $htaccess, '.htaccess: AVIF for jpg, png and webp');
+        $this->assertDoesNotMatchRegularExpression('#image/webp\s+RewriteCond [^\n]*\.webp -f\s+RewriteRule \^\(media/\.\+\\\.\(\?:[^)]*webp#', $htaccess, '.htaccess: no WebP sibling of a WebP file');
+        $this->assertMatchesRegularExpression('#@avif \{\s*path_regexp \(\?i\)\^/media/\.\+\\\.\(jpe\?g\|png\|webp\)\$#', (string) file_get_contents(TALEA_ROOT . '/docker/Caddyfile'), 'Caddy: AVIF for jpg, png and webp');
+        $this->assertStringContainsString('location ~ \.(jpe?g|png|webp)$ {', (string) file_get_contents(TALEA_ROOT . '/system/nginx.example.conf'), 'nginx: the sibling lookup also runs for webp');
+        $this->assertStringContainsString("preg_match('#^/media/.+\\.(jpe?g|png|webp)\$#i', \$path) && is_file(\$root . \$path . '.avif')", (string) file_get_contents(TALEA_ROOT . '/system/dev-router.php'), 'dev router: AVIF for jpg, png and webp');
+    }
+
     /** a GIF with a valid header and a broken body is refused before anything is written; a good GIF stays byte-identical */
     public function testUndecodableGifLeavesNothingBehind(): void
     {

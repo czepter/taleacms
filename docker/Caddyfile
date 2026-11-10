@@ -51,9 +51,9 @@
 	@mediaDoc path_regexp (?i)^/media/.+\.(docx?|xlsx?|pptx?|od[tsp]|rtf|csv|zip|epub|gpx|ics)$
 	header @mediaDoc Content-Disposition attachment
 
-	# AVIF / WebP sibling of a JPEG or PNG (photo.jpg -> photo.jpg.avif) when the browser accepts it
+	# AVIF / WebP sibling of a JPEG or PNG (photo.jpg -> photo.jpg.avif) when the browser accepts it; a WebP original has only the AVIF one
 	@avif {
-		path_regexp (?i)^/media/.+\.(jpe?g|png)$
+		path_regexp (?i)^/media/.+\.(jpe?g|png|webp)$
 		header Accept *image/avif*
 		file {path}.avif
 	}

@@ -16,7 +16,7 @@
 	var SCRIPT = document.querySelector('script[data-admin-url]');
 	var ADMIN = SCRIPT.getAttribute('data-admin-url');
 	var MAX_FILE = parseInt(SCRIPT.getAttribute('data-max-file') || '0', 10); // the server's per-file limit in bytes (0 = no limit)
-	var MAX_SIDE = parseInt(SCRIPT.getAttribute('data-max-page') || '2000', 10);
+	var MAX_SIDE = parseInt(SCRIPT.getAttribute('data-max-page') || '2560', 10);
 	var CSRF = (document.querySelector('input[name="_csrf"]') || {}).value || '';
 	var GALLERY = ADMIN + '/media';
 	var NEWS_ID = (document.querySelector('form[data-draft] input[name="news_id"]') || {}).value || ''; // public id of the news item ('' = a new one)

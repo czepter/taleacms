@@ -42,7 +42,7 @@ final class Image extends Element
         $src = $k->image($o['src']);
         $srcset = Images::srcset(ltrim(preg_replace('#^' . preg_quote($k->app->request->basePath(), '#') . '/#', '', $src) ?? $src, '/'), $k->app->request->basePath());
         $labelText = $o['caption'] !== '';
-        $img = '<img' . ($labelText || $o['link'] !== '' ? '' : $a) . ' src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="' . ($o['priority'] ? '' : 'auto, ') . '(max-width: 900px) 100vw, 900px"' : '') // a lazy image: the browser knows its laid-out width
+        $img = '<img' . ($labelText || $o['link'] !== '' ? '' : $a) . ' src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="' . ($o['priority'] ? '100vw' : 'auto, (max-width: 900px) 100vw, 900px') . '"' : '') // a lazy image: the browser knows its laid-out width (auto); the main image loads at once, so it cannot use auto, and it is usually full width: a fixed 900 px made the browser pick the 1200 px variant for a 1920 px hero
             . ' alt="' . e($o['alt']) . '"' . ($o['priority'] ? ' fetchpriority="high"' : ' loading="lazy"') . '>';
         if ($o['link'] !== '') {
             $img = '<a' . ($labelText ? '' : Text::withClass($a, 'tl-linked')) . ' href="' . e($o['link']) . '">' . $img . '</a>';
