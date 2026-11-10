@@ -1,6 +1,9 @@
 # Dependency updates (docs/RELEASING.md, "Dependency updates"): Dependabot opens one pull request per group and week; CI runs on each
 # like on any other change, and nothing merges by itself. Branch protection and the review stay with the maintainer.
 #
+# Cooldown: a new release is proposed only after 7 days (a poisoned or withdrawn release is usually caught by then; Semgrep requires it).
+# Security updates ignore the cooldown.
+#
 # Not covered by Dependabot: the `services:` images of the workflows (mysql:8.4, postgres:18 in ci.yml and release.yml). The database
 # engines are a decision (docs/specs/postgres.md), so their compose images are ignored below as well.
 version: 2
@@ -15,6 +18,8 @@ updates:
       day: monday
       time: "06:00"
       timezone: Europe/Berlin
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "ci"
     groups:
@@ -31,6 +36,8 @@ updates:
       day: monday
       time: "06:00"
       timezone: Europe/Berlin
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       prefix-development: "chore"
@@ -50,6 +57,8 @@ updates:
       day: monday
       time: "06:00"
       timezone: Europe/Berlin
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
     groups:
@@ -66,6 +75,8 @@ updates:
       day: monday
       time: "06:00"
       timezone: Europe/Berlin
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
     ignore:
