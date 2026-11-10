@@ -1,0 +1,78 @@
+# Dependency updates (docs/RELEASING.md, "Dependency updates"): Dependabot opens one pull request per group and week; CI runs on each
+# like on any other change, and nothing merges by itself. Branch protection and the review stay with the maintainer.
+#
+# Not covered by Dependabot: the `services:` images of the workflows (mysql:8.4, postgres:18 in ci.yml and release.yml). The database
+# engines are a decision (docs/specs/postgres.md), so their compose images are ignored below as well.
+version: 2
+updates:
+  # Actions in .github/workflows (pinned by commit SHA with the version in a comment: Dependabot moves both)
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # Phinx (migrations, exact pin in composer.json) and the test tools. composer.json pins "platform.php" to 8.5.0, so nothing
+  # newer than the image's PHP is proposed.
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+    groups:
+      php-dev-tools:
+        dependency-type: development
+        update-types: [minor, patch]
+      php-runtime:
+        dependency-type: production
+        update-types: [minor, patch]
+
+  # FROM lines of the Dockerfile: FrankenPHP/PHP, Composer, Node for the ci stage
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    commit-message:
+      prefix: "chore"
+    groups:
+      base-images:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # Images in docker-compose*.yaml (the development stack and the Coolify files). The Talea image itself is ours (tag from
+  # TALEA_TAG), and the database engines are chosen on purpose: MySQL 8.4 LTS, MariaDB 11.4 LTS, PostgreSQL 18.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    commit-message:
+      prefix: "chore"
+    ignore:
+      - dependency-name: mysql
+      - dependency-name: mariadb
+      - dependency-name: postgres
+    groups:
+      compose-images:
+        patterns: ["*"]
+        update-types: [minor, patch]

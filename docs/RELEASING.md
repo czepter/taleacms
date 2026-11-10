@@ -58,6 +58,15 @@ To give the builder a newer BuildKit, remove it on the host with `docker buildx 
 it again with its state. `docker buildx du --builder talea-release` shows its size, `docker buildx prune --builder talea-release`
 empties it.
 
+## Dependency updates
+
+`.github/dependabot.yml` opens pull requests on Mondays (06:00 Berlin time), one per group: GitHub Actions (pinned by commit SHA; the
+version in the comment moves with it), Composer (Phinx, PHPUnit, ParaTest; `platform.php` stays 8.5.0), the Dockerfile's `FROM` images
+(FrankenPHP/PHP, Composer, Node of the `ci` stage) and the images in `docker-compose*.yaml`. Major versions get a pull request of their
+own. CI runs on each like on any change; nothing merges by itself. MySQL, MariaDB and PostgreSQL are ignored on purpose (the engine
+version is a decision), and so are the `services:` images in the workflows, which Dependabot cannot read: change those by hand together
+with the compose files. A security update arrives outside the schedule; treat it like a finding below.
+
 ## From a finding to a patch
 
 1. **Assess** (within 3 working days, see `SECURITY.md`): is it a real vulnerability, who is affected, can it be exploited
