@@ -13,7 +13,7 @@ namespace Talea\Core;
  */
 final class Images
 {
-    public const int MAX_SIDE = 2000;
+    public const int MAX_SIDE = 2560; // = MediaHygiene::OVERSIZED_WIDTH: a full-width hero stays sharp on a 1280 px wide screen at 2x
     public const int THUMBNAIL_SIDE = 640;
     public const int MEDIUM_SIDE = 1200;
     private const int MAX_BYTES = 20 * 1024 * 1024;
