@@ -14,9 +14,9 @@ if (preg_match('#^/(system|storage|tools|docs|dist)(/|$)|^/layout/.+\.php$|^/con
     http_response_code(403);
     exit('403');
 }
-// same as .htaccess: serve a browser that supports AVIF or WebP the sibling file foto.jpg.avif / .webp
+// same as .htaccess: serve a browser that supports AVIF or WebP the sibling file foto.jpg.avif / .webp (a WebP original: only foto.webp.avif)
 // nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
-if (preg_match('#^/media/.+\.(jpe?g|png)$#i', $path) && is_file($root . $path . '.avif') && str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'image/avif')) {
+if (preg_match('#^/media/.+\.(jpe?g|png|webp)$#i', $path) && is_file($root . $path . '.avif') && str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'image/avif')) {
     header('Content-Type: image/avif');
     header('Vary: Accept');
     // nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename

@@ -25,10 +25,11 @@ Options -Indexes
     RewriteCond %{REQUEST_URI}::$0 ^(/.+)/(.*)::\2$
     RewriteRule .* - [E=BASE:%1]
 
-    # images from media/: a browser that accepts AVIF (smallest) or WebP gets the sibling file photo.jpg.avif / .webp
+    # images from media/: a browser that accepts AVIF (smallest) or WebP gets the sibling file photo.jpg.avif / .webp;
+    # a WebP original (photo.webp) has no WebP sibling, only photo.webp.avif
     RewriteCond %{HTTP_ACCEPT} image/avif
     RewriteCond %{REQUEST_FILENAME}.avif -f
-    RewriteRule ^(media/.+\.(?:jpe?g|png))$ %{ENV:BASE}/$1.avif [T=image/avif,E=webp:1,L]
+    RewriteRule ^(media/.+\.(?:jpe?g|png|webp))$ %{ENV:BASE}/$1.avif [T=image/avif,E=webp:1,L]
     RewriteCond %{HTTP_ACCEPT} image/webp
     RewriteCond %{REQUEST_FILENAME}.webp -f
     RewriteRule ^(media/.+\.(?:jpe?g|png))$ %{ENV:BASE}/$1.webp [T=image/webp,E=webp:1,L]

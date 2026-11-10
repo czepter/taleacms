@@ -46,6 +46,17 @@ final class ImagesTest extends TestCase
         }
     }
 
+    /** a WebP original gets only photo.webp.avif from Images (no WebP sibling): every server config must serve it, or the AVIF file is dead weight */
+    public function testEveryServerServesTheAvifOfAWebpOriginal(): void
+    {
+        $htaccess = (string) file_get_contents(TALEA_ROOT . '/.htaccess');
+        $this->assertMatchesRegularExpression('#image/avif\s+RewriteCond [^\n]*\.avif -f\s+RewriteRule \^\(media/\.\+\\\.\(\?:jpe\?g\|png\|webp\)\)\$#', $htaccess, '.htaccess: AVIF for jpg, png and webp');
+        $this->assertDoesNotMatchRegularExpression('#image/webp\s+RewriteCond [^\n]*\.webp -f\s+RewriteRule \^\(media/\.\+\\\.\(\?:[^)]*webp#', $htaccess, '.htaccess: no WebP sibling of a WebP file');
+        $this->assertMatchesRegularExpression('#@avif \{\s*path_regexp \(\?i\)\^/media/\.\+\\\.\(jpe\?g\|png\|webp\)\$#', (string) file_get_contents(TALEA_ROOT . '/docker/Caddyfile'), 'Caddy: AVIF for jpg, png and webp');
+        $this->assertStringContainsString('location ~ \.(jpe?g|png|webp)$ {', (string) file_get_contents(TALEA_ROOT . '/system/nginx.example.conf'), 'nginx: the sibling lookup also runs for webp');
+        $this->assertStringContainsString("preg_match('#^/media/.+\\.(jpe?g|png|webp)\$#i', \$path) && is_file(\$root . \$path . '.avif')", (string) file_get_contents(TALEA_ROOT . '/system/dev-router.php'), 'dev router: AVIF for jpg, png and webp');
+    }
+
     /** a GIF with a valid header and a broken body is refused before anything is written; a good GIF stays byte-identical */
     public function testUndecodableGifLeavesNothingBehind(): void
     {
