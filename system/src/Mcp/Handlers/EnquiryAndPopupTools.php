@@ -137,14 +137,120 @@ trait EnquiryAndPopupTools
         if ($form === null) {
             throw new \InvalidArgumentException('form: no such form. list_forms in Enquiries → Forms shows them; without it the testimonial form is used.');
         }
-        $content = (array) (\Talea\Builder\FormRecords::definition(\Talea\Builder\Build::fromJson($form['build'] ?? null))['content'] ?? []);
+        $content = \Talea\Core\FormLinks::content($form);
         if (($content['access'] ?? 'open') !== 'link') {
             throw new \DomainException('This form is open to everyone. Set its access to “personal links” first, or place it on a page.');
         }
-        $result = \Talea\Core\FormLinks::create($this->app, $form, (int) ($a['id'] ?? 0), !empty($a['send']), (string) ($a['label'] ?? ''), (string) ($a['email'] ?? ''));
+        foreach (['prefill', 'fixed'] as $key) {
+            if (isset($a[$key]) && !is_array($a[$key])) {
+                throw new \InvalidArgumentException($key . ' must be an object {"<field>": "value"}.');
+            }
+        }
+        $result = \Talea\Core\FormLinks::create($this->app, $form, (int) ($a['id'] ?? 0), !empty($a['send']), (string) ($a['label'] ?? ''), (string) ($a['email'] ?? ''),
+            (array) ($a['prefill'] ?? []), (array) ($a['fixed'] ?? []), (int) ($a['item'] ?? 0));
+        $result['prefill'] = $this->formLinkPrefill($content, $result['prefill']);
 
-        return $result + ['next' => $result['sent'] ? 'The person got the link by e-mail. What they send waits as a hidden draft – publish it when the user approves.'
-            : 'Pass the link on (it works once). What the person sends waits as a hidden draft.'];
+        return $result + ['next' => ($result['sent'] ? 'The person got the link by e-mail.' : 'Pass the link on (it works once).')
+            . ((int) ($a['item'] ?? 0) > 0 ? ' Their answer waits as a hidden draft next to the item: review_form_answer compares it and applies it when the user approves.' : ' What the person sends waits as a hidden draft (or an enquiry, as the form says).')];
+    }
+
+    /** list_form_links */
+    private function toolListFormLinks(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            throw new \DomainException('Personal links can be read only by users with the Enquiries section.');
+        }
+        $db = $this->app->db();
+        $rows = match (true) {
+            (int) ($a['item'] ?? 0) > 0 => \Talea\Core\FormLinks::ofItem($db, (int) $a['item']),
+            (int) ($a['form'] ?? 0) > 0 => \Talea\Core\FormLinks::ofForm($db, (int) $a['form']),
+            default => $db->all('SELECT * FROM {form_links} ORDER BY id DESC LIMIT 100'),
+        };
+        $forms = [];
+
+        return ['links' => array_map(function (array $l) use ($db, &$forms): array {
+            $form = $forms[(int) $l['form_id']] ??= \Talea\Builder\FormRecords::byId($db, (int) $l['form_id']);
+
+            return ['id' => $db->publicId('form_links', (int) $l['id']), 'form' => $form !== null ? (string) $form['public_id'] : '', 'form_name' => $form !== null ? (string) $form['name'] : '',
+                'label' => (string) $l['label'], 'status' => \Talea\Core\FormLinks::status($l), 'created' => substr((string) $l['created_at'], 0, 16), 'expires' => substr((string) $l['expires_at'], 0, 16),
+                'answered' => $l['used_at'] !== null ? substr((string) $l['used_at'], 0, 16) : null,
+                'prefill' => $form !== null ? $this->formLinkPrefill(\Talea\Core\FormLinks::content($form), \Talea\Core\FormLinks::draft($l)) : [],
+                'drafts' => array_map(static fn (array $d): array => ['at' => substr((string) $d['at'], 0, 16), 'by' => (string) ($d['by'] ?? 'site')], \Talea\Core\FormLinks::drafts($l)),
+                'fixed' => \Talea\Core\FormLinks::fixed($l),
+                'answer_item' => !empty($l['item_id']) ? $db->publicId('collection_items', (int) $l['item_id']) : null,
+                'reviews' => !empty($l['target_item_id']) ? $db->publicId('collection_items', (int) $l['target_item_id']) : null,
+                'answer_state' => in_array((string) $l['state'], ['waiting', 'applied', 'discarded'], true) ? (string) $l['state'] : null];
+        }, $rows)];
+    }
+
+    /** update_form_link */
+    private function toolUpdateFormLink(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            throw new \DomainException('Personal links can be changed only by users with the Enquiries section.');
+        }
+        $db = $this->app->db();
+        $link = $db->one('SELECT * FROM {form_links} WHERE id = ?', [(int) ($a['id'] ?? 0)]) ?? throw new \InvalidArgumentException('The link does not exist. Use list_form_links.');
+        if (!empty($a['revoke'])) {
+            if (!\Talea\Core\FormLinks::revoke($this->app, $link)) {
+                throw new \DomainException('The link was used or revoked already.');
+            }
+
+            return ['id' => $db->publicId('form_links', (int) $link['id']), 'status' => 'revoked'];
+        }
+        foreach (['prefill', 'fixed'] as $key) {
+            if (isset($a[$key]) && !is_array($a[$key])) {
+                throw new \InvalidArgumentException($key . ' must be an object {"<field>": "value"}.');
+            }
+        }
+        \Talea\Core\FormLinks::update($this->app, $link, isset($a['prefill']) ? (array) $a['prefill'] : null, max(0, (int) ($a['extend_days'] ?? 0)),
+            isset($a['label']) ? (string) $a['label'] : null, isset($a['fixed']) ? (array) $a['fixed'] : null);
+        $link = (array) $db->one('SELECT * FROM {form_links} WHERE id = ?', [(int) $link['id']]);
+        $form = \Talea\Builder\FormRecords::byId($db, (int) $link['form_id']);
+
+        return ['id' => $db->publicId('form_links', (int) $link['id']), 'status' => \Talea\Core\FormLinks::status($link), 'expires' => substr((string) $link['expires_at'], 0, 16), 'label' => (string) $link['label'],
+            'prefill' => $form !== null ? $this->formLinkPrefill(\Talea\Core\FormLinks::content($form), \Talea\Core\FormLinks::draft($link)) : [], 'fixed' => \Talea\Core\FormLinks::fixed($link)];
+    }
+
+    /** review_form_answer */
+    private function toolReviewFormAnswer(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        if (!$auth->hasModule('enquiries') || !$auth->hasModule('collections')) {
+            throw new \DomainException('Answers to a reviewed item are handled by users with the Enquiries and Collections sections.');
+        }
+        $db = $this->app->db();
+        $link = $db->one('SELECT * FROM {form_links} WHERE id = ?', [(int) ($a['id'] ?? 0)]) ?? throw new \InvalidArgumentException('The link does not exist. Use list_form_links.');
+        $decision = (string) ($a['decision'] ?? '');
+        if ($decision === '') {
+            $compare = \Talea\Core\FormLinks::comparison($db, $link);
+
+            return ['item' => (string) $compare['original']['public_id'], 'answer_item' => (string) $compare['draft']['public_id'], 'fields' => $compare['rows'],
+                'next' => 'Show the user what changed. review_form_answer with decision apply (when they approve) or discard.'];
+        }
+        if ($auth->draftsOnly()) {
+            throw new \DomainException('A connection limited to drafts cannot change a published item. The user applies the answer in Collections.');
+        }
+        match ($decision) {
+            'apply' => \Talea\Core\FormLinks::apply($this->app, $link),
+            'discard' => \Talea\Core\FormLinks::discard($this->app, $link),
+            default => throw new \InvalidArgumentException('decision must be apply or discard.'),
+        };
+
+        return ['id' => $db->publicId('form_links', (int) $link['id']), 'answer_state' => $decision === 'apply' ? 'applied' : 'discarded', 'item' => $db->publicId('collection_items', (int) $link['target_item_id'])];
+    }
+
+    /** A link's suggested answers named by field label (as the person sees them). @param array<string, mixed> $content @param array<string, mixed> $prefill @return array<string, mixed> */
+    private function formLinkPrefill(array $content, array $prefill): array
+    {
+        $out = [];
+        foreach ((array) ($content['fields'] ?? []) as $f) {
+            if (isset($prefill[(string) ($f['key'] ?? '')])) {
+                $out[(string) $f['label']] = $prefill[(string) $f['key']];
+            }
+        }
+
+        return $out;
     }
 
     /** find_personal_data (2.14): counts and enquiry IDs for one address, never the content */

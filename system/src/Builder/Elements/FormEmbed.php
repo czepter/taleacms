@@ -48,6 +48,16 @@ final class FormEmbed extends Element
             return '<div' . $a . '><p>' . e($known === null ? t('Choose a form in the Content panel.') : t('The form “%s” has not been published yet – visitors see nothing here.', (string) $known['name'])) . '</p></div>';
         }
         $k->types[Form::TYPE] = true; // the form's styles
+        if ($k->linkForm > 0 && (int) $form['form_id'] === $k->linkForm && ($row = FormRecords::byId($k->app->db(), $k->linkForm)) !== null) {
+            // the page a personal link opens (Front\FormLinkPages::linkForm): the form is sent as the form's own (source form:…, its own element id),
+            // so the link is checked and the answer arrives exactly as from the plain link page; the placement keeps its widths and texts
+            $definition = FormRecords::definition(\Talea\Builder\Build::fromJson($row['build']));
+            [$source, $k->source] = [$k->source, 'form:' . $row['public_id']];
+            $html = Form::render(['id' => (string) ($definition['id'] ?? $form['id'])] + $form, $a, '', $k);
+            $k->source = $source;
+
+            return $html;
+        }
 
         return Form::render($form, $a, '', $k);
     }

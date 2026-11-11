@@ -8,7 +8,7 @@
  *   php tools/check-english.php --self-test      runs the checker on its own fixtures
  *   php tools/find-czech.php stranka.html…   visible text of pages (text, title, placeholder, aria-label, alt, buttons, data-potvrdit)
  *   php tools/find-czech.php --de stranka.html…   the same for the German admin (2.4): German words spelled like Czech ones are fine
- *   php tools/find-czech.php --js            texts in admin scripts (image/*.js, the builder's image/builder/*.js) that are neither translated in image/languages/admin-en.js nor an English source text (admin-cs.js)
+ *   php tools/find-czech.php --js            texts in admin scripts (image/*.js, the builder's image/builder/*.js) that are neither translated in image/languages/admin-en.js nor an English source text (a key of admin-de.js)
  *
  * Finds Czech in the English interface (tests/Site/EnglishInstall):
  *
@@ -140,8 +140,8 @@ if ($argv[1] === '--self-test') {
 
 if (($argv[1] ?? '') === '--js') {
     // every Czech text of the admin scripts (also one translated only indirectly via T(popisek)) must have a dictionary entry
-    // English source texts (in admin-cs.js) need no English entry
-    $dictionary = jsDictionary($root) + jsDictionary($root, 'cs');
+    // English source texts (the keys of admin-de.js) need no English entry
+    $dictionary = jsDictionary($root) + jsDictionary($root, 'de');
     $findings = [];
     $builder = array_map(fn (string $f): string => 'builder/' . basename($f, '.js'), glob($root . '/image/builder/*.js') ?: []); // the builder's ES modules
     foreach (['admin', 'editor', 'menu', 'helper', 'passkeys', 'theme', ...$builder] as $file) {

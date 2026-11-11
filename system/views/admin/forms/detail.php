@@ -15,6 +15,8 @@
 
  * @var string $csrf
  * @var bool $linkForm        the form opens only through a personal link (Core\FormLinks)
+ * @var list<array<string, mixed>> $linkFields the fields of that form (what a link can fill in)
+ * @var list<array<string, mixed>> $links      its links, newest first
  * @var bool $multiStep
  * @var string $filter
  * @var string $search
@@ -41,15 +43,41 @@ echo $app->view->render('admin/list/head', ['count' => (string) $totals['total']
 	<div class="tiles-item"><strong><?= $totals['open'] ?></strong><span><?= e(t('To do')) ?></span></div>
 	<div class="tiles-item"><strong><?= $totals['recent'] ?></strong><span><?= e(t('Last 30 days')) ?></span></div>
 </div>
-<?php if ($linkForm): ?>
+<?php if ($linkForm): $statusKinds = ['open' => 'live', 'used' => 'draft', 'expired' => 'off', 'revoked' => 'off']; ?>
 <section aria-labelledby="form-link">
-	<h2 id="form-link"><?= e(t('Personal link')) ?></h2>
-	<form class="toolbar" method="post" action="<?= e($module->url('link')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($form['query']['id'] ?? '') ?>">
-		<label><?= e(t('Who is the link for?')) ?> <input class="textbox" type="text" name="label" maxlength="190" required></label>
-		<label><?= e(t('E-mail (optional, not sent to)')) ?> <input class="textbox" type="email" name="email" maxlength="190"></label>
-		<button type="submit"><?= e(t('Create link')) ?></button>
+	<h2 id="form-link"><?= e(t('Personal links')) ?></h2>
+	<details class="panel-collapsed"<?= $links === [] ? ' open' : '' ?>>
+	<summary><h2><?= e(t('Create a link')) ?></h2></summary>
+	<form class="form" method="post" action="<?= e($module->url('link')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($form['query']['id'] ?? '') ?>">
+		<div class="row"><label for="link-label"><?= e(t('Who is the link for?')) ?></label><div><input class="textfield wide" id="link-label" type="text" name="label" maxlength="190" required></div></div>
+		<div class="row"><label for="link-email"><?= e(t('E-mail (optional)')) ?></label><div><input class="textfield wide" id="link-email" type="email" name="email" maxlength="190">
+			<label><input type="checkbox" name="send" value="1"> <?= e(t('Send the link to this address now, with the form’s link e-mail')) ?></label></div></div>
+		<h3><?= e(t('Fill in the fields')) ?></h3>
+		<p class="help"><?= e(t('What you fill in here the person sees in the form and can change. It belongs to this link only – the form stays the same for everyone.')) ?></p>
+<?= $app->view->render('admin/forms/prefill', ['fields' => $linkFields, 'values' => []]) ?>
+		<p class="buttons"><button class="btn" type="submit"><?= e(t('Create link')) ?></button></p>
 	</form>
-	<p class="small-text"><?= e(t('The link works once and for the days the form says. You pass it on yourself; to e-mail it, use the button on an enquiry.')) ?></p>
+	<p class="small-text"><?= e(t('The link works once and for the days the form says.')) ?></p>
+	</details>
+<?php if ($links !== []): ?>
+	<div class="tab-wrap">
+	<table class="listing">
+	<thead><tr><th scope="col"><?= e(t('For')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Filled in')) ?></th><th scope="col"><?= e(t('Answered')) ?></th><th scope="col"><?= e(t('Works until')) ?></th></tr></thead>
+	<tbody>
+<?php foreach ($links as $l): $state = Talea\Core\FormLinks::status($l); $filled = Talea\Core\FormLinks::draft($l); $saves = count(array_filter(Talea\Core\FormLinks::drafts($l), fn (array $d): bool => ($d['by'] ?? '') === 'person'));
+    $labels = array_column($linkFields, 'label', 'key'); ?>
+	<tr>
+		<td><a class="cell-title" href="<?= e($module->url('link_edit', ['link' => (string) $l['public_id']])) ?>"><?= bdi((string) $l['label']) ?></a></td>
+		<td><?= $app->view->render('admin/list/status', ['kind' => $statusKinds[$state], 'label' => t(Talea\Core\FormLinks::STATUSES[$state])]) ?><?= $saves > 0 && $state === 'open' ? ' <span class="tag">' . e(t('%d drafts saved', $saves)) . '</span>' : '' ?></td>
+		<td class="cell-weak"><?= $filled === [] ? '–' : bdi(mb_strimwidth(implode(' · ', array_map(fn (string $key, string|array $v): string => ($labels[$key] ?? $key) . ': ' . (is_array($v) ? implode(', ', $v) : $v), array_keys($filled), $filled)), 0, 120, '…')) ?></td>
+		<td><?= $l['used_at'] !== null ? e(format_date((string) $l['used_at'], true)) : '–' ?></td>
+		<td class="cell-weak"><?= e(format_date((string) $l['expires_at'])) ?></td>
+	</tr>
+<?php endforeach ?>
+	</tbody>
+	</table>
+	</div>
+<?php endif ?>
 </section>
 <?php endif ?>
 <?php if ($multiStep): $base = max(1, $steps[0]['reached'] ?? 0); ?>

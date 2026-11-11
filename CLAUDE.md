@@ -16,7 +16,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **What nothing emits has no style and no script.** A selector in `image/web.css` or the template CSS that no markup produces, and a
   script that looks for a `[data-…]` element nobody renders, are bugs (`tests/Unit/ScriptsTest.php` guards the scripts).
 - **English everywhere.** Code, identifiers, comments, tests, docs, workflows and file names are English. Czech exists only as a
-  selectable translation (`system/languages/*cs*.php`, `image/languages/admin-cs.js`) and in the WordPress import fixtures.
+  site translation (`system/languages/cs.php`; the administration and the installer are English or German only) and in the WordPress import fixtures.
   `php tools/check-english.php` must exit 0 (a developer tool: run it locally before you commit, CI does not); a line that must keep Czech on purpose says `check-english: allow`.
 - **UI text through `t('English text')`** (`Core\Language`); the English text is the dictionary key. Dictionaries: site
   `system/languages/<code>.php`, admin `admin-<code>.php`, installer `install-<code>.php`, admin scripts `image/languages/admin-<code>.js`
@@ -70,7 +70,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **Routing:** `Kernel::handle()` runs the guards in a fixed order (add-on early hook, redirects, demo, import, OAuth, maintenance, old
   WordPress links, waiting media, the page cache), then the route table `Kernel::routes()` (`Front\Router`: method, pattern with
   `{placeholders}`, a named condition, a `[class, method]` handler; the first route that answers wins, `null` lets the next one try). The
-  order is behaviour; `tools/contracts/routes.json` records it. Handlers: `Front\NewsPages`, `Front\CollectionPages`, `Front\Endpoints`
+  order is behaviour; `tools/contracts/routes.json` records it. Handlers: `Front\NewsPages`, `Front\CollectionPages`, `Front\FormLinkPages` (personal form links), `Front\Endpoints`
   (addresses without the page frame) and `Kernel` (home, pages, previews, members); every page goes through `Front\PageFrame::page()`.
   Add-on routes run after every core route, before pages and collections, and cannot take a reserved prefix.
 - **Themeless:** the page frame is `system/views/front/base.php` + `image/template.css`; the views cannot be overridden and PHP layouts

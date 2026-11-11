@@ -98,11 +98,15 @@ final class Form extends Element
             // who may send: anyone who sees the form, or only a person with a personal link (Core\FormLinks, /_f/<token>)
             'access' => ['type' => 'choice', 'label' => 'Who can send it', 'default' => 'open', 'options' => ['open' => 'Anyone who sees the form', 'link' => 'Only people with a personal link']],
             'link_days' => ['type' => 'number', 'label' => 'A personal link works for (days)', 'default' => 30, 'min' => 1, 'max' => 365, 'when' => ['access' => 'link']],
+            // the person may keep what they typed without sending it (Core\FormLinks::saveDraft): every save is kept, they can go back to one
+            'link_save' => ['type' => 'boolean', 'label' => 'The person can save a draft and send it later (with a history of the saved versions)', 'default' => false, 'when' => ['access' => 'link']],
+            // a page of the site designed for this form (a Form placement on it): the link opens that page, hidden or not, instead of the plain one
+            'link_page' => ['type' => 'link', 'label' => 'Page the link opens (a page with this form placed on it, may be hidden; empty = the form alone); {name} on it is the person the link is for', 'default' => '', 'when' => ['access' => 'link']],
             'link_subject' => ['type' => 'text', 'label' => 'Subject of the e-mail with the link (empty = form name: site name); {site name}', 'default' => '', 'max' => 200, 'when' => ['access' => 'link']],
-            'link_text' => ['type' => 'lines', 'label' => 'Text of the e-mail with the link (empty = a short standard text); {link}, {days} and {site name} are put in', 'default' => '', 'max' => 2000, 'when' => ['access' => 'link']],
+            'link_text' => ['type' => 'lines', 'label' => 'Text of the e-mail with the link (empty = a short standard text); {link}, {days}, {site name}, {name}, {first name} and {Field label} (a suggested answer) are put in', 'default' => '', 'max' => 2000, 'when' => ['access' => 'link']],
             // where the answers go: an enquiry (default), or a hidden draft item of a collection (Core\CollectionSubmission)
             'destination' => ['type' => 'choice', 'label' => 'Where the answers go', 'default' => 'enquiry', 'options' => ['enquiry' => 'Enquiries', 'collection' => 'a collection (as a hidden draft item)']],
-            'collection' => ['type' => 'text', 'label' => 'Collection (its ID from list_collections)', 'default' => '', 'max' => 40, 'when' => ['destination' => 'collection']],
+            'collection' => ['type' => 'text', 'label' => 'Collection (its ID from list_collections)', 'default' => '', 'max' => 110, 'when' => ['destination' => 'collection']],
             'item_name' => ['type' => 'text', 'label' => 'Name of the item; {Field label} puts in an answer', 'default' => '', 'max' => 200, 'when' => ['destination' => 'collection']],
             'mapping' => ['type' => 'items', 'label' => 'Fields of the item: per collection field a text with {Field label} for an answer. Fields a visitor can fill: text, lines, number, date, datetime, radio, link; an image or file field takes only {label of an attachment field}.', 'max' => 30, 'summary' => ['target', 'template'], 'when' => ['destination' => 'collection'], 'fields' => [
                 'target' => ['type' => 'text', 'label' => 'Collection field (its key)', 'default' => '', 'max' => 40],
@@ -201,7 +205,9 @@ final class Form extends Element
             $content['confirmation_reply_to'] = '';
         }
         if (($content['destination'] ?? 'enquiry') === 'collection') {
-            if (!\Talea\Core\Uuid::valid((string) ($content['collection'] ?? '')) || trim((string) ($content['item_name'] ?? '')) === '') {
+            // the collection by its ID, or by its address (slug) as list_collections names it (Core\CollectionSubmission::collection)
+            $named = (string) ($content['collection'] ?? '');
+            if ((!\Talea\Core\Uuid::valid($named) && preg_match('/^[a-z0-9-]{1,110}$/', $named) !== 1) || trim((string) ($content['item_name'] ?? '')) === '') {
                 $errors[$place . '.destination'] = 'A form that adds to a collection needs the collection (its ID) and a name for the item; it was set back to Enquiries.';
                 $content['destination'] = 'enquiry';
             }
@@ -254,6 +260,11 @@ final class Form extends Element
 .tl-field-help { color: var(--tl-color-muted); font-size: var(--tl-step--1); }
 .tl-field-error { color: color-mix(in oklch, #c4281c 80%, var(--tl-color-text)); font-size: var(--tl-step--1); }
 .tl-form-done, .tl-form-error { margin: 0; padding: var(--tl-space-m); border-radius: var(--tl-radius); }
+.tl-form-note { margin: 0; padding: var(--tl-space-s) var(--tl-space-m); border-radius: var(--tl-radius); background: var(--tl-color-primary-soft); color: var(--tl-color-text); }
+.tl-form-actions { display: flex; flex-wrap: wrap; gap: var(--tl-space-s); align-items: center; }
+.tl-form-history { font-size: var(--tl-step--1); }
+.tl-form-history summary { cursor: pointer; }
+.tl-form-history ol { margin: var(--tl-space-2xs) 0 0; padding-inline-start: 1.5em; }
 .tl-form-done { background: var(--tl-color-primary-soft); color: var(--tl-color-text); }
 .tl-form-error { background: color-mix(in oklch, #c4281c 12%, var(--tl-color-background)); color: color-mix(in oklch, #c4281c 80%, var(--tl-color-text)); }
 .tl-form-done p + p, .tl-form-done ol + p { margin-block-start: var(--tl-space-s); }
@@ -375,7 +386,26 @@ final class Form extends Element
             return '<div' . Text::withClass($a, 'tl-form-done') . $id . ' role="status"><p>' . e($text) . '</p></div>';
         }
         $k->types['button'] = true; // the form button looks like the Button element
-        $html = $result !== '' ? '<p class="tl-form-error" role="alert">' . e(self::messages($result)) . '</p>' : '';
+        // a personal link: only its own form shows the person's answers and takes the link (Core\FormLinks)
+        $forLink = $k->linkToken !== '' && ($k->linkForm === 0 || (int) ($p['form_id'] ?? 0) === $k->linkForm);
+        $filled = $forLink ? $k->prefill : [];
+        $canSave = $forLink && !empty($o['link_save']);
+        $html = match (true) {
+            $result === 'saved' && $canSave => '<p class="tl-form-note" role="status">' . e(t('Your draft is saved. You can come back with the same link and send it when it is ready.')) . '</p>',
+            $result !== '' => '<p class="tl-form-error" role="alert">' . e(self::messages($result)) . '</p>',
+            $filled !== [] => '<p class="tl-form-note">' . e($k->prefillBy === 'person' ? t('Your saved draft is filled in. Change what you like and send it when it is ready.')
+                : t('We filled in what we have. Check it, change what is not right and send it.')) . '</p>',
+            default => '',
+        };
+        if ($canSave && count($k->linkDrafts) > 1) {
+            // the history of drafts – our suggestion and what the person saved: each one can be loaded back into the form (?version=n)
+            $items = '';
+            foreach ($k->linkDrafts as $n => $draft) {
+                $when = e(format_date($draft['at'], true) . ($draft['by'] === 'site' ? ' · ' . t('our suggestion') : ''));
+                $items .= '<li>' . ($n === $k->linkVersion ? '<strong aria-current="true">' . $when . '</strong>' : '<a href="' . e($k->app->url($r->path()) . '?version=' . $n) . '">' . $when . '</a>') . '</li>';
+            }
+            $html .= '<details class="tl-form-history"><summary>' . e(t('Saved versions (%d)', count($k->linkDrafts))) . '</summary><ol>' . $items . '</ol></details>';
+        }
         $invalid = $result === 'field' ? $r->getInt('field', -1) : -1;
         // a full course with a waiting list keeps its form: the holder's note on top, the button joins the list
         $html .= $waitingList ? '<p class="tl-form-note">' . e($page('course_full')) . '</p>' : '';
@@ -406,7 +436,7 @@ final class Form extends Element
             $one = match ($field['type']) {
                 'basket' => self::basketField($field, $i, $p['id'], $i === $invalid, $k),
                 'estimate' => self::estimateField($field, $o['fields'], $afterContact),
-                default => self::fields($field, $i, $p['id'], $i === $invalid, \Talea\Core\Privacy::policyUrl($k->app->settings()), $k, !$afterContact),
+                default => self::fields($field, $i, $p['id'], $i === $invalid, \Talea\Core\Privacy::policyUrl($k->app->settings()), $k, !$afterContact, $filled[(string) ($field['key'] ?? '')] ?? null),
             };
             // a field a rule shows or skips (2.12): the script (data-logic) hides it as the answers change; without the script it is always shown
             $one = $one !== '' && isset($targets[$i]) ? '<div class="tl-condition" data-field="' . $i . '">' . $one . '</div>' : $one;
@@ -434,14 +464,17 @@ final class Form extends Element
         return '<form' . Text::withClass($a, $widths !== [] ? 'tl-form tl-form-layout' : 'tl-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"'
             . ($logic !== [] ? ' data-logic="' . e((string) json_encode($logic, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION)) . '"' : '') . '>'
             . '<input type="hidden" name="source" value="' . e($k->source) . '"><input type="hidden" name="element" value="' . e($p['id']) . '">'
-            . ($k->linkToken !== '' ? '<input type="hidden" name="link" value="' . e($k->linkToken) . '">' : '')
+            . ($forLink ? '<input type="hidden" name="link" value="' . e($k->linkToken) . '">' : '')
             . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '">' . \Talea\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('form|' . $k->source . '|' . $p['id'])
             . (trim((string) ($o['heading'] ?? '')) !== '' ? '<h2 class="tl-form-heading">' . e($o['heading']) . '</h2>' : '')
             . (trim((string) ($o['intro'] ?? '')) !== '' ? '<p class="tl-form-intro">' . nl2br(e($o['intro'])) . '</p>' : '')
             . $html
             . (empty($o['no_captcha']) ? self::captcha($k) : '')
-            . '<p class="tl-field"><button class="tl-button tl-button--primary" type="submit">' . e($waitingList ? t('Join the waiting list') : $o['button_text']) . '</button></p></form>';
+            . '<p class="tl-field' . ($canSave ? ' tl-form-actions' : '') . '"><button class="tl-button tl-button--primary" type="submit">' . e($waitingList ? t('Join the waiting list') : $o['button_text']) . '</button>'
+            // saving a draft sends nothing: no field is checked, the link stays open (Front\Forms, Core\FormLinks::saveDraft)
+            . ($canSave ? '<button class="tl-button tl-button--outline" type="submit" name="save_draft" value="1" formnovalidate>' . e(t('Save draft')) . '</button>' : '')
+            . '</p></form>';
     }
 
     /**
@@ -561,8 +594,11 @@ final class Form extends Element
             . '<input type="hidden" name="p' . $i . '" value="' . e($prefill) . '" data-basket-field' . ($field['required'] ? ' data-required' : '') . '>' . $message . '</div>';
     }
 
-    private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = '', ?Context $k = null, bool $amounts = true): string
+    private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = '', ?Context $k = null, bool $amounts = true, string|array|null $value = null): string
     {
+        // what a personal link fills in (Core\FormLinks): the person sees it and may change it
+        $given = is_array($value) ? array_map('strval', $value) : ($value !== null && $value !== '' ? [(string) $value] : []);
+        $valueAttribute = $given !== [] && !is_array($value) ? ' value="' . e((string) $value) . '"' : '';
         $id = 'f-' . $element . '-' . $i;
         $displayName = 'p' . $i;
         $required = $field['required'] ? ' required' : '';
@@ -574,7 +610,7 @@ final class Form extends Element
         if ($field['type'] === 'checkbox') {
             $link = $privacyPolicy !== '' ? ' <a class="tl-field-policy" href="' . e($privacyPolicy) . '" target="_blank" rel="noopener" aria-label="' . e(t('Privacy policy') . ' (' . t('open in a new window') . ')') . '">' . e(t('Privacy policy')) . ' <span aria-hidden="true">↗</span></a>' : '';
 
-            return '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="' . $displayName . '" value="1"' . $required . $marking . '> <span>' . $labelText . $star . '</span></label>' . $link . $message . '</p>';
+            return '<p class="tl-field tl-field-consent"><label><input type="checkbox" name="' . $displayName . '" value="1"' . ($given === ['1'] ? ' checked' : '') . $required . $marking . '> <span>' . $labelText . $star . '</span></label>' . $link . $message . '</p>';
         }
         if ($field['type'] === 'hidden') {
             return ''; // the value is the form's own (Front\Forms), the visitor neither sees nor sends it
@@ -611,9 +647,10 @@ final class Form extends Element
                         default => '',
                     };
                 }
+                $checked = in_array((string) $m, $given, true) ? ' checked' : '';
                 $input = $multiple
-                    ? '<input type="checkbox" name="' . $displayName . '[]" value="' . e((string) $m) . '"' . ($amounts ? self::priceAttribute($price) : '') . $marking . '>'
-                    : '<input type="radio" name="' . $displayName . '" value="' . e((string) $m) . '"' . ($amounts ? self::priceAttribute($price) : '') . ($j === 0 ? $required . $marking : '') . '>';
+                    ? '<input type="checkbox" name="' . $displayName . '[]" value="' . e((string) $m) . '"' . ($amounts ? self::priceAttribute($price) : '') . $checked . $marking . '>'
+                    : '<input type="radio" name="' . $displayName . '" value="' . e((string) $m) . '"' . ($amounts ? self::priceAttribute($price) : '') . $checked . ($j === 0 ? $required . $marking : '') . '>';
                 $options .= '<label>' . $input . $picture . ($tiles ? '<span>' . e((string) $m) . '</span>' : ' ' . e((string) $m)) . '</label>';
                 $j++;
             }
@@ -638,17 +675,17 @@ final class Form extends Element
         }
         $label = '<label for="' . $id . '">' . $labelText . $star . '</label>';
         $input = match ($field['type']) {
-            'textarea' => '<textarea id="' . $id . '" name="' . $displayName . '" maxlength="5000"' . $required . $marking . '></textarea>',
+            'textarea' => '<textarea id="' . $id . '" name="' . $displayName . '" maxlength="5000"' . $required . $marking . '>' . e((string) ($given[0] ?? '')) . '</textarea>',
             'select' => '<select id="' . $id . '" name="' . $displayName . '"' . $required . $marking . '><option value="">' . e(t('— choose —')) . '</option>'
-                . implode('', array_map(fn (string|int $m, float $price): string => '<option' . ($amounts ? self::priceAttribute($price) : '') . '>' . e((string) $m) . '</option>', array_keys($prices = self::optionPrices($field)), $prices)) . '</select>',
-            'date' => '<input id="' . $id . '" name="' . $displayName . '" type="date"' . $required . $marking . '>',
-            'number' => '<input id="' . $id . '" name="' . $displayName . '" type="number" step="any" inputmode="decimal"'
+                . implode('', array_map(fn (string|int $m, float $price): string => '<option' . ($amounts ? self::priceAttribute($price) : '') . (in_array((string) $m, $given, true) ? ' selected' : '') . '>' . e((string) $m) . '</option>', array_keys($prices = self::optionPrices($field)), $prices)) . '</select>',
+            'date' => '<input id="' . $id . '" name="' . $displayName . '" type="date"' . $valueAttribute . $required . $marking . '>',
+            'number' => '<input id="' . $id . '" name="' . $displayName . '" type="number" step="any" inputmode="decimal"' . $valueAttribute
                 . ($amounts && self::price($field['unit_price'] ?? '') != 0.0 ? ' data-price-per="' . self::price($field['unit_price']) . '"' : '') . $required . $marking . '>',
             'file' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::ATTACHMENT_EXTENSIONS) . '"' . $required . $marking . '>'
                 . '<small class="tl-field-help">' . e(t('Up to %d MB: PDF, image, document or ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
             // phone: the same rule as on the server (Front\Forms), the browser checks it right away; the pattern is valid with the v flag too
-            'tel' => '<input id="' . $id . '" name="' . $displayName . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"' . $required . $marking . '>',
-            default => '<input id="' . $id . '" name="' . $displayName . '" type="' . ($field['type'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($field['label'])) . '" maxlength="300"' . $required . $marking . '>',
+            'tel' => '<input id="' . $id . '" name="' . $displayName . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"' . $valueAttribute . $required . $marking . '>',
+            default => '<input id="' . $id . '" name="' . $displayName . '" type="' . ($field['type'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($field['label'])) . '" maxlength="300"' . $valueAttribute . $required . $marking . '>',
         };
 
         return '<p class="tl-field">' . $label . $input . $message . '</p>';

@@ -26,8 +26,8 @@ final class MonthlyReportTest extends TestCase
         $this->assertSame([true, true, true, false, true, true], [str_contains($withAgency['html'], 'Studio Talea'), str_contains($withAgency['html'], 'https://example.com/media/logo.svg'), str_contains($withAgency['text'], 'help@studio.example'),
             str_contains($withoutAgency['html'], 'Studio Talea'), str_contains($withoutAgency['html'], 'Testovací firma'), str_contains($withoutAgency['html'], '120 (+20 %)')], '2.9: the report carries the agency when it is set, otherwise the site'); // check-english: allow
         $this->assertSame([false, true, true], [str_contains($withAgency['html'] . $withAgency['text'] . $withAgency['subject'], 'visitor.example'), str_contains($withoutAgency['html'], '/sluzby'), str_contains($withoutAgency['text'], 'Kontakt ')], '2.9: no e-mail address from the data gets into the report'); // check-english: allow
-        $this->assertSame(['Website report – September 2026 – Testovací firma', 'Zpráva o webu – září 2026 – Testovací firma', 'Website-Bericht – Januar 2027 – Testovací firma'], [$withoutAgency['subject'], MonthlyReport::render($reportData, FakeSettings::site(['site_language' => 'cs']), 'https://example.com')['subject'], // check-english: allow
-            MonthlyReport::render(['month' => '2027-01'], FakeSettings::site(['site_language' => 'de']), 'https://example.com')['subject']], '2.9: the subject names the month in the site language'); // check-english: allow
+        $this->assertSame(['Website report – September 2026 – Testovací firma', 'Website report – September 2026 – Testovací firma', 'Website-Bericht – Januar 2027 – Testovací firma'], [$withoutAgency['subject'], MonthlyReport::render($reportData, FakeSettings::site(['site_language' => 'cs']), 'https://example.com')['subject'], // check-english: allow
+            MonthlyReport::render(['month' => '2027-01'], FakeSettings::site(['site_language' => 'de']), 'https://example.com')['subject']], '2.9: the subject names the month in the site language; a Czech site gets the English administration texts'); // check-english: allow
     }
 
     public function testArchivedReportIsScrubbedAndPrintable(): void
@@ -50,6 +50,6 @@ final class MonthlyReportTest extends TestCase
             '#161: the printed report has a section for what the site has data for – no traffic without statistics, no bookings or newsletter when they are off, no Claude section without sessions or runs');
         $json = (string) json_encode($sections, JSON_UNESCAPED_UNICODE);
         $this->assertSame([true, false, true], [str_contains($json, 'New price list – call [phone]'), str_contains($json, '777 123 456'), str_contains($json, 'Sales')], '#161: the printed report masks again and names the enquiry categories');
-        $this->assertSame(['September 2026', 'září 2026'], [\Talea\Core\ReportPage::monthName('2026-09'), \Talea\Core\Language::runWith('cs', fn (): string => \Talea\Core\ReportPage::monthName('2026-09'), 'admin-')], '#161: the month in the current language'); // check-english: allow
+        $this->assertSame(['October 2026', 'Oktober 2026'], [\Talea\Core\ReportPage::monthName('2026-10'), \Talea\Core\Language::runWith('de', fn (): string => \Talea\Core\ReportPage::monthName('2026-10'), 'admin-')], '#161: the month in the current language');
     }
 }

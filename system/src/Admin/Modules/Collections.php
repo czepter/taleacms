@@ -430,7 +430,90 @@ final class Collections extends Module
             'seats' => $p['item_id'] > 0 && ($course = Registrations::course($k, $p)) !== null ? ['course' => $course] + Registrations::counts($this->db, (int) $p['item_id']) : null,
             'versions' => $p['item_id'] > 0 ? \Talea\Builder\Publisher::listAll($this->db, ['part' => 'item:' . (int) $p['item_id']]) : [],
             // the audit trail of a notice (2.11, Core\Notices), newest first
-            'noticeLog' => $p['item_id'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['collection_id'], (int) $p['item_id'])) : []]);
+            'noticeLog' => $p['item_id'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['collection_id'], (int) $p['item_id'])) : [],
+            'review' => $p['item_id'] > 0 ? $this->review($k, (int) $p['item_id']) : null]);
+    }
+
+    /**
+     * Review by the person it is about (Core\FormLinks): the forms for personal links that add to this collection, the links that
+     * review the item, the answers waiting next to it with what they change – or, on a draft answer, the item it answers.
+     *
+     * @param array<string, mixed> $k
+     * @return array{forms: array<string, string>, links: list<array<string, mixed>>, answerTo: ?array<string, mixed>, canLink: bool}
+     */
+    private function review(array $k, int $itemId): array
+    {
+        $forms = [];
+        foreach (\Talea\Builder\FormRecords::all($this->db) as $f) {
+            $content = \Talea\Core\FormLinks::content($f);
+            if (($content['access'] ?? 'open') === 'link' && (int) (\Talea\Core\CollectionSubmission::collection($this->db, $content)['collection_id'] ?? 0) === (int) $k['collection_id']) {
+                $forms[(string) $f['public_id']] = (string) $f['name'];
+            }
+        }
+        $links = [];
+        $answerTo = null;
+        foreach (\Talea\Core\FormLinks::ofItem($this->db, $itemId) as $l) {
+            if ((int) $l['target_item_id'] !== $itemId) {
+                $answerTo = $l + ['original' => $this->db->one('SELECT public_id, name FROM {collection_items} WHERE item_id = ?', [(int) $l['target_item_id']])];
+                continue;
+            }
+            $compare = null;
+            if ($l['state'] === 'waiting') {
+                try {
+                    $compare = \Talea\Core\FormLinks::comparison($this->db, $l);
+                } catch (\DomainException) {
+                    // the draft went to the trash meanwhile
+                }
+            }
+            $links[] = $l + ['status' => \Talea\Core\FormLinks::status($l), 'compare' => $compare];
+        }
+
+        return ['forms' => $forms, 'links' => $links, 'answerTo' => $answerTo, 'canLink' => $this->app->auth()->hasModule('enquiries')];
+    }
+
+    /** "Send for confirmation": a personal link to a form of this collection that shows the item's values to the person it is about. */
+    protected function actionReviewLink(): Response
+    {
+        $k = $this->request->isPost() ? KolekceObsahu::byId($this->db, $this->idParam('collection_id')) : null;
+        $item = $k !== null ? $this->db->one('SELECT item_id, public_id FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$this->idParam('item_id', 'collection_items'), $k['collection_id']]) : null;
+        if ($k === null || $item === null) {
+            return $this->back();
+        }
+        $back = ['id' => $k['public_id'], 'item' => $item['public_id']];
+        $form = \Talea\Builder\FormRecords::byPublicId($this->db, $this->request->post('form'));
+        if (!$this->app->auth()->hasModule('enquiries') || $form === null || (\Talea\Core\FormLinks::content($form)['access'] ?? 'open') !== 'link') {
+            return $this->back(t('Choose a form for personal links that adds to this collection.'), 'item', $back, 'error');
+        }
+        try {
+            $result = \Talea\Core\FormLinks::create($this->app, $form, 0, $this->request->postBool('send'), $this->request->post('label'), $this->request->post('email'), [], [], (int) $item['item_id'], true);
+        } catch (\DomainException $e) {
+            return $this->back(t($e->getMessage()), 'item', $back, 'error');
+        }
+
+        return $this->back(t($result['sent'] ? 'The link was sent by e-mail: %s' : 'The link to pass on: %s', $result['link']), 'item', $back);
+    }
+
+    /** Applies the answer to the item it reviews (the item's previous state stays in its history), or discards it. */
+    protected function actionReviewAnswer(): Response
+    {
+        $link = $this->request->isPost() ? $this->db->byPublicId('form_links', $this->request->post('link')) : null;
+        $item = $link !== null ? $this->db->one('SELECT i.public_id, k.public_id AS collection FROM {collection_items} i JOIN {collections} k ON k.collection_id = i.collection_id WHERE i.item_id = ?', [(int) $link['target_item_id']]) : null;
+        if ($link === null || $item === null) {
+            return $this->back();
+        }
+        $back = ['id' => $item['collection'], 'item' => $item['public_id']];
+        try {
+            if ($this->request->post('decision') === 'apply') {
+                \Talea\Core\FormLinks::apply($this->app, $link);
+
+                return $this->back(t('The answer was applied to the item. The previous version is in the item history.'), 'item', $back);
+            }
+            \Talea\Core\FormLinks::discard($this->app, $link);
+        } catch (\DomainException $e) {
+            return $this->back(t($e->getMessage()), 'item', $back, 'error');
+        }
+
+        return $this->back(t('The answer was discarded. The item stays as it was.'), 'item', $back);
     }
 
     protected function actionSaveItem(): Response

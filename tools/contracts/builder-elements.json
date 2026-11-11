@@ -105,6 +105,8 @@
         "intro",
         "item_name",
         "link_days",
+        "link_page",
+        "link_save",
         "link_subject",
         "link_text",
         "logic",

@@ -27,6 +27,7 @@ final class Kernel
     private readonly NewsPages $newsPages;
     private readonly CollectionPages $collectionPages;
     private readonly Endpoints $endpoints;
+    private readonly FormLinkPages $formLinkPages;
 
     /** System URL in a foreign form (/news on the English site) – redirect to the valid one (Core\Routes). */
     private ?Response $redirect = null;
@@ -72,6 +73,7 @@ final class Kernel
         $this->newsPages = new NewsPages($app, $this->frame, $news, $this);
         $this->collectionPages = new CollectionPages($app, $this->frame, $this);
         $this->endpoints = new Endpoints($app, $this->frame, $news, $this);
+        $this->formLinkPages = new FormLinkPages($app, $this->frame, $this);
     }
 
     /**
@@ -203,7 +205,7 @@ final class Kernel
             ?? $this->stagedMedia()
             ?? Cache::load($this->app)
             ?? self::routes()->dispatch((string) ($request->serverValues()['REQUEST_METHOD'] ?? 'GET'), $request->path(), $this->app, [
-                self::class => $this, NewsPages::class => $this->newsPages, CollectionPages::class => $this->collectionPages, Endpoints::class => $this->endpoints,
+                self::class => $this, NewsPages::class => $this->newsPages, CollectionPages::class => $this->collectionPages, Endpoints::class => $this->endpoints, FormLinkPages::class => $this->formLinkPages,
             ])
             ?? $this->notFound();
     }
@@ -302,7 +304,7 @@ final class Kernel
             ->add('ANY', '/_form/{id:[a-f0-9-]{36}}', [self::class, 'previewForm']) // the Enquiries right or a signed preview link of the form's draft
             ->add('ANY', '/' . $collection . '.ics', [CollectionPages::class, 'calendarFile']) // only an events collection answers
             ->add('ANY', '/' . $collection . '/' . $item . '.ics', [CollectionPages::class, 'calendarFile'])
-            ->add('ANY', '/_f/' . $token, [self::class, 'linkForm'])
+            ->add('ANY', '/_f/' . $token, [FormLinkPages::class, 'linkForm'])
             ->add('POST', '/_comment', [Endpoints::class, 'comment'])
             ->add('ANY', '/' . $collection . '/_compare', [CollectionPages::class, 'compareProducts'])
             ->add('ANY', '/{collection:(?!news/)[a-z0-9-]{1,110}}/' . $item, [CollectionPages::class, 'showCollectionItem'])
@@ -474,24 +476,6 @@ final class Kernel
         $link = (\Talea\Builder\FormRecords::definition(\Talea\Builder\Build::fromJson($form['build_draft'] ?? $form['build']))['content']['access'] ?? 'open') === 'link';
 
         return $this->frame->page((string) $form['name'], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true] + ($link ? ['part' => 'form_link'] : []));
-    }
-
-    /** The form a personal link opens (Core\FormLinks): the published form inside the wrapper "form_link", never cached, never indexed. */
-    public function linkForm(string $token): Response
-    {
-        $db = $this->app->db();
-        $link = \Talea\Core\FormLinks::find($db, $token) ?? ($this->app->request->get('result') === 'ok' ? \Talea\Core\FormLinks::find($db, $token, 0, true) : null);
-        $form = $link !== null ? \Talea\Builder\FormRecords::byId($db, (int) $link['form_id']) : null;
-        if ($form === null || (string) $form['build'] === '') {
-            return $this->notFound();
-        }
-        $k = $this->frame->context();
-        $k->source = 'form:' . $form['public_id'];
-        $k->linkToken = $token;
-        $k->withoutCache = true;
-        $html = \Talea\Builder\Renderer::html(\Talea\Builder\FormRecords::definitionBuild(\Talea\Builder\Build::fromJson($form['build'])), $k);
-
-        return $this->frame->page((string) $form['name'], $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true, 'part' => 'form_link']);
     }
 
     public function home(): Response

@@ -16,7 +16,7 @@ differently – installation as a container, no updates from the admin, looks, m
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
    the writing assistant… Features can be switched on and off at any time in the admin (**Features**); switching off deletes nothing. Bookings starts switched off. The **Official notice board** (posting and takedown dates, permanent archive, audit trail) also starts switched off; applying the Municipality blueprint turns it on, other organisations switch it on in Features. Switching it off hides it but never deletes notices or their log.
 4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it. A new page from the **Privacy policy** template (Pages → New page) follows what the site has switched on – enquiries, newsletter, statistics, analytics and marketing codes, maps – and fills in your company details. It is always a template to check, not legal advice.
-5. The installer is in English, Czech and German. When it finishes, it shows the address for connecting Claude and
+5. The installer is in English and German. When it finishes, it shows the address for connecting Claude and
    a first prompt to try.
 6. After logging in, **First steps** on the **Dashboard** guide you through: site appearance, company details, pages,
    the privacy policy and email.

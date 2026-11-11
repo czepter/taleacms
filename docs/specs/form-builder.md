@@ -55,6 +55,34 @@ attachment or a field the visitor wrote freely is never put into an e-mail to th
 sends anyone's text to any address. An empty text keeps the old confirmation (thank-you message, result, next steps).
 The notification to the owner can have its own subject with the same placeholders (every answer allowed, one line).
 
+## Personal links that fill the form in
+
+A form whose access is `link` opens only from `/_f/<token>` (`Core\FormLinks`). A link may carry:
+
+- **drafts** (`form_links.drafts`, at most 20, newest last, each `{at, by: site|person, values}`): the form shows the latest one filled
+  in. The first is usually ours – `prefill`, field key => suggested answer (text, longer text, e-mail, phone, number, date, a choice,
+  options to tick, a checkbox) – and a hint above the form says so. The values belong to the link, never to the form, so one form serves
+  many people. MCP names a field by its label or key (`create_form_link`; `update_form_link` adds our next suggestion as a new draft);
+  the admin shows one input per field (Enquiries → Forms → a form → Personal links, and the link's own page to add a draft, extend or
+  revoke it, with the whole history).
+- **fixed**: collection field key => value the item the answer makes gets, never shown (an image, the service). A form's mapping may
+  also give an image or file field a constant `media/…` path.
+- **target item** (`item`): an existing item of the form's collection the person reviews ("Send for confirmation" on the item). The
+  form is filled in from the item (fields the mapping takes as `{Label}` alone, and the item name). The answer becomes a hidden draft
+  item; the link's `state` is `waiting` and the original item shows both side by side. Apply copies the mapped fields and the name into
+  the item (its previous state is an item version) and trashes the draft; Discard trashes the draft. MCP: `review_form_answer`.
+
+**Saving a draft** (form option `link_save`): a "Save draft" button sends the answers without checks; they become one more draft
+(by the person), the link stays open, the form then shows it and lists the history (our suggestion included); `?version=n` loads an
+earlier one. Nothing reaches the site until the person sends the form.
+
+**The page**: the plain link page uses the site's header and footer and the wrapper part `form_link`. A form may name a page of the site
+(`link_page`, hidden or not) that places it with `form_embed`: the link opens that page, `{name}` and `{first name}` on it become the
+person the link is for, and only the placement of this form takes the link. A used, expired or revoked link answers 410 with a kind
+note and the company's public contact instead of an error page.
+
+The collection of a form is named by its public id or by its address (slug); `list_collections` returns both.
+
 ## Phase 1 (built)
 
 - `forms` table, `enquiries.form_id`; Enquiries → Forms lists the records with their placements and answers, creates

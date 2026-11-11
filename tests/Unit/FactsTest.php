@@ -29,7 +29,7 @@ final class FactsTest extends TestCase
     /** 2.10: computed facts – years since, counts, the proof rule */
     public function testComputedFacts(): void
     {
-        \Talea\Core\Language::set('cs', 'admin-');
+        \Talea\Core\Language::set('en', 'admin-');
         $yearsSince = fn (string $value, string $now): ?int => \Talea\Core\Facts::yearsSince($value, new \DateTimeImmutable($now));
         $this->assertSame([22, 22, 21, 22, 0, null, null, null, null], [
             $yearsSince('2004', '2026-10-02 12:00'), $yearsSince('2004-10-02', '2026-10-02 00:00'), $yearsSince('2004-10-03', '2026-10-02 12:00'), $yearsSince('2004-10-01', '2026-10-02 12:00'),
@@ -45,7 +45,7 @@ final class FactsTest extends TestCase
         $this->assertSame([['id' => 'c1', 'number' => '1500'], ['id' => 'c3', 'number' => '22']], \Talea\Core\Facts::typedNumbers($proofBuild), '2.10: proof numbers typed in – counters with digits, not with tokens and not headings');
         [$counterBuild] = \Talea\Builder\Build::sanitize(['children' => [['type' => 'counter', 'content' => ['number' => 1500]], ['type' => 'counter', 'content' => ['number' => '{{years_since:fact.founded}}']]]], false);
         $this->assertSame(['1500', '{{years_since:fact.founded}}'], array_column(array_column($counterBuild['children'], 'content'), 'number'), '2.10: the counter keeps a number and a token alike');
-        $this->assertSame("<p>1500+ " . t('spokojených zákazníků') . "</p>\n<p>{{years_since:fact.founded}}+ " . t('spokojených zákazníků') . '</p>', \Talea\Builder\Build::asText($counterBuild), '2.10: the counter is content – its number or token and label are in the text of the build (usage, the audit, the old value)'); // check-english: allow
+        $this->assertSame("<p>1500+ satisfied customers</p>\n<p>{{years_since:fact.founded}}+ satisfied customers</p>", \Talea\Builder\Build::asText($counterBuild), '2.10: the counter is content – its number or token and label are in the text of the build (usage, the audit, the old value)'); // check-english: allow
         $counterContext = new \Talea\Builder\Context($factApp, true);
         $counterHtml = fn (string $number): string => \Talea\Builder\Elements\Counter::render(['tag' => 'div', 'content' => ['number' => $number, 'prefix' => '', 'suffix' => '+', 'caption' => 'zakázek']], '', '', $counterContext); // check-english: allow
         $this->assertSame([true, true, false], \Talea\Core\Language::runWith('cs', fn (): array => [str_contains($counterHtml('1500'), "data-counter=\"1500\">1\u{00A0}500<"),

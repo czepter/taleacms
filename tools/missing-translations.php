@@ -3,7 +3,7 @@
 /**
  * Lists the English source texts that code uses (t('…') in PHP, T('…') in scripts) but a dictionary lacks.
  *
- *   php tools/missing-translations.php [code]        e.g. cs (default) or de; exit 1 when something is missing
+ *   php tools/missing-translations.php [code]        e.g. de (default); exit 1 when something is missing
  *
  * Texts of the PHP code are looked up in the site, admin and installer dictionaries of the language together (a text may live in any of
  * them), the texts of the scripts in image/languages/admin-<code>.js. Feed the result to tools/add-translations.py.
@@ -12,7 +12,7 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
-$code = $argv[1] ?? 'cs';
+$code = $argv[1] ?? 'de';
 $known = [];
 foreach (['', 'admin-', 'install-'] as $set) {
     $file = $root . "/system/languages/{$set}{$code}.php";

@@ -283,9 +283,12 @@
     "create_form_link": {
         "parameters": {
             "email": "string",
+            "fixed": "object",
             "form": "string",
             "id": "string",
+            "item": "string",
             "label": "string",
+            "prefill": "object",
             "send": "boolean"
         },
         "required": [],
@@ -1216,6 +1219,18 @@
             "openWorldHint": false
         }
     },
+    "list_form_links": {
+        "parameters": {
+            "form": "string",
+            "item": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_forms": {
         "parameters": [],
         "required": [],
@@ -1797,6 +1812,20 @@
     },
     "restore_site": {
         "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "review_form_answer": {
+        "parameters": {
+            "decision": "string",
             "id": "string"
         },
         "required": [
@@ -2452,6 +2481,24 @@
             "action": "string",
             "auto_promote": "boolean",
             "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_form_link": {
+        "parameters": {
+            "extend_days": "integer",
+            "fixed": "object",
+            "id": "string",
+            "label": "string",
+            "prefill": "object",
+            "revoke": "boolean"
         },
         "required": [
             "id"

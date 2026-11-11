@@ -81,6 +81,20 @@ final class Context
     /** The token of a personal link the page was opened with (Core\FormLinks): the form posts it back. */
     public string $linkToken = '';
 
+    /** What the form of a personal link shows filled in: field key => answer, the draft shown (Core\FormLinks). @var array<string, string|list<string>> */
+    public array $prefill = [];
+
+    /** Who wrote that draft: "site" (our suggestion) or "person" (saved by them). */
+    public string $prefillBy = 'site';
+
+    /** The form record the personal link is for: only its form gets the link and the answers (0 = the page shows that form alone). */
+    public int $linkForm = 0;
+
+    /** When the person may save drafts: the link's drafts (oldest first, at and by) and the one shown (-1 = none). @var list<array{at: string, by: string}> */
+    public array $linkDrafts = [];
+
+    public int $linkVersion = -1;
+
     /** @var list<array{0: string, 1: string}> breadcrumbs of the displayed page: [text, url]; the last one is the page itself (url '') */
     public array $breadcrumbs = [];
 
