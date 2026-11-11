@@ -19,7 +19,7 @@ final class TestimonialRequestsTest extends SiteTestCase
         $enquiry = $this->insertEnquiry('customer@example.com', '[["Message","Thank you"]]', 2);
         $noMail = $this->insertEnquiry('', '[]', 2);
 
-        $this->assertStringContainsString('no e-mail address', $this->mcpText('create_form_link', ['id' => $this->site()->publicId('enquiries', $noMail), 'send' => true]), 'testimonials: an enquiry without an e-mail cannot be mailed');
+        $this->assertStringContainsString('no valid e-mail address', $this->mcpText('create_form_link', ['id' => $this->site()->publicId('enquiries', $noMail), 'send' => true]), 'testimonials: an enquiry without an e-mail cannot be mailed');
         $nameOnly = $site->mcpResult('create_form_link', ['label' => 'Anna Weber, wedding 2019']);
         $this->assertStringContainsString('/_f/', (string) ($nameOnly['link'] ?? ''), 'testimonials: a link needs neither an enquiry nor an e-mail address');
         $this->assertSame('Anna Weber, wedding 2019', (string) $site->value("SELECT label FROM tl_form_links WHERE label <> '' ORDER BY id DESC LIMIT 1"), 'testimonials: the label says who the link is for');
@@ -51,7 +51,7 @@ final class TestimonialRequestsTest extends SiteTestCase
             'testimonials: the answer is a hidden draft reference with the words, the name and the role');
 
         $kept = (string) $site->value("SELECT consent LIKE '%publish my words%' FROM tl_form_links WHERE item_id = ?", [$item]);
-        $this->assertSame('1|404', $kept . '|' . $customer->get("/$link")->status, 'testimonials: the consent the customer saw is kept, the link works once');
+        $this->assertSame('1|410', $kept . '|' . $customer->get("/$link")->status, 'testimonials: the consent the customer saw is kept, the link works once (a used one answers 410 Gone)');
 
         $form = $site->publicId('forms', (int) $site->value("SELECT form_id FROM tl_forms WHERE origin = 'system:testimonial'"));
         $this->assertPage('/admin.php?module=forms', 200, 'Share your experience', message: 'testimonials: the system form is listed in Enquiries → Forms');

@@ -70,7 +70,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **Routing:** `Kernel::handle()` runs the guards in a fixed order (add-on early hook, redirects, demo, import, OAuth, maintenance, old
   WordPress links, waiting media, the page cache), then the route table `Kernel::routes()` (`Front\Router`: method, pattern with
   `{placeholders}`, a named condition, a `[class, method]` handler; the first route that answers wins, `null` lets the next one try). The
-  order is behaviour; `tools/contracts/routes.json` records it. Handlers: `Front\NewsPages`, `Front\CollectionPages`, `Front\Endpoints`
+  order is behaviour; `tools/contracts/routes.json` records it. Handlers: `Front\NewsPages`, `Front\CollectionPages`, `Front\FormLinkPages` (personal form links), `Front\Endpoints`
   (addresses without the page frame) and `Kernel` (home, pages, previews, members); every page goes through `Front\PageFrame::page()`.
   Add-on routes run after every core route, before pages and collections, and cannot take a reserved prefix.
 - **Themeless:** the page frame is `system/views/front/base.php` + `image/template.css`; the views cannot be overridden and PHP layouts

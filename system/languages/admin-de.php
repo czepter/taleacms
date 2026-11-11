@@ -5476,7 +5476,7 @@ return [
     'The person can save a draft and send it later (with a history of the saved versions)' => 'Die Person kann einen Entwurf speichern und später absenden (mit Verlauf der gespeicherten Stände)',
     'The person cannot save drafts of this form; switch it on in the form (“The person can save a draft”).' => 'Die Person kann bei diesem Formular keine Entwürfe speichern; im Formular einschalten („Die Person kann einen Entwurf speichern“).',
     'The person does not exist.' => 'Die Person existiert nicht.',
-    'The person gets a link to a form that shows this item’s text. They change it or leave it; their answer waits here next to the item until you apply it.' => 'Die Person bekommt einen Link zu einem Formular mit dem Text dieses Eintrags. Sie ändert ihn oder lässt ihn stehen; die Antwort wartet hier neben dem Eintrag, bis sie übernommen wird.',
+    'The person gets a link to a form that shows this item’s text. They change it or leave it; their answer waits here next to the item until you apply it.' => 'Die Person bekommt einen Link zu einem Formular mit dem Text dieses Eintrags und kann ihn ändern oder stehen lassen; ihre Antwort wartet hier neben dem Eintrag, bis Sie sie übernehmen.',
     'The person gets an e-mail with a link that signs them in; it works once for a few days.' => 'Die Person erhält eine E-Mail mit einem Link, der sie anmeldet; er funktioniert einmal und einige Tage lang.',
     'The person has upcoming bookings – cancel or move them first, or switch the person off instead.' => 'Die Person hat bevorstehende Buchungen – stornieren oder verschieben Sie sie zuerst oder schalten Sie die Person stattdessen aus.',
     'The person is removed.' => 'Die Person ist entfernt.',

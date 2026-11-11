@@ -60,8 +60,6 @@ echo $app->view->render('admin/list/head', ['links' => [[$module->url('detail', 
 <?php endif ?>
 </section>
 <?php endif ?>
-</section>
-<?php endif ?>
 <?php if ($drafts !== []): ?>
 <h2 id="link-drafts"><?= e(t('Drafts (%d)', count($drafts))) ?></h2>
 <?php if (!$canSave): ?>

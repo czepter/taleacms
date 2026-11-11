@@ -284,7 +284,7 @@ final class FormLinks
             $clean = match ($type) {
                 'textarea' => mb_substr($text, 0, 5000),
                 'select', 'radio' => $text === '' || in_array($text, array_map('strval', \Talea\Builder\Elements\Form::options($field)), true) ? $text : null,
-                'checkboxes' => ($list = array_values(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : preg_split('/\R|,\s*/u', $text) ?: []), 'strlen'))) === []
+                'checkboxes' => ($list = array_values(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : (preg_split('/\R|,\s*/u', $text) ?: [])), 'strlen'))) === []
                     ? [] : (array_diff($list, array_map('strval', \Talea\Builder\Elements\Form::options($field))) === [] ? $list : null),
                 'checkbox' => in_array(mb_strtolower($text), ['', '0', 'false', 'no'], true) ? '' : '1',
                 'date' => $text === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $text) === 1 && checkdate((int) substr($text, 5, 2), (int) substr($text, 8, 2), (int) substr($text, 0, 4))) ? $text : null,
