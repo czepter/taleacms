@@ -1,4 +1,4 @@
-# PHP and Composer for the self-hosted runners, inside Docker. Nothing is installed on the runner host itself.
+# PHP and Composer inside Docker. Nothing is installed on the runner host itself.
 # Why: setup-php installed PHP onto the host that two runners share. Parallel jobs rewrote each other's Composer
 # ('Class "Composer\Util\PackageSorter" not found in phar://…', a tool cache saying "installed" for a missing file), and then a PHP
 # release built against another system broke every job ("php: error while loading shared libraries: libxml2.so.2").
@@ -20,7 +20,7 @@
 # (about 2 GB) was tried and is too tight: four paratest workers, each with a PHP server and its opcache, then reclaim memory so
 # constantly that the installer runs past PHP's 60-second limit.
 name: PHP and Composer
-description: Runs PHP and Composer in the Dockerfile's ci stage on a self-hosted runner and installs the dependencies
+description: Runs PHP and Composer in the Dockerfile's ci stage and installs the dependencies
 inputs:
   install:
     description: Run composer install ('false' for jobs that only need PHP)
