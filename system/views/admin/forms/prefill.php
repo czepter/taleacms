@@ -20,7 +20,6 @@ $shown = array_filter($fields, fn (array $f): bool => (string) ($f['key'] ?? '')
     'textarea' => '<textarea class="textbox" id="' . e($id) . '" name="' . e($name) . '" rows="6" maxlength="5000">' . e($one) . '</textarea>',
     'select', 'radio' => '<select class="textfield" id="' . e($id) . '" name="' . e($name) . '"><option value="">–</option>' . implode('', array_map(fn (string $o): string => '<option' . ($o === $one ? ' selected' : '') . '>' . e($o) . '</option>', array_map('strval', Form::options($f)))) . '</select>',
     'checkboxes' => '<span class="options" id="' . e($id) . '">' . implode('', array_map(fn (string $o): string => '<label><input type="checkbox" name="' . e($name) . '[]" value="' . e($o) . '"' . (in_array($o, (array) $value, true) ? ' checked' : '') . '> ' . e($o) . '</label>', array_map('strval', Form::options($f)))) . '</span>',
-    'checkbox' => '<label><input type="checkbox" id="' . e($id) . '" name="' . e($name) . '" value="1"' . ($one === '1' ? ' checked' : '') . '> ' . e(t('Ticked')) . '</label>',
     'date' => '<input class="textfield" type="date" id="' . e($id) . '" name="' . e($name) . '" value="' . e($one) . '">',
     'email' => '<input class="textfield wide" type="email" id="' . e($id) . '" name="' . e($name) . '" value="' . e($one) . '" maxlength="190">',
     default => '<input class="textfield wide" type="text" id="' . e($id) . '" name="' . e($name) . '" value="' . e($one) . '" maxlength="300">',

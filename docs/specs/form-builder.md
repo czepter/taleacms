@@ -61,7 +61,8 @@ A form whose access is `link` opens only from `/_f/<token>` (`Core\FormLinks`). 
 
 - **drafts** (`form_links.drafts`, at most 20, newest last, each `{at, by: site|person, values}`): the form shows the latest one filled
   in. The first is usually ours – `prefill`, field key => suggested answer (text, longer text, e-mail, phone, number, date, a choice,
-  options to tick, a checkbox) – and a hint above the form says so. The values belong to the link, never to the form, so one form serves
+  options to tick) – and a hint above the form says so. Never the consent (`checkbox`): neither a link nor a saved draft carries it; the
+  person ticks it with the final send, and only that send records it (`form_links.consent`). The values belong to the link, never to the form, so one form serves
   many people. MCP names a field by its label or key (`create_form_link`; `update_form_link` adds our next suggestion as a new draft);
   the admin shows one input per field (Enquiries → Forms → a form → Personal links, and the link's own page to add a draft, extend or
   revoke it, with the whole history).

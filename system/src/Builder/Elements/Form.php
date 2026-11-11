@@ -436,7 +436,8 @@ final class Form extends Element
             $one = match ($field['type']) {
                 'basket' => self::basketField($field, $i, $p['id'], $i === $invalid, $k),
                 'estimate' => self::estimateField($field, $o['fields'], $afterContact),
-                default => self::fields($field, $i, $p['id'], $i === $invalid, \Talea\Core\Privacy::policyUrl($k->app->settings()), $k, !$afterContact, $filled[(string) ($field['key'] ?? '')] ?? null),
+                default => self::fields($field, $i, $p['id'], $i === $invalid, \Talea\Core\Privacy::policyUrl($k->app->settings()), $k, !$afterContact,
+                    $field['type'] === 'checkbox' ? null : $filled[(string) ($field['key'] ?? '')] ?? null), // the consent is never filled in for the person (an older draft may hold one)
             };
             // a field a rule shows or skips (2.12): the script (data-logic) hides it as the answers change; without the script it is always shown
             $one = $one !== '' && isset($targets[$i]) ? '<div class="tl-condition" data-field="' . $i . '">' . $one . '</div>' : $one;

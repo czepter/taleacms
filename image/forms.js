@@ -16,11 +16,13 @@
 	var locale = function () { var lang = document.documentElement.lang; return document.documentElement.dir === 'rtl' && lang ? lang + '-u-nu-latn' : lang || undefined; };
 
 	/* the values of the answer fields (p0, p1[] …): a string, or a list for checkboxes and the two times of a time range; a hidden
-	   field is the page's own (a collection item's value, the basket) and is never stored or brought back */
+	   field is the page's own (a collection item's value, the basket) and is never stored or brought back; nor is the consent: the
+	   person ticks it for the send it goes with, never from what the browser remembered (a saved draft reloads the page) */
+	function kept(p) { return /^p\d+(\[\])?$/.test(p.name) && p.type !== 'file' && p.type !== 'hidden' && !p.closest('.tl-field-consent'); }
 	function snapshot(f) {
 		var values = {};
 		Array.prototype.forEach.call(f.elements, function (p) {
-			if (!/^p\d+(\[\])?$/.test(p.name) || p.type === 'file' || p.type === 'hidden') { return; }
+			if (!kept(p)) { return; }
 			var many = /\[\]$/.test(p.name), name = p.name.replace(/\[\]$/, '');
 			if ((p.type === 'checkbox' || p.type === 'radio') && !p.checked) { return; }
 			if (many) { (values[name] = values[name] || []).push(p.value); } else { values[name] = p.value; }
@@ -30,7 +32,7 @@
 	function restore(f, stored) {
 		var seen = {};
 		Array.prototype.forEach.call(f.elements, function (p) {
-			if (!/^p\d+(\[\])?$/.test(p.name) || p.type === 'file' || p.type === 'hidden') { return; }
+			if (!kept(p)) { return; }
 			var many = /\[\]$/.test(p.name), name = p.name.replace(/\[\]$/, ''), value = stored[name];
 			if (value === undefined) { if (p.type === 'checkbox' || p.type === 'radio') { p.checked = false; } return; }
 			if (many !== Array.isArray(value)) { return; }
@@ -324,6 +326,9 @@
 
 		form.addEventListener('submit', function (e) {
 			remember();
+			// "Save draft" (a personal link) is not a send: the server keeps it without the bot protection (Front\Forms), so it goes at once
+			var submitter = e.submitter || null;
+			if (submitter && submitter.name === 'save_draft') { return; }
 			// the bot protection rejects a form submitted a few seconds after the page loads (with autofill even a person
 			// can manage that) – instead of an error, the submit is delayed by the remaining time
 			// counted from the server's first response (the page was created before it), not from clicking the link
@@ -331,9 +336,17 @@
 			var remaining = wait ? parseInt(wait.getAttribute('data-wait'), 10) * 1000 + 250 - (performance.now() - (navigation ? navigation.responseStart : 0)) : 0;
 			if (remaining > 0) {
 				e.preventDefault();
-				var button = form.querySelector('[type=submit]');
+				var button = submitter || form.querySelector('[type=submit]');
 				if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
-				setTimeout(function () { form.submit(); }, remaining);
+				setTimeout(function () {
+					// form.submit() sends no button: the one pressed goes along as a hidden field, so the server sees what was asked
+					if (submitter && submitter.name) {
+						var pressed = document.createElement('input');
+						pressed.type = 'hidden'; pressed.name = submitter.name; pressed.value = submitter.value;
+						form.appendChild(pressed);
+					}
+					form.submit();
+				}, remaining);
 			}
 		});
 	});

@@ -77,13 +77,13 @@ final class Forms
                 return $redirectUri('verification');
             }
             if ($r->post('save_draft') === '1' && !empty($element['content']['link_save'])) {
-                // a draft of the person with the link: kept as a new version of their history, nothing is checked or sent, the link stays open
+                // a draft of the person with the link: kept as a new version of their history, nothing is checked or sent, the link stays open;
+                // the consent is not part of it (FormLinks::PREFILLABLE) – it counts only with the final send
                 $answers = [];
                 foreach ($element['content']['fields'] as $i => $f) {
                     if ((string) ($f['key'] ?? '') !== '' && in_array($f['type'], \Talea\Core\FormLinks::PREFILLABLE, true)) {
                         $answers[(string) $f['key']] = match ($f['type']) {
                             'checkboxes' => $r->postList('p' . $i),
-                            'checkbox' => $r->post('p' . $i) === '1' ? '1' : '',
                             default => mb_substr($r->post('p' . $i), 0, 5000),
                         };
                     }

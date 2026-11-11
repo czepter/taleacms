@@ -26,8 +26,11 @@ final class FormLinks
 {
     public const int DAYS = 30;
 
-    /** Form field types a link can fill in. */
-    public const array PREFILLABLE = ['text', 'email', 'tel', 'number', 'textarea', 'select', 'radio', 'checkboxes', 'checkbox', 'date'];
+    /**
+     * Form field types a link can fill in and a saved draft keeps. Never the consent (checkbox): the person gives it themselves, with
+     * the final send – a ticked box we prepared or one a draft remembered is no consent.
+     */
+    public const array PREFILLABLE = ['text', 'email', 'tel', 'number', 'textarea', 'select', 'radio', 'checkboxes', 'date'];
 
     /** What a link's status means in lists. */
     public const array STATUSES = ['open' => 'Not used yet', 'used' => 'Answered', 'expired' => 'Expired', 'revoked' => 'Revoked'];
@@ -274,6 +277,9 @@ final class FormLinks
                 throw new \DomainException(sprintf('prefill: the form has no field “%s”. Name a field by its label or key.', $name));
             }
             $type = (string) $field['type'];
+            if ($type === 'checkbox') {
+                throw new \DomainException(sprintf('prefill: the field “%s” is the consent – the person ticks it themselves when they send the form.', $field['label']));
+            }
             if (!in_array($type, self::PREFILLABLE, true)) {
                 throw new \DomainException(sprintf('prefill: the field “%s” cannot be filled in by a link.', $field['label']));
             }
@@ -286,7 +292,6 @@ final class FormLinks
                 'select', 'radio' => $text === '' || in_array($text, array_map('strval', \Talea\Builder\Elements\Form::options($field)), true) ? $text : null,
                 'checkboxes' => ($list = array_values(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : (preg_split('/\R|,\s*/u', $text) ?: [])), static fn (string $v): bool => $v !== ''))) === []
                     ? [] : (array_diff($list, array_map('strval', \Talea\Builder\Elements\Form::options($field))) === [] ? $list : null),
-                'checkbox' => in_array(mb_strtolower($text), ['', '0', 'false', 'no'], true) ? '' : '1',
                 'date' => $text === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $text) === 1 && checkdate((int) substr($text, 5, 2), (int) substr($text, 8, 2), (int) substr($text, 0, 4))) ? $text : null,
                 'number' => $text === '' || preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $text) === 1 ? $text : null,
                 'email' => $text === '' || filter_var($text, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($text, 0, 190) : null,
