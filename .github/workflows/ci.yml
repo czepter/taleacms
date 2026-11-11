@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/php-composer
       - name: PHPUnit unit suite (no database, so it runs here once and not in every database job)
         # it checks the public contracts (ContractsTest); tools/check-english.php and tools/sql-dialect-scan.php
@@ -129,7 +129,7 @@ jobs:
         ports: ['3306']
         options: --tmpfs /var/lib/mysql --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/php-composer
       - name: PHPUnit (integration and whole installed sites; the unit suite runs in Repository checks)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
@@ -148,7 +148,7 @@ jobs:
         ports: ['3306']
         options: --tmpfs /var/lib/mysql --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/php-composer
       - name: Admin, builder, editors and public site in Chrome
         # Chromium and Node live in the ci image (.github/actions/php-composer): the path is the one inside the container
@@ -163,7 +163,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/php-composer
       - name: PHPStan
         run: |
@@ -180,7 +180,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
       - name: Semgrep - security rules for PHP and JavaScript
         # run the tool directly in a container: the deprecated semgrep-action can no longer read the current registry rules
