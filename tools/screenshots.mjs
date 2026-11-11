@@ -22,7 +22,8 @@ async function shot(name, url, { viewport = DESKTOP, dark = false, full = false,
   await page.emulateMedia({ colorScheme: dark ? 'dark' : 'light', reducedMotion: 'reduce' });
   if (url) await page.goto(BASE + url, { waitUntil: 'networkidle' });
   if (before) await before();
-  await page.evaluate(() => document.fonts.ready);
+  // fonts.ready can resolve before a face the page uses has started loading (the logo and headings came out blank): load every face first
+  await page.evaluate(async () => { await Promise.all([...document.fonts].map((f) => f.load().catch(() => null))); await document.fonts.ready; });
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: full });
   console.log('  ' + name);
