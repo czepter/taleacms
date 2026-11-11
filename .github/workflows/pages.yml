@@ -1,5 +1,5 @@
 # Project page (docs/site) to GitHub Pages: a push to main that changes it publishes the folder as it is, no build step.
-# Runs on a GitHub-hosted runner so it never waits for or blocks the self-hosted CI runners.
+# Runs on a GitHub-hosted runner.
 name: Pages
 
 on:

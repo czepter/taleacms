@@ -13,7 +13,7 @@ permissions:
 jobs:
   analysis:
     name: Static analysis
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
@@ -41,7 +41,7 @@ jobs:
   websites:
     name: Project website from outside
     if: false # TODO(HF-15): switch on when the project domain exists (docs/NAME-CHECK.md)
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     steps:
       - name: Security headers and closed paths
         run: |
@@ -61,7 +61,7 @@ jobs:
     name: Issue on failure
     needs: [analysis, websites]
     if: ${{ failure() }}
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     permissions:
       issues: write
     steps:

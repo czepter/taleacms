@@ -1,6 +1,6 @@
 # Checks every change on PHP 8.5, the version the container image (FrankenPHP) runs: the repository's own checks, the PHPUnit suites
 # on MySQL 8.4, the browser walk, static analysis and security scanning. PostgreSQL 18 and SQLite run when a release is tagged
-# (release.yml, job engines): the four runners are the bottleneck, and a job fewer per change shortens the wait for all of them.
+# (release.yml, job engines): a job fewer per change shortens the wait. Every job runs on a GitHub-hosted runner.
 name: CI
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
   # but not the database suites and static analysis (tests=false). The repository checks (unit suite) and the security scan still run.
   gate:
     name: Not tested yet
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       run: ${{ steps.gate.outputs.run }}
@@ -36,7 +36,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           SHA: ${{ github.event.pull_request.head.sha }}
-          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           PR: ${{ github.event.pull_request.number }}
           PR_FILES: ${{ github.event.pull_request.changed_files }}
           BEFORE: ${{ github.event.before }}
@@ -69,10 +68,7 @@ jobs:
             return 1
           }
           run=true
-          # a fork's pull request must never run on the self-hosted runners
-          if [ "$EVENT" = pull_request ] && [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
-            run=false; echo "pull request from a fork: not run on self-hosted runners"
-          elif by=$(tested "${SHA:-$AFTER}" 'Repository checks'); then
+          if by=$(tested "${SHA:-$AFTER}" 'Repository checks'); then
             run=false; echo "the content of ${SHA:-$AFTER} already passed CI at $by: nothing runs again"
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
@@ -105,7 +101,7 @@ jobs:
     name: Repository checks
     needs: gate
     if: needs.gate.outputs.run == 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -119,7 +115,7 @@ jobs:
     name: Tests on MySQL 8.4
     needs: gate
     if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     # the data directory lives in memory (--tmpfs): every test class installs and drops whole sites, and on disk each commit and
     # each CREATE/DROP TABLE waited for fsync – the suite took 18 minutes against 5 on PostgreSQL. The test data is thrown away anyway.
@@ -140,7 +136,7 @@ jobs:
     name: Browser walk (Chrome)
     needs: gate
     if: needs.gate.outputs.run == 'true' && needs.gate.outputs.browser == 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
       db:
@@ -161,7 +157,7 @@ jobs:
     name: Static analysis
     needs: gate
     if: needs.gate.outputs.run == 'true' && needs.gate.outputs.tests == 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -178,7 +174,7 @@ jobs:
   security:
     needs: gate
     if: needs.gate.outputs.run == 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
