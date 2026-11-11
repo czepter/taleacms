@@ -64,7 +64,7 @@ jobs:
           }
           if by=$(tested "$SHA" 'Tests on MySQL 8.4'); then echo "CI passed for the content of $SHA (at $by): the tests are not run again"; echo "tested=true" >> "$GITHUB_OUTPUT"; fi
       - if: steps.gate.outputs.tested != 'true'
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - if: steps.gate.outputs.tested != 'true'
         uses: ./.github/actions/php-composer
       - if: steps.gate.outputs.tested != 'true'
@@ -83,7 +83,7 @@ jobs:
         ports: ['5432']
         options: --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/php-composer
       - name: PHPUnit on PostgreSQL (integration and whole installed sites)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
@@ -103,7 +103,7 @@ jobs:
       latest: ${{ steps.tags.outputs.latest }}
       tags: ${{ steps.tags.outputs.tags }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
       - id: tags
         name: Version and image tags
@@ -140,7 +140,7 @@ jobs:
         run: |
           echo "DOCKER_CONFIG=$RUNNER_TEMP/docker" >> "$GITHUB_ENV"
           echo "BUILDX_CONFIG=$HOME/.docker/buildx" >> "$GITHUB_ENV"
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
