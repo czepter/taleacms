@@ -22,8 +22,11 @@ jobs:
   # docker-compose*.yaml files, release.yml and pages.yml, which CI never reads) skips the test jobs (output tests=false, browser=false); a change of
   # stylesheets (with or without documentation) runs the browser walk
   # but not the database suites and static analysis (tests=false). The repository checks (unit suite) and the security scan still run.
+  # Dependabot's own pull requests run nothing (the gate is skipped, so every job after it is too, and the required checks report
+  # "skipped"): merge their updates into one pull request of your own, which CI tests. A push by anyone else runs everything.
   gate:
     name: Not tested yet
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:

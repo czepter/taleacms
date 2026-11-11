@@ -47,7 +47,8 @@ builder. Only this workflow can write the cache. CI uses hosted runners too, so 
 `.github/dependabot.yml` opens pull requests on Mondays (06:00 Berlin time), one per group: GitHub Actions (pinned by commit SHA; the
 version in the comment moves with it), Composer (Phinx, PHPUnit, ParaTest; `platform.php` stays 8.5.0), the Dockerfile's `FROM` images
 (FrankenPHP/PHP, Composer, Node of the `ci` stage) and the images in `docker-compose*.yaml`. Major versions get a pull request of their
-own. CI runs on each like on any change; nothing merges by itself. MySQL, MariaDB and PostgreSQL are ignored on purpose (the engine
+own. CI does not run on Dependabot's pull requests (the gate in `ci.yml` skips them): combine the updates into one pull request of your
+own, which CI tests like any change; nothing merges by itself. MySQL, MariaDB and PostgreSQL are ignored on purpose (the engine
 version is a decision), and so are the `services:` images in the workflows, which Dependabot cannot read: change those by hand together
 with the compose files. A security update arrives outside the schedule; treat it like a finding below.
 
