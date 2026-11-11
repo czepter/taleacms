@@ -50,6 +50,6 @@ final class MonthlyReportTest extends TestCase
             '#161: the printed report has a section for what the site has data for – no traffic without statistics, no bookings or newsletter when they are off, no Claude section without sessions or runs');
         $json = (string) json_encode($sections, JSON_UNESCAPED_UNICODE);
         $this->assertSame([true, false, true], [str_contains($json, 'New price list – call [phone]'), str_contains($json, '777 123 456'), str_contains($json, 'Sales')], '#161: the printed report masks again and names the enquiry categories');
-        $this->assertSame(['September 2026', 'září 2026'], [\Talea\Core\ReportPage::monthName('2026-09'), \Talea\Core\Language::runWith('cs', fn (): string => \Talea\Core\ReportPage::monthName('2026-09'), 'admin-')], '#161: the month in the current language'); // check-english: allow
+        $this->assertSame(['October 2026', 'Oktober 2026'], [\Talea\Core\ReportPage::monthName('2026-10'), \Talea\Core\Language::runWith('de', fn (): string => \Talea\Core\ReportPage::monthName('2026-10'), 'admin-')], '#161: the month in the current language');
     }
 }

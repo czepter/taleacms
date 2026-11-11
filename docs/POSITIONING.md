@@ -124,7 +124,7 @@ it has not run). "The all-in-one website builder you host yourself" (Microweber 
 | Industry blueprints | 20 | `system/blueprints/` |
 | Self-hosted font families | about 28 | `docs/FONTS.md` |
 | Site languages | 45, right to left included | `Language::AVAILABLE` |
-| Admin languages | English, German, Czech | `system/languages/admin-*` |
+| Admin languages | English, German | `system/languages/admin-*` |
 | Databases | MySQL 8, MariaDB 11.4+, PostgreSQL 18, SQLite | README |
 | Install | one container image (amd64, arm64), signed; `docker compose up` | `docker-compose.yaml`, release workflow |
 | Updates | a new image; migrations run before the site starts; no in-app updater | README |

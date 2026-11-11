@@ -42,7 +42,7 @@ final class Installer
     public const array STEPS = ['website', 'business', 'look', 'features', 'account'];
 
     /** Installation languages (= admin languages) and the default time zone we offer for them. */
-    private const array TIME_ZONES = ['cs' => 'Europe/Prague', 'en' => 'Europe/London', 'de' => 'Europe/Berlin'];
+    private const array TIME_ZONES = ['en' => 'Europe/London', 'de' => 'Europe/Berlin'];
 
     /** The fields of the database (asked on the last step without an environment configuration). */
     private const array DATABASE_FIELDS = ['db_driver', 'db_host', 'db_port', 'db_name', 'db_user', 'db_password', 'db_prefix'];

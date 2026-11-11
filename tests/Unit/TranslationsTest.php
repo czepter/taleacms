@@ -146,8 +146,8 @@ final class TranslationsTest extends TestCase
             }
         }
         foreach (['en', 'de'] as $code) {
-            // English: Czech keys to English on top of the English source texts; German (2.5): every source text translated
-            $dictionary = (require TALEA_ROOT . '/system/languages/install-' . $code . '.php') + ($code === 'en' ? require TALEA_ROOT . '/system/languages/install-cs.php' : []);
+            // English: the source texts (the keys of the German dictionary) plus the English overrides; German (2.5): every source text translated
+            $dictionary = (require TALEA_ROOT . '/system/languages/install-' . $code . '.php') + ($code === 'en' ? require TALEA_ROOT . '/system/languages/install-de.php' : []);
             // international words are not translated (the dictionary tool does not write identical entries)
             $missing = array_values(array_diff(array_keys($keys), array_keys($dictionary), ['Server', 'Port', 'E-mail', 'Newsletter', 'Import', 'Installation', 'Website', 'Administration', 'Team']));
             $this->assertSame([], $missing, 'installer: complete dictionary ' . $code);
@@ -248,10 +248,10 @@ final class TranslationsTest extends TestCase
         preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", $builderScripts, $enJs);
         preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents(TALEA_ROOT . '/image/languages/admin-en.js'), $enJsDictionary);
         $enJsKeys = array_keys((array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $enJsDictionary[1] ?? '{}'), true));
-        preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents(TALEA_ROOT . '/image/languages/admin-cs.js'), $csJsDictionary);
-        $enJsKeys = [...$enJsKeys, ...array_keys((array) json_decode((string) preg_replace('/,\s*\}$/', '}', $csJsDictionary[1] ?? '{}'), true))];
+        preg_match('/window\.TALEA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents(TALEA_ROOT . '/image/languages/admin-de.js'), $deJsDictionary);
+        $enJsKeys = [...$enJsKeys, ...array_keys((array) json_decode((string) preg_replace('/,\s*\}$/', '}', $deJsDictionary[1] ?? '{}'), true))];
         $this->assertSame([], array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKeys, ['Tablet', 'Menu', 'Video'])), 'Builder: all editor texts have an English translation');
-        $enAdmin = (require TALEA_ROOT . '/system/languages/admin-en.php') + (require TALEA_ROOT . '/system/languages/admin-cs.php');
+        $enAdmin = (require TALEA_ROOT . '/system/languages/admin-en.php') + (require TALEA_ROOT . '/system/languages/admin-de.php');
         $enSchema = \Talea\Builder\ElementSchema::schema(true, 'cs', true);
         $enTexts = array_merge(array_column($enSchema['elements'], 'name'), array_column($enSchema['elements'], 'description'), array_column($enSchema['elements'], 'group'), array_values($enSchema['style_groups']));
         $enFields = function (array $properties) use (&$enFields, &$enTexts): void {
@@ -273,20 +273,18 @@ final class TranslationsTest extends TestCase
     /** 2.4: German administration */
     public function testGermanAdministration(): void
     {
-        // every admin text translated into Czech has a German translation too, with the same placeholders and tags
+        // every German admin text keeps the placeholders and tags of its English source (coverage: php tools/missing-translations.php de)
         $placeholders = function (string $text): array { preg_match_all('/%(?:\d+\$)?[sd]|<\/?[a-z]+/i', $text, $m); sort($m[0]); return $m[0]; };
         $jsDictionary = function (string $file): array { preg_match_all('/^\t("(?:[^"\\\\]|\\\\.)*"):\s*("(?:[^"\\\\]|\\\\.)*"),?$/m', (string) file_get_contents($file), $m, PREG_SET_ORDER);
             return array_combine(array_map(fn (array $x): string => json_decode($x[1]), $m), array_map(fn (array $x): string => json_decode($x[2]), $m)); };
         $deGaps = [];
-        foreach ([[require TALEA_SYSTEM . '/languages/admin-cs.php', require TALEA_SYSTEM . '/languages/admin-de.php'],
-            [$jsDictionary(TALEA_ROOT . '/image/languages/admin-cs.js'), $jsDictionary(TALEA_ROOT . '/image/languages/admin-de.js')]] as [$csTexts, $deTexts]) {
-            foreach ($csTexts as $key => $_) {
-                $key = (string) $key;
-                if (!isset($deTexts[$key]) && !in_array($key, ['Name'], true)) { $deGaps[] = 'missing: ' . $key; }
-                elseif (isset($deTexts[$key]) && $placeholders($key) !== $placeholders((string) $deTexts[$key])) { $deGaps[] = 'placeholders: ' . $key; }
+        foreach ([require TALEA_SYSTEM . '/languages/admin-de.php', $jsDictionary(TALEA_ROOT . '/image/languages/admin-de.js')] as $deTexts) {
+            foreach ($deTexts as $key => $text) {
+                if ($placeholders((string) $key) !== $placeholders((string) $text)) { $deGaps[] = 'placeholders: ' . $key; }
             }
         }
-        $this->assertSame([], array_slice($deGaps, 0, 5), '2.4: German admin covers every Czech admin text');
+        $this->assertSame([], array_slice($deGaps, 0, 5), '2.4: German admin texts keep the placeholders and tags of their source');
+        $this->assertSame([false, ['en', 'de']], [isset(\Talea\Core\Language::ADMIN_LANGUAGES['cs']), array_keys(\Talea\Core\Language::ADMIN_LANGUAGES)], 'The administration is English or German; Czech is a site language only');
         $this->assertSame([true, true], [isset(\Talea\Core\Language::ADMIN_LANGUAGES['de']), count($jsDictionary(TALEA_ROOT . '/image/languages/admin-de.js')) > 2500], '2.4: German is an admin language');
 
         $this->assertSame([1, 3, 4], array_column(\Talea\Core\Alerts::worth([

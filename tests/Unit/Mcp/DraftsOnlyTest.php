@@ -42,7 +42,6 @@ final class DraftsOnlyTest extends TestCase
     {
         $migrationFiles = glob(TALEA_SYSTEM . '/database/migrations/*.php') ?: [];
         $migrationSource = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), $migrationFiles));
-        $adminCs = require TALEA_SYSTEM . '/languages/admin-cs.php';
         $adminDe = require TALEA_SYSTEM . '/languages/admin-de.php';
         $this->assertSame([[true, true, true, true, true, false, false, false, false, false], true, false, [true, true, true], true], [
             array_map(fn (string $tool): bool => \Talea\Mcp\Catalog::allows('drafts', $tool), ['save_collection_item', 'save_hours_exception', 'update_enquiry', 'write_notebook', 'list_pending_review', 'save_fact', 'delete_hours_exception', 'delete_notebook_entry', 'delete_collection_item', 'restore_item_version']),
@@ -52,7 +51,7 @@ final class DraftsOnlyTest extends TestCase
             str_contains(\Talea\Mcp\Prompts::get('review_pending', [])['messages'][0]['content']['text'], 'list_pending_review')], '3.2: a drafts-only connection may save hidden items, proposed hours, triage and notes – not facts, not deletes; list_pending_review is a read');
         $this->assertSame([[], [], true, true, true], [
             array_values(array_diff(array_column(\Talea\Core\PendingReview::KINDS, 1), array_map(fn (string $c): string => $c::IDENT, \Talea\Admin\Kernel::MODULES))),
-            array_values(array_filter(array_column(\Talea\Core\PendingReview::KINDS, 0), fn (string $label): bool => !isset($adminCs[$label], $adminDe[$label]))),
+            array_values(array_filter(array_column(\Talea\Core\PendingReview::KINDS, 0), fn (string $label): bool => !isset($adminDe[$label]))),
             str_contains($migrationSource, "'proposed', 'boolean'"),
             // the site, the export and the door sign read only applied exceptions; proposals have their own list
             (bool) preg_match("/hours_exceptions} WHERE proposed = FALSE/", (string) file_get_contents(TALEA_SYSTEM . '/src/Core/Hours.php')),
