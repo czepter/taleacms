@@ -44,7 +44,7 @@ trait CollectionTools
     {
         $db = $this->app->db();
 
-        return array_map(fn (array $k): array => ['collection' => $k['slug'], 'name' => $k['name'], 'item_pages' => (bool) $k['detail'], 'admin_menu' => (bool) $k['admin_menu'], 'redirect_hidden_to' => (string) ($k['hidden_redirect'] ?? ''), 'fields' => self::fieldTypes($k['fields'], false),
+        return array_map(fn (array $k): array => ['collection' => $k['slug'], 'id' => (string) ($k['public_id'] ?? ''), 'name' => $k['name'], 'item_pages' => (bool) $k['detail'], 'admin_menu' => (bool) $k['admin_menu'], 'redirect_hidden_to' => (string) ($k['hidden_redirect'] ?? ''), 'fields' => self::fieldTypes($k['fields'], false),
             'preset' => (string) ($k['preset'] ?? ''),
             'items' => (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$k['collection_id']])]
             + (($sd = \Talea\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['type'], 'fields' => $sd['fields'], 'currency' => $sd['currency']]] : []), Collections::all($db));

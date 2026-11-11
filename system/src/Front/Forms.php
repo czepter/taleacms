@@ -76,6 +76,22 @@ final class Forms
             if ($formId <= 0 || ($link = \Talea\Core\FormLinks::find($this->app->db(), $r->post('link'), $formId)) === null) {
                 return $redirectUri('verification');
             }
+            if ($r->post('save_draft') === '1' && !empty($element['content']['link_save'])) {
+                // a draft of the person with the link: kept as a new version of their history, nothing is checked or sent, the link stays open
+                $answers = [];
+                foreach ($element['content']['fields'] as $i => $f) {
+                    if ((string) ($f['key'] ?? '') !== '' && in_array($f['type'], \Talea\Core\FormLinks::PREFILLABLE, true)) {
+                        $answers[(string) $f['key']] = match ($f['type']) {
+                            'checkboxes' => $r->postList('p' . $i),
+                            'checkbox' => $r->post('p' . $i) === '1' ? '1' : '',
+                            default => mb_substr($r->post('p' . $i), 0, 5000),
+                        };
+                    }
+                }
+                \Talea\Core\FormLinks::saveDraft($this->app->db(), $link, $element['content']['fields'], $answers);
+
+                return $redirectUri('saved');
+            }
         }
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         $reason = $antispam->reason($r, 'form|' . $posted . '|' . $element['id']);
@@ -354,7 +370,8 @@ final class Forms
      */
     private function addToCollection(array $element, array $data, array $uploads, \Closure $redirectUri, ?array $link = null, string $consent = ''): Response
     {
-        $saved = \Talea\Core\CollectionSubmission::save($this->app, $element['content'], $data, $uploads, Language::siteColumn(), (int) ($element['form_id'] ?? 0));
+        $saved = \Talea\Core\CollectionSubmission::save($this->app, $element['content'], $data, $uploads, Language::siteColumn(), (int) ($element['form_id'] ?? 0),
+            $link !== null ? \Talea\Core\FormLinks::fixed($link) : []);
         if (is_string($saved)) {
             if ($link !== null) {
                 \Talea\Core\FormLinks::release($this->app->db(), $link);
@@ -369,7 +386,7 @@ final class Forms
         [$to, $bcc] = self::recipients((string) $element['content']['recipient'], (string) ($element['content']['bcc'] ?? ''), $siteSettings->get('site_email'));
         if ($to !== []) {
             $db = $this->app->db();
-            $collection = $db->byPublicId('collections', (string) $element['content']['collection']);
+            $collection = \Talea\Core\CollectionSubmission::collection($db, $element['content']);
             $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $this->app->request->origin(), '/')
                 . $this->app->url('admin.php?module=collections&action=item&id=' . ($collection['public_id'] ?? '') . '&item=' . $db->publicId('collection_items', $saved));
             Mail::send($siteSettings, implode(', ', $to), t('%s: %s', $element['content']['name'], $siteSettings->get('site_name')),

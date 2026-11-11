@@ -131,7 +131,10 @@ final class Forms extends Module
         return $this->back('The form was deleted. Its answers stay in Enquiries.');
     }
 
-    /** A personal link to a form that is opened only through one: for a name, to pass on yourself (e-mailing a link needs an enquiry – Enquiries). */
+    /**
+     * A personal link to a form that is opened only through one: for a name, with the fields filled in as the person should see them,
+     * to pass on yourself or – to an address typed here – by e-mail with the form's link text.
+     */
     protected function actionLink(): Response
     {
         $form = $this->request->isPost() ? FormRecords::byId($this->db, $this->idParam()) : null;
@@ -143,12 +146,64 @@ final class Forms extends Module
             return $this->back(t('This form is open to everyone. Set its access to a personal link in the form builder first.'), 'detail', $back, 'error');
         }
         try {
-            $result = \Talea\Core\FormLinks::create($this->app, $form, 0, false, $this->request->post('label'), $this->request->post('email'));
+            $result = \Talea\Core\FormLinks::create($this->app, $form, 0, $this->request->postBool('send'), $this->request->post('label'), $this->request->post('email'),
+                $this->request->postArray('prefill'), [], 0, true);
         } catch (\DomainException $e) {
             return $this->back(t($e->getMessage()), 'detail', $back, 'error');
         }
 
-        return $this->back(t('The link to pass on: %s', $result['link']), 'detail', $back);
+        return $this->back(t($result['sent'] ? 'The link was sent by e-mail: %s' : 'The link to pass on: %s', $result['link']), 'detail', $back);
+    }
+
+    /** One personal link: what it fills in, its name, how long it works; the versions the person saved. */
+    protected function actionLinkEdit(): Response
+    {
+        [$link, $form] = $this->linkOfRequest();
+        if ($link === null || $form === null) {
+            return $this->error('The link does not exist.', 404);
+        }
+        $content = \Talea\Core\FormLinks::content($form);
+
+        return $this->view('link', t('Personal link: %s', (string) $link['label']), ['link' => $link, 'form' => $form, 'fields' => (array) ($content['fields'] ?? []),
+            'status' => \Talea\Core\FormLinks::status($link), 'drafts' => \Talea\Core\FormLinks::drafts($link), 'canSave' => !empty($content['link_save'])]);
+    }
+
+    /** Saves a link nobody used yet: the fields it fills in, the name, more days. */
+    protected function actionLinkSave(): Response
+    {
+        [$link, $form] = $this->request->isPost() ? $this->linkOfRequest() : [null, null];
+        if ($link === null || $form === null) {
+            return $this->back();
+        }
+        $back = ['link' => $this->request->post('link')];
+        try {
+            \Talea\Core\FormLinks::update($this->app, $link, $this->request->postArray('prefill'), max(0, $this->request->postInt('extend_days')), $this->request->post('label'));
+        } catch (\DomainException $e) {
+            return $this->back(t($e->getMessage()), 'link_edit', $back, 'error');
+        }
+
+        return $this->back(t('The link was saved. It still works with the same address.'), 'link_edit', $back);
+    }
+
+    /** Stops a link at once. */
+    protected function actionLinkRevoke(): Response
+    {
+        [$link, $form] = $this->request->isPost() ? $this->linkOfRequest() : [null, null];
+        if ($link === null || $form === null) {
+            return $this->back();
+        }
+
+        return \Talea\Core\FormLinks::revoke($this->app, $link)
+            ? $this->back(t('The link was revoked. Whoever opens it now is asked to get in touch.'), 'detail', ['id' => $form['public_id']])
+            : $this->back(t('The link was used or revoked already.'), 'link_edit', ['link' => $this->request->post('link')], 'error');
+    }
+
+    /** The link named by ?link= (or a POST) and its form. @return array{0: ?array<string, mixed>, 1: ?array<string, mixed>} */
+    private function linkOfRequest(): array
+    {
+        $link = $this->db->byPublicId('form_links', $this->request->post('link') !== '' ? $this->request->post('link') : $this->request->get('link'));
+
+        return [$link, $link !== null ? FormRecords::byId($this->db, (int) $link['form_id']) : null];
     }
 
     /** Is the published form one that opens only through a personal link? @param array<string, mixed> $form */
@@ -201,7 +256,8 @@ final class Forms extends Module
         }
 
         return $this->view('detail', $form['name'] !== '' ? $form['name'] : t('Form'), ['days' => $days, 'steps' => array_values($steps), 'multiStep' => $multiStep,
-            'drop' => \Talea\Front\FormSteps::biggestDrop(array_values($steps)), 'sent' => $sent, 'linkForm' => $form['form_id'] > 0 && ($record = FormRecords::byId($this->db, (int) $form['form_id'])) !== null && self::opensByLink($record), 'form' => $form, 'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
+            'drop' => \Talea\Front\FormSteps::biggestDrop(array_values($steps)), 'sent' => $sent, 'linkForm' => ($linkForm = $form['form_id'] > 0 && ($record = FormRecords::byId($this->db, (int) $form['form_id'])) !== null && self::opensByLink($record)),
+            'linkFields' => $linkForm ? (array) (\Talea\Core\FormLinks::content($record)['fields'] ?? []) : [], 'links' => $linkForm ? \Talea\Core\FormLinks::ofForm($this->db, (int) $form['form_id']) : [], 'form' => $form, 'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'enquiries' => $this->db->all('SELECT public_id, created_at, email, status, page, data' . $sql . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'shownTotal' => (int) $this->db->value('SELECT COUNT(*)' . $sql, $params),
             'totals' => ['total' => (int) ($all['total'] ?? 0), 'new' => $form['new'], 'open' => (int) ($all['open'] ?? 0), 'recent' => (int) ($all['recent'] ?? 0)]]);

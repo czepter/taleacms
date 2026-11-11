@@ -44,7 +44,8 @@ final class LinkFormTest extends SiteTestCase
         $sent = $visitor->post('/form', $signed + ['link' => $token, 'p0' => 'Eva', 'p1' => 'Great.', 'p2' => '1']);
         $this->assertStringContainsString('result=ok', $sent->redirect, 'link form: the token is accepted');
         $this->assertSame('1|OK to publish', $this->site()->value('SELECT CONCAT(COUNT(*), \'|\', MAX(consent)) FROM tl_form_links WHERE used_at IS NOT NULL AND item_id IS NOT NULL'), 'link form: the link is used and keeps the consent as worded');
-        $this->assertSame(404, $visitor->get('/_f/' . $token)->status, 'link form: a used link is a 404');
+        $used = $visitor->get('/_f/' . $token);
+        $this->assertSame([410, true], [$used->status, str_contains($used->body, 'You already sent this form')], 'link form: a used link says so kindly instead of an error page');
         $again = $visitor->post('/form', $signed + ['link' => $token, 'p0' => 'Eva', 'p1' => 'Twice', 'p2' => '1']);
         $this->assertStringContainsString('result=verification', $again->redirect, 'link form: a link works once');
         $this->assertSame('1', (string) $this->site()->value('SELECT COUNT(*) FROM tl_collection_items'), 'link form: only one item');

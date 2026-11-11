@@ -53,14 +53,15 @@ final class ParityTest extends TestCase
                 'restore_item' => 'restore_from_trash', 'delete_item_permanently' => 'admin: the trash empties itself after 30 days', 'duplicate_item' => 'admin: a copy of an item – Claude saves a new one',
                 'restore_item_version' => 'restore_item_version', 'signature' => 'get_email_signature', 'notice_log' => 'list_notice_log', 'bulk_items' => 'save_collection_item',
                 'registrations' => $readOnly, 'registrations_print' => 'admin: a print view of what list_registrations returns', 'registration' => 'update_registration',
-                'cancel_course' => 'cancel_course'],
+                'cancel_course' => 'cancel_course', 'review_link' => 'create_form_link', 'review_answer' => 'review_form_answer'],
             // 2.15: requests to Claude – staff write them in the admin (not over MCP: a request is what a person asks Claude), Claude reads and answers them
             'requests' => ['list' => 'list_requests', 'new' => $readOnly, 'save' => 'admin: a request is written by a person for Claude – Claude reads it with list_requests', 'detail' => 'list_requests',
                 'reply' => 'admin: the requester answers Claude in the request; Claude answers with update_request', 'status' => 'update_request'],
             'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'create_form_link', 'personal' => 'erase_personal_data',
                 'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)'],
             // the forms of the site (records, docs/specs/form-builder.md) and their answers; a form's build is edited in the builder
-            'forms' => $builderParity + ['list' => 'list_forms', 'detail' => $readOnly, 'new' => $readOnly, 'create' => 'create_form', 'delete' => 'delete_form', 'link' => 'create_form_link'],
+            'forms' => $builderParity + ['list' => 'list_forms', 'detail' => $readOnly, 'new' => $readOnly, 'create' => 'create_form', 'delete' => 'delete_form', 'link' => 'create_form_link',
+                'link_edit' => $readOnly, 'link_save' => 'update_form_link', 'link_revoke' => 'update_form_link'],
             // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's
             'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'confirm' => 'confirm_booking', 'decline' => 'decline_booking', 'propose' => 'propose_booking_times', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
                 'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',

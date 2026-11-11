@@ -28,15 +28,16 @@ final class CollectionSubmission
 
     public const int MAX_UPLOAD = 8 * 1024 * 1024;
 
-    /** The collection a form adds to, or null (the form sends enquiries, or the collection is gone). @return array<string, mixed>|null */
+    /** The collection a form adds to, named by its ID or its address (slug), or null (the form sends enquiries, or the collection is gone). @return array<string, mixed>|null */
     public static function collection(Db $db, array $content): ?array
     {
         if (($content['destination'] ?? 'enquiry') !== 'collection') {
             return null;
         }
-        $row = $db->byPublicId('collections', (string) ($content['collection'] ?? ''));
+        $named = (string) ($content['collection'] ?? '');
+        $row = Uuid::valid($named) ? $db->byPublicId('collections', $named) : null;
 
-        return $row === null ? null : Collections::byId($db, (int) $row['collection_id']);
+        return $row !== null ? Collections::byId($db, (int) $row['collection_id']) : (preg_match('/^[a-z0-9-]{1,110}$/', $named) === 1 ? Collections::bySlug($db, $named) : null);
     }
 
     /**
@@ -60,8 +61,9 @@ final class CollectionSubmission
      *
      * @param list<array<int, string>> $data the answers as [label, answer, …]
      * @param array<string, array{0: string, 1: string}> $uploads field label => [temporary file, file name] of what the visitor uploaded
+     * @param array<string, mixed> $fixed collection field key => value set by the personal link (Core\FormLinks), checked when it was made
      */
-    public static function save(App $app, array $content, array $data, array $uploads, string $language, int $formId = 0): int|string
+    public static function save(App $app, array $content, array $data, array $uploads, string $language, int $formId = 0, array $fixed = []): int|string
     {
         $db = $app->db();
         $collection = self::collection($db, $content);
@@ -81,6 +83,11 @@ final class CollectionSubmission
             $type = (string) ($byKey[$key]['type'] ?? '');
             $template = trim((string) ($row['template'] ?? ''));
             if (in_array($type, self::UPLOADS, true)) {
+                // the form's own file (a media/… path without placeholders) is a fixed value: every item gets it
+                if (!str_contains($template, '{') && preg_match('#^/?media/[A-Za-z0-9/_.-]{1,300}$#', $template) === 1 && !str_contains($template, '..')) {
+                    $input[$key] = $template;
+                    continue;
+                }
                 // only {Label} of an upload field: whatever else a visitor typed is not a file
                 if (preg_match('/^\{([^{}]+)\}$/u', $template, $m) === 1) {
                     foreach ($uploads as $label => $upload) {
@@ -93,7 +100,8 @@ final class CollectionSubmission
                 $input[$key] = self::fill($template, $data);
             }
         }
-        $values = Collections::sanitizeData($fields, $input);
+        // the link's fixed values (an image, the service) go over what the form maps; the person never saw them
+        $values = Collections::sanitizeData($fields, array_replace($input, array_intersect_key($fixed, $byKey)));
         foreach ($files as $key => [$tmp, $fileName]) {
             if (($path = self::stage($db, $tmp, $fileName, (string) $byKey[$key]['type'])) !== '') {
                 $values[$key] = $path;

@@ -18,6 +18,7 @@
  * @var string $address  the item's address on the site, '' for a collection without item pages
  * @var list<array{idr: int, datum: string, kdo: ?string}> $versions  earlier versions of the item (1.9)
  * @var list<array<string, mixed>> $noticeLog  the audit trail of a notice (2.11, Core\Notices), newest first
+ * @var ?array<string, mixed> $review  review by the person it is about (Admin\Modules\Collections::review), null for a new item
  */
 use Talea\Core\Language;
 
@@ -254,6 +255,9 @@ if ($actions !== '') {
 <?php foreach ($versions as $v): ?>
 <form id="restore-<?= (int) $v['revision_id'] ?>" method="post" action="<?= e($module->url('restore_item_version')) ?>" data-confirm="<?= e(t('Restore this version of the item? The current version stays in the history.')) ?>" hidden><?= $csrf ?><input type="hidden" name="collection_id" value="<?= e($k['public_id']) ?>"><input type="hidden" name="item_id" value="<?= e($p['public_id']) ?>"><input type="hidden" name="revision_id" value="<?= (int) $v['revision_id'] ?>"></form>
 <?php endforeach ?>
+<?php if (($review ?? null) !== null): ?>
+<?= $app->view->render('admin/collections/review', ['app' => $app, 'module' => $module, 'csrf' => $csrf, 'k' => $k, 'p' => $p, 'review' => $review]) ?>
+<?php endif ?>
 <?php if (($noticeLog ?? []) !== []): $actions = ['created' => t('Created'), 'changed' => t('Changed'), 'posted' => t('Posted'), 'taken_down' => t('Taken down')]; ?>
 <details class="advanced item-notice-log" open>
 <summary><?= e(t('Notice log (%s)', count($noticeLog))) ?></summary>
