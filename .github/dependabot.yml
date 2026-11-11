@@ -1,5 +1,5 @@
-# Dependency updates (docs/RELEASING.md, "Dependency updates"): Dependabot opens one pull request per group and week; CI runs on each
-# like on any other change, and nothing merges by itself. Branch protection and the review stay with the maintainer.
+# Dependency updates (docs/RELEASING.md, "Dependency updates"): Dependabot opens one pull request per group and week; CI does not
+# run on them (the gate in ci.yml skips Dependabot's actor): combine them into one pull request of your own, and nothing merges by itself. Branch protection and the review stay with the maintainer.
 #
 # Cooldown: a new release is proposed only after 7 days (a poisoned or withdrawn release is usually caught by then; Semgrep requires it).
 # Security updates ignore the cooldown.
