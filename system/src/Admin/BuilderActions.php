@@ -79,7 +79,7 @@ trait BuilderActions
         }
         $app = $this->app;
         $e = $this->describeTarget($target);
-        $collections = array_map(fn (array $k): array => ['slug' => $k['slug'], 'name' => $k['name'], 'fields' => $k['fields'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
+        $collections = array_map(fn (array $k): array => ['id' => (string) $k['public_id'], 'slug' => $k['slug'], 'name' => $k['name'], 'fields' => $k['fields'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
         $extensions = \Talea\Core\Extensions::enabled($app->settings());
         $schema = ElementSchema::schema($app->auth()->canWriteCode(), $target['language'], $e['parts'], $extensions);
         $components = \Talea\Admin\Modules\Components::listForEditor($this->db);
