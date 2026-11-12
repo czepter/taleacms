@@ -74,10 +74,20 @@ A form whose access is `link` opens only from `/_f/<token>` (`Core\FormLinks`). 
   the item (its previous state is an item version) and trashes the draft; Discard trashes the draft. MCP: `review_form_answer`.
   Formatted text (`html`) goes both ways: the form shows its plain text (`CollectionSubmission::textFromHtml`), the answer becomes
   escaped paragraphs (`htmlFromText`), the comparison is by text, and Apply keeps the original formatting when the words did not change.
+  The form is filled in from every mapping: a template of several answers (`{Name}, {Role}`) is read back into its parts
+  (`FormLinks::readTemplate`), a date and time gives a date field its day, a time range comes back as `HH:MM-HH:MM`, a choice matches
+  ignoring case. What still cannot be shown is returned as `not_prefilled`. **Apply never wipes what the person did not see**
+  (`FormLinks::outcome`): an empty answer keeps the item's value for an upload field (no form shows the current file) and for a field the
+  form could not fill in; a field the person saw filled in and cleared is cleared; the same day keeps a date and time's time. The
+  comparison shows what Apply writes, with `kept` for the values that stay.
+- **An answer that does not fit** its collection field (no number, an option the collection lacks) is never dropped:
+  `CollectionSubmission::save` refuses with `field:<n>`, the form marks that field, and on a personal link the answers are kept as the
+  person's draft, so the link shows them again to correct.
 
 **Mapping a collection** (`CollectionSubmission::FILLABLE`, `UPLOADS`): text, lines, html, number, date, datetime, radio and link take
 an answer, image and file an upload; a gallery, an item link and the like cannot be filled. `CollectionSubmission::mappingProblems`
-names what would lose an answer (a field the form cannot fill, a field the collection lacks, a `{placeholder}` that is no form field):
+names what would lose an answer (a field the form cannot fill, a field the collection lacks, a `{placeholder}` that is no form field,
+form options a collection choice lacks):
 in the pre-publish `check` of every MCP build write, in `try_form` (with the `item` the answers would make) and in the builder's
 mapping panel.
 

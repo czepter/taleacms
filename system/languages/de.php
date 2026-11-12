@@ -907,6 +907,7 @@ Der Link gilt %d Tage.
     'The form could not be verified. Reload the page and try again.' => 'Das Formular konnte nicht überprüft werden. Laden Sie die Seite neu und versuchen Sie es erneut.',
     'The form fills “%s”, which is not a field of the collection “%s”.' => 'Das Formular füllt „%s“, das kein Feld der Sammlung „%s“ ist.',
     'The form has expired. Reload the page and try again.' => 'Das Formular ist abgelaufen. Laden Sie die Seite neu und versuchen Sie es erneut.',
+    'The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.' => 'Das Formular bietet Optionen, die das Sammlungsfeld „%s“ nicht hat: %s. Wer eine davon wählt, wird gebeten, neu zu wählen.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'Das Formular wurde gesendet, bevor wir prüfen konnten, dass es von einem Menschen stammt. Bitte warten Sie einen Moment und senden Sie es erneut.',
     'The form “%s” has not been published yet – visitors see nothing here.' => 'Das Formular „%s“ ist noch nicht veröffentlicht – Besucher sehen hier nichts.',
     'The heading “%s” skips a level (h%d → h%d).' => 'Die Überschrift „%s“ überspringt eine Ebene (h%d → h%d).',

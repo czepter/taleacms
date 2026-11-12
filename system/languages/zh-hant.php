@@ -912,6 +912,7 @@ The link works for %d days.
     'The form could not be verified. Reload the page and try again.' => '無法驗證表單。請重新載入頁面後再試一次。',
     'The form fills “%s”, which is not a field of the collection “%s”.' => '表單填寫「%s」，但它不是集合「%s」的欄位。',
     'The form has expired. Reload the page and try again.' => '表單已過期。請重新載入頁面後再試一次。',
+    'The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.' => '表單提供了集合欄位「%s」沒有的選項：%s。選擇其中之一的訪客會被要求重新選擇。',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => '表單在我們確認是否由真人送出之前就已送出。請稍候片刻再送出一次。',
     'The form “%s” has not been published yet – visitors see nothing here.' => '表單「%s」尚未發布，訪客在此看不到任何內容。',
     'The heading “%s” skips a level (h%d → h%d).' => '標題「%s」跳過了一個層級（h%d → h%d）。',

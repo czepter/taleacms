@@ -912,6 +912,7 @@ The link works for %d days.
     'The form could not be verified. Reload the page and try again.' => 'تعذّر التحقق من النموذج. أعد تحميل الصفحة وحاول مرة أخرى.',
     'The form fills “%s”, which is not a field of the collection “%s”.' => 'يملأ النموذج «%s»، وهو ليس حقلًا في المجموعة «%s».',
     'The form has expired. Reload the page and try again.' => 'انتهت صلاحية النموذج. أعد تحميل الصفحة وحاول مرة أخرى.',
+    'The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.' => 'يعرض النموذج خيارات لا يملكها حقل المجموعة «%s»: %s. من يختار أحدها يُطلب منه الاختيار من جديد.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'أُرسل النموذج قبل أن نتمكن من التحقق من أن المرسل شخص حقيقي. يرجى الانتظار لحظة ثم إرساله مرة أخرى.',
     'The form “%s” has not been published yet – visitors see nothing here.' => 'لم يُنشر النموذج „%s“ بعد – لا يرى الزوار شيئًا هنا.',
     'The heading “%s” skips a level (h%d → h%d).' => 'العنوان «%s» يتخطى مستوى (h%d ← h%d).',

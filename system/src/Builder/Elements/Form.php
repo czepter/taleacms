@@ -620,10 +620,13 @@ final class Form extends Element
             return ''; // the value is the form's own (Front\Forms), the visitor neither sees nor sends it
         }
         if ($field['type'] === 'timerange') {
-            $time = fn (string $name): string => '<label><span>' . e($name) . '</span><input type="time" name="' . $displayName . '[]"' . $required . $marking . '></label>';
+            // a personal link fills it in as "HH:MM-HH:MM" (Core\FormLinks::cleanPrefill)
+            $range = explode('-', (string) ($given[0] ?? ''), 2);
+            $time = fn (string $name, string $value): string => '<label><span>' . e($name) . '</span><input type="time" name="' . $displayName . '[]"'
+                . ($value !== '' ? ' value="' . e($value) . '"' : '') . $required . $marking . '></label>';
 
             return '<div class="tl-field tl-timerange"><fieldset' . ($field['required'] ? ' aria-required="true"' : '') . '><legend>' . $labelText . $star . '</legend><div class="tl-timerange-inputs">'
-                . $time(t('From')) . $time(t('To')) . '</div></fieldset>' . $message . '</div>';
+                . $time(t('From'), $range[0]) . $time(t('To'), $range[1] ?? '') . '</div></fieldset>' . $message . '</div>';
         }
         if ($field['type'] === 'checkboxes' || $field['type'] === 'radio') {
             $multiple = $field['type'] === 'checkboxes';

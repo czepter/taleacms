@@ -490,7 +490,13 @@ final class Collections extends Module
             return $this->back(t($e->getMessage()), 'item', $back, 'error');
         }
 
-        return $this->back(t($result['sent'] ? 'The link was sent by e-mail: %s' : 'The link to pass on: %s', $result['link']), 'item', $back);
+        $message = t($result['sent'] ? 'The link was sent by e-mail: %s' : 'The link to pass on: %s', $result['link']);
+        if (!empty($result['not_prefilled'])) {
+            // the form cannot show these values of the item: the person sees the fields empty, applying keeps the item's values
+            $message .= ' ' . t('The form cannot show these values of the item, so they appear empty; if the person leaves them empty, the item keeps its own: %s.', implode(', ', $result['not_prefilled']));
+        }
+
+        return $this->back($message, 'item', $back);
     }
 
     /** Applies the answer to the item it reviews (the item's previous state stays in its history), or discards it. */

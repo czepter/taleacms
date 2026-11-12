@@ -30,7 +30,7 @@ final class FormLinks
      * Form field types a link can fill in and a saved draft keeps. Never the consent (checkbox): the person gives it themselves, with
      * the final send – a ticked box we prepared or one a draft remembered is no consent.
      */
-    public const array PREFILLABLE = ['text', 'email', 'tel', 'number', 'textarea', 'select', 'radio', 'checkboxes', 'date'];
+    public const array PREFILLABLE = ['text', 'email', 'tel', 'number', 'textarea', 'select', 'radio', 'checkboxes', 'date', 'timerange'];
 
     /** What a link's status means in lists. */
     public const array STATUSES = ['open' => 'Not used yet', 'used' => 'Answered', 'expired' => 'Expired', 'revoked' => 'Revoked'];
@@ -42,7 +42,8 @@ final class FormLinks
      * @param array<string, mixed> $prefill form field key or label => suggested answer
      * @param array<string, mixed> $fixed collection field key => value of the item the answer makes
      * @param bool $typedAddress a person in the admin typed the address and may send to it
-     * @return array{link: string, sent: bool, id: string, prefill: array<string, string|list<string>>}
+     * @return array{link: string, sent: bool, id: string, prefill: array<string, string|list<string>>, not_prefilled?: list<string>} not_prefilled: labels
+     *         of form fields the reviewed item has a value for that the form cannot show (the person sees them empty; applying keeps the item's value)
      * @throws \DomainException when there is nobody to name the link after, no e-mail address to send it to, or a value does not fit
      */
     public static function create(App $app, array $form, int $enquiry, bool $send, string $label = '', string $email = '', array $prefill = [], array $fixed = [], int $item = 0, bool $typedAddress = false): array
@@ -70,8 +71,11 @@ final class FormLinks
         }
         $fields = (array) ($content['fields'] ?? []);
         $values = self::cleanPrefill($fields, $prefill);
+        $missed = [];
         if ($target !== null) {
-            $values += self::prefillFromItem($content, $target, (array) (CollectionSubmission::collection($db, $content)['fields'] ?? [])); // what the person typed wins over the item's own values
+            $fromItem = self::fromItem($content, $target, (array) (CollectionSubmission::collection($db, $content)['fields'] ?? []));
+            $values += $fromItem['values']; // what the person typed wins over the item's own values
+            $missed = array_values(array_filter($fromItem['missed'], static fn (string $l): bool => !isset($values[(string) (self::field($fields, $l)['key'] ?? '')])));
         }
         $fixedValues = self::cleanFixed($db, $content, $fixed);
         $days = self::days($content);
@@ -83,7 +87,7 @@ final class FormLinks
         $sent = $send && self::mail($app, $form, $content, $email, $link, $days, $label, $values);
         \Talea\Admin\ChangeLog::write($app, 'enquiries', 'form_link', mb_substr($row !== null ? (string) $row['form'] : $label, 0, 80) . ($sent ? ' (e-mail)' : ''));
 
-        return ['link' => $link, 'sent' => $sent, 'id' => $db->publicId('form_links', $id), 'prefill' => $values];
+        return ['link' => $link, 'sent' => $sent, 'id' => $db->publicId('form_links', $id), 'prefill' => $values] + ($missed !== [] ? ['not_prefilled' => $missed] : []);
     }
 
     /**
@@ -287,11 +291,13 @@ final class FormLinks
                 throw new \DomainException(sprintf('prefill: the field “%s” takes one value.', $field['label']));
             }
             $text = is_array($value) ? '' : trim(str_replace("\r\n", "\n", (string) (is_bool($value) ? ($value ? '1' : '') : (is_scalar($value) ? $value : ''))));
+            $options = in_array($type, ['select', 'radio', 'checkboxes'], true) ? array_map('strval', \Talea\Builder\Elements\Form::options($field)) : [];
             $clean = match ($type) {
                 'textarea' => mb_substr($text, 0, 5000),
-                'select', 'radio' => $text === '' || in_array($text, array_map('strval', \Talea\Builder\Elements\Form::options($field)), true) ? $text : null,
+                'select', 'radio' => $text === '' ? '' : self::option($options, $text),
                 'checkboxes' => ($list = array_values(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : (preg_split('/\R|,\s*/u', $text) ?: [])), static fn (string $v): bool => $v !== ''))) === []
-                    ? [] : (array_diff($list, array_map('strval', \Talea\Builder\Elements\Form::options($field))) === [] ? $list : null),
+                    ? [] : (in_array(null, $list = array_map(static fn (string $v): ?string => self::option($options, $v), $list), true) ? null : $list),
+                'timerange' => $text === '' ? '' : (preg_match('/^(([01]\d|2[0-3]):[0-5]\d)\s*[-–]\s*(([01]\d|2[0-3]):[0-5]\d)$/u', $text, $t) === 1 ? $t[1] . '-' . $t[3] : null),
                 'date' => $text === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $text) === 1 && checkdate((int) substr($text, 5, 2), (int) substr($text, 8, 2), (int) substr($text, 0, 4))) ? $text : null,
                 'number' => $text === '' || preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $text) === 1 ? $text : null,
                 'email' => $text === '' || filter_var($text, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($text, 0, 190) : null,
@@ -309,9 +315,10 @@ final class FormLinks
     }
 
     /**
-     * What the person sees filled in when they review an item: the answers the form's mapping takes straight into an item field
-     * ({Label} alone) come back from that field, and the item's name for a field the item name is made of. Formatted text comes
-     * back as its plain text (CollectionSubmission::textFromHtml), the way the person can read and change it in a text area.
+     * What the person sees filled in when they review an item: the answers the form's mapping made an item field of come back from
+     * that field (a template of several answers, "{Name}, {Role}", is read back into its parts), and the item's name for the fields
+     * the item name is made of. Formatted text comes back as its plain text (CollectionSubmission::textFromHtml), a date and time as
+     * the date a date field shows.
      *
      * @param array<string, mixed> $content the form's content
      * @param array<string, mixed> $item a row of collection_items
@@ -320,34 +327,81 @@ final class FormLinks
      */
     public static function prefillFromItem(array $content, array $item, array $collectionFields = []): array
     {
+        return self::fromItem($content, $item, $collectionFields)['values'];
+    }
+
+    /**
+     * prefillFromItem with what it could not show: missed = labels of form fields the item has a value for that does not fit the
+     * field (an option the form does not offer, a field type a link cannot fill). An upload is never missed: no form shows a file.
+     *
+     * @return array{values: array<string, string|list<string>>, missed: list<string>}
+     */
+    public static function fromItem(array $content, array $item, array $collectionFields = []): array
+    {
         $types = array_column($collectionFields, 'type', 'key');
         $data = is_array($item['data']) ? $item['data'] : (json_decode((string) $item['data'], true) ?: []);
         $suggested = [];
-        $only = static fn (string $template): ?string => preg_match('/^\{([^{}]{1,200})\}$/u', trim($template), $m) === 1 ? $m[1] : null;
-        if (($label = $only((string) ($content['item_name'] ?? ''))) !== null) {
-            $suggested[$label] = (string) $item['name'];
-        }
+        $templates = [[(string) ($content['item_name'] ?? ''), (string) $item['name']]];
         foreach ((array) ($content['mapping'] ?? []) as $row) {
-            $label = $only((string) ($row['template'] ?? ''));
             $target = (string) ($row['target'] ?? '');
             $value = $data[$target] ?? null;
-            if (($types[$target] ?? '') === 'html' && is_string($value)) {
-                $value = CollectionSubmission::textFromHtml($value);
+            if (in_array($types[$target] ?? '', CollectionSubmission::UPLOADS, true) || !is_scalar($value)) {
+                continue;
             }
-            if ($label !== null && is_scalar($value) && (string) $value !== '') {
-                $suggested[$label] = (string) $value;
+            $templates[] = [(string) ($row['template'] ?? ''), ($types[$target] ?? '') === 'html' ? CollectionSubmission::textFromHtml((string) $value) : (string) $value];
+        }
+        foreach ($templates as [$template, $value]) {
+            foreach ($value !== '' ? self::readTemplate($template, $value) : [] as $label => $part) {
+                $suggested[$label] ??= $part;
             }
         }
+        $fields = (array) ($content['fields'] ?? []);
         $out = [];
+        $missed = [];
         foreach ($suggested as $label => $value) {
+            $field = self::field($fields, (string) $label);
+            if ($field === null) {
+                continue; // a placeholder that is no field of the form (CollectionSubmission::mappingProblems names it)
+            }
+            if ($field['type'] === 'date' && preg_match('/^(\d{4}-\d{2}-\d{2})[ T]\d/', $value, $m) === 1) {
+                $value = $m[1];
+            }
             try {
-                $out += self::cleanPrefill((array) ($content['fields'] ?? []), [$label => $value]);
+                $out += self::cleanPrefill($fields, [(string) $label => $value]);
             } catch (\DomainException) {
-                // a field that is no longer in the form, an upload, or a value that is no option any more: the person fills it in
+                $missed[] = (string) $field['label']; // the person fills it in; applying keeps the item's value when they leave it empty
             }
         }
 
-        return $out;
+        return ['values' => $out, 'missed' => array_values(array_unique($missed))];
+    }
+
+    /**
+     * The answers a template was filled with, read back from the value it made (the way back of CollectionSubmission::fill):
+     * "{Name}, {Role}" and "Eva, CEO" give Name = Eva, Role = CEO; a later part that was empty may be missing with its separator
+     * ("Eva"). A value that does not have the template's shape gives nothing.
+     *
+     * @return array<string, string> label => answer
+     */
+    public static function readTemplate(string $template, string $value): array
+    {
+        $parts = preg_split('/\{([^{}]{1,200})\}/u', trim($template), -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        if (count($parts) < 3) {
+            return [];
+        }
+        $pattern = '^' . preg_quote(ltrim($parts[0]), '/') . '(.*?)';
+        for ($i = 3; $i < count($parts); $i += 2) {
+            $pattern .= '(?:' . preg_quote($parts[$i - 1], '/') . '(.*?))?';
+        }
+        if (preg_match('/' . $pattern . preg_quote(rtrim((string) end($parts)), '/') . '$/su', trim($value), $m) !== 1) {
+            return [];
+        }
+        $answers = [];
+        for ($i = 1, $n = 1; $i < count($parts); $i += 2, $n++) {
+            $answers[trim($parts[$i])] ??= trim($m[$n] ?? '');
+        }
+
+        return array_filter($answers, static fn (string $a): bool => $a !== '');
     }
 
     /**
@@ -360,13 +414,8 @@ final class FormLinks
     {
         [$original, $draft, $collection, $keys] = self::review($app->db(), $link);
         $data = (array) $original['data'];
-        $types = array_column((array) $collection['fields'], 'type', 'key');
-        foreach ($keys as $key) {
-            // formatted text whose words the person left as they were keeps its formatting (the form showed it as plain text)
-            if (($types[$key] ?? '') === 'html' && self::textOf('html', $original['data'][$key] ?? '') === self::textOf('html', $draft['data'][$key] ?? '')) {
-                continue;
-            }
-            $data[$key] = $draft['data'][$key] ?? '';
+        foreach (self::outcome($app->db(), $link, $original, $draft, $collection, $keys) as $key => $result) {
+            $data[$key] = $result['value'];
         }
         $new = ['name' => (string) $draft['name'] !== '' ? (string) $draft['name'] : (string) $original['name'], 'data' => self::json($data), 'updated_at' => date('Y-m-d H:i:s')];
         $row = $app->db()->one('SELECT * FROM {collection_items} WHERE item_id = ?', [(int) $original['item_id']]) ?? [];
@@ -391,18 +440,20 @@ final class FormLinks
     /**
      * Original and answer side by side: per field the item has now and the answer brings (only the fields the answer fills).
      *
-     * @return array{original: array<string, mixed>, draft: array<string, mixed>, rows: list<array{label: string, before: string, after: string, changed: bool}>}
+     * kept = the item's value stays because the person never saw it (a file not uploaded again, a value the form could not show).
+     *
+     * @return array{original: array<string, mixed>, draft: array<string, mixed>, rows: list<array{label: string, before: string, after: string, changed: bool, kept: bool}>}
      */
     public static function comparison(Db $db, array $link): array
     {
         [$original, $draft, $collection, $keys] = self::review($db, $link);
         $labels = array_column((array) $collection['fields'], 'label', 'key');
         $types = array_column((array) $collection['fields'], 'type', 'key');
-        $rows = [['label' => t('Name'), 'before' => (string) $original['name'], 'after' => (string) $draft['name'], 'changed' => (string) $original['name'] !== (string) $draft['name']]];
-        foreach ($keys as $key) {
+        $rows = [['label' => t('Name'), 'before' => (string) $original['name'], 'after' => (string) $draft['name'], 'changed' => (string) $original['name'] !== (string) $draft['name'], 'kept' => false]];
+        foreach (self::outcome($db, $link, $original, $draft, $collection, $keys) as $key => $result) {
             $before = self::textOf((string) ($types[$key] ?? ''), $original['data'][$key] ?? '');
-            $after = self::textOf((string) ($types[$key] ?? ''), $draft['data'][$key] ?? '');
-            $rows[] = ['label' => (string) ($labels[$key] ?? $key), 'before' => $before, 'after' => $after, 'changed' => $before !== $after];
+            $after = self::textOf((string) ($types[$key] ?? ''), $result['value']);
+            $rows[] = ['label' => (string) ($labels[$key] ?? $key), 'before' => $before, 'after' => $after, 'changed' => $before !== $after, 'kept' => $result['kept']];
         }
 
         return ['original' => $original, 'draft' => $draft, 'rows' => $rows];
@@ -539,6 +590,72 @@ final class FormLinks
         }
 
         return [$original, $draft, $collection, $keys];
+    }
+
+    /**
+     * What applying writes per field. The answer, except where an empty answer would wipe a value the person never saw: an upload
+     * field (no form shows the current file) or a field whose answers the form could not fill in from the item. A field the person
+     * saw filled in and cleared is cleared. Formatted text whose words did not change keeps its formatting (the form showed plain text),
+     * and a date and time whose day did not change keeps its time (a date field showed only the day).
+     *
+     * @param list<string> $keys
+     * @return array<string, array{value: mixed, kept: bool}>
+     */
+    private static function outcome(Db $db, array $link, array $original, array $draft, array $collection, array $keys): array
+    {
+        $form = FormRecords::byId($db, (int) $link['form_id']);
+        $content = $form !== null ? self::content($form) : [];
+        $fields = (array) $collection['fields'];
+        $types = array_column($fields, 'type', 'key');
+        $shown = self::fromItem($content, $original, $fields)['values'];
+        $formFields = (array) ($content['fields'] ?? []);
+        $fixed = self::fixed($link);
+        $empty = static fn (mixed $v): bool => $v === null || $v === '' || $v === [];
+        // a field the person saw completely: every answer its template uses was filled in from the item
+        $sawAll = static function (string $key) use ($content, $shown, $formFields): bool {
+            foreach ((array) ($content['mapping'] ?? []) as $row) {
+                if ((string) ($row['target'] ?? '') !== $key) {
+                    continue;
+                }
+                preg_match_all('/\{([^{}]{1,200})\}/u', (string) ($row['template'] ?? ''), $m);
+                foreach ($m[1] as $label) {
+                    if (!isset($shown[(string) (self::field($formFields, $label)['key'] ?? '')])) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        };
+        $out = [];
+        foreach ($keys as $key) {
+            $before = $original['data'][$key] ?? '';
+            $answer = $draft['data'][$key] ?? '';
+            $type = (string) ($types[$key] ?? '');
+            if ($empty($answer) && !$empty($before) && !array_key_exists($key, $fixed) && (in_array($type, CollectionSubmission::UPLOADS, true) || !$sawAll($key))) {
+                $out[$key] = ['value' => $before, 'kept' => true];
+            } elseif ($type === 'html' && self::textOf('html', $before) === self::textOf('html', $answer)) {
+                $out[$key] = ['value' => $before, 'kept' => false];
+            } elseif ($type === 'datetime' && is_string($before) && is_string($answer) && strlen($answer) === 10 && str_starts_with($before, $answer . ' ')) {
+                $out[$key] = ['value' => $before, 'kept' => false]; // a date field showed the day of a date and time: the same day keeps the time
+            } else {
+                $out[$key] = ['value' => $answer, 'kept' => false];
+            }
+        }
+
+        return $out;
+    }
+
+    /** The option of a choice a value names, ignoring case and spaces at the ends; null when it is none of them. @param list<string> $options */
+    private static function option(array $options, string $value): ?string
+    {
+        foreach ($options as $option) {
+            if (mb_strtolower(trim($option)) === mb_strtolower(trim($value))) {
+                return $option;
+            }
+        }
+
+        return null;
     }
 
     /** A value as the text the comparison shows: a list joined, formatted text as its plain text. */

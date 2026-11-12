@@ -2284,6 +2284,7 @@ Odkaz platí %d dní.
     'The form fills “%s”, which is not a field of the collection “%s”.' => 'Formulář vyplňuje „%s“, což není pole kolekce „%s“.',
     'The form has expired. Go back, reload the page and submit it again.' => 'Platnost formuláře vypršela. Vraťte se zpět, obnovte stránku a odešlete jej znovu.',
     'The form has expired. Reload the page and try again.' => 'Platnost formuláře vypršela. Obnovte stránku a zkuste to znovu.',
+    'The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.' => 'Formulář nabízí možnosti, které pole kolekce „%s“ nemá: %s. Kdo některou zvolí, bude požádán o novou volbu.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'Formulář odešel dřív, než jsme stihli ověřit, že ho posílá člověk. Počkejte prosím chvilku a odešlete ho znovu.',
     'The form “%s” has not been published yet – visitors see nothing here.' => 'Formulář „%s“ ještě není zveřejněný – návštěvníci tu nic neuvidí.',
     'The header and footer appear on every page. Wrappers add sections around content assembled by the system – news items, lists and the 404 message. Until you publish a part from the builder, it has its default design.' => 'Záhlaví a patička jsou na každé stránce webu. Obálky přidají sekce kolem obsahu, který skládá systém – novinky, výpisu a hlášení 404. Dokud část nepublikujete z builderu, má výchozí podobu.',

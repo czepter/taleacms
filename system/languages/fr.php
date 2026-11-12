@@ -867,6 +867,7 @@ Le lien est valable %d jours.
     'The form could not be verified. Reload the page and try again.' => 'Le formulaire n’a pas pu être vérifié. Actualisez la page et réessayez.',
     'The form fills “%s”, which is not a field of the collection “%s”.' => 'Le formulaire remplit « %s », qui n’est pas un champ de la collection « %s ».',
     'The form has expired. Reload the page and try again.' => 'Le formulaire a expiré. Actualisez la page et réessayez.',
+    'The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.' => 'Le formulaire propose des options que le champ « %s » de la collection n’a pas : %s. Qui en choisit une est invité à choisir à nouveau.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'Le formulaire a été envoyé avant que nous puissions vérifier qu’il provient d’une personne. Veuillez patienter un instant et l’envoyer à nouveau.',
     'The form “%s” has not been published yet – visitors see nothing here.' => 'Le formulaire « %s » n’est pas encore publié – les visiteurs ne voient rien ici.',
     'The heading “%s” skips a level (h%d → h%d).' => 'Le titre « %s » saute un niveau (h%d → h%d).',

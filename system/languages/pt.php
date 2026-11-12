@@ -912,6 +912,7 @@ O link é válido durante %d dias.
     'The form could not be verified. Reload the page and try again.' => 'Não foi possível verificar o formulário. Recarregue a página e tente novamente.',
     'The form fills “%s”, which is not a field of the collection “%s”.' => 'O formulário preenche «%s», que não é um campo da coleção «%s».',
     'The form has expired. Reload the page and try again.' => 'O formulário expirou. Recarregue a página e tente novamente.',
+    'The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.' => 'O formulário oferece opções que o campo «%s» da coleção não tem: %s. Quem escolher uma delas terá de escolher de novo.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'O formulário foi enviado antes de podermos verificar que é uma pessoa a enviá-lo. Aguarde um momento e envie-o novamente.',
     'The form “%s” has not been published yet – visitors see nothing here.' => 'O formulário «%s» ainda não foi publicado – os visitantes não veem nada aqui.',
     'The heading “%s” skips a level (h%d → h%d).' => 'O título «%s» salta um nível (h%d → h%d).',

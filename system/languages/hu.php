@@ -912,6 +912,7 @@ A link %d napig érvényes.
     'The form could not be verified. Reload the page and try again.' => 'Az űrlapot nem sikerült ellenőrizni. Töltse be újra az oldalt, és próbálja újra.',
     'The form fills “%s”, which is not a field of the collection “%s”.' => 'Az űrlap kitölti ezt: „%s”, ami nem mezője a(z) „%s” gyűjteménynek.',
     'The form has expired. Reload the page and try again.' => 'Az űrlap lejárt. Töltse be újra az oldalt, és próbálja újra.',
+    'The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.' => 'Az űrlap olyan lehetőségeket kínál, amelyek a(z) „%s” gyűjteménymezőben nincsenek: %s. Aki ilyet választ, újra kell választania.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'Az űrlap elküldése megtörtént, mielőtt ellenőrizhettük volna, hogy ember küldi. Kérjük, várjon egy pillanatot, és küldje el újra.',
     'The form “%s” has not been published yet – visitors see nothing here.' => 'A(z) „%s” űrlap még nincs közzétéve – a látogatók itt nem látnak semmit.',
     'The heading “%s” skips a level (h%d → h%d).' => 'A(z) „%s” címsor kihagy egy szintet (h%d → h%d).',

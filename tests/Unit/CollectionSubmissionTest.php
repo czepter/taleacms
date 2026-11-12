@@ -34,6 +34,17 @@ final class CollectionSubmissionTest extends TestCase
         $this->assertSame($text, CollectionSubmission::textFromHtml(CollectionSubmission::htmlFromText($text)), 'the way there and back keeps the text');
     }
 
+    /** A template's value is read back into the answers it was made of: what a personal link shows when it reviews an item. */
+    public function testATemplateIsReadBackIntoItsAnswers(): void
+    {
+        $this->assertSame(['Name' => 'Eva Novak', 'Role' => 'director, ACME'], FormLinks::readTemplate('{Name}, {Role}', 'Eva Novak, director, ACME'));
+        $this->assertSame(['Name' => 'Eva'], FormLinks::readTemplate('{Name}, {Role}', 'Eva'), 'an empty later part leaves its separator out');
+        $this->assertSame(['Words' => "Two\nlines"], FormLinks::readTemplate('{Words}', "Two\nlines"));
+        $this->assertSame(['From' => 'Jena'], FormLinks::readTemplate('From: {From}', 'From: Jena'));
+        $this->assertSame([], FormLinks::readTemplate('From: {From}', 'Jena'), 'a value without the template\'s shape gives nothing');
+        $this->assertSame([], FormLinks::readTemplate('media/logo.webp', 'media/logo.webp'), 'a constant has no answers');
+    }
+
     public function testLinksAndTheSystemFormAreRecognised(): void
     {
         $this->assertSame([30, 'references', true, false], [FormLinks::DAYS, Testimonials::PRESET, Testimonials::isSystem(['origin' => Testimonials::ORIGIN]), Testimonials::isSystem(['origin' => 'page:3|abc'])]);

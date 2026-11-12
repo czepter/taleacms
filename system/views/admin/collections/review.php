@@ -42,7 +42,7 @@ $answers = ['waiting' => t('Answer waiting'), 'applied' => t('Applied'), 'discar
 	<thead><tr><th scope="col"><?= e(t('Field')) ?></th><th scope="col"><?= e(t('Now')) ?></th><th scope="col"><?= e(t('Their answer')) ?></th></tr></thead>
 	<tbody>
 <?php foreach ($l['compare']['rows'] as $row): ?>
-	<tr<?= $row['changed'] ? ' class="unread"' : '' ?>><th scope="row"><?= bdi($row['label']) ?><?= $row['changed'] ? ' <span class="tag">' . e(t('changed')) . '</span>' : '' ?></th>
+	<tr<?= $row['changed'] ? ' class="unread"' : '' ?>><th scope="row"><?= bdi($row['label']) ?><?= $row['changed'] ? ' <span class="tag">' . e(t('changed')) . '</span>' : '' ?><?= $row['kept'] ? ' <span class="tag" title="' . e(t('The form did not show this value and the answer left it empty, so the item keeps it.')) . '">' . e(t('stays')) . '</span>' : '' ?></th>
 		<td><?= nl2br(e($row['before'])) ?></td><td><?= nl2br(e($row['after'])) ?></td></tr>
 <?php endforeach ?>
 	</tbody>

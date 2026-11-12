@@ -84,6 +84,7 @@ final class Forms
                     if ((string) ($f['key'] ?? '') !== '' && in_array($f['type'], \Talea\Core\FormLinks::PREFILLABLE, true)) {
                         $answers[(string) $f['key']] = match ($f['type']) {
                             'checkboxes' => $r->postList('p' . $i),
+                            'timerange' => implode('', $times = array_map('trim', $r->postList('p' . $i))) === '' ? '' : implode('-', $times),
                             default => mb_substr($r->post('p' . $i), 0, 5000),
                         };
                     }
@@ -375,9 +376,12 @@ final class Forms
         if (is_string($saved)) {
             if ($link !== null) {
                 \Talea\Core\FormLinks::release($this->app->db(), $link);
+                // what the person wrote is kept as their draft, so the link shows it again to correct, nothing typed is lost
+                \Talea\Core\FormLinks::saveDraft($this->app->db(), $link, (array) $element['content']['fields'], self::answersByKey((array) $element['content']['fields'], $data));
             }
 
-            return $redirectUri('field'); // nothing is stored; the page asks to check the answers
+            // nothing is stored; the page asks to check the answers (the field that does not fit is marked)
+            return str_starts_with($saved, 'field:') ? $redirectUri('field', (int) substr($saved, 6)) : $redirectUri('field');
         }
         if ($link !== null) {
             \Talea\Core\FormLinks::finish($this->app->db(), $link, $saved, $consent);
@@ -395,6 +399,27 @@ final class Forms
         $thankYouUrl = self::thankYouPage($this->app->request, (string) ($element['content']['thank_you_page'] ?? ''), (string) $element['content']['name']);
 
         return $thankYouUrl !== null ? Response::redirect($thankYouUrl, 303) : $redirectUri('ok');
+    }
+
+    /**
+     * The answers as [label, answer] pairs turned into form field key => answer, for a draft of a personal link (FormLinks::saveDraft
+     * keeps only what a link can fill in).
+     *
+     * @param list<array<string, mixed>> $fields
+     * @param list<array<int, string>> $data
+     * @return array<string, string>
+     */
+    private static function answersByKey(array $fields, array $data): array
+    {
+        $answers = [];
+        foreach ($data as $entry) {
+            $field = \Talea\Core\FormLinks::field($fields, (string) $entry[0]);
+            if ($field !== null && (string) ($field['key'] ?? '') !== '') {
+                $answers[(string) $field['key']] ??= $field['type'] === 'timerange' ? str_replace(' – ', '-', (string) $entry[1]) : (string) $entry[1];
+            }
+        }
+
+        return $answers;
     }
 
     /**

@@ -58,7 +58,9 @@ final class CollectionSubmission
     }
 
     /**
-     * Adds the item. Returns its id, or the reason it was refused ('collection', 'name' or 'required') for the page to report.
+     * Adds the item. Returns its id, or the reason it was refused for the page to report: 'collection', 'name', 'required', or
+     * 'field:<n>' – the answer of the form's field n (or 'field' when no single field made it) does not fit its collection field (a
+     * number, a date, an option the collection does not have). Nothing is dropped silently: an answer that does not fit is refused.
      *
      * @param list<array<int, string>> $data the answers as [label, answer, …]
      * @param array<string, array{0: string, 1: string}> $uploads field label => [temporary file, file name] of what the visitor uploaded
@@ -79,7 +81,11 @@ final class CollectionSubmission
         }
         [$input, $files] = self::input($byKey, $content, $data, $uploads);
         // the link's fixed values (an image, the service) go over what the form maps; the person never saw them
-        $values = Collections::sanitizeData($fields, array_replace($input, array_intersect_key($fixed, $byKey)));
+        $errors = [];
+        $values = Collections::sanitizeData($fields, array_replace($input, array_intersect_key($fixed, $byKey)), $errors);
+        foreach (array_keys(array_diff_key($errors, $fixed)) as $key) {
+            return self::refusedField($content, (string) $key);
+        }
         foreach ($files as $key => [$tmp, $fileName]) {
             if (($path = self::stage($db, $tmp, $fileName, (string) $byKey[$key]['type'])) !== '') {
                 $values[$key] = $path;
@@ -130,6 +136,10 @@ final class CollectionSubmission
                 }
             } elseif ($type === 'html') {
                 $input[$key] = self::htmlFromText(self::fill($template, $data));
+            } elseif ($type === 'radio') {
+                // the collection's own option, whatever the case the form wrote it in
+                $answer = self::fill($template, $data);
+                $input[$key] = array_values(array_filter((array) ($byKey[$key]['options'] ?? []), static fn (mixed $o): bool => mb_strtolower(trim((string) $o)) === mb_strtolower($answer)))[0] ?? $answer;
             } elseif (in_array($type, self::FILLABLE, true)) {
                 $input[$key] = self::fill($template, $data);
             }
@@ -138,9 +148,25 @@ final class CollectionSubmission
         return [$input, $files];
     }
 
+    /** 'field:<n>' for the form field whose answer fills the collection field $key alone or first, 'field' when there is none. */
+    private static function refusedField(array $content, string $key): string
+    {
+        foreach ((array) ($content['mapping'] ?? []) as $row) {
+            if ((string) ($row['target'] ?? '') === $key && preg_match('/\{([^{}]{1,200})\}/u', (string) ($row['template'] ?? ''), $m) === 1) {
+                foreach (array_values((array) ($content['fields'] ?? [])) as $n => $f) {
+                    if (mb_strtolower(trim((string) ($f['label'] ?? ''))) === mb_strtolower(trim($m[1]))) {
+                        return 'field:' . $n;
+                    }
+                }
+            }
+        }
+
+        return 'field';
+    }
+
     /**
-     * The item the answers would make, without saving anything (MCP try_form): its name and field values, and the mapped fields
-     * that stay empty. Answers are by form field key, as try_form takes them.
+     * The item the answers would make, without saving anything (MCP try_form): its name and field values, the mapped fields that
+     * stay empty, and refused: the fields whose answer does not fit (sending the form would ask the visitor to correct it). Answers are by form field key, as try_form takes them.
      *
      * @param array<string, mixed> $content the form's content
      * @param array<string, mixed> $answers form field key => answer (a list for checkboxes)
@@ -160,12 +186,14 @@ final class CollectionSubmission
         $fields = (array) $collection['fields'];
         $byKey = array_column($fields, null, 'key');
         [$input] = self::input($byKey, $content, $data, []);
-        $values = Collections::sanitizeData($fields, $input);
+        $errors = [];
+        $values = Collections::sanitizeData($fields, $input, $errors);
         $mapped = array_values(array_unique(array_map(static fn (array $r): string => (string) ($r['target'] ?? ''), array_filter((array) ($content['mapping'] ?? []), 'is_array'))));
         $empty = array_values(array_filter($mapped, static fn (string $key): bool => isset($byKey[$key]) && !in_array($byKey[$key]['type'], self::UPLOADS, true) && ($values[$key] ?? '') === ''));
 
         return ['collection' => (string) $collection['name'], 'name' => mb_substr(self::fill((string) ($content['item_name'] ?? ''), $data), 0, 200),
-            'values' => array_intersect_key($values, array_flip($mapped)), 'empty_fields' => $empty, 'problems' => self::mappingProblems($db, $content)];
+            'values' => array_intersect_key($values, array_flip($mapped)), 'empty_fields' => array_values(array_diff($empty, array_keys($errors))),
+            'refused' => array_keys($errors), 'problems' => self::mappingProblems($db, $content)];
     }
 
     /**
@@ -196,6 +224,15 @@ final class CollectionSubmission
                 $problems[] = t('The field “%s” of the collection cannot be filled by a form – what a visitor writes for it is lost. Remove it from the mapping.', (string) $field['label']);
             }
             $templates[] = (string) ($row['template'] ?? '');
+            // a choice of the form that fills a choice of the collection: every option of the form must be one of the collection's
+            if ($field['type'] === 'radio' && preg_match('/^\{([^{}]{1,200})\}$/u', trim((string) ($row['template'] ?? '')), $m) === 1
+                && ($formField = FormLinks::field((array) ($content['fields'] ?? []), $m[1])) !== null && in_array($formField['type'], ['select', 'radio'], true)) {
+                $known = array_map(static fn (mixed $o): string => mb_strtolower(trim((string) $o)), (array) ($field['options'] ?? []));
+                $foreign = array_filter(array_map('strval', \Talea\Builder\Elements\Form::options($formField)), static fn (string $o): bool => !in_array(mb_strtolower(trim($o)), $known, true));
+                if ($foreign !== []) {
+                    $problems[] = t('The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.', (string) $field['label'], implode(', ', $foreign));
+                }
+            }
         }
         foreach ($templates as $template) {
             preg_match_all('/\{([^{}]{1,200})\}/u', $template, $m);

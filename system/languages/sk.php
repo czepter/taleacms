@@ -852,6 +852,7 @@ Odkaz platí %d dní.
     'The form could not be verified. Reload the page and try again.' => 'Formulár sa nepodarilo overiť. Obnovte stránku a skúste to znova.',
     'The form fills “%s”, which is not a field of the collection “%s”.' => 'Formulár vypĺňa „%s“, čo nie je pole kolekcie „%s“.',
     'The form has expired. Reload the page and try again.' => 'Platnosť formulára vypršala. Obnovte stránku a skúste to znova.',
+    'The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.' => 'Formulár ponúka možnosti, ktoré pole kolekcie „%s“ nemá: %s. Kto niektorú zvolí, bude požiadaný o novú voľbu.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'Formulár sa odoslal skôr, než sme stihli overiť, že ho posiela človek. Počkajte, prosím, chvíľu a odošlite ho znova.',
     'The form “%s” has not been published yet – visitors see nothing here.' => 'Formulár „%s“ ešte nie je zverejnený – návštevníci tu nič neuvidia.',
     'The heading “%s” skips a level (h%d → h%d).' => 'Nadpis „%s“ preskakuje úroveň (h%d → h%d).',

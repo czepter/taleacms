@@ -868,6 +868,7 @@ Link jest ważny %d dni.
     'The form could not be verified. Reload the page and try again.' => 'Nie udało się zweryfikować formularza. Prosimy odświeżyć stronę i spróbować ponownie.',
     'The form fills “%s”, which is not a field of the collection “%s”.' => 'Formularz wypełnia „%s”, które nie jest polem kolekcji „%s”.',
     'The form has expired. Reload the page and try again.' => 'Formularz wygasł. Prosimy odświeżyć stronę i spróbować ponownie.',
+    'The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.' => 'Formularz oferuje opcje, których pole kolekcji „%s” nie ma: %s. Kto wybierze jedną z nich, zostanie poproszony o ponowny wybór.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'Formularz został wysłany, zanim zdążyliśmy sprawdzić, że wysyła go człowiek. Prosimy chwilę odczekać i wysłać go ponownie.',
     'The form “%s” has not been published yet – visitors see nothing here.' => 'Formularz „%s” nie został jeszcze opublikowany – odwiedzający nic tu nie widzą.',
     'The heading “%s” skips a level (h%d → h%d).' => 'Nagłówek „%s” pomija poziom (h%d → h%d).',

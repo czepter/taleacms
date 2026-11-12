@@ -869,6 +869,7 @@ Il link è valido %d giorni.
     'The form could not be verified. Reload the page and try again.' => 'Non è stato possibile verificare il modulo. Ricarichi la pagina e riprovi.',
     'The form fills “%s”, which is not a field of the collection “%s”.' => 'Il modulo compila «%s», che non è un campo della raccolta «%s».',
     'The form has expired. Reload the page and try again.' => 'Il modulo è scaduto. Ricarichi la pagina e riprovi.',
+    'The form offers options the collection field “%s” does not have: %s. A visitor who picks one is asked to choose again.' => 'Il modulo offre opzioni che il campo «%s» della raccolta non ha: %s. Chi ne sceglie una deve scegliere di nuovo.',
     'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.' => 'Il modulo è stato inviato prima che potessimo verificare che a inviarlo sia una persona. Attenda un momento e lo invii di nuovo.',
     'The form “%s” has not been published yet – visitors see nothing here.' => 'Il modulo «%s» non è ancora pubblicato: i visitatori qui non vedono nulla.',
     'The heading “%s” skips a level (h%d → h%d).' => 'Il titolo “%s” salta un livello (h%d → h%d).',
