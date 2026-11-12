@@ -924,11 +924,16 @@ final class Booking
         return $token;
     }
 
-    /** Whether another booking occupies the person at that time (a pending one only while its hold lasts). */
-    private static function occupied(Db $db, int $staffId, string $start, string $end, int $exclude): bool
+    /**
+     * Whether another booking occupies the person at that time (a pending one only while its hold lasts), with the service's
+     * buffer kept free on both sides – the rule free() applies when a visitor books, so accepting never squeezes out the buffer.
+     */
+    private static function occupied(Db $db, int $staffId, string $start, string $end, int $bufferMin, int $exclude): bool
     {
+        $buffer = max(0, $bufferMin);
+
         return (int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND id <> ? AND (status IN ('confirmed', 'done') OR (status = 'pending' AND hold_until > NOW())) AND starts_at < ? AND ends_at > ?",
-            [$staffId, $exclude, $end, $start]) > 0;
+            [$staffId, $exclude, date('Y-m-d H:i:s', strtotime($end . ' +' . $buffer . ' minutes')), date('Y-m-d H:i:s', strtotime($start . ' -' . $buffer . ' minutes'))]) > 0;
     }
 
     /**
@@ -941,7 +946,8 @@ final class Booking
         if ($booking['status'] !== 'pending') {
             return 'Only a booking waiting for confirmation can be accepted.';
         }
-        if (self::occupied($db, (int) $booking['staff_id'], (string) $booking['starts_at'], (string) $booking['ends_at'], (int) $booking['id'])) {
+        $buffer = (int) (self::service($db, (int) $booking['service_id'])['buffer_min'] ?? 0);
+        if (self::occupied($db, (int) $booking['staff_id'], (string) $booking['starts_at'], (string) $booking['ends_at'], $buffer, (int) $booking['id'])) {
             return 'This time has been taken meanwhile – propose other times or decline the request.';
         }
         if ($db->run("UPDATE {bookings} SET status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [(int) $booking['id']])->rowCount() === 0) {

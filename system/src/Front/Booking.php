@@ -93,9 +93,11 @@ final class Booking
             return $redirect('consent');
         }
         $o = $element['content'];
-        // the element may fix the service or the person – then the visitor's choice does not count
-        $serviceId = (int) $o['service'] > 0 ? (int) $o['service'] : $this->app->db()->internalId('booking_services', $r->post('service'));
-        $staffId = (int) $o['staff_member'] > 0 ? (int) $o['staff_member'] : $this->app->db()->internalId('booking_staff', $r->post('staff'));
+        // the element may fix the service or the person – then the visitor's choice does not count; a fixed one that was switched
+        // off is not fixed any more, exactly as the element renders the form (Element::fixed), so the visitor books what they were offered
+        [$fixedService, $fixedStaff] = Element::fixed($this->app->db(), $o);
+        $serviceId = $fixedService !== null ? $fixedService['id'] : $this->app->db()->internalId('booking_services', $r->post('service'));
+        $staffId = $fixedStaff !== null ? $fixedStaff['id'] : $this->app->db()->internalId('booking_staff', $r->post('staff'));
         [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('name'), 'email' => $r->post('email'),
             'phone' => $r->post('phone'), 'note' => $r->post('note'), 'source' => $back, 'language' => \Talea\Core\Language::siteColumn(), 'by' => 'customer']);
         if ($booking === null) {
