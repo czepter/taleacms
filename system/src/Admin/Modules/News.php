@@ -296,6 +296,7 @@ final class News extends Module
         } else {
             $id = $this->db->insert('news', $data);
             \Talea\Core\Slug::fromId($this->db, 'news', $id); // a title with nothing to transliterate: news-<id>, not n-a
+            \Talea\Core\Members::inheritFromOriginal($this->db, 'news', $id, $data['translation_of'] === null ? null : (int) $data['translation_of'], $_POST);
         }
         \Talea\Core\Members::saveFromForm($this->app, 'news', $id);
 
@@ -554,6 +555,7 @@ final class News extends Module
         $id = $this->db->insert('news', $data);
         Media::recordUsage($this->db, $id, (string) $data['image'], $data['intro'], $data['text']);
         $this->db->run('INSERT INTO {news_tags} (news_id, tag_id) SELECT ?, tag_id FROM {news_tags} WHERE news_id = ?', [$id, $newsItem['news_id']]);
+        \Talea\Core\Members::inheritFromOriginal($this->db, 'news', $id, (int) $newsItem['news_id']);
         \Talea\Core\Search::index($this->db, $id);
 
         return $this->back('The translation has been created as a draft. Read it before publishing – the assistant can make mistakes in names, numbers and technical terms.', 'edit', ['id' => $this->publicId($id)]);

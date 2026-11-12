@@ -510,4 +510,31 @@ trait SiteImportRows
             'thumb_height' => max(0, min(65535, (int) ($r['thumb_height'] ?? 0))), 'color' => is_string($r['color'] ?? null) && preg_match('/^(#[0-9a-f]{6}|-)?$/i', $r['color']) ? $r['color'] : '',
             'focal_point' => is_string($r['focal_point'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/', $r['focal_point']) ? $r['focal_point'] : '', 'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s')];
     }
+
+    /**
+     * A member group (Core\Members) and the content it restricts. A group of the same name this site already has is used; the content is named by
+     * public id and must have come along. Without this every members-only page, news item and item would be public after the move.
+     */
+    private function memberGroup(array $r): bool
+    {
+        $name = mb_substr(trim(strip_tags((string) ($r['name'] ?? ''))), 0, 80);
+        if ($name === '') {
+            return false;
+        }
+        $id = (int) $this->db->value('SELECT group_id FROM {member_groups} WHERE name = ?', [$name]);
+        if ($id === 0) {
+            $publicId = self::publicId($r);
+            $id = $this->db->insert('member_groups', ['name' => $name, 'created_at' => date('Y-m-d H:i:s'),
+                'public_id' => $this->db->value('SELECT 1 FROM {member_groups} WHERE public_id = ?', [$publicId]) === null ? $publicId : Uuid::v4()]);
+        }
+        $tables = ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items'];
+        foreach (is_array($r['content'] ?? null) ? $r['content'] : [] as $c) {
+            $contentId = is_array($c) && isset($tables[$c['type'] ?? '']) ? $this->ref($tables[$c['type']], $c['id'] ?? null) : 0;
+            if ($contentId > 0) {
+                $this->db->insertIgnore('content_groups', ['content_type' => (string) $c['type'], 'content_id' => $contentId, 'group_id' => $id]);
+            }
+        }
+
+        return true;
+    }
 }

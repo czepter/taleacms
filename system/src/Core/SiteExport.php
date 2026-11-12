@@ -166,6 +166,21 @@ final class SiteExport
                 yield $row;
             }
         })());
+        // member groups (Core\Members) with what each restricts – without them every members-only page, news item and item would be public
+        // on the new site; the member accounts are visitors' personal data and stay behind (the owner invites them again)
+        self::fields($f, 'member_groups', (function () use ($db, $targets): \Generator {
+            foreach ($db->all('SELECT group_id, public_id, name, created_at FROM {member_groups} ORDER BY group_id') as $group) {
+                $content = [];
+                foreach ($db->all('SELECT content_type, content_id FROM {content_groups} WHERE group_id = ? ORDER BY content_type, content_id', [(int) $group['group_id']]) as $c) {
+                    $id = isset($targets[$c['content_type']]) ? $db->publicId($targets[$c['content_type']], (int) $c['content_id']) : '';
+                    if ($id !== '') {
+                        $content[] = ['type' => $c['content_type'], 'id' => $id];
+                    }
+                }
+
+                yield ['public_id' => $group['public_id'], 'name' => $group['name'], 'created_at' => $group['created_at'], 'content' => $content];
+            }
+        })());
         // the previous files of documents (2.11) go along – they are content, kept for good; download counts are only this site's statistics
         self::fields($f, 'document_versions', $one('document_versions', 'SELECT id, item_id, file, version, replaced_at, replaced_by FROM {document_versions} WHERE id > ? ORDER BY id LIMIT 1000', 'id', ['item_id' => 'collection_items']));
         self::fields($f, 'media_folders', $all('media_folders', 'SELECT folder_id, public_id, name, parent_id FROM {media_folders} ORDER BY folder_id', ['parent_id' => 'media_folders']));

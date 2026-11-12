@@ -748,9 +748,9 @@ final class Pages extends Module
         } else {
             $id = $this->db->insert('pages', $data);
             \Talea\Core\Slug::fromId($this->db, 'pages', $id); // a title with nothing to transliterate: page-<id>, not n-a
+            \Talea\Core\Members::inheritFromOriginal($this->db, 'page', $id, isset($data['translation_of']) ? (int) $data['translation_of'] : null, $in);
         }
-        if (($in['member_groups_present'] ?? '') === '1') {
-            // as Members::saveFromForm, from $in: a settings tab cannot carry groups it does not own
+        if (($in['member_groups_present'] ?? '') === '1') { // as Members::saveFromForm, from $in: a settings tab cannot carry groups it does not own
             \Talea\Core\Members::setContentGroups($this->db, 'page', $id, is_array($in['member_groups'] ?? null) ? array_values(array_filter($in['member_groups'], is_string(...))) : []);
         }
         \Talea\Core\SeoScore::refresh($this->app, 'page', $id);

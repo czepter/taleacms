@@ -680,6 +680,7 @@ final class Tools
             }
             $id = $db->insert('pages', $data + ['text' => '', 'visible' => 0, 'in_menu' => 0]);
             \Talea\Core\Slug::fromId($db, 'pages', $id); // a title with nothing to transliterate: page-<id>, not n-a
+            \Talea\Core\Members::inheritFromOriginal($db, 'page', $id, isset($data['translation_of']) ? (int) $data['translation_of'] : null); // set_content_groups changes it on purpose
             if (!empty($data['in_menu'])) {
                 \Talea\Core\Menu::setPage($db, $id, $language, true);
             }

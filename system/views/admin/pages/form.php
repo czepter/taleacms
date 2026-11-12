@@ -127,7 +127,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<?= $error('page_password') ?>
 	<span class="help"><?= e(t('Visitors see the page only after entering the password – e.g. a price list for partners. It is not an account: whoever knows the password reads the page. A protected page is never in search engines, the sitemap or the site search.')) ?></span></div>
 </div>
-<?= $app->view->render('admin/members/gating', ['app' => $app, 'type' => 'page', 'row' => (int) $page['page_id']]) ?>
+<?= $app->view->render('admin/members/gating', ['app' => $app, 'type' => 'page', 'row' => (int) $page['page_id'], 'from' => (int) ($page['translation_of'] ?? 0)]) ?>
 <?php if ($app->auth()->isAdmin()): ?>
 <div class="row">
 	<label for="head_code"><?= e(t('Code in the head of this page')) ?></label>
