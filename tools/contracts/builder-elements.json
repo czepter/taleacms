@@ -106,6 +106,7 @@
         "item_name",
         "link_days",
         "link_page",
+        "link_site_label",
         "link_save",
         "link_subject",
         "link_text",
