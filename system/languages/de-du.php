@@ -204,7 +204,6 @@ Der Link gilt %d Tage.
     'We are sorry – we had to cancel your appointment. Please book another time on our site, or contact us.' => 'Es tut uns leid – wir mussten deinen Termin stornieren. Bitte buche auf unserer Website einen anderen Termin oder kontaktiere uns.',
     'We are working on the site right now. Please try again in a moment.' => 'Wir arbeiten gerade an der Website. Bitte versuche es gleich noch einmal.',
     'We can publish your words only with your consent.' => 'Wir können deine Worte nur mit deiner Einwilligung veröffentlichen.',
-    'We filled in what we have. Check it, change what is not right and send it.' => 'Wir haben eingetragen, was wir von dir haben. Prüfe es, ändere, was nicht stimmt, und sende es ab.',
     'We have rebuilt the website so that it is easier to see what we do and how to get in touch. Have a look around – and if you have a question, just write to us.' => 'Wir haben die Website neu gestaltet, damit du leichter siehst, was wir tun und wie du uns erreichst. Schau dich um – und wenn du eine Frage hast, schreib uns einfach.',
     'We have received your words. We will publish them after a short check.' => 'Wir haben deine Worte erhalten. Wir veröffentlichen sie nach einer kurzen Prüfung.',
     'We have your request' => 'Wir haben deine Anfrage erhalten',

@@ -1051,7 +1051,6 @@ A link %d napig érvényes.
     'We are working on the site right now. Please try again in a moment.' => 'Éppen dolgozunk a weboldalon. Kérjük, próbálja újra egy pillanat múlva.',
     'We can publish your words only with your consent.' => 'Szavait csak az Ön hozzájárulásával tehetjük közzé.',
     'We delete enquiries automatically after [NUMBER] months unless they lead to a contract.' => 'A megkereséseket [SZÁM] hónap után automatikusan töröljük, kivéve, ha szerződéshez vezetnek.',
-    'We filled in what we have. Check it, change what is not right and send it.' => 'Kitöltöttük, amit tudunk. Ellenőrizze, javítsa, ami nem stimmel, és küldje el.',
     'We go through everything together and hand it over.' => 'Mindent közösen átnézünk, és átadjuk.',
     'We have rebuilt the website so that it is easier to see what we do and how to get in touch. Have a look around – and if you have a question, just write to us.' => 'Átalakítottuk weboldalunkat, hogy könnyebben látható legyen, mivel foglalkozunk, és hogyan érhet el minket. Nézzen körül – ha kérdése van, írjon nekünk bátran.',
     'We have received your words. We will publish them after a short check.' => 'Megkaptuk sorait. Rövid ellenőrzés után közzétesszük őket.',

@@ -395,8 +395,8 @@ final class Form extends Element
         $html = match (true) {
             $result === 'saved' && $canSave => '<p class="tl-form-note" role="status">' . e(t('Your draft is saved. You can come back with the same link and send it when it is ready.')) . '</p>',
             $result !== '' => '<p class="tl-form-error" role="alert">' . e(self::messages($result)) . '</p>',
-            $filled !== [] => '<p class="tl-form-note">' . e($k->prefillBy === 'person' ? t('Your saved draft is filled in. Change what you like and send it when it is ready.')
-                : t('We filled in what we have. Check it, change what is not right and send it.')) . '</p>',
+            // only the person's own saved draft is announced; the site's suggestion (prefill by "site") comes without a note
+            $filled !== [] && $k->prefillBy === 'person' => '<p class="tl-form-note">' . e(t('Your saved draft is filled in. Change what you like and send it when it is ready.')) . '</p>',
             default => '',
         };
         if ($canSave && count($k->linkDrafts) > 1) {

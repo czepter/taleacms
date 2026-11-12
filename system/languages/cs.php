@@ -2678,7 +2678,6 @@ Odkaz platí %d dní.
     'We are working on the site right now. Please try again in a moment.' => 'Na webu právě pracujeme. Zkuste to prosím za chvíli.',
     'We can publish your words only with your consent.' => 'Vaše slova můžeme zveřejnit jen s vaším souhlasem.',
     'We delete enquiries automatically after [NUMBER] months unless they lead to a contract.' => 'Poptávky mažeme automaticky po [POČET] měsících, pokud z nich nevznikne smlouva.',
-    'We filled in what we have. Check it, change what is not right and send it.' => 'Vyplnili jsme, co máme. Zkontrolujte to, opravte, co nesedí, a odešlete.',
     'We found a few things on the page worth fixing:' => 'Na stránce jsme našli věci, které stojí za opravu:',
     'We go through everything together and hand it over.' => 'Vše projdeme společně a předáme.',
     'We have rebuilt the website so that it is easier to see what we do and how to get in touch. Have a look around – and if you have a question, just write to us.' => 'Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.',

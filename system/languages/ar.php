@@ -1051,7 +1051,6 @@ The link works for %d days.
     'We are working on the site right now. Please try again in a moment.' => 'نعمل على الموقع حاليًا. يُرجى المحاولة مجددًا بعد قليل.',
     'We can publish your words only with your consent.' => 'لا يمكننا نشر كلماتك إلا بموافقتك.',
     'We delete enquiries automatically after [NUMBER] months unless they lead to a contract.' => 'نحذف الاستفسارات تلقائيًا بعد [NUMBER] أشهر ما لم تفضِ إلى عقد.',
-    'We filled in what we have. Check it, change what is not right and send it.' => 'ملأنا ما لدينا من معلومات. راجعها وصحّح ما ليس صحيحًا ثم أرسلها.',
     'We go through everything together and hand it over.' => 'نراجع كل شيء معًا ثم نسلّمه.',
     'We have rebuilt the website so that it is easier to see what we do and how to get in touch. Have a look around – and if you have a question, just write to us.' => 'أعدنا بناء الموقع ليسهل الاطلاع على ما نقدمه وعلى طريقة التواصل معنا. تفضل بجولة – وإن كان لديك سؤال فراسلنا.',
     'We have received your words. We will publish them after a short check.' => 'استلمنا كلماتك. سننشرها بعد مراجعة قصيرة.',
