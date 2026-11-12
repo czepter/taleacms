@@ -3026,6 +3026,7 @@ return [
     'Name in breadcrumbs' => 'Name in der Brotkrumennavigation',
     'Name in the page list, the browser tab and the menu.' => 'Name in der Seitenliste, im Browser-Tab und im Menü.',
     'Name of font %d' => 'Name der Schriftart %d',
+    'Name of our own drafts in the history of saved versions (empty = “our suggestion”; a single dash = no name)' => 'Name der eigenen Entwürfe im Verlauf der gespeicherten Stände (leer = „unser Vorschlag“; ein einzelner Strich = kein Name)',
     'Name of the item; {Field label} puts in an answer' => 'Name des Eintrags; {Feldbezeichnung} setzt eine Antwort ein',
     'Name of the new token' => 'Name des neuen Tokens',
     'Name of the owner' => 'Name des Inhabers',
