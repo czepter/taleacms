@@ -23,6 +23,10 @@
         <!-- docker compose: boots image N, updates to N+1 (HF-13); skipped without Docker; slow, so `composer test` excludes the group -->
         <testsuite name="e2e"><directory>tests/E2E</directory></testsuite>
     </testsuites>
+    <extensions>
+        <!-- product code sets set_time_limit(300) in-process; the limit counts CPU time of the whole worker (tests/Support/NoTimeLimit.php) -->
+        <bootstrap class="Talea\Tests\Support\NoTimeLimit"/>
+    </extensions>
     <source>
         <include><directory>system/src</directory></include>
     </source>
