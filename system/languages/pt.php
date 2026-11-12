@@ -1051,7 +1051,6 @@ O link é válido durante %d dias.
     'We are working on the site right now. Please try again in a moment.' => 'Estamos a trabalhar no site neste momento. Tente novamente dentro de momentos.',
     'We can publish your words only with your consent.' => 'Só podemos publicar as suas palavras com o seu consentimento.',
     'We delete enquiries automatically after [NUMBER] months unless they lead to a contract.' => 'Eliminamos os pedidos automaticamente após [NÚMERO] meses, a menos que deem origem a um contrato.',
-    'We filled in what we have. Check it, change what is not right and send it.' => 'Preenchemos o que temos. Verifique, altere o que não estiver certo e envie.',
     'We go through everything together and hand it over.' => 'Revemos tudo em conjunto e fazemos a entrega.',
     'We have rebuilt the website so that it is easier to see what we do and how to get in touch. Have a look around – and if you have a question, just write to us.' => 'Renovámos o site para que seja mais fácil ver o que fazemos e como entrar em contacto. Dê uma vista de olhos – e, se tiver alguma pergunta, escreva-nos.',
     'We have received your words. We will publish them after a short check.' => 'Recebemos as suas palavras. Vamos publicá-las após uma breve verificação.',

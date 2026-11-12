@@ -1051,7 +1051,6 @@ The link works for %d days.
     'We are working on the site right now. Please try again in a moment.' => '我們正在進行網站維護。請稍後再試。',
     'We can publish your words only with your consent.' => '我們只會在您同意後公開您的文字。',
     'We delete enquiries automatically after [NUMBER] months unless they lead to a contract.' => '除非洽詢促成合約，否則我們會在 [數字] 個月後自動刪除。',
-    'We filled in what we have. Check it, change what is not right and send it.' => '我們已填入現有的資料。請檢查，修改不正確的內容後提交。',
     'We go through everything together and hand it over.' => '我們會與您一起檢查所有細節並完成交付。',
     'We have rebuilt the website so that it is easier to see what we do and how to get in touch. Have a look around – and if you have a question, just write to us.' => '我們重新打造了網站，讓您更容易了解我們的服務以及聯絡方式。歡迎四處看看 – 如有任何問題，歡迎直接來信。',
     'We have received your words. We will publish them after a short check.' => '我們已收到您的文字。經過簡短審核後就會公開。',

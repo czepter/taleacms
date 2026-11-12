@@ -1051,7 +1051,6 @@ The link works for %d days.
     'We are working on the site right now. Please try again in a moment.' => '我们正在维护网站。请稍后再试。',
     'We can publish your words only with your consent.' => '只有征得您的同意，我们才能发布您的评价。',
     'We delete enquiries automatically after [NUMBER] months unless they lead to a contract.' => '除非咨询促成合同，否则我们会在 [数字] 个月后自动删除咨询。',
-    'We filled in what we have. Check it, change what is not right and send it.' => '我们已填写了现有的信息。请检查，修改不正确的内容后提交。',
     'We go through everything together and hand it over.' => '我们会和您一起检查所有内容并完成交付。',
     'We have rebuilt the website so that it is easier to see what we do and how to get in touch. Have a look around – and if you have a question, just write to us.' => '我们重新打造了网站，让您更容易了解我们的业务以及如何联系我们。欢迎随意浏览——如有任何问题，请直接给我们留言。',
     'We have received your words. We will publish them after a short check.' => '我们已收到您的评价。经过简单审核后我们会将其发布。',
