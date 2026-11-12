@@ -51,6 +51,12 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 .bd-component-card .bd-btn { justify-content: center; height: 40px; }
 .bd-form-card { border-color: var(--line); background: var(--surface); }
 .bd-form-widths { display: grid; gap: 6px; }
+.bd-form-mapping { display: grid; gap: 6px; }
+.bd-mapping-row { display: grid; gap: 4px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius); }
+.bd-mapping-row.is-on { border-color: var(--text-weak); }
+.bd-mapping-row .bd-tick { margin: 0; }
+.bd-mapping-row .bd-tick small { margin-inline-start: auto; }
+.bd-mapping-row > input, .bd-mapping-row > select { width: 100%; }
 .bd-form-step { margin-top: 6px; font-size: 12px; }
 .bd-form-row { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius); }
 .bd-form-row > .bd-field-note { flex-basis: 100%; margin: 0; }

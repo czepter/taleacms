@@ -231,10 +231,96 @@ function contentPanel(panel, p, s) {
 	// a property with the condition „when“ ({other property: value or list}) is offered only when it holds; its note says why in its place
 	const holds = (def) => !def.when || Object.entries(def.when).every(([k, v]) => (Array.isArray(v) ? v : [v]).includes(p.content[k] ?? (s.properties[k] || {}).default));
 	const steers = (key) => properties.some(([, d]) => d.when && key in d.when);
-	properties.forEach(([key, def]) => panel.append(!holds(def) ? (def.note ? el('p', { class: 'bd-field-note' }, T(def.note)) : '') : field(listCollection && key in COLLECTION_FIELD_KEYS ? collectionFieldChoice(def, listCollection, COLLECTION_FIELD_KEYS[key], p.content[key]) : def, p.content[key], (h) => {
+	properties.forEach(([key, def]) => panel.append(!holds(def) ? (def.note ? el('p', { class: 'bd-field-note' }, T(def.note)) : '')
+		: p.type === 'form' && key === 'collection' ? formCollectionField(def, p)
+		: p.type === 'form' && key === 'mapping' ? formMappingField(def, p)
+		: field(listCollection && key in COLLECTION_FIELD_KEYS ? collectionFieldChoice(def, listCollection, COLLECTION_FIELD_KEYS[key], p.content[key]) : def, p.content[key], (h) => {
 		if (JSON.stringify(p.content[key]) !== JSON.stringify(h)) { applyChange(() => { p.content[key] = h; emit('content', p, key, h); }, 'content:' + p.id + ':' + key); }
 		if ((p.type === 'collection_list' && key === 'collection') || steers(key)) { redrawRight(); } // the field choices follow the collection, a „when“ follows its property
 	}, { error: state.errors[state.selectedPath + '.content.' + key], element: p, key: key })));
+}
+
+/* ---------- a form that adds to a collection (Core\CollectionSubmission) ---------- */
+
+/** Collection field types a visitor fills with an answer, and those filled with an upload (CollectionSubmission::FILLABLE, UPLOADS). */
+const FILLABLE = ['text', 'lines', 'number', 'date', 'datetime', 'radio', 'link'];
+const UPLOADS = ['image', 'file'];
+
+/** The collection a form names, by its public id or by its address (slug). */
+function formCollection(p) {
+	const named = String(p.content.collection || '');
+	return named ? (D.collections || []).find((k) => k.id === named || k.slug === named) || null : null;
+}
+
+/**
+ * The collection of a form as a choice of the site's collections (stored by its public id). Choosing one with no field mapped yet
+ * maps every collection field whose label is also a form field's label, so the usual case needs no typing.
+ */
+function formCollectionField(def, p) {
+	const current = formCollection(p);
+	const options = [el('option', { value: '' }, '—')].concat((D.collections || []).map((k) => el('option', { value: k.id, selected: !!current && current.id === k.id }, k.name)));
+	if (p.content.collection && !current) { options.push(el('option', { value: p.content.collection, selected: true }, T('%s (not a collection of this site)').replace('%s', p.content.collection))); }
+	const select = el('select', { onchange: (e) => {
+		const chosen = (D.collections || []).find((k) => k.id === e.target.value) || null;
+		applyChange(() => {
+			p.content.collection = e.target.value;
+			if (chosen && !(p.content.mapping || []).length) {
+				const labels = new Map((p.content.fields || []).map((f) => [String(f.label || '').trim().toLowerCase(), f.label]));
+				p.content.mapping = (chosen.fields || []).filter((f) => FILLABLE.includes(f.type) || UPLOADS.includes(f.type))
+					.filter((f) => labels.has(String(f.label || '').trim().toLowerCase())).map((f) => ({ target: f.key, template: '{' + labels.get(String(f.label).trim().toLowerCase()) + '}' }));
+			}
+			emit('content', p, 'collection', p.content.collection);
+		}, 'content:' + p.id + ':collection');
+		redrawRight();
+	} }, options);
+	return el('label', { class: 'bd-field' }, el('span', {}, T('Collection')), select);
+}
+
+/**
+ * The fields of the chosen collection, each switched on or off: on, it gets a text with {Field label} placeholders – picked from the
+ * form's fields or typed. An image or file field takes one upload field of the form; formatted text, galleries and links to other
+ * items are not for visitors and stay off. A mapping row of a field the collection no longer has is listed so it can be removed.
+ */
+function formMappingField(def, p) {
+	const wrapper = el('div', { class: 'bd-field bd-form-mapping' }, el('span', {}, T('Fields of the item')));
+	const collection = formCollection(p);
+	if (!collection) { wrapper.append(el('p', { class: 'bd-field-note' }, T('Choose the collection first – its fields appear here.'))); return wrapper; }
+	const mapping = clone(Array.isArray(p.content.mapping) ? p.content.mapping : []);
+	const write = () => applyChange(() => { p.content.mapping = clone(mapping); emit('content', p, 'mapping', p.content.mapping); }, 'content:' + p.id + ':mapping');
+	const formFields = (p.content.fields || []).filter((f) => f.label && !['step', 'estimate', 'basket'].includes(f.type));
+	const rowOf = (key) => mapping.find((m) => m.target === key) || null;
+	(collection.fields || []).forEach((f) => {
+		const upload = UPLOADS.includes(f.type);
+		const usable = FILLABLE.includes(f.type) || upload;
+		const row = rowOf(f.key);
+		const offered = upload ? formFields.filter((x) => x.type === 'file') : formFields.filter((x) => x.type !== 'file');
+		const template = el('input', { type: 'text', value: row ? row.template : '', disabled: !row, 'aria-label': T('Content of “%s”').replace('%s', f.label || f.key),
+			placeholder: upload ? T('{label of an upload field} or media/…') : T('{Field label}, e.g. {Your name}'),
+			oninput: (e) => { const r = rowOf(f.key); if (r) { r.template = e.target.value; write(); } } });
+		const pick = el('select', { disabled: !row, 'aria-label': T('Form field for “%s”').replace('%s', f.label || f.key), onchange: (e) => {
+			const r = rowOf(f.key);
+			if (r && e.target.value) { r.template = upload ? '{' + e.target.value + '}' : (r.template ? r.template + ' ' : '') + '{' + e.target.value + '}'; template.value = r.template; write(); }
+			e.target.value = '';
+		} }, [el('option', { value: '' }, T('Insert a form field…'))].concat(offered.map((x) => el('option', { value: x.label }, x.label))));
+		const toggle = el('input', { type: 'checkbox', checked: !!row, disabled: !usable, onchange: (e) => {
+			if (e.target.checked) {
+				const same = offered.find((x) => String(x.label).trim().toLowerCase() === String(f.label || '').trim().toLowerCase());
+				mapping.push({ target: f.key, template: same ? '{' + same.label + '}' : '' });
+			} else {
+				mapping.splice(mapping.indexOf(rowOf(f.key)), 1);
+			}
+			write();
+			redrawRight();
+		} });
+		wrapper.append(el('div', { class: 'bd-mapping-row' + (row ? ' is-on' : '') },
+			el('label', { class: 'bd-tick' }, toggle, el('span', {}, f.label || f.key), el('small', { class: 'bd-field-note' }, usable ? f.type : T('not for visitors'))),
+			row ? template : null, row ? pick : null));
+	});
+	mapping.filter((m) => !(collection.fields || []).some((f) => f.key === m.target)).forEach((m) => {
+		wrapper.append(el('div', { class: 'bd-mapping-row' }, el('p', { class: 'bd-field-note' }, T('“%s” is not a field of this collection.').replace('%s', m.target)),
+			el('button', { type: 'button', class: 'bd-btn', onclick: () => { mapping.splice(mapping.indexOf(m), 1); write(); redrawRight(); } }, T('Remove'))));
+	});
+	return wrapper;
 }
 
 /** Collection list properties that hold a field key, and the field types each offers (null = any). */
