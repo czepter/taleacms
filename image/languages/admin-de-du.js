@@ -22,6 +22,7 @@ Object.assign(window.TALEA_TRANSLATIONS, {
 	"A design made for you": "Ein Entwurf ganz für dich",
 	"A few short steps and your website is running. Everything can be changed later in the administration.": "Nur wenige kurze Schritte, und deine Website läuft. Alles lässt sich später in der Administration ändern.",
 	"A floating arrow back to the top of the page – put it in the footer.": "Ein schwebender Pfeil zurück an den Seitenanfang – füge ihn im Fußbereich ein.",
+	"A form cannot fill this field – what a visitor writes for it is lost. Switch it off.": "Dieses Feld lässt sich nicht per Formular füllen – was Besucher dafür schreiben, geht verloren. Schalte es aus.",
 	"A form holds only its fields. Add and change them in the Content panel; a page places the form with the Form element.": "Ein Formular enthält nur seine Felder. Füge sie im Bereich Inhalt hinzu und ändere sie dort; eine Seite platziert das Formular mit dem Element „Formular“.",
 	"A heading and a text – build the rest in the builder.": "Eine Überschrift und ein Text – den Rest baust du im Builder.",
 	"A heading and three cards with the main reasons to choose you.": "Eine Überschrift und drei Karten mit den wichtigsten Gründen, sich für dich zu entscheiden.",

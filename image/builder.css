@@ -57,6 +57,7 @@ body.builder-body { display: block; margin: 0; padding: 0; max-width: none; over
 .bd-mapping-row .bd-tick { margin: 0; }
 .bd-mapping-row .bd-tick small { margin-inline-start: auto; }
 .bd-mapping-row > input, .bd-mapping-row > select { width: 100%; }
+.bd-mapping-row .bd-mapping-lost { margin: 0; color: var(--error); font-size: 12px; }
 .bd-form-step { margin-top: 6px; font-size: 12px; }
 .bd-form-row { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius); }
 .bd-form-row > .bd-field-note { flex-basis: 100%; margin: 0; }

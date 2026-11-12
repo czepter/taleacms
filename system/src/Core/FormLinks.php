@@ -71,7 +71,7 @@ final class FormLinks
         $fields = (array) ($content['fields'] ?? []);
         $values = self::cleanPrefill($fields, $prefill);
         if ($target !== null) {
-            $values += self::prefillFromItem($content, $target); // what the person typed wins over the item's own values
+            $values += self::prefillFromItem($content, $target, (array) (CollectionSubmission::collection($db, $content)['fields'] ?? [])); // what the person typed wins over the item's own values
         }
         $fixedValues = self::cleanFixed($db, $content, $fixed);
         $days = self::days($content);
@@ -310,14 +310,17 @@ final class FormLinks
 
     /**
      * What the person sees filled in when they review an item: the answers the form's mapping takes straight into an item field
-     * ({Label} alone) come back from that field, and the item's name for a field the item name is made of.
+     * ({Label} alone) come back from that field, and the item's name for a field the item name is made of. Formatted text comes
+     * back as its plain text (CollectionSubmission::textFromHtml), the way the person can read and change it in a text area.
      *
      * @param array<string, mixed> $content the form's content
      * @param array<string, mixed> $item a row of collection_items
+     * @param list<array<string, mixed>> $collectionFields the fields of the item's collection (for their types)
      * @return array<string, string|list<string>>
      */
-    public static function prefillFromItem(array $content, array $item): array
+    public static function prefillFromItem(array $content, array $item, array $collectionFields = []): array
     {
+        $types = array_column($collectionFields, 'type', 'key');
         $data = is_array($item['data']) ? $item['data'] : (json_decode((string) $item['data'], true) ?: []);
         $suggested = [];
         $only = static fn (string $template): ?string => preg_match('/^\{([^{}]{1,200})\}$/u', trim($template), $m) === 1 ? $m[1] : null;
@@ -326,7 +329,11 @@ final class FormLinks
         }
         foreach ((array) ($content['mapping'] ?? []) as $row) {
             $label = $only((string) ($row['template'] ?? ''));
-            $value = $data[(string) ($row['target'] ?? '')] ?? null;
+            $target = (string) ($row['target'] ?? '');
+            $value = $data[$target] ?? null;
+            if (($types[$target] ?? '') === 'html' && is_string($value)) {
+                $value = CollectionSubmission::textFromHtml($value);
+            }
             if ($label !== null && is_scalar($value) && (string) $value !== '') {
                 $suggested[$label] = (string) $value;
             }
@@ -353,7 +360,12 @@ final class FormLinks
     {
         [$original, $draft, $collection, $keys] = self::review($app->db(), $link);
         $data = (array) $original['data'];
+        $types = array_column((array) $collection['fields'], 'type', 'key');
         foreach ($keys as $key) {
+            // formatted text whose words the person left as they were keeps its formatting (the form showed it as plain text)
+            if (($types[$key] ?? '') === 'html' && self::textOf('html', $original['data'][$key] ?? '') === self::textOf('html', $draft['data'][$key] ?? '')) {
+                continue;
+            }
             $data[$key] = $draft['data'][$key] ?? '';
         }
         $new = ['name' => (string) $draft['name'] !== '' ? (string) $draft['name'] : (string) $original['name'], 'data' => self::json($data), 'updated_at' => date('Y-m-d H:i:s')];
@@ -385,11 +397,11 @@ final class FormLinks
     {
         [$original, $draft, $collection, $keys] = self::review($db, $link);
         $labels = array_column((array) $collection['fields'], 'label', 'key');
-        $text = static fn (mixed $v): string => is_array($v) ? implode(', ', array_map(static fn (mixed $x): string => is_scalar($x) ? (string) $x : '', $v)) : (string) $v;
+        $types = array_column((array) $collection['fields'], 'type', 'key');
         $rows = [['label' => t('Name'), 'before' => (string) $original['name'], 'after' => (string) $draft['name'], 'changed' => (string) $original['name'] !== (string) $draft['name']]];
         foreach ($keys as $key) {
-            $before = $text($original['data'][$key] ?? '');
-            $after = $text($draft['data'][$key] ?? '');
+            $before = self::textOf((string) ($types[$key] ?? ''), $original['data'][$key] ?? '');
+            $after = self::textOf((string) ($types[$key] ?? ''), $draft['data'][$key] ?? '');
             $rows[] = ['label' => (string) ($labels[$key] ?? $key), 'before' => $before, 'after' => $after, 'changed' => $before !== $after];
         }
 
@@ -527,6 +539,16 @@ final class FormLinks
         }
 
         return [$original, $draft, $collection, $keys];
+    }
+
+    /** A value as the text the comparison shows: a list joined, formatted text as its plain text. */
+    private static function textOf(string $type, mixed $value): string
+    {
+        if (is_array($value)) {
+            return implode(', ', array_map(static fn (mixed $x): string => is_scalar($x) ? (string) $x : '', $value));
+        }
+
+        return $type === 'html' ? CollectionSubmission::textFromHtml((string) $value) : (string) $value;
     }
 
     private static function json(array $values): string

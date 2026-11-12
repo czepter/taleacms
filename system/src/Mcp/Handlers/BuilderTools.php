@@ -55,7 +55,13 @@ trait BuilderTools
         $target = $this->loadBuildTarget($a);
         $build = !empty($a['published']) ? (Build::fromJson($target['build']) ?? ['v' => Build::VERSION, 'children' => []]) : $this->targetBuild($target);
 
-        return \Talea\Builder\Elements\Form::tryOut($build, (string) ($a['element'] ?? ''), is_array($a['answers'] ?? null) ? $a['answers'] : []);
+        $answers = is_array($a['answers'] ?? null) ? $a['answers'] : [];
+        $result = \Talea\Builder\Elements\Form::tryOut($build, (string) ($a['element'] ?? ''), $answers);
+        // a form that adds to a collection: the item the answers would make, so an empty mapped field shows before a visitor sends it
+        $form = Build::elementsOfType($build, static fn (string $class): bool => $class === \Talea\Builder\Elements\Form::class)[(string) ($a['element'] ?? '')] ?? [];
+        $item = \Talea\Core\CollectionSubmission::preview($this->app->db(), (array) ($form['content'] ?? []), $answers);
+
+        return $result + ($item !== null ? ['item' => $item] : []);
     }
 
     /** edit_build */

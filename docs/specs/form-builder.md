@@ -72,6 +72,14 @@ A form whose access is `link` opens only from `/_f/<token>` (`Core\FormLinks`). 
   form is filled in from the item (fields the mapping takes as `{Label}` alone, and the item name). The answer becomes a hidden draft
   item; the link's `state` is `waiting` and the original item shows both side by side. Apply copies the mapped fields and the name into
   the item (its previous state is an item version) and trashes the draft; Discard trashes the draft. MCP: `review_form_answer`.
+  Formatted text (`html`) goes both ways: the form shows its plain text (`CollectionSubmission::textFromHtml`), the answer becomes
+  escaped paragraphs (`htmlFromText`), the comparison is by text, and Apply keeps the original formatting when the words did not change.
+
+**Mapping a collection** (`CollectionSubmission::FILLABLE`, `UPLOADS`): text, lines, html, number, date, datetime, radio and link take
+an answer, image and file an upload; a gallery, an item link and the like cannot be filled. `CollectionSubmission::mappingProblems`
+names what would lose an answer (a field the form cannot fill, a field the collection lacks, a `{placeholder}` that is no form field):
+in the pre-publish `check` of every MCP build write, in `try_form` (with the `item` the answers would make) and in the builder's
+mapping panel.
 
 **Saving a draft** (form option `link_save`): a "Save draft" button sends the answers without checks; they become one more draft
 (by the person), the link stays open, the form then shows it and lists the history (our suggestion included); `?version=n` loads an

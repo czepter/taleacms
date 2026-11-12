@@ -248,6 +248,12 @@ trait BuildTargets
         $page = $target['kind'] === 'page';
         $components = $page ? \Talea\Builder\Components::builds($this->app->db()) : [];
         $findings = [...\Talea\Builder\Check::builds($build, $page, components: $components), ...\Talea\Builder\SampleContent::findings($build)];
+        // a form that adds to a collection: a mapping a visitor cannot fill loses the answer (Core\CollectionSubmission::mappingProblems)
+        foreach (Build::elementsOfType($build, static fn (string $class): bool => $class === \Talea\Builder\Elements\Form::class) as $id => $form) {
+            foreach (\Talea\Core\CollectionSubmission::mappingProblems($this->app->db(), (array) ($form['content'] ?? [])) as $message) {
+                $findings[] = ['id' => (string) $id, 'message' => $message];
+            }
+        }
 
         return $findings === [] ? [] : ['check' => $findings];
     }

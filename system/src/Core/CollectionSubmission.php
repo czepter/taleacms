@@ -13,15 +13,16 @@ use Talea\Builder\Collections;
  *  - The form maps its answers to the collection's fields: per field a template with {Field label} placeholders (and one for
  *    the item's name). The values go through Collections::sanitizeData like any other save, so a value that does not fit its
  *    field type is left empty.
- *  - A visitor fills only simple fields (FILLABLE) and uploads an image or a file (UPLOADS); formatted text, galleries, links to
- *    other items and the like are not for visitors. An image or file is never taken from a typed address: only from an upload,
+ *  - A visitor fills simple fields and formatted text (FILLABLE) and uploads an image or a file (UPLOADS); galleries, links to
+ *    other items and the like are not for visitors. Formatted text gets the visitor's plain text as paragraphs (htmlFromText):
+ *    never markup they typed. An image or file is never taken from a typed address: only from an upload,
  *    re-encoded or checked, and kept waiting outside the web root until the item is published (Core\MediaStaging).
  *  - The slug is made from the name, and the language is the page's, never the visitor's choice.
  */
 final class CollectionSubmission
 {
     /** Collection field types a visitor can fill with text. */
-    public const array FILLABLE = ['text', 'lines', 'number', 'date', 'datetime', 'radio', 'link'];
+    public const array FILLABLE = ['text', 'lines', 'html', 'number', 'date', 'datetime', 'radio', 'link'];
 
     /** Collection field types a visitor can fill with an upload. */
     public const array UPLOADS = ['image', 'file'];
@@ -76,6 +77,37 @@ final class CollectionSubmission
         if ($name === '') {
             return 'name';
         }
+        [$input, $files] = self::input($byKey, $content, $data, $uploads);
+        // the link's fixed values (an image, the service) go over what the form maps; the person never saw them
+        $values = Collections::sanitizeData($fields, array_replace($input, array_intersect_key($fixed, $byKey)));
+        foreach ($files as $key => [$tmp, $fileName]) {
+            if (($path = self::stage($db, $tmp, $fileName, (string) $byKey[$key]['type'])) !== '') {
+                $values[$key] = $path;
+            }
+        }
+        if (Collections::missingRequired($fields, $values) !== []) {
+            return 'required';
+        }
+        $idk = (int) $collection['collection_id'];
+        $slug = Slug::makeUnique(slugify($name, 150), static fn (string $s): bool => $db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ?', [$idk, $language, $s]) !== null);
+        $itemId = $db->insert('collection_items', ['collection_id' => $idk, 'name' => $name, 'slug' => $slug, 'data' => (string) json_encode($values, JSON_UNESCAPED_UNICODE),
+            'visible' => 0, 'language' => $language, 'created_at' => date('Y-m-d H:i:s'), 'sort_order' => 0, 'submitted_via' => $formId > 0 ? $formId : null]);
+        Slug::fromId($db, 'collection_items', $itemId);
+        Events::record($db, 'collection.submission', 'info', t('A submission arrived – a hidden draft in %s.', (string) $collection['name']), ['item' => $itemId]);
+
+        return $itemId;
+    }
+
+    /**
+     * What the answers make of the item's fields: the mapped values by field key, and the uploads by field key.
+     *
+     * @param array<string, array<string, mixed>> $byKey the collection's fields by key
+     * @param list<array<int, string>> $data
+     * @param array<string, array{0: string, 1: string}> $uploads
+     * @return array{0: array<string, string>, 1: array<string, array{0: string, 1: string}>}
+     */
+    private static function input(array $byKey, array $content, array $data, array $uploads): array
+    {
         $input = [];
         $files = [];
         foreach ((array) ($content['mapping'] ?? []) as $row) {
@@ -96,28 +128,111 @@ final class CollectionSubmission
                         }
                     }
                 }
+            } elseif ($type === 'html') {
+                $input[$key] = self::htmlFromText(self::fill($template, $data));
             } elseif (in_array($type, self::FILLABLE, true)) {
                 $input[$key] = self::fill($template, $data);
             }
         }
-        // the link's fixed values (an image, the service) go over what the form maps; the person never saw them
-        $values = Collections::sanitizeData($fields, array_replace($input, array_intersect_key($fixed, $byKey)));
-        foreach ($files as $key => [$tmp, $fileName]) {
-            if (($path = self::stage($db, $tmp, $fileName, (string) $byKey[$key]['type'])) !== '') {
-                $values[$key] = $path;
+
+        return [$input, $files];
+    }
+
+    /**
+     * The item the answers would make, without saving anything (MCP try_form): its name and field values, and the mapped fields
+     * that stay empty. Answers are by form field key, as try_form takes them.
+     *
+     * @param array<string, mixed> $content the form's content
+     * @param array<string, mixed> $answers form field key => answer (a list for checkboxes)
+     * @return array<string, mixed>|null null when the form does not add to a collection
+     */
+    public static function preview(Db $db, array $content, array $answers): ?array
+    {
+        $collection = self::collection($db, $content);
+        if ($collection === null) {
+            return null;
+        }
+        $data = [];
+        foreach ((array) ($content['fields'] ?? []) as $f) {
+            $answer = $answers[(string) ($f['key'] ?? '')] ?? '';
+            $data[] = [(string) ($f['label'] ?? ''), is_array($answer) ? implode(', ', array_map('strval', array_filter($answer, 'is_scalar'))) : (is_scalar($answer) ? (string) $answer : '')];
+        }
+        $fields = (array) $collection['fields'];
+        $byKey = array_column($fields, null, 'key');
+        [$input] = self::input($byKey, $content, $data, []);
+        $values = Collections::sanitizeData($fields, $input);
+        $mapped = array_values(array_unique(array_map(static fn (array $r): string => (string) ($r['target'] ?? ''), array_filter((array) ($content['mapping'] ?? []), 'is_array'))));
+        $empty = array_values(array_filter($mapped, static fn (string $key): bool => isset($byKey[$key]) && !in_array($byKey[$key]['type'], self::UPLOADS, true) && ($values[$key] ?? '') === ''));
+
+        return ['collection' => (string) $collection['name'], 'name' => mb_substr(self::fill((string) ($content['item_name'] ?? ''), $data), 0, 200),
+            'values' => array_intersect_key($values, array_flip($mapped)), 'empty_fields' => $empty, 'problems' => self::mappingProblems($db, $content)];
+    }
+
+    /**
+     * What is wrong with a form's mapping, before a visitor finds out: a field the collection does not have, a field a visitor
+     * cannot fill (its answer would be lost), and a {placeholder} that is no field of the form (it stays empty).
+     *
+     * @param array<string, mixed> $content the form's content
+     * @return list<string>
+     */
+    public static function mappingProblems(Db $db, array $content): array
+    {
+        $collection = self::collection($db, $content);
+        if ($collection === null) {
+            return ($content['destination'] ?? 'enquiry') === 'collection' ? [t('The form adds to a collection that does not exist.')] : [];
+        }
+        $byKey = array_column((array) $collection['fields'], null, 'key');
+        $labels = array_map(static fn (array $f): string => mb_strtolower(trim((string) ($f['label'] ?? ''))), array_filter((array) ($content['fields'] ?? []), 'is_array'));
+        $problems = [];
+        $templates = [(string) ($content['item_name'] ?? '')];
+        foreach ((array) ($content['mapping'] ?? []) as $row) {
+            $key = (string) ($row['target'] ?? '');
+            $field = $byKey[$key] ?? null;
+            if ($field === null) {
+                $problems[] = t('The form fills “%s”, which is not a field of the collection “%s”.', $key, (string) $collection['name']);
+                continue;
+            }
+            if (!in_array($field['type'], [...self::FILLABLE, ...self::UPLOADS], true)) {
+                $problems[] = t('The field “%s” of the collection cannot be filled by a form – what a visitor writes for it is lost. Remove it from the mapping.', (string) $field['label']);
+            }
+            $templates[] = (string) ($row['template'] ?? '');
+        }
+        foreach ($templates as $template) {
+            preg_match_all('/\{([^{}]{1,200})\}/u', $template, $m);
+            foreach ($m[1] as $label) {
+                if (!in_array(mb_strtolower(trim($label)), $labels, true)) {
+                    $problems[] = t('“{%s}” is not a field of the form – it stays empty.', trim($label));
+                }
             }
         }
-        if (Collections::missingRequired($fields, $values) !== []) {
-            return 'required';
-        }
-        $idk = (int) $collection['collection_id'];
-        $slug = Slug::makeUnique(slugify($name, 150), static fn (string $s): bool => $db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ?', [$idk, $language, $s]) !== null);
-        $itemId = $db->insert('collection_items', ['collection_id' => $idk, 'name' => $name, 'slug' => $slug, 'data' => (string) json_encode($values, JSON_UNESCAPED_UNICODE),
-            'visible' => 0, 'language' => $language, 'created_at' => date('Y-m-d H:i:s'), 'sort_order' => 0, 'submitted_via' => $formId > 0 ? $formId : null]);
-        Slug::fromId($db, 'collection_items', $itemId);
-        Events::record($db, 'collection.submission', 'info', t('A submission arrived – a hidden draft in %s.', (string) $collection['name']), ['item' => $itemId]);
 
-        return $itemId;
+        return array_values(array_unique($problems));
+    }
+
+    /**
+     * A visitor's plain text as formatted text: everything escaped, an empty line starts a paragraph, a single line break stays one.
+     */
+    public static function htmlFromText(string $text): string
+    {
+        $paragraphs = preg_split('/\R\s*\R/u', trim(str_replace("\r\n", "\n", $text)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return implode("\n", array_map(static fn (string $p): string => '<p>' . nl2br(e(trim($p)), false) . '</p>', $paragraphs));
+    }
+
+    /**
+     * Formatted text as the plain text a form field shows (the way back of htmlFromText): paragraphs and blocks are separated by an
+     * empty line, a <br> becomes a line break, list items a line each; markup and entities are gone.
+     */
+    public static function textFromHtml(string $html): string
+    {
+        $html = (string) preg_replace('/\s+/u', ' ', $html); // line breaks in the markup itself mean nothing
+        $html = (string) preg_replace('#\s*<br\s*/?>\s*#i', "\n", $html);
+        $html = (string) preg_replace('#</(p|h[1-6]|blockquote|ul|ol|figure|div|table|pre)>#i', "\n\n", $html);
+        $html = (string) preg_replace('#</(li|tr|figcaption)>#i', "\n", $html);
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5);
+        $lines = array_map(static fn (string $l): string => trim((string) preg_replace('/[ \t\x{00A0}]+/u', ' ', $l)), explode("\n", $text));
+
+        return trim((string) preg_replace("/\n{3,}/", "\n\n", implode("\n", $lines)));
     }
 
     /** The upload, checked and re-encoded, waiting for approval; its public path, or '' when it cannot be used. */
