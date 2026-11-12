@@ -320,9 +320,6 @@ Decisions of the night build, marked **Proposed** for the owner's review. Needs 
   older months read low. **The writing assistant is not in the file: it does not record its calls** (only the wizard and the Ask box write a change-log row).
   Administrators download their own owner's file in the Sites area, operators every owner's in the Owners area (`usageCsvAll`); `;`-separated with a byte order
   mark like the other exports, cells that start like a formula are quoted. Both are read-only actions (ParityTest `read`).
-- **Smoke test** (`tests/Integration/AgencySmokeTest.php`, all three engines): two owners with ten sites each are registered, migrated, set up and given a host; each host
-  is resolved to its owner and site and the scheduler runs once on every site but owner 1's first (its owner jobs write the install's backup folder). SQLite is the
-  slow one (about 75 s for the migrations); the test's budget is 240 s.
 - **Open:** a site made later is not added to the limited people automatically; the limit is not shown to a limited person anywhere but at the sign-in; storage
   history and AI usage would need recording first.
 

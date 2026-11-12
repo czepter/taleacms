@@ -1,6 +1,6 @@
 # Checks every change on PHP 8.5, the version the container image (FrankenPHP) runs: the repository's own checks, the PHPUnit suites
 # on MySQL 8.4, the browser walk, static analysis and security scanning. PostgreSQL 18 and SQLite run when a release is tagged
-# (release.yml, job engines): a job fewer per change shortens the wait. Every job runs on a GitHub-hosted runner.
+# (release.yml, jobs postgres and sqlite): a job fewer per change shortens the wait. Every job runs on a GitHub-hosted runner.
 name: CI
 on:
   push:
