@@ -9,7 +9,7 @@ Everything that goes to GitHub is English: commit, tag and release notes.
 
 1. Raise `TALEA_VERSION` in `system/bootstrap.php` on `main`, push, and wait for CI. A commit that changes only that line counts
    as tested when its parent passed CI, so no MySQL test job runs again, neither in CI nor for the tag. CI tests MySQL only: the tag always runs
-   the integration and site suites on PostgreSQL 18 and on SQLite (job `engines`).
+   the integration and site suites on PostgreSQL 18 and on SQLite (jobs `postgres` and `sqlite`, in parallel).
 2. Tag the commit and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. A tag that does not match `TALEA_VERSION` fails
    the release. Only a tag starts the release workflow: a merge or push to `main` builds no image.
 3. The release workflow (`.github/workflows/release.yml`) runs the MySQL tests again only when CI has not passed for the tagged commit, runs PostgreSQL and SQLite in any case,

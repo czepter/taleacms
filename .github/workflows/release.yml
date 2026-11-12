@@ -72,8 +72,8 @@ jobs:
         run: vendor/bin/paratest --processes 4 --testsuite unit,integration,site
         env: { TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_DB_HOST: db, TALEA_TEST_DB_PORT: 3306, TALEA_TEST_DB_USER: root, TALEA_TEST_DB_PASSWORD: root }
 
-  # CI tests MySQL only; the other engines are tested here, whatever CI passed: PostgreSQL 18, then SQLite (files, no server)
-  engines:
+  # CI tests MySQL only; the other engines are tested here, whatever CI passed: PostgreSQL 18 and SQLite (files, no server), in parallel
+  postgres:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     services:
@@ -88,12 +88,19 @@ jobs:
       - name: PHPUnit on PostgreSQL (integration and whole installed sites)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
         env: { TALEA_TEST_DB_DRIVER: pgsql, TALEA_CI_NETWORK: "${{ job.services.db.network }}", TALEA_TEST_PG_HOST: db, TALEA_TEST_PG_PORT: 5432, TALEA_TEST_PG_USER: postgres, TALEA_TEST_PG_PASSWORD: postgres }
+
+  sqlite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/php-composer
       - name: PHPUnit on SQLite (integration and whole installed sites)
         run: vendor/bin/paratest --processes 4 --testsuite integration,site
-        env: { TALEA_TEST_DB_DRIVER: sqlite, TALEA_CI_NETWORK: "${{ job.services.db.network }}" }
+        env: { TALEA_TEST_DB_DRIVER: sqlite }
 
   meta:
-    needs: [test, engines]
+    needs: [test, postgres, sqlite]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
