@@ -1271,7 +1271,6 @@ Der Link gilt %d Tage.
     'open in a new window' => 'in einem neuen Fenster öffnen',
     'open to anyone with a confirmed e-mail address' => 'offen für alle mit einer bestätigten E-Mail-Adresse',
     'optional' => 'freiwillig',
-    'our suggestion' => 'unser Vorschlag',
     'out of 5 · 120 reviews' => 'von 5 · 120 Bewertungen',
     'out of 5 · [number] reviews' => 'von 5 · [Anzahl] Bewertungen',
     'owner' => 'Inhaber',

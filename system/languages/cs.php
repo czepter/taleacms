@@ -3211,7 +3211,6 @@ Odkaz platí %d dní.
     'optional' => 'dobrovolné',
     'or' => 'nebo',
     'other' => 'jiné',
-    'our suggestion' => 'náš návrh',
     'out of 5 · 120 reviews' => 'z 5 · 120 recenzí',
     'out of 5 · [number] reviews' => 'z 5 · [počet] recenzí',
     'owner' => 'majitel',

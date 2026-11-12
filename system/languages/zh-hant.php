@@ -1279,7 +1279,6 @@ The link works for %d days.
     'open in a new window' => '在新視窗中開啟',
     'open to anyone with a confirmed e-mail address' => '開放給任何已確認電子郵件地址的人',
     'optional' => '選填',
-    'our suggestion' => '我們的建議',
     'out of 5 · 120 reviews' => '／5 · 120 則評論',
     'out of 5 · [number] reviews' => '／5 · [數字] 則評論',
     'owner' => '負責人',

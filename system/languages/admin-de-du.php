@@ -1090,6 +1090,7 @@ return [
     'on a low-traffic site set up cron; you will find the address further down this page' => 'richte bei einer Website mit wenig Traffic Cron ein; die Adresse findest du weiter unten auf dieser Seite',
     'pages straight into the builder – edit them visually; the original text stays as a backup' => 'Seiten direkt in den Builder – du bearbeitest sie visuell; der ursprüngliche Text bleibt als Backup erhalten',
     'policy p=none only reports; once the reports look right, move to p=quarantine' => 'die Richtlinie p=none meldet nur; sobald die Berichte stimmen, wechsle zu p=quarantine',
+    'prepared by you' => 'von dir vorbereitet',
     'renew it, or check that the automatic renewal (Let’s Encrypt) still works' => 'erneuere es oder prüfe, ob die automatische Erneuerung (Let’s Encrypt) noch funktioniert',
     'renew the domain with your registrar – an expired domain takes the site and its mail down' => 'verlängere die Domain bei deinem Registrar – mit einer abgelaufenen Domain fallen Website und E-Mail aus',
     'sc-domain:example.com or https://example.com/ – load the list with the button below; empty = this site’s address.' => 'sc-domain:example.com oder https://example.com/ – die Liste lädst du mit der Schaltfläche unten; leer = die Adresse dieser Website.',

@@ -398,10 +398,10 @@ final class Form extends Element
             default => '',
         };
         if ($canSave && count($k->linkDrafts) > 1) {
-            // the history of drafts – our suggestion and what the person saved: each one can be loaded back into the form (?version=n)
+            // the history of drafts – the prefill and what the person saved: each one can be loaded back into the form (?version=n)
             $items = '';
             foreach ($k->linkDrafts as $n => $draft) {
-                $when = e(format_date($draft['at'], true) . ($draft['by'] === 'site' ? ' · ' . t('our suggestion') : ''));
+                $when = e(format_date($draft['at'], true));
                 $items .= '<li>' . ($n === $k->linkVersion ? '<strong aria-current="true">' . $when . '</strong>' : '<a href="' . e($k->app->url($r->path()) . '?version=' . $n) . '">' . $when . '</a>') . '</li>';
             }
             $html .= '<details class="tl-form-history"><summary>' . e(t('Saved versions (%d)', count($k->linkDrafts))) . '</summary><ol>' . $items . '</ol></details>';

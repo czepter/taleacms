@@ -1279,7 +1279,6 @@ The link works for %d days.
     'open in a new window' => '在新窗口中打开',
     'open to anyone with a confirmed e-mail address' => '向所有已确认电子邮件地址的人开放',
     'optional' => '可选',
-    'our suggestion' => '我们的建议',
     'out of 5 · 120 reviews' => '（满分 5 分）· 120 条评价',
     'out of 5 · [number] reviews' => '（满分 5 分）· [数字] 条评价',
     'owner' => '店主',
