@@ -239,6 +239,8 @@ final class Mailing
             }
             if ($q['email'] === null || (int) $q['status'] !== 1) {
                 $db->update('newsletter_queue', ['next_attempt' => null, 'error' => 'unsubscribed'], ['id' => $q['id']]); // unsubscribed in the meantime
+                // no longer a recipient: otherwise recipients never equals sent + failed and the progress stops short of the end
+                $db->run('UPDATE {newsletters} SET recipients = recipients - 1 WHERE id = ? AND recipients > 0', [$q['newsletter_id']]);
                 continue;
             }
             $n = $newsletters[$q['newsletter_id']] ??= (array) $db->one('SELECT subject, html, text FROM {newsletters} WHERE id = ?', [$q['newsletter_id']]);

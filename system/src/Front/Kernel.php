@@ -78,7 +78,7 @@ final class Kernel
 
     /**
      * Multisite (docs/specs/multisite.md): the state of the site this host belongs to. Paused: visitors get a 503 (signed-in people, the
-     * whole-site preview and signed page links pass). Archived: a 301 to the site it points at, else read-only: every request that is not
+     * whole-site preview, signed page links and unsubscribing pass). Archived: a 301 to the site it points at, else read-only: every request that is not
      * GET or HEAD answers 403, except the page password, unsubscribing and cancelling a booking (reading, or withdrawing consent). No GET route writes
      * (confirmations, unsubscribing and choosing a time only show a button; the POST does the work). The probe, cron, Claude (the connection and its upload links) and OAuth answer in every state; the administration has its own kernel.
      */
@@ -97,7 +97,7 @@ final class Kernel
 
             return $this->archivedMayWrite($r) ? null : $this->statusPage(t('This site is archived and no longer accepts submissions.'), 403);
         }
-        if ($this->sitePreview || $this->app->auth()->user() !== null || $this->pausedPreviewKey()) {
+        if ($this->sitePreview || $this->app->auth()->user() !== null || $this->pausedPreviewKey() || self::unsubscribing($r)) {
             return null;
         }
 
@@ -112,8 +112,18 @@ final class Kernel
         }
 
         return $r->isPost() && ($r->post('tl_page_password') !== ''
-            || ($r->path() === '/subscribe' && $r->get('unsubscribe') !== '' && $r->get('confirm') === '')
+            || self::unsubscribing($r)
             || preg_match('#^/_booking/cancel/[a-f0-9]{32}$#', $r->path()) === 1);
+    }
+
+    /**
+     * The unsubscribe link of a newsletter: its page (GET) and its button or a mail client's one-click unsubscribe (POST, RFC 8058).
+     * Withdrawing consent passes maintenance mode and a paused site: the e-mails already out carry the link (and the Docker cron sends in
+     * maintenance mode too), and a mail client that got a 503 tells the person they are unsubscribed while the site keeps mailing them.
+     */
+    private static function unsubscribing(\Talea\Core\Request $r): bool
+    {
+        return $r->path() === '/subscribe' && $r->get('unsubscribe') !== '' && $r->get('confirm') === '';
     }
 
     /** A paused site shows a page to whoever holds a valid signed link for it (the page of this address, or the whole site). */
@@ -334,10 +344,11 @@ final class Kernel
         return null;
     }
 
-    /** Maintenance mode (setting maintenance): visitors get the notice; /mcp, its upload links and signed-in users go on. */
+    /** Maintenance mode (setting maintenance): visitors get the notice; /mcp, its upload links, unsubscribing and signed-in users go on. */
     private function maintenanceGuard(): ?Response
     {
-        if ($this->app->settings()->bool('maintenance') && !preg_match('#^/mcp(/upload/|$)#', $this->app->request->path()) && $this->app->auth()->user() === null) {
+        if ($this->app->settings()->bool('maintenance') && !preg_match('#^/mcp(/upload/|$)#', $this->app->request->path()) && $this->app->auth()->user() === null
+            && !self::unsubscribing($this->app->request)) {
             return $this->maintenance('3600');
         }
 
