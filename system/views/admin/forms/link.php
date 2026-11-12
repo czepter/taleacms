@@ -72,7 +72,7 @@ echo $app->view->render('admin/list/head', ['links' => [[$module->url('detail', 
 <?php foreach (array_reverse($drafts, true) as $n => $draft): ?>
 <tr>
 	<td><?= e(format_date((string) $draft['at'], true)) ?><?= $n === count($drafts) - 1 ? ' <span class="tag">' . e(t('latest')) . '</span>' : '' ?></td>
-	<td><?= e(($draft['by'] ?? '') === 'person' ? t('saved by the person') : t('our suggestion')) ?></td>
+	<td><?= e(($draft['by'] ?? '') === 'person' ? t('saved by the person') : t('prepared by you')) ?></td>
 	<td><?php foreach ($draft['values'] as $key => $value): ?><strong><?= bdi((string) ($labels[$key] ?? $key)) ?>:</strong> <?= nl2br(e($answer($value))) ?><br><?php endforeach ?></td>
 </tr>
 <?php endforeach ?>
