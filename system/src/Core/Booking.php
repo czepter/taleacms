@@ -54,6 +54,17 @@ final class Booking
     /** The settings with their defaults (Settings::DEFAULTS has the same). */
     public const array SETTINGS = ['booking_lead_hours' => 2, 'booking_horizon_days' => 60, 'booking_cancel_hours' => 24, 'booking_reminder_hours' => 24, 'booking_hold_hours' => 48];
 
+    /** The range each setting may take (the Bookings settings form and the import of an archive keep a value inside it). */
+    public const array SETTING_RANGES = ['booking_lead_hours' => [0, 720], 'booking_horizon_days' => [1, 365], 'booking_cancel_hours' => [0, 720], 'booking_reminder_hours' => [0, 168], 'booking_hold_hours' => [1, 720]];
+
+    /** A value of one of the SETTINGS, kept inside its range. */
+    public static function settingValue(string $key, int $value): string
+    {
+        [$min, $max] = self::SETTING_RANGES[$key];
+
+        return (string) max($min, min($max, $value));
+    }
+
     public const string SLOT_PATTERN = '/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/';
 
     public const int MAX_DURATION = 480;
