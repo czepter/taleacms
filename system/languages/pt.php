@@ -1279,6 +1279,7 @@ O link é válido durante %d dias.
     'open in a new window' => 'abrir numa nova janela',
     'open to anyone with a confirmed e-mail address' => 'aberto a qualquer pessoa com um endereço de e-mail confirmado',
     'optional' => 'opcional',
+    'our suggestion' => 'a nossa sugestão',
     'out of 5 · 120 reviews' => 'em 5 · 120 avaliações',
     'out of 5 · [number] reviews' => 'em 5 · [número] avaliações',
     'owner' => 'proprietário',

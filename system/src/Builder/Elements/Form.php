@@ -100,6 +100,8 @@ final class Form extends Element
             'link_days' => ['type' => 'number', 'label' => 'A personal link works for (days)', 'default' => 30, 'min' => 1, 'max' => 365, 'when' => ['access' => 'link']],
             // the person may keep what they typed without sending it (Core\FormLinks::saveDraft): every save is kept, they can go back to one
             'link_save' => ['type' => 'boolean', 'label' => 'The person can save a draft and send it later (with a history of the saved versions)', 'default' => false, 'when' => ['access' => 'link']],
+            // how the history names the drafts the site wrote (prefill): empty = "our suggestion", "-" = no mark
+            'link_site_label' => ['type' => 'text', 'label' => 'Name of our own drafts in the history of saved versions (empty = “our suggestion”; a single dash = no name)', 'default' => '', 'max' => 60, 'when' => ['access' => 'link']],
             // a page of the site designed for this form (a Form placement on it): the link opens that page, hidden or not, instead of the plain one
             'link_page' => ['type' => 'link', 'label' => 'Page the link opens (a page with this form placed on it, may be hidden; empty = the form alone); {name} on it is the person the link is for', 'default' => '', 'when' => ['access' => 'link']],
             'link_subject' => ['type' => 'text', 'label' => 'Subject of the e-mail with the link (empty = form name: site name); {site name}', 'default' => '', 'max' => 200, 'when' => ['access' => 'link']],
@@ -398,10 +400,11 @@ final class Form extends Element
             default => '',
         };
         if ($canSave && count($k->linkDrafts) > 1) {
-            // the history of drafts – the prefill and what the person saved: each one can be loaded back into the form (?version=n)
+            // the history of drafts – our suggestion and what the person saved: each one can be loaded back into the form (?version=n)
             $items = '';
             foreach ($k->linkDrafts as $n => $draft) {
-                $when = e(format_date($draft['at'], true));
+                $mark = trim((string) ($o['link_site_label'] ?? '')) ?: t('our suggestion');
+                $when = e(format_date($draft['at'], true) . ($draft['by'] === 'site' && $mark !== '-' ? ' · ' . $mark : ''));
                 $items .= '<li>' . ($n === $k->linkVersion ? '<strong aria-current="true">' . $when . '</strong>' : '<a href="' . e($k->app->url($r->path()) . '?version=' . $n) . '">' . $when . '</a>') . '</li>';
             }
             $html .= '<details class="tl-form-history"><summary>' . e(t('Saved versions (%d)', count($k->linkDrafts))) . '</summary><ol>' . $items . '</ol></details>';

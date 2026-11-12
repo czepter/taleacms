@@ -1279,6 +1279,7 @@ The link works for %d days.
     'open in a new window' => 'فتح في نافذة جديدة',
     'open to anyone with a confirmed e-mail address' => 'متاح لأي شخص لديه بريد إلكتروني مؤكد',
     'optional' => 'اختياري',
+    'our suggestion' => 'اقتراحنا',
     'out of 5 · 120 reviews' => 'من 5 · 120 تقييمًا',
     'out of 5 · [number] reviews' => 'من 5 · [الرقم] تقييمات',
     'owner' => 'المالك',

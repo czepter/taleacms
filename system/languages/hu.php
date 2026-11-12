@@ -1279,6 +1279,7 @@ A link %d napig érvényes.
     'open in a new window' => 'megnyitás új ablakban',
     'open to anyone with a confirmed e-mail address' => 'bárki számára nyitott, akinek megerősített e-mail-címe van',
     'optional' => 'nem kötelező',
+    'our suggestion' => 'javaslatunk',
     'out of 5 · 120 reviews' => '/ 5 · 120 értékelés',
     'out of 5 · [number] reviews' => '/ 5 · [szám] értékelés',
     'owner' => 'tulajdonos',
