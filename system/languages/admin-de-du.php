@@ -980,6 +980,7 @@ return [
     'We are working on the site right now. Please try again in a moment.' => 'Wir arbeiten gerade an der Website. Bitte versuche es gleich noch einmal.',
     'We go through everything together and hand it over.' => 'Wir gehen alles gemeinsam durch und übergeben es dir.',
     'We have rebuilt the website so that it is easier to see what we do and how to get in touch. Have a look around – and if you have a question, just write to us.' => 'Wir haben die Website neu gestaltet, damit man leichter sieht, was wir tun und wie man uns erreicht. Schau dich um – und wenn du eine Frage hast, schreibe uns einfach.',
+    'We have received your application' => 'Wir haben deine Bewerbung erhalten',
     'We measure the space, talk through your habits and prepare a design you can see before we start.' => 'Wir vermessen den Raum, sprechen deine Gewohnheiten durch und erstellen einen Entwurf, den du sehen kannst, bevor wir beginnen.',
     'We only send news and offers. You can unsubscribe with one click in every e-mail.' => 'Wir senden nur News und Angebote. Du kannst dich mit einem Klick in jeder E-Mail abmelden.',
     'We will prepare a tailored quote – just get in touch.' => 'Wir erstellen dir ein individuelles Angebot – melde dich einfach bei uns.',

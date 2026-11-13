@@ -21,12 +21,18 @@ return [
         ['we_offer', 'We offer', 'html'],
         ['contact', 'Contact', 'item', ['preset' => 'people']],
         ['start_date', 'Start date', 'date'],
+        // appended after the first ten so that their positions stay (the contact is the ninth)
+        ['street', 'Street address', 'text'],
+        ['postal_code', 'Postal code', 'text'],
+        ['remote', 'Workplace', 'radio', ['options' => ['on site', 'hybrid', 'remote']]],
     ],
     'schema' => ['type' => 'JobPosting', 'fields' => ['description' => 'description', 'employmentType' => 'employment_type', 'jobLocation' => 'location',
-        'baseSalary' => 'salary_min', 'baseSalaryMax' => 'salary_max', 'salaryUnit' => 'salary_unit']],
+        'baseSalary' => 'salary_min', 'baseSalaryMax' => 'salary_max', 'salaryUnit' => 'salary_unit',
+        'streetAddress' => 'street', 'postalCode' => 'postal_code', 'jobLocationType' => 'remote']],
     'claude' => 'One item per job. ALWAYS set valid_until to the closing date (the application deadline): after it the job hides itself, its address leads to the jobs page, '
         . 'and search engines get validThrough – without it the site audit lists the job (kind job). A Collection list of it on the jobs page (newest first); the item page '
         . 'carries the job text and a "Job application" form with a CV, whose submissions are in Enquiries. employment_type as text (full-time, part-time, contract, temporary, internship – recognised for structured data); '
+        . 'remote: on site, hybrid or remote – remote makes the job remote work for search engines (TELECOMMUTE, applicants from the company country); street and postal_code complete the job\'s address in structured data (put {{street}} and {{postal_code}} in the item template to show them). '
         . 'salary_unit "per month" or "per hour". Salaries appear in structured data only with the collection currency: set it in Collections → structured data, or with update_collection schema_org {"type":"JobPosting","fields":{…the current mapping from list_collections…},"currency":"EUR"}. '
         . 'The contact field links a job to a person when the site has a Team collection. Applications are personal data: Settings → Enquiries → "Delete job applications after" sets how long they are kept.',
     'list' => ['sort' => 'newest'],
@@ -42,6 +48,7 @@ return [
             ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $fact('location', 'Location', '{{location}}'),
             $fact('employment_type', 'Employment type', '{{employment_type}}'),
+            $fact('remote', 'Workplace', '{{remote}}'),
             isset($types['salary_min'], $types['salary_max']) ? $fact('salary_min', 'Salary', '{{salary_min}}–{{salary_max}} {{salary_unit}}') : null,
             $fact('start_date', 'Start date', '{{start_date}}'),
             $fact('contact', 'Contact', '{{contact}}'),
@@ -50,7 +57,9 @@ return [
             ...$section('we_offer', 'We offer'),
             ['tag' => 'h2'] + $n('heading', ['text' => t('Apply for this job')]),
             // the hidden field carries the job name: {{name}} is filled on the item page and comes back with the form (Front\Forms)
-            $n('form', ['name' => t('Job application'), 'button_text' => t('Send application'), 'thank_you' => t('Thank you for your application. We will get back to you.'), 'fields' => [
+            $n('form', ['name' => t('Job application'), 'button_text' => t('Send application'), 'thank_you' => t('Thank you for your application. We will get back to you.'),
+                // the applicant gets a "received" mail: the confirmation text stays empty, so it is the thank-you text, never what the visitor wrote
+                'confirmation' => true, 'confirmation_subject' => t('We have received your application'), 'fields' => [
                 ['label' => t('Name'), 'type' => 'text', 'required' => true],
                 ['label' => t('Email'), 'type' => 'email', 'required' => true],
                 ['label' => t('Phone'), 'type' => 'tel', 'required' => false],

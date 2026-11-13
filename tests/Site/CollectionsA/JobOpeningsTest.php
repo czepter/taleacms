@@ -37,7 +37,7 @@ final class JobOpeningsTest extends SiteTestCase
         $this->site()->exec("UPDATE tl_collections SET schema_org = JSON_SET(schema_org, '\$.currency', 'CZK') WHERE collection_id = " . self::$idk);
         $tomorrow = $this->siteDate('tomorrow');
         $this->mcpText('save_collection_item', ['collection' => 'job-openings', 'name' => 'Carpenter', 'slug' => 'carpenter', 'values' => [
-            'location' => 'Brno', 'employment_type' => 'full-time', 'salary_min' => '35000', 'salary_max' => '45000', 'salary_unit' => 'per month', 'description' => '<p>Custom furniture making.</p>'],
+            'location' => 'Brno', 'employment_type' => 'full-time', 'salary_min' => '35000', 'salary_max' => '45000', 'salary_unit' => 'per month', 'description' => '<p>Custom furniture making.</p>', 'remote' => 'remote'],
             'visible' => true, 'valid_until' => $tomorrow]);
 
         $job = $this->visitor()->get('/job-openings/carpenter');
@@ -48,6 +48,7 @@ final class JobOpeningsTest extends SiteTestCase
         $this->assertStringContainsString('"baseSalary":{"@type":"MonetaryAmount","currency":"CZK","value":{"@type":"QuantitativeValue","minValue":35000,"maxValue":45000,"unitText":"MONTH"}}', $job->body, '... the salary');
         $this->assertStringContainsString('"hiringOrganization":{"@type":"Organization","name":"', $job->body, '... the company');
         $this->assertStringContainsString('"directApply":true', $job->body, 'the job page with an application form says direct apply');
+        $this->assertStringContainsString('"jobLocationType":"TELECOMMUTE"', $job->body, '... remote work when the workplace says remote');
 
         $this->assertStringContainsString('name="p3" type="file"', $job->body, 'the application form has a CV field');
         $this->assertStringContainsString('type="hidden" name="p6" value="Carpenter"', $job->body, '... carries the job name in a hidden field');
@@ -102,6 +103,7 @@ final class JobOpeningsTest extends SiteTestCase
             'p0' => 'John', 'p1' => 'jan@example.cz', 'p2' => '', 'p4' => 'I am applying.', 'p5' => '1', 'p6' => '<b>Carpenter</b>',
         ], ['p3' => $cv]);
         $this->assertStringContainsString('/job-openings/carpenter?form=' . self::$element . '&result=ok#', $response->redirect, 'an application with a CV was sent');
+        $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'jan@example.cz'"), 'the applicant gets the received confirmation');
 
         self::$applicationId = $this->sq("SELECT MAX(enquiry_id) FROM tl_enquiries WHERE source = 'collection:" . self::$idk . "'");
         $this->assertSame('/job-openings/carpenter|jan@example.cz|Carpenter', $this->sq("SELECT CONCAT(page, '|', email, '|', JSON_UNQUOTE(JSON_EXTRACT(data, '\$[6][1]'))) FROM tl_enquiries WHERE enquiry_id = " . self::$applicationId),
