@@ -49,6 +49,9 @@ final class Vault
     /** What a sealed setting or seed starts with: a plain value from before is told from a sealed one by it. */
     public const string PREFIX = 'sealed:';
 
+    /** Seconds a backup or the daily job waits for a sealing pass that is running; a page request does not wait. */
+    public const int SEAL_WAIT = 5;
+
     /**
      * The settings that hold a password or key of an outside service: sealed while the key comes from TALEA_SECRET_KEY (Settings::get opens
      * them, Settings::set seals them). Not a password of the site's own (tasks_token and the like are addresses): they stay plain.
@@ -100,18 +103,20 @@ final class Vault
      * Seals what is still stored in plain text on this site: the secret settings, and the seeds of the authenticator app of the owner's
      * accounts. Only with an install key. Idempotent. It runs under a lock, and every write only replaces the plain value it read: a
      * password saved at the same moment (or a seed enrolled) is not overwritten with the old one.
+     * With $wait = 0 (a page request) a pass that is already running is left to finish; a backup or the daily job waits up to $wait
+     * seconds for it, so that no dump is taken while rows are still plain.
      *
      * @return int how many values were sealed
      */
-    public static function sealStored(Db $db, ?Settings $settings = null): int
+    public static function sealStored(Db $db, ?Settings $settings = null, int $wait = 0): int
     {
         $settings ??= new Settings($db);
         if (self::installKey($settings) === null) {
             return 0;
         }
         $lock = 'vault-seal-' . $db->prefix;
-        if (!$db->lock($lock)) {
-            return 0; // another process is sealing: it does the same
+        if (!$db->lock($lock, $wait)) {
+            return 0; // another process is still sealing: it does the same (after the wait: nothing plain is left for us)
         }
         try {
             $sealed = 0;
@@ -137,12 +142,12 @@ final class Vault
     public static function sealAll(Db $db): int
     {
         if (!Sites::enabled()) {
-            return self::sealStored($db);
+            return self::sealStored($db, null, self::SEAL_WAIT);
         }
         $sealed = 0;
         foreach (Sites::prefixes($db) as $prefix) {
             $site = $db->forSite($prefix);
-            $sealed += $site->tableExists('settings') ? self::sealStored($site) : 0;
+            $sealed += $site->tableExists('settings') ? self::sealStored($site, null, self::SEAL_WAIT) : 0;
         }
 
         return $sealed;

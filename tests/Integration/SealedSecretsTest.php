@@ -103,16 +103,32 @@ final class SealedSecretsTest extends DatabaseTestCase
         $this->assertSame('ok', Vault::status($this->settings())[0]);
     }
 
-    public function testTheSealingPassWaitsForAPassThatIsRunning(): void
+    public function testAPageRequestLeavesARunningSealingPassAlone(): void
     {
         $this->db()->insert('settings', ['name' => 'backup_password', 'value' => 'old']);
         putenv('TALEA_SECRET_KEY=' . self::SECRET);
         $other = \Talea\Core\Db::fromConfig($this->dbConfig());
         $this->assertTrue($other->lock('vault-seal-' . $this->db()->prefix, 0), 'another process is sealing');
-        $this->assertSame(0, Vault::sealStored($this->db()), 'this pass leaves it to that one');
+        $started = microtime(true);
+        $this->assertSame(0, Vault::sealStored($this->db()), 'a page request leaves it to that one');
+        $this->assertLessThan(1.0, microtime(true) - $started, 'and does not wait for it');
         $this->assertSame('old', $this->raw('backup_password'), 'nothing was touched');
         $other->unlock('vault-seal-' . $this->db()->prefix);
         $this->assertSame(1, Vault::sealStored($this->db()));
+    }
+
+    public function testABackupWaitsForARunningSealingPassBeforeItGivesUp(): void
+    {
+        $this->db()->insert('settings', ['name' => 'backup_password', 'value' => 'old']);
+        putenv('TALEA_SECRET_KEY=' . self::SECRET);
+        $other = \Talea\Core\Db::fromConfig($this->dbConfig());
+        $this->assertTrue($other->lock('vault-seal-' . $this->db()->prefix, 0), 'another process is sealing');
+        $started = microtime(true);
+        $this->assertSame(0, Vault::sealStored($this->db(), null, 1), 'the wait ends with the timeout');
+        $this->assertGreaterThanOrEqual(0.9, microtime(true) - $started, 'it did wait for the lock');
+        $other->unlock('vault-seal-' . $this->db()->prefix);
+        $this->assertSame(1, Vault::sealStored($this->db(), null, 1), 'with the lock free it seals at once');
+        $this->assertStringStartsWith(Vault::PREFIX, $this->raw('backup_password'));
     }
 
     public function testTheWrongKeyReadsEmptyAndIsFlagged(): void

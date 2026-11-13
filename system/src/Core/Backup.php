@@ -72,7 +72,7 @@ final class Backup
     {
         foreach ($connections as $site) {
             if ($site->tableExists('settings')) {
-                Vault::sealStored($site); // the file holds only sealed passwords and keys (with TALEA_SECRET_KEY)
+                Vault::sealStored($site, null, Vault::SEAL_WAIT); // the file holds only sealed passwords and keys (with TALEA_SECRET_KEY)
             }
         }
         if (!is_dir($folder) && !mkdir($folder, 0775, true)) {
