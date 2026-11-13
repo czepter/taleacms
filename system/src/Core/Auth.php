@@ -587,6 +587,7 @@ final class Auth
             if ($this->user !== null && !Sites::allowsHere($this->db, $this->user)) {
                 $this->user = null; // roles per site: a person who may not work on this site is signed out here
             }
+            ErrorReport::user((string) ($this->user['public_id'] ?? '')); // the local error log names who was signed in
         }
 
         return $this->user;

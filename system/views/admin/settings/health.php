@@ -36,7 +36,7 @@ $group = '';
 <?php if ($errorLog === []): ?>
 <p><?= e(t('No errors – the log is empty.')) ?></p>
 <?php else: ?>
-<pre class="log-errors"><?php foreach (array_reverse($errorLog) as $row): ?><?= e(mb_strimwidth(str_replace(TALEA_ROOT, '', $row), 0, 400, '…')) . "\n" ?><?php endforeach ?></pre>
+<pre class="log-errors"><?= e(implode("\n", array_map(fn (string $entry): string => mb_strimwidth(str_replace(TALEA_ROOT, '', rtrim($entry)), 0, 2000, '…') . "\n", $errorLog))) ?></pre>
 <p class="navigation-row"><button class="navigation danger" type="submit" formaction="<?= e($module->url('delete_log')) ?>" data-confirm="<?= e(t('Clear the error log?')) ?>"><?= e(t('Clear the log')) ?></button> <span class="small-text"><?= e(t('Newest first, the last 40 entries from storage/log/errors.log.')) ?></span></p>
 <?php endif ?>
 </fieldset>

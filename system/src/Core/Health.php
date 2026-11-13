@@ -117,14 +117,11 @@ final class Health
             $claude['state'] !== 'off' ? [['text' => t('Claude connection'), 'url' => $app->url('admin.php?module=claude')]] : []);
 
         // --- operation
-        $log = TALEA_ROOT . '/storage/log/errors.log';
-        $errorCount = 0;
-        if (is_file($log) && Owners::isFirst($app->db())) { // the log and the backups are the install's: a further owner does not read them
-            $from = date('c', time() - 86400);
-            foreach (array_slice(file($log, FILE_IGNORE_NEW_LINES) ?: [], -500) as $row) {
-                $errorCount += (int) (substr($row, 1, 25) >= $from);
-            }
+        $counts = ['errors' => 0, 'deprecations' => 0];
+        if (Owners::isFirst($app->db())) { // the log and the backups are the install's: a further owner does not read them
+            $counts = ErrorReport::counts(time() - 86400);
         }
+        $errorCount = $counts['errors'];
         $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', $errorCount === 0 ? t('none') : t('%d - details in storage/log/errors.log', $errorCount));
         // error tracking (Core\ErrorReport): set by the operator with TALEA_ERROR_DSN; a failed send since the last good one warns
         $tracking = ErrorReport::status();

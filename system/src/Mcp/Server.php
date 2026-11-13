@@ -572,6 +572,7 @@ final class Server
         if (!\Talea\Core\Sites::allowsHere($db, $token)) {
             return null; // roles per site: a person who may not work on the site this connection calls has no connection to it
         }
+        \Talea\Core\ErrorReport::user((string) ($token['public_id'] ?? '')); // the local error log names the connection's person
 
         return $token;
     }

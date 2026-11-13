@@ -226,7 +226,7 @@ class Settings extends Module
             'remoteStatus' => RemoteBackup::cleanStatus($settings, $settings->get('remote_backup_status')),
             'mediaStatus' => RemoteBackup::cleanStatus($settings, $settings->get('remote_media_status')),
             'tasksToken' => $settings->get('tasks_token'),
-            'errorLog' => $tab === 'health' && \Talea\Core\Owners::isFirst($this->db) ? self::readFileTail(TALEA_ROOT . '/storage/log/errors.log', 40) : [],
+            'errorLog' => $tab === 'health' && \Talea\Core\Owners::isFirst($this->db) ? \Talea\Core\ErrorReport::entries(40) : [],
             'mail' => $tab === 'mail' ? $this->db->all('SELECT recipient, subject, created_at, sent_at, attempts, next_attempt_at, error FROM {mail} ORDER BY mail_id DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Talea\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
@@ -484,24 +484,6 @@ class Settings extends Module
         }
 
         return $this->back('Backup deleted.', '', ['tab' => 'backups']);
-    }
-
-    /**
-     * The last N lines of a file without loading the whole file into memory.
-     *
-     * @return list<string>
-     */
-    private static function readFileTail(string $file, int $lines): array
-    {
-        if (!is_file($file) || filesize($file) === 0) {
-            return [];
-        }
-        $f = fopen($file, 'rb');
-        fseek($f, -min(filesize($file), 64 * 1024), SEEK_END);
-        $end = (string) stream_get_contents($f);
-        fclose($f);
-
-        return array_slice(array_values(array_filter(explode("\n", $end), fn (string $r): bool => trim($r) !== '')), -$lines);
     }
 
     /** Restoring the database from a backup; right before it, a safety backup of the current state is created. */
