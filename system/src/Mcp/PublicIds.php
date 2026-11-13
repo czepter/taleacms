@@ -54,7 +54,7 @@ final class PublicIds
         'cancel_booking' => ['id' => 'bookings'], 'confirm_booking' => ['id' => 'bookings'], 'decline_booking' => ['id' => 'bookings'], 'propose_booking_times' => ['id' => 'bookings'],
         'draft_newsletter' => ['id' => 'newsletters', 'news_ids.*' => 'news'], 'send_test_newsletter' => ['id' => 'newsletters'], 'send_newsletter' => ['id' => 'newsletters'],
         'delete_newsletter' => ['id' => 'newsletters'],
-        'list_requests' => ['id' => 'requests'], 'update_request' => ['id' => 'requests'],
+        'list_requests' => ['id' => 'requests'], 'update_request' => ['id' => 'requests'], 'layout_queue' => ['done.*' => 'pages'],
         'get_site' => ['id' => 'fleet_sites'], 'fleet_plan' => ['id' => 'fleet_sites'],
         'save_member_group' => ['id' => 'member_groups'], 'delete_member_group' => ['id' => 'member_groups'],
         'save_short_link' => ['id' => 'short_links', 'target.id' => self::BY_TARGET], 'delete_short_link' => ['id' => 'short_links'],
@@ -71,7 +71,7 @@ final class PublicIds
      */
     private const array OUT = [
         'site_info' => ['home_page' => 'pages'],
-        'list_pages' => ['*.id' => 'pages'],
+        'list_pages' => ['*.id' => 'pages'], 'list_layout_queue' => ['pages.*.id' => 'pages'], 'layout_queue' => ['pages.*.id' => 'pages'],
         'get_page' => ['id' => 'pages', 'parent' => 'pages', 'translation_of' => 'pages'],
         'create_page' => ['id' => 'pages'], 'update_page' => ['id' => 'pages'], 'trash_page' => ['id' => 'pages'],
         'get_menu' => self::MENU, 'save_menu' => self::MENU,

@@ -49,7 +49,7 @@ final class WebImport
 
     private float $end = 0.0;
 
-    public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $author, private readonly ImageDownloader $downloader)
+    public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $author, private readonly ImageDownloader $downloader, private readonly string $base = '')
     {
     }
 
@@ -68,7 +68,9 @@ final class WebImport
             'id' => substr(sha1($origin . microtime()), 0, 16), 'web' => $origin, 'domain' => ImageDownloader::domainFromUrl($origin), 'phase' => 'finding',
             'queue' => [$origin . '/'], 'maps' => [], 'maps_done' => false, 'urls' => [], 'position' => 0,
             'options' => ['language' => (string) ($options['language'] ?? ''), 'images' => (bool) ($options['images'] ?? true),
-                'redirects' => (bool) ($options['redirects'] ?? true), 'news' => (bool) ($options['news'] ?? true)],
+                'redirects' => (bool) ($options['redirects'] ?? true), 'news' => (bool) ($options['news'] ?? true),
+                'keep_starters' => null], // ids of the installer's starter pages that stay when an imported page wants their address; null = untouched ones are replaced (Core\StarterPages)
+            'starters' => ['replaced' => [], 'kept' => [], 'renamed' => []],
             'result' => ['pages' => 0, 'articles' => 0, 'images' => 0, 'redirects' => 0, 'skipped' => 0, 'failed' => 0],
             'errors' => [], 'created' => date('Y-m-d H:i:s'),
         ];
@@ -80,6 +82,52 @@ final class WebImport
         $c = parse_url(trim($url));
 
         return is_array($c) && in_array(strtolower((string) ($c['scheme'] ?? '')), ['http', 'https'], true) && ($c['host'] ?? '') !== '' && !isset($c['username']) && !isset($c['pass']);
+    }
+
+    /**
+     * What each page to be imported is going to be called, for the preview of the starter pages: [old address, slug, language column].
+     *
+     * @param array<string, mixed> $state
+     * @return list<array{old: string, slug: string, language: string}>
+     */
+    public static function targets(array $state, Settings $settings): array
+    {
+        $language = Language::column($settings, (string) $state['options']['language']);
+        $asNews = $state['options']['news'] && Extensions::isEnabled($settings, 'news');
+        $targets = [];
+        foreach (array_keys($state['urls']) as $url) {
+            $path = self::path($url);
+            if ($asNews && preg_match(self::ARTICLE, (string) parse_url($url, PHP_URL_PATH)) === 1) {
+                continue;
+            }
+            $targets[] = ['old' => '/' . $path, 'slug' => self::plannedSlug($path, ''), 'language' => $language];
+        }
+
+        return $targets;
+    }
+
+    /**
+     * The starter pages of this site that the pages to be imported would meet (action replace, keep, edited or home).
+     *
+     * @param array<string, mixed> $state
+     * @return list<array{old: string, page_id: int, public_id: string, title: string, address: string, published: bool, action: string}>
+     */
+    public static function starterChoices(Db $db, Settings $settings, array $state): array
+    {
+        return StarterPages::choices($db, $settings, self::targets($state, $settings), $state['options']['keep_starters']);
+    }
+
+    /**
+     * The preview is confirmed: the import starts.
+     *
+     * @param array<string, mixed> $state
+     * @param list<int>|null $keepStarters ids of the starter pages that stay; null = untouched ones are replaced
+     */
+    public static function confirm(array &$state, ?array $keepStarters): void
+    {
+        $state['options']['keep_starters'] = $keepStarters === null ? null : array_values(array_map('intval', $keepStarters));
+        $state['phase'] = 'import';
+        $state['position'] = 0;
     }
 
     /** @return array<string, mixed>|null */
@@ -222,6 +270,18 @@ final class WebImport
         if ($html === null) {
             throw new \RuntimeException('The page could not be downloaded.');
         }
+        $this->importHtml($url, $html, $state);
+    }
+
+    /**
+     * Turns one downloaded page into a hidden page or news item (the part of importPage that needs no network).
+     *
+     * @param array<string, mixed> $state
+     */
+    public function importHtml(string $url, string $html, array &$state): void
+    {
+        $source = 'web:' . mb_substr((string) $state['domain'], 0, 36);
+        $key = sha1($url);
         $page = self::extract($html, $url);
         if (trim(strip_tags($page['content'], '<img>')) === '') {
             throw new \RuntimeException('The page has no content to import.');
@@ -239,10 +299,16 @@ final class WebImport
             $state['result']['articles']++;
             $new = ($language !== '' ? $language . '/' : '') . 'news/' . (string) $this->db->value('SELECT slug FROM {news} WHERE news_id = ?', [$idc]);
         } else {
-            $ids = $this->createPage($page, $old, $language);
+            $planned = self::plannedSlug($old, $page['title']);
+            $held = StarterPages::makeRoom($this->db, $this->settings, $planned, $language, $state['options']['keep_starters'] ?? null, $state['starters'], '/' . $old);
+            $ids = $this->createPage($page, $planned, $language, $url);
             $this->map($source, 'page', $key, $ids);
             $state['result']['pages']++;
-            $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$ids]);
+            $final = (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$ids]);
+            if ($held && $final !== $planned && count($state['starters']['renamed']) < WpImport::MAX_LISTED) {
+                $state['starters']['renamed'][] = ['old' => '/' . $old, 'new' => '/' . $final];
+            }
+            $new = ($language !== '' ? $language . '/' : '') . $final;
         }
         if ($state['options']['redirects'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'redirects')) {
             if (Redirects::addImported($this->db, $old, $new)) {
@@ -251,14 +317,23 @@ final class WebImport
         }
     }
 
-    /** @param array{title: string, description: string, content: string, date: string, article: bool} $page */
-    private function createPage(array $page, string $oldPath, string $language): int
+    /**
+     * The slug an old address would get here: the last part of the path (an extension cut off), or the title.
+     */
+    public static function plannedSlug(string $oldPath, string $title): string
     {
         $base = $oldPath !== '' ? basename($oldPath) : 'home';
+
+        return slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $title, 110);
+    }
+
+    /** @param array{title: string, description: string, content: string, date: string, article: bool} $page */
+    private function createPage(array $page, string $planned, string $language, string $url): int
+    {
         $seo = WpImport::availableSlug(
-            slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['title'], 110),
-            fn (string $url): bool => in_array($url, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null || ShortLinks::takesName($this->db, $url),
+            $planned,
+            fn (string $candidate): bool => in_array($candidate, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$candidate])
+                || Slug::taken($this->db, 'pages', $candidate, $language),
         );
         $build = $this->build($page['title'], $page['content']);
 
@@ -267,6 +342,7 @@ final class WebImport
             'description' => mb_substr($page['description'], 0, 300),
             'visible' => 0, // hidden until the administrator checks it – nothing changes for visitors
             'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
+            'import_source' => mb_substr($url, 0, 500), 'layout_pending' => 1,
         ]);
     }
 
@@ -325,7 +401,7 @@ final class WebImport
             }
             $image = $this->image($url, $alt, $state);
 
-            return $image === null ? false : ['src' => (string) $image['image_path'], 'alt' => $alt, 'width' => (int) $image['image_width'], 'height' => (int) $image['image_height']];
+            return $image === null ? false : ['src' => $this->base . '/' . $image['image_path'], 'alt' => $alt, 'width' => (int) $image['image_width'], 'height' => (int) $image['image_height']];
         });
     }
 

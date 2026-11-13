@@ -164,7 +164,7 @@ trait MediaTools
             $state['position'] = 0;
         }
         if (in_array($state['phase'], ['finding', 'import'], true)) {
-            (new \Talea\Core\WebImport($this->app->db(), $this->app->settings(), $this->app->auth()->id(), new \Talea\Core\ImageDownloader($state['web'], true)))->step($state);
+            (new \Talea\Core\WebImport($this->app->db(), $this->app->settings(), $this->app->auth()->id(), new \Talea\Core\ImageDownloader($state['web'], true), $this->app->request->basePath()))->step($state);
         }
         \Talea\Core\WebImport::save($state);
         $urls = array_keys($state['urls']);

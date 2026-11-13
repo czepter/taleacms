@@ -124,7 +124,7 @@ final class Transfer extends Module
                 try {
                     @set_time_limit(60);
                     $state = WebImport::load($state['id']) ?? $state;
-                    (new WebImport($this->db, $this->app->settings(), $this->app->auth()->id(), new ImageDownloader($state['web'], true)))->step($state);
+                    (new WebImport($this->db, $this->app->settings(), $this->app->auth()->id(), new ImageDownloader($state['web'], true), $this->request->basePath()))->step($state);
                 } finally {
                     WebImport::save($state);
                     flock($lock, LOCK_UN);

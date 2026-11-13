@@ -66,41 +66,44 @@ final class StarterPages
     }
 
     /**
-     * The recorded pages nobody has touched since the installation.
+     * Every recorded starter page that is not in the trash, with whether nobody has touched it since the installation.
      *
-     * @return array<int, array{page_id: int, public_id: string, title: string, slug: string, language: string, visible: bool, home: bool}> by page id
+     * @return array<int, array{page_id: int, public_id: string, title: string, slug: string, language: string, visible: bool, home: bool, untouched: bool}> by page id
      */
-    public static function untouched(Db $db, Settings $settings): array
+    private static function all(Db $db, Settings $settings): array
     {
         $recorded = self::recorded($settings);
         if ($recorded === null || $recorded === []) {
             return [];
         }
-        $ids = array_keys($recorded);
-        $marks = implode(', ', array_fill(0, count($ids), '?'));
+        $marks = implode(', ', array_fill(0, count($recorded), '?'));
         $rows = $db->all(
-            "SELECT p.* FROM {pages} p WHERE p.public_id IN ({$marks}) AND p.deleted_at IS NULL AND p.build_draft IS NULL AND p.updated_at IS NULL"
-            . ' AND NOT EXISTS (SELECT 1 FROM {pages} t WHERE t.translation_of = p.page_id AND t.deleted_at IS NULL)',
-            array_map('strval', $ids),
+            "SELECT p.*, CASE WHEN EXISTS (SELECT 1 FROM {pages} t WHERE t.translation_of = p.page_id AND t.deleted_at IS NULL) THEN 1 ELSE 0 END AS translated FROM {pages} p WHERE p.public_id IN ({$marks}) AND p.deleted_at IS NULL",
+            array_map('strval', array_keys($recorded)),
         );
         $home = $settings->int('home_page');
         $out = [];
         foreach ($rows as $row) {
-            if (!hash_equals($recorded[(string) $row['public_id']], self::fingerprint($row))) {
-                continue;
-            }
+            $untouched = $row['build_draft'] === null && $row['updated_at'] === null && !(int) $row['translated']
+                && hash_equals($recorded[(string) $row['public_id']], self::fingerprint($row));
             $out[(int) $row['page_id']] = [
-                'page_id' => (int) $row['page_id'],
-                'public_id' => (string) $row['public_id'],
-                'title' => (string) $row['title'],
-                'slug' => (string) $row['slug'],
-                'language' => (string) $row['language'],
-                'visible' => (bool) $row['visible'],
-                'home' => (int) $row['page_id'] === $home,
+                'page_id' => (int) $row['page_id'], 'public_id' => (string) $row['public_id'], 'title' => (string) $row['title'], 'slug' => (string) $row['slug'],
+                'language' => (string) $row['language'], 'visible' => (bool) $row['visible'], 'home' => (int) $row['page_id'] === $home, 'untouched' => $untouched,
             ];
         }
 
         return $out;
+    }
+
+    /**
+     * The recorded pages nobody has touched since the installation: the fingerprint matches, nobody saved the page (updated_at is
+     * still NULL), it has no draft and no translation.
+     *
+     * @return array<int, array{page_id: int, public_id: string, title: string, slug: string, language: string, visible: bool, home: bool}> by page id
+     */
+    public static function untouched(Db $db, Settings $settings): array
+    {
+        return self::strip(array_filter(self::all($db, $settings), fn (array $p): bool => $p['untouched']));
     }
 
     /**
@@ -110,29 +113,95 @@ final class StarterPages
      */
     public static function edited(Db $db, Settings $settings): array
     {
-        $recorded = self::recorded($settings);
-        if ($recorded === null || $recorded === []) {
-            return [];
+        return self::strip(array_filter(self::all($db, $settings), fn (array $p): bool => !$p['untouched']));
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $pages
+     * @return array<int, array{page_id: int, public_id: string, title: string, slug: string, language: string, visible: bool, home: bool}>
+     */
+    private static function strip(array $pages): array
+    {
+        return array_map(function (array $p): array {
+            unset($p['untouched']);
+
+            return $p;
+        }, $pages);
+    }
+
+    /**
+     * What the pages an import is about to create would meet: one row per starter page that sits at the address of a target.
+     *
+     * @param list<array{old: string, slug: string, language: string}> $targets
+     * @param list<int>|null $keep ids of the starter pages that stay; null = the default (every untouched one is replaced)
+     * @return list<array{old: string, page_id: int, public_id: string, title: string, address: string, published: bool, action: string}> action: replace | keep | edited | home
+     */
+    public static function choices(Db $db, Settings $settings, array $targets, ?array $keep): array
+    {
+        $byAddress = [];
+        foreach (self::all($db, $settings) as $page) {
+            $byAddress[$page['language'] . "\n" . $page['slug']] = $page;
         }
-        $untouched = self::untouched($db, $settings);
-        $marks = implode(', ', array_fill(0, count($recorded), '?'));
-        $home = $settings->int('home_page');
         $out = [];
-        foreach ($db->all("SELECT page_id, public_id, title, slug, language, visible FROM {pages} WHERE public_id IN ({$marks}) AND deleted_at IS NULL", array_map('strval', array_keys($recorded))) as $row) {
-            if (!isset($untouched[(int) $row['page_id']])) {
-                $out[(int) $row['page_id']] = [
-                    'page_id' => (int) $row['page_id'],
-                    'public_id' => (string) $row['public_id'],
-                    'title' => (string) $row['title'],
-                    'slug' => (string) $row['slug'],
-                    'language' => (string) $row['language'],
-                    'visible' => (bool) $row['visible'],
-                    'home' => (int) $row['page_id'] === $home,
-                ];
+        $seen = [];
+        foreach ($targets as $target) {
+            $page = $byAddress[$target['language'] . "\n" . $target['slug']] ?? null;
+            if ($page === null || isset($seen[$page['page_id']])) {
+                continue;
             }
+            $seen[$page['page_id']] = true;
+            $out[] = ['old' => $target['old'], 'page_id' => $page['page_id'], 'public_id' => $page['public_id'], 'title' => $page['title'], 'address' => '/' . $page['slug'], 'published' => $page['visible'],
+                'action' => self::action($page, $keep)];
         }
 
         return $out;
+    }
+
+    /** @param array{page_id: int, home: bool, untouched: bool} $page */
+    private static function action(array $page, ?array $keep): string
+    {
+        return match (true) {
+            $page['home'] => 'home',
+            !$page['untouched'] => 'edited',
+            $keep !== null && in_array($page['page_id'], $keep, true) => 'keep',
+            default => 'replace',
+        };
+    }
+
+    /**
+     * The importers' hook before they choose a slug: when a starter page sits at the address, an untouched one that is not the home
+     * page and not asked to stay goes to the trash (its address is free for the imported page); otherwise it stays. Both are logged.
+     *
+     * @param list<int>|null $keep ids of the starter pages that stay
+     * @param array{replaced?: list<array<string, string>>, kept?: list<array<string, string>>, renamed?: list<array<string, string>>} $log
+     * @return bool a starter page still holds the address (the imported page gets a number)
+     */
+    public static function makeRoom(Db $db, Settings $settings, string $slug, string $language, ?array $keep, array &$log, string $old): bool
+    {
+        $page = null;
+        foreach (self::all($db, $settings) as $candidate) {
+            if ($candidate['slug'] === $slug && $candidate['language'] === $language) {
+                $page = $candidate;
+                break;
+            }
+        }
+        if ($page === null) {
+            return false;
+        }
+        $entry = ['old' => $old, 'title' => $page['title'], 'address' => '/' . $page['slug']];
+        $action = self::action($page, $keep);
+        if ($action === 'replace' && self::retire($db, $settings, $page['page_id']) !== null) {
+            if (count($log['replaced'] ?? []) < WpImport::MAX_LISTED) {
+                $log['replaced'][] = $entry;
+            }
+
+            return false;
+        }
+        if (count($log['kept'] ?? []) < WpImport::MAX_LISTED) {
+            $log['kept'][] = $entry + ['why' => $action === 'replace' ? 'kept' : $action];
+        }
+
+        return true;
     }
 
     /**

@@ -1061,6 +1061,18 @@
             "openWorldHint": false
         }
     },
+    "layout_queue": {
+        "parameters": {
+            "done": "array",
+            "offset": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_agent_sessions": {
         "parameters": {
             "limit": "integer"
@@ -1309,6 +1321,17 @@
             "collection",
             "id"
         ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_layout_queue": {
+        "parameters": {
+            "offset": "integer"
+        },
+        "required": [],
         "annotations": {
             "readOnlyHint": true,
             "destructiveHint": false,

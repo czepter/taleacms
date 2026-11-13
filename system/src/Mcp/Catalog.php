@@ -154,6 +154,8 @@ final class Catalog
         'get_search_performance' => ['read', ''],
         // Moving a site (2.7)
         'migration_report' => ['read', ''],
+        'list_layout_queue' => ['read', ''],
+        'layout_queue' => ['draft', ''], // ticking a page off is a work note, never publishing
         // A site that runs itself (2.8)
         'get_health' => ['read', ''],
         'list_events' => ['read', ''],

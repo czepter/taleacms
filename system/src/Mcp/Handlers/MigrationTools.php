@@ -54,6 +54,42 @@ trait MigrationTools
             + \Talea\Mcp\Untrusted::mark(['problems']);
     }
 
+    /** list_layout_queue */
+    private function toolListLayoutQueue(string $name, array $a): mixed
+    {
+        return $this->layoutQueue($a, 0);
+    }
+
+    /** layout_queue: the list, and with done the pages are ticked off first */
+    private function toolLayoutQueue(string $name, array $a): mixed
+    {
+        $ticked = \Talea\Core\LayoutQueue::done($this->app->db(), array_map('intval', array_values((array) ($a['done'] ?? []))));
+
+        return $this->layoutQueue($a, $ticked) + ['ticked_off' => $ticked];
+    }
+
+    /**
+     * The imported pages still waiting for their layout, 50 at a time.
+     *
+     * @return array<string, mixed>
+     */
+    private function layoutQueue(array $a, int $ticked): array
+    {
+        $auth = $this->app->auth();
+        if (!$auth->isAdmin() && !$auth->hasModule('pages')) {
+            throw new \DomainException('The layout queue is for people with the Pages section.');
+        }
+        $offset = max(0, (int) ($a['offset'] ?? 0));
+        $queue = \Talea\Core\LayoutQueue::page($this->app->db(), $offset);
+        $origin = $this->app->request->origin();
+
+        return ['pages' => array_map(fn (array $p): array => [
+            'id' => $p['page_id'], 'title' => $p['title'], 'old_address' => $p['old_address'], 'visible' => $p['visible'],
+            'url' => $origin . $this->app->url(($p['language'] !== '' ? $p['language'] . '/' : '') . $p['slug']),
+        ], $queue['pages']), 'total' => $queue['total'], 'more' => max(0, $queue['total'] - $offset - count($queue['pages']))]
+            + \Talea\Mcp\Untrusted::mark(['pages']);
+    }
+
     /** import_enquiries */
     private function toolImportEnquiries(string $name, array $a): mixed
     {
