@@ -90,6 +90,28 @@ await step('system status: problems first', async () => {
   if (groups.some((g) => g.open !== (g.badge !== '✓'))) { throw new Error('a group is open when fine or folded with a problem: ' + JSON.stringify(groups)); }
 });
 
+// #338: a table wrapper that scrolls sideways is a keyboard region named after its heading; one that fits has none of it
+await step('a wide table is a keyboard region', async () => {
+  const state = () => page.evaluate(() => [...document.querySelectorAll('.tab-wrap')].map((b) => ({ over: b.scrollWidth > b.clientWidth + 1, tabindex: b.getAttribute('tabindex'), role: b.getAttribute('role'), label: b.getAttribute('aria-label') ?? '' })));
+  const check = (rows) => rows.forEach((r) => {
+    if (r.over && !(r.tabindex === '0' && r.role === 'region' && r.label !== '')) { throw new Error('a scrolling table is not a named region: ' + JSON.stringify(r)); }
+    if (!r.over && (r.tabindex !== null || r.role === 'region')) { throw new Error('a table that fits is a region: ' + JSON.stringify(r)); }
+  });
+  // a screen whose table is wider than its box in a narrow window (listings become cards below 640 px, so not narrower)
+  let narrowRows = null;
+  for (const url of ['/admin.php?module=status', '/admin.php?module=settings&tab=cookies', '/admin.php?module=users', '/admin.php?module=changelog', '/admin.php?module=redirects', '/admin.php?module=settings&tab=backups']) {
+    await page.setViewportSize({ width: 660, height: 800 });
+    await visit(url);
+    await page.locator('details.health-group').evaluateAll((els) => els.forEach((e) => { e.open = true; }));
+    await page.waitForTimeout(300);
+    const rows = await state();
+    check(rows);
+    if (rows.some((r) => r.over)) { narrowRows = url; await page.setViewportSize({ width: 1800, height: 900 }); await page.waitForTimeout(400); check(await state()); break; }
+  }
+  if (narrowRows === null) { throw new Error('no table scrolls sideways at 660 px on any screen: the check proves nothing'); }
+  await page.setViewportSize({ width: 1440, height: 900 });
+});
+
 // a collection's fields are tiles on the item form's grid, each with its settings in the sidebar (collections/form.php): the typing
 // shows on the tile, Earlier / Later moves it without a reload, and the item form lays the fields out by their width
 await step('collection fields: add, width and description, reorder, the item form follows', async () => {
