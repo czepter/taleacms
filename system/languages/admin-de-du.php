@@ -1063,6 +1063,7 @@ return [
     'Your name, e-mail, phone and the content of the message you fill in the enquiry form.' => 'Deinen Namen, deine E-Mail-Adresse, deine Telefonnummer und den Inhalt der Nachricht, die du im Anfrageformular eingibst.',
     'Your newsletters' => 'Deine Newsletter',
     'Your own cookie-free traffic analytics.' => 'Deine eigene cookiefreie Traffic-Analyse.',
+    'Your own password, e-mail and two-factor sign-in are changed in My account, with your current password.' => 'Dein eigenes Passwort, deine E-Mail-Adresse und die Zwei-Faktor-Anmeldung änderst du unter Mein Konto, mit deinem aktuellen Passwort.',
     'Your own schedule' => 'Dein eigener Zeitplan',
     'Your page templates' => 'Deine Seitenvorlagen',
     'Your passkeys protect the sign-in. You can add a code from an authenticator app as well. Backup codes left: %d.' => 'Deine Passkeys schützen die Anmeldung. Du kannst zusätzlich einen Code aus einer Authenticator-App hinzufügen. Verbleibende Backup-Codes: %d.',

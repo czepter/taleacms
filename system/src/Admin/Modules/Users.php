@@ -62,6 +62,7 @@ final class Users extends Module
             return $refusal;
         }
         $isSelf = $id === $this->app->auth()->id();
+        $before = $id > 0 ? $this->db->one('SELECT * FROM {users} WHERE user_id = ?', [$id]) : null;
         $data = [
             'username' => $r->post('username'),
             'name' => $r->post('name'),
@@ -82,6 +83,8 @@ final class Users extends Module
             $data['admin'] = Auth::ADMIN;
             $data['role'] = null;
             $data['blocked'] = 0;
+            // the own password, e-mail and two-factor sign-in change in My account, with the current password (Account) – never here
+            $data['email'] = (string) ($before['email'] ?? $data['email']);
         }
         if (!$data['blocked']) {
             $data['failed_logins'] = 0;
@@ -89,7 +92,7 @@ final class Users extends Module
         }
         // an administrator saving the account confirms it is wanted: the check of unused accounts (Core\SecurityHygiene) counts from now
         $data['confirmed_at'] = date('Y-m-d H:i:s');
-        if ($r->postBool('totp_reset')) {
+        if (!$isSelf && $r->postBool('totp_reset')) {
             // the user lost both the phone (or passkey device) and the backup codes: the administrator disables their two-factor sign-in
             $data['totp_secret'] = '';
             $data['totp_backup_codes'] = null;
@@ -107,7 +110,7 @@ final class Users extends Module
             $errors['email'] = 'The e-mail address is not valid.';
         }
         // the password as typed, like My account, the reset and the installer (3.3.3, N61); only blanks mean "no change"
-        $password = is_string($_POST['password'] ?? null) && trim($_POST['password']) !== '' ? $_POST['password'] : '';
+        $password = !$isSelf && is_string($_POST['password'] ?? null) && trim($_POST['password']) !== '' ? $_POST['password'] : '';
         $invite = $id === 0 && $r->postBool('invite');
         if ($invite && $data['email'] === '') {
             $errors['email'] = 'An invitation needs an e-mail.';

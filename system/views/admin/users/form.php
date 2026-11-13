@@ -39,6 +39,13 @@ $role = [
 	<label for="user"><?= e(t('User name')) ?></label>
 	<div><input class="textfield" type="text" id="user" name="username" value="<?= e($author['username']) ?>" maxlength="40" size="30" required><?= $error('username') ?></div>
 </div>
+<?php if ($isSelf): ?>
+<div class="row">
+	<span class="caption"><?= e(t('Email')) ?></span>
+	<div><?= e($author['email'] !== '' ? $author['email'] : '–') ?> <a href="<?= e($app->url('admin.php?action=account')) ?>"><?= e(t('Change it in My account')) ?></a>
+	<span class="help"><?= e(t('Your own password, e-mail and two-factor sign-in are changed in My account, with your current password.')) ?></span></div>
+</div>
+<?php else: ?>
 <div class="row">
 	<label for="email"><?= e(t('Email')) ?></label>
 	<div><input class="textfield wide" type="email" id="email" name="email" value="<?= e($author['email']) ?>" maxlength="190"><?= $error('email') ?></div>
@@ -53,6 +60,7 @@ $role = [
 <?php endif ?>
 	</div>
 </div>
+<?php endif ?>
 
 <fieldset>
 <legend><?= e(t('Roles')) ?></legend>
@@ -108,7 +116,7 @@ $role = [
 	</div>
 </div>
 <?php endif ?>
-<?php if ($hasTwoStep): ?>
+<?php if ($hasTwoStep && !$isSelf): ?>
 <div class="row">
 	<span class="caption"><?= e(t('Two-factor sign-in')) ?></span>
 	<div class="options"><span class="badge badge-published"><?= e(t('on')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone or passkey device and the backup codes)')) ?></label></div>
