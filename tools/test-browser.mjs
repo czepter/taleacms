@@ -74,7 +74,7 @@ const ADMIN_PAGES = ['/admin.php', '/admin.php?module=pages', '/admin.php?module
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
   '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=forms', '/admin.php?module=forms&action=new', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
-  '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=status', '/admin.php?action=account',
+  '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=settings&tab=cookies', '/admin.php?module=status', '/admin.php?action=account',
   '/admin.php?module=bookings'];
 for (const url of ADMIN_PAGES) {
   await step(`open ${url}`, async () => { await visit(url); await nothingSpillsOut(); });
@@ -109,6 +109,17 @@ await step('a wide table is a keyboard region', async () => {
     if (rows.some((r) => r.over)) { narrowRows = url; await page.setViewportSize({ width: 1800, height: 900 }); await page.waitForTimeout(400); check(await state()); break; }
   }
   if (narrowRows === null) { throw new Error('no table scrolls sideways at 660 px on any screen: the check proves nothing'); }
+  await page.setViewportSize({ width: 1440, height: 900 });
+});
+
+// #338: Privacy and cookies fits a phone: the cookie table becomes cards, nothing makes the page wider than the screen
+await step('privacy and cookies on a phone', async () => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await visit('/admin.php?module=settings&tab=cookies');
+  const wider = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (wider > 0) { throw new Error(`the page is ${wider}px wider than the screen at 360 px`); }
+  await nothingSpillsOut();
+  if (!(await page.locator('table.listing-cards').count())) { throw new Error('the cookie table is not a card list on a phone'); }
   await page.setViewportSize({ width: 1440, height: 900 });
 });
 
