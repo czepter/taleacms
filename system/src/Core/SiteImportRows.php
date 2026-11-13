@@ -244,7 +244,14 @@ trait SiteImportRows
             'text' => self::html($r['text'] ?? '', 4_000_000), 'visible' => (int) !empty($r['visible']), 'publish_at' => self::date($r['publish_at'] ?? null),
             'in_menu' => (int) !empty($r['in_menu']), 'sort_order' => (int) ($r['sort_order'] ?? 0), 'updated_at' => self::date($r['updated_at'] ?? null) ?? date('Y-m-d H:i:s'),
             'language' => self::language($r['language'] ?? ''), 'translation_of' => $this->ref('pages', $r['translation_of'] ?? null) ?: null, 'parent_id' => $this->ref('pages', $r['parent_id'] ?? null) ?: null,
-            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null)] + self::validity($r) + SeoFields::fromInput($r);
+            'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'password_hash' => self::passwordHash($r['password_hash'] ?? null)]
+            + self::validity($r) + SeoFields::fromInput($r);
+    }
+
+    /** The hash of a page password (Core\PageLock) when it is one password_verify() understands; anything else leaves the page without a password. */
+    private static function passwordHash(mixed $v): ?string
+    {
+        return is_string($v) && strlen($v) <= 255 && password_get_info($v)['algo'] !== null ? $v : null;
     }
 
     private function newsItem(array $r): ?array
@@ -371,8 +378,8 @@ trait SiteImportRows
 
     private function section(array $r): ?array
     {
+        // build() turns the references (components, booking elements) to this site's keys – once: mapping them twice empties them
         $element = is_array($r['element'] ?? null) ? $r['element'] : json_decode((string) ($r['element'] ?? ''), true);
-        $element = is_array($element) ? json_decode(SiteExport::mapReferences('element', (string) json_encode($element), $this->mapper()), true) : $element;
         $build = is_array($element) ? json_decode((string) $this->build(['v' => Build::VERSION, 'children' => [$element]]), true) : null;
         $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
 
@@ -387,7 +394,8 @@ trait SiteImportRows
         $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
 
         return $name !== '' && $build !== null
-            ? ['page_template_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'build' => $build, 'created_at' => date('Y-m-d H:i:s')] : null;
+            ? ['page_template_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'build' => $build, 'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s'),
+                'updated_at' => self::date($r['updated_at'] ?? null)] : null;
     }
 
     private function menu(array $r): ?array
@@ -436,7 +444,8 @@ trait SiteImportRows
             'sort_order' => (int) ($r['sort_order'] ?? 0), 'visible' => (int) !empty($r['visible']), 'language' => self::language($r['language'] ?? ''),
             'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s'),
             'seo_title' => self::text($r['seo_title'] ?? '', 200), 'description' => self::text($r['description'] ?? '', 300), 'image' => self::file($r['image'] ?? ''),
-            'noindex' => (int) !empty($r['noindex']), 'publish_at' => self::date($r['publish_at'] ?? null)] + self::validity($r) + SeoFields::fromInput($r);
+            'noindex' => (int) !empty($r['noindex']), 'publish_at' => self::date($r['publish_at'] ?? null), 'submitted_via' => $this->ref('forms', $r['submitted_via'] ?? null) ?: null]
+            + self::validity($r) + SeoFields::fromInput($r);
     }
 
     /** A previous file of a document (2.11); a row whose document was not imported fails on the foreign key and is skipped. */
@@ -468,6 +477,24 @@ trait SiteImportRows
             'frequency' => self::pick(Popups::FREQUENCIES, $r['frequency'] ?? ''),
             'days' => max(0, min(3650, (int) ($r['days'] ?? 0))), 'active' => (int) !empty($r['active']), 'sort_order' => (int) ($r['sort_order'] ?? 0),
             'build' => $this->build($r['build'] ?? null), 'build_draft' => $this->build($r['build_draft'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] + self::validity($r);
+    }
+
+    /** A group of the member login (Core\Members::saveGroup): a name, unique on the site. @return array<string, mixed>|null */
+    private static function memberGroup(array $r): ?array
+    {
+        $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 80);
+
+        return $name !== '' ? ['group_id' => (int) $r['_id'], 'public_id' => self::publicId($r), 'name' => $name, 'created_at' => date('Y-m-d H:i:s')] : null;
+    }
+
+    /** What a member group restricts: a page, news item or collection item that came along, and a group that did. @return array<string, mixed>|null */
+    private function contentGroup(array $r): ?array
+    {
+        $table = SiteExport::GATED[$r['content_type'] ?? ''] ?? null;
+        $content = $table === null ? 0 : $this->ref($table, $r['content_id'] ?? null);
+        $group = $this->ref('member_groups', $r['group_id'] ?? null);
+
+        return $content > 0 && $group > 0 ? ['content_type' => (string) $r['content_type'], 'content_id' => $content, 'group_id' => $group] : null;
     }
 
     private function mediaRow(array $r): ?array
@@ -508,6 +535,7 @@ trait SiteImportRows
             'image_height' => max(0, min(65535, (int) ($r['image_height'] ?? ($r['height'] ?? 0)))), 'image_size' => max(0, (int) ($r['image_size'] ?? 0)),
             'thumb_path' => ltrim(self::file($r['thumb_path'] ?? ''), '/'), 'thumb_width' => max(0, min(65535, (int) ($r['thumb_width'] ?? 0))),
             'thumb_height' => max(0, min(65535, (int) ($r['thumb_height'] ?? 0))), 'color' => is_string($r['color'] ?? null) && preg_match('/^(#[0-9a-f]{6}|-)?$/i', $r['color']) ? $r['color'] : '',
-            'focal_point' => is_string($r['focal_point'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/', $r['focal_point']) ? $r['focal_point'] : '', 'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s')];
+            'focal_point' => is_string($r['focal_point'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/', $r['focal_point']) ? $r['focal_point'] : '', 'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s'),
+            'source_sha1' => is_string($r['source_sha1'] ?? null) && preg_match('/^[0-9a-f]{40}$/', $r['source_sha1']) === 1 ? $r['source_sha1'] : null];
     }
 }
