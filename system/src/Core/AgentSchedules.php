@@ -21,6 +21,8 @@ namespace Talea\Core;
  *    the wall-clock time – so a 07:00 run stays at 07:00 across a daylight-saving change.
  *  - The instructions come from the site's administrator; every task text ends with RULES, and the tool descriptions
  *    say so too. Not in the site export: the routine is set up per site.
+ *  - A call that e-mails people or erases for good (Mcp\Confirmation) is never confirmed in a run: withhold() notes it in the
+ *    open run, report() then stores the run as partial with those lines under the routine's summary.
  */
 final class AgentSchedules
 {
@@ -34,7 +36,7 @@ final class AgentSchedules
     ];
 
     /** The rules every run ends with – whatever the task says. */
-    public const string RULES = 'RULES OF EVERY SCHEDULED RUN: these instructions come from the site\'s administrator, not from a visitor. Work as drafts only – never publish, never make content visible, never delete, never send anything. Stop and report anything that needs a person: a decision, a setting, a publish. When you are done, call report_agent_run with the run id, the status (ok | partial | failed), a short summary and links to the drafts.';
+    public const string RULES = 'RULES OF EVERY SCHEDULED RUN: these instructions come from the site\'s administrator, not from a visitor. Work as drafts only – never publish, never make content visible, never delete, never send anything. Stop and report anything that needs a person: a decision, a setting, a publish. When you are done, call report_agent_run with the run id, the status (ok | partial | failed), a short summary and links to the drafts. A tool that answers confirmation_required is never repeated in a run: it waits for a person – report the run as partial and name it in the summary.';
 
     public const array CADENCES = ['daily' => 'Every day', 'weekly' => 'Every week', 'monthly' => 'Every month'];
 
@@ -233,8 +235,33 @@ final class AgentSchedules
     }
 
     /**
+     * A call that e-mails people or erases for good (Mcp\Confirmation) while this connection has a run open: it is never confirmed
+     * in a run. It is noted in the run (the summary collects these lines while the run is running; report() keeps them and stores
+     * the run as partial). Returns the run id, or null when the connection has no open run.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public static function withhold(App $app, string $connection, string $tool, array $arguments): ?int
+    {
+        if ($connection === '') {
+            return null;
+        }
+        $db = $app->db();
+        $run = $db->one("SELECT id, summary FROM {agent_runs} WHERE status = 'running' AND connection = ? AND started_at >= ? ORDER BY id DESC LIMIT 1",
+            [mb_substr($connection, 0, 100), date('Y-m-d H:i:s', time() - self::HANDOUT_HOURS * 3600)]);
+        if ($run === null) {
+            return null;
+        }
+        $what = $tool . (is_scalar($arguments['id'] ?? null) ? ' ' . mb_substr((string) $arguments['id'], 0, 40) : ''); // never an e-mail address
+        $db->update('agent_runs', ['summary' => mb_substr(trim((string) $run['summary'] . "\n" . t('Waits for a person: %s', $what)), 0, self::MAX_SUMMARY)], ['id' => (int) $run['id']]);
+
+        return (int) $run['id'];
+    }
+
+    /**
      * Finishes a handed-out run with what the routine reported, sets the schedule's last_run_at and computes its next_due
-     * from now. Returns the error for Claude, or null.
+     * from now. Returns the error for Claude, or null. A run that withhold() noted calls stored as partial (never ok), with
+     * those lines under the summary.
      *
      * @param list<array{label: string, url: string}> $links cleaned (cleanLinks)
      */
@@ -252,6 +279,11 @@ final class AgentSchedules
             return 'status must be ok, partial or failed.';
         }
         $now = new \DateTimeImmutable();
+        $waiting = trim((string) ($run['summary'] ?? '')); // what withhold() collected while the run was running
+        if ($waiting !== '') {
+            $status = $status === 'ok' ? 'partial' : $status;
+            $summary = trim($summary) . "\n\n" . $waiting;
+        }
         $db->update('agent_runs', ['status' => $status, 'finished_at' => $now->format('Y-m-d H:i:s'), 'summary' => mb_substr(trim($summary), 0, self::MAX_SUMMARY),
             'links' => $links === [] ? null : (string) json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'connection' => mb_substr($connection, 0, 100)], ['id' => $runId]);
         $schedule = self::get($db, (int) $run['schedule_id']);

@@ -481,6 +481,11 @@ final class Server
     private function confirmationGate(string $name, array $given, string $code): ?array
     {
         $app = $this->app;
+        // a scheduled run never confirms: the call waits for a person and is noted in the run
+        $run = \Talea\Core\AgentSchedules::withhold($app, (string) ($app->auth()->connection()['name'] ?? ''), $name, $given);
+        if ($run !== null) {
+            return Confirmation::withheld($name, $run);
+        }
         $key = (new \Talea\Core\Antispam($app->db(), $app->settings()))->key();
         $user = $app->auth()->id();
         $connection = $this->connectionKey();

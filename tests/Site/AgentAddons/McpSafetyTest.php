@@ -134,4 +134,28 @@ final class McpSafetyTest extends SiteTestCase
         $this->assertStringContainsString('confirm', $this->mcpText('erase_personal_data', ['email' => 'nobody-at-all@example.com']));
         $this->assertStringNotContainsString('confirmation_required', $this->mcpText('erase_personal_data', ['email' => 'nobody-at-all@example.com']));
     }
+
+    public function testScheduledRunsNeverConfirm(): void
+    {
+        $this->site()->exec("INSERT INTO tl_agent_schedules (name, task, text, cadence, day, time, active, next_due, created_at) VALUES ('Safety run', 'custom', 'Look around.', 'daily', 1, '07:00', 1, NOW() - INTERVAL 1 HOUR, NOW())");
+        $token = $this->tokenOf('admin', 'Routine', 'c');
+        $run = (int) $this->pick($this->mcpData('get_due_agent_runs', [], $token), 'runs', 0, 'id');
+        $this->assertGreaterThan(0, $run);
+
+        $erase = ['email' => 'routine-person@example.com', 'confirm' => true];
+        $answer = $this->mcpData('erase_personal_data', $erase, $token);
+        $this->assertSame($run, $answer['scheduled_run'] ?? null);
+        $this->assertArrayNotHasKey('confirmation', $answer, 'a run never gets a code');
+
+        $report = $this->mcpData('report_agent_run', ['id' => $run, 'status' => 'ok', 'summary' => 'Looked around.'], $token);
+        $this->assertSame('partial', $report['status'] ?? null);
+        $this->assertArrayHasKey('note', $report);
+        $row = $this->site()->rows('SELECT status, summary FROM tl_agent_runs WHERE id = ?', [$run])[0];
+        $this->assertSame('partial', $row['status']);
+        $this->assertStringContainsString('Looked around.', (string) $row['summary']);
+        $this->assertStringContainsString('Waits for a person: erase_personal_data', (string) $row['summary']);
+
+        // the run is over: the same call gets a normal code
+        $this->assertArrayHasKey('confirmation', $this->mcpData('erase_personal_data', $erase, $token));
+    }
 }

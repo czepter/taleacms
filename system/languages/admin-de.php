@@ -6269,6 +6269,7 @@ return [
     'Waiting for you' => 'Wartet auf Sie',
     'Waiting list' => 'Warteliste',
     'Waiting to be sent: %d.' => 'Wartet auf Versand: %d.',
+    'Waits for a person: %s' => 'Wartet auf eine Person: %s',
     'Want to build the page from sections, columns and buttons?' => 'Möchten Sie die Seite aus Abschnitten, Spalten und Buttons zusammenbauen?',
     'Wants to buy, order or get a quote.' => 'Möchte kaufen, bestellen oder ein Angebot.',
     'Warm and readable' => 'Warm und gut lesbar',
