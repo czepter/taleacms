@@ -75,7 +75,7 @@ final class Discovery
     /**
      * The runners an essentials connection lists: only those that some tool outside its list needs, and never
      * run_destructive_tool on a read-only connection – its annotations would promise changes the connection can never make
-     * (the open-world reads there are still callable directly by name).
+     * (a read-only connection has no open-world tool at all: Catalog::allows).
      *
      * @param list<array<string, mixed>> $available every tool the connection may use
      * @return list<string>

@@ -57,4 +57,33 @@ final class CatalogTest extends TestCase
         $this->assertSame([], array_values(array_filter(array_keys(\Talea\Mcp\Catalog::TOOLS),
             fn (string $t): bool => \Talea\Mcp\Catalog::access($t) === 'draft' && (\Talea\Mcp\Tools::annotations($t)['readOnlyHint'] || \Talea\Mcp\Tools::annotations($t)['destructiveHint']))), '2.2: every drafts-only tool is a write that does not remove anything');
     }
+
+    public function testUrlFetchingIsForFullAccessOnly(): void
+    {
+        // #334: a download by address (or a crawl of another site) is for connections with full access
+        $fetches = fn (string $tool, array $args): bool => \Talea\Mcp\Catalog::fetchesUrl($tool, $args);
+        $this->assertTrue($fetches('upload_file', ['url' => 'https://x/a.png']));
+        $this->assertFalse($fetches('upload_file', ['data' => 'AAAA']));
+        $this->assertFalse($fetches('upload_file', ['url' => ' ']));
+        $this->assertTrue($fetches('upload_files', ['files' => [['data' => 'x'], ['url' => 'https://x']]]));
+        $this->assertFalse($fetches('upload_files', ['files' => [['data' => 'x'], ['filename' => 'b.png']]]));
+        $this->assertTrue($fetches('replace_media', ['url' => 'https://x/a.png']));
+        $this->assertTrue($fetches('migration_report', []));
+        $this->assertTrue($fetches('import_website', []));
+        $this->assertFalse($fetches('run_destructive_tool', []));
+        $this->assertFalse($fetches('save_build', ['url' => 'https://x']));
+
+        $this->assertTrue(\Talea\Mcp\Catalog::alwaysFetches('migration_report'));
+        $this->assertTrue(\Talea\Mcp\Catalog::alwaysFetches('import_website'));
+        $this->assertTrue(\Talea\Mcp\Catalog::alwaysFetches('check_site_domain'));
+        $this->assertFalse(\Talea\Mcp\Catalog::alwaysFetches('upload_file'));
+
+        $this->assertSame([true, false, false], [\Talea\Mcp\Catalog::allows('full', 'migration_report'), \Talea\Mcp\Catalog::allows('drafts', 'migration_report'), \Talea\Mcp\Catalog::allows('read', 'migration_report')]);
+        $this->assertTrue(\Talea\Mcp\Catalog::allows('drafts', 'upload_file'), 'a drafts-only connection still uploads files it sends');
+
+        $this->assertNull(\Talea\Mcp\Catalog::fetchRefusal('full', 'upload_file', ['url' => 'x']));
+        $this->assertNull(\Talea\Mcp\Catalog::fetchRefusal('drafts', 'upload_file', ['data' => 'x']));
+        $this->assertStringContainsString('full access', (string) \Talea\Mcp\Catalog::fetchRefusal('drafts', 'upload_file', ['url' => 'x']));
+        $this->assertStringContainsString('migration_report', (string) \Talea\Mcp\Catalog::fetchRefusal('read', 'migration_report', []));
+    }
 }

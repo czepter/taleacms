@@ -229,9 +229,9 @@ final class Server
             return $this->runTool($tools, $arguments, $name);
         }
         if (Catalog::exists($name) && !Catalog::allows($this->access(), $name)) {
-            return ['content' => [['type' => 'text', 'text' => $this->access() === 'read'
+            return ['content' => [['type' => 'text', 'text' => Catalog::fetchRefusal($this->access(), $name, $arguments) ?? ($this->access() === 'read'
                 ? 'This connection can only read the site. Changes need a connection with more access – the user sets it when connecting Claude, or under My account.'
-                : 'This connection can only save drafts: builds, hidden pages and collection items, news drafts, the draft look, proposed exceptions to the opening hours, enquiry triage and notebook notes. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.']], 'isError' => true];
+                : 'This connection can only save drafts: builds, hidden pages and collection items, news drafts, the draft look, proposed exceptions to the opening hours, enquiry triage and notebook notes. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.')]], 'isError' => true];
         }
         // multisite: `site` runs the tool on a sibling (added to the schema like `reason`, see withReason)
         if (\Talea\Core\Sites::enabled() && array_key_exists('site', $arguments) && !in_array($name, Catalog::SITE_TOOLS, true)) {
@@ -248,6 +248,10 @@ final class Server
         try {
             $items = $tools->listAll();
             $arguments = self::extractJson($items, $name, $arguments);
+            // #334: only a connection with full access makes the site download from an address (upload_* with url)
+            if (($fetch = Catalog::fetchRefusal($this->access(), $name, $arguments)) !== null) {
+                return ['content' => [['type' => 'text', 'text' => $fetch]], 'isError' => true];
+            }
             // why Claude makes the change (2.15): any write tool takes it; it goes to the change log, never to the tool
             $reason = \Talea\Core\Guardrails::reason($arguments['reason'] ?? null);
             unset($arguments['reason']);

@@ -241,10 +241,15 @@ final class Catalog
     ];
 
     /**
-     * Tools that reach outside the site (an upload from an address, an import, the migration report that fetches the old
-     * site) – the MCP openWorldHint, and a reason for run_destructive_tool.
+     * THE list of tools that make the site fetch something from outside (an upload from an address, an import, the migration
+     * report that fetches the old site, a domain check) – the MCP openWorldHint, a reason for run_destructive_tool, and the
+     * rule that only a connection with full access may use them (fetchesUrl, fetchRefusal, allows). A new tool that downloads
+     * or reads another address (read_old_page …) goes here; an add-on tool declares `openWorld` in Api::mcpTool.
      */
     public const array OPEN_WORLD = ['upload_file', 'upload_files', 'replace_media', 'import_website', 'migration_report', 'check_site_domain'];
+
+    /** OPEN_WORLD tools that reach outside only with this argument (upload_files: in any of its files); the others on every call. */
+    public const array FETCH_ARGUMENTS = ['upload_file' => 'url', 'upload_files' => 'url', 'replace_media' => 'url'];
 
     /**
      * Writes that send something to a person (an e-mail to a customer or a test newsletter): the runner treats them like a
@@ -299,6 +304,45 @@ final class Catalog
         return in_array($name, self::OPEN_WORLD, true) || $name === 'run_destructive_tool';
     }
 
+    /** Does this call make the site fetch something from an address outside it? Only full-access connections may (fetchRefusal). */
+    public static function fetchesUrl(string $name, array $arguments): bool
+    {
+        if (isset(self::META[$name]) || !self::isOpenWorld($name)) {
+            return false;
+        }
+        $key = self::FETCH_ARGUMENTS[$name] ?? null;
+        if ($key === null) {
+            return true;
+        }
+        $given = static fn (mixed $v): bool => is_string($v) && trim($v) !== '';
+        if ($name === 'upload_files') {
+            $files = is_array($arguments['files'] ?? null) ? $arguments['files'] : [];
+
+            return array_filter($files, static fn (mixed $f): bool => is_array($f) && $given($f[$key] ?? null)) !== [];
+        }
+
+        return $given($arguments[$key] ?? null);
+    }
+
+    /** A tool that reaches outside on every call (not only with an argument): never listed or run for a connection without full access. */
+    public static function alwaysFetches(string $name): bool
+    {
+        return !isset(self::META[$name]) && !isset(self::FETCH_ARGUMENTS[$name]) && self::isOpenWorld($name);
+    }
+
+    /** Why this call is refused to a connection with $connectionAccess (full | drafts | read); null = it may run. */
+    public static function fetchRefusal(string $connectionAccess, string $name, array $arguments): ?string
+    {
+        if ($connectionAccess === 'full' || !self::fetchesUrl($name, $arguments)) {
+            return null;
+        }
+        if (isset(self::FETCH_ARGUMENTS[$name])) {
+            return 'Only a connection with full access makes the site download from an address. Send the file itself instead: data (base64) in upload_file or upload_files, or an upload link from request_upload.';
+        }
+
+        return 'Only a connection with full access makes the site fetch another address (' . $name . '). The user can do it in the administration, or connect Claude with full access.';
+    }
+
     /** Is this a tool of the system or of an add-on (3.0)? */
     public static function exists(string $name): bool
     {
@@ -326,10 +370,15 @@ final class Catalog
     /** Connection access levels (2.2) => the tool access they allow. */
     public const array CONNECTION_ACCESS = ['full' => ['read', 'draft', 'write', 'destructive'], 'drafts' => ['read', 'draft'], 'read' => ['read']];
 
-    /** May a connection with this access run the tool? */
+    /**
+     * May a connection with this access run the tool? A tool that fetches from outside on every call (alwaysFetches) is for
+     * full access only, whatever its own access level (migration_report is a read); upload_* take a url only on full access
+     * (fetchRefusal, checked when the call arrives).
+     */
     public static function allows(string $connectionAccess, string $name): bool
     {
-        return in_array(self::access($name), self::CONNECTION_ACCESS[$connectionAccess] ?? self::CONNECTION_ACCESS['read'], true);
+        return in_array(self::access($name), self::CONNECTION_ACCESS[$connectionAccess] ?? self::CONNECTION_ACCESS['read'], true)
+            && ($connectionAccess === 'full' || !self::alwaysFetches($name));
     }
 
     /** The method of Tools that runs the tool: site_info => toolSiteInfo. */

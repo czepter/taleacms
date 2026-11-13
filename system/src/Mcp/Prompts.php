@@ -831,6 +831,7 @@ final class Prompts
             . match ($access) {
                 'read' => 'THIS CONNECTION CAN ONLY READ: look, check and suggest; the user makes the changes.',
                 'drafts' => 'THIS CONNECTION CAN ONLY SAVE DRAFTS: builds, hidden pages, news drafts and the draft look; hidden collection items (a visible item cannot be changed), '
+                    . 'files as data or through request_upload (a download from an address needs full access), '
                     . 'exceptions to the opening hours as proposals a person applies, the triage of enquiries (kind, priority, a drafted reply) and notebook notes – never publish or make anything visible; '
                     . 'tell the user what is ready to review (list_pending_review lists everything that waits for a person).',
                 default => '',

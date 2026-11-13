@@ -100,6 +100,7 @@ final class DiscoveryTest extends TestCase
         $this->assertNotContains('run_tool', $names('read'));
         $this->assertContains('run_tool', $names('drafts'));
         $this->assertNotContains('save_collection_item', $names('read'));
+        $this->assertNotContains('migration_report', array_column($forAccess('read'), 'name'), 'a read-only connection has no tool that makes the site fetch an address');
     }
 
     public function testFindToolsListsWhatTheEssentialsDoNot(): void
