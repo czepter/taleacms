@@ -214,10 +214,11 @@ final class AgentSchedules
      * @param array<string, mixed> $user
      * @return list<array{run: array<string, mixed>, schedule: array<string, mixed>}>
      */
-    public static function handOut(App $app, string $connection, string $connectionKey = '', array $user = []): array
+    public static function handOut(App $app, string $connection, array $user = []): array
     {
         $db = $app->db();
         $now = date('Y-m-d H:i:s');
+        $connectionKey = $user === [] ? '' : ClaudeConnection::keyOf($user);
         $out = [];
         foreach ($db->all('SELECT * FROM {agent_schedules} WHERE active = TRUE AND next_due IS NOT NULL AND next_due <= ? ORDER BY next_due, id', [$now]) as $schedule) {
             $open = $db->one("SELECT * FROM {agent_runs} WHERE schedule_id = ? AND status = 'running' ORDER BY id DESC LIMIT 1", [(int) $schedule['id']]);

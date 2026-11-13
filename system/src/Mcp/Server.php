@@ -500,9 +500,7 @@ final class Server
     /** Which connection this is for a confirmation code: the OAuth client (its access token changes every hour), else the personal token. */
     private function connectionKey(): string
     {
-        $u = (array) $this->user;
-
-        return ($u['connection_client'] ?? null) !== null ? 'client:' . $u['connection_client'] : 'token:' . (int) ($u['token_id'] ?? 0);
+        return \Talea\Core\ClaudeConnection::keyOf((array) $this->user);
     }
 
     /** The tool set of this connection: all | essentials. */

@@ -2315,6 +2315,7 @@ return [
     'Get the discount' => 'Rabatt sichern',
     'Gift' => 'Geschenk',
     'GitHub' => 'GitHub',
+    'Give the routine a connection of its own: for two hours after each hand-out, a connection that ran a routine cannot confirm e-mails to people or permanent deletions.' => 'Die Routine braucht eine eigene Verbindung: Zwei Stunden nach jeder Übergabe kann eine Verbindung, die eine Routine ausgeführt hat, keine E-Mails an Personen und keine endgültigen Löschungen bestätigen.',
     'Give the schedule a name.' => 'Geben Sie dem Zeitplan einen Namen.',
     'Give the template a name.' => 'Geben Sie der Vorlage einen Namen.',
     'Give up this move? The new site is removed and the old one answers again.' => 'Diese Verschiebung aufgeben? Die neue Website wird entfernt und die alte antwortet wieder.',

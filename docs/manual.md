@@ -491,7 +491,7 @@ cancellation, a newsletter, a form link sent by e-mail) or erases something for 
 an enquiry, an undone Claude session) takes two calls. The first answers with a short code and does nothing; Claude shows you
 exactly what would happen and asks. Only after your yes does it repeat the same call with the code, which works once, for ten
 minutes, on that connection and for exactly those arguments. A scheduled run never repeats such a call: it leaves it for you
-and reports the run as partly done. Text that visitors, colleagues or other sites wrote – enquiries, bookings, comments on
+and reports the run as partly done. A routine should use a connection of its own: for two hours after each hand-out, the connection that ran it cannot confirm an e-mail or an erasure, so a chat connection shared with the routine would be blocked too. Text that visitors, colleagues or other sites wrote – enquiries, bookings, comments on
 drafts, the statistics' referrers – reaches Claude marked as such, so it is treated as data and never as an instruction.
 
 My account shows the access of every connected app and token. The **change log** marks every change Claude made with the
