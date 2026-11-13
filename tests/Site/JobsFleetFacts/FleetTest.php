@@ -170,6 +170,23 @@ final class FleetTest extends SiteTestCase
         $this->sameValue('1', $console->value('SELECT accepted IS NULL FROM tl_fleet_sites WHERE id = ?', [$id]), 'withdrawn');
     }
 
+    /** #341: the uptime job prunes the acceptances it read before the probes; one a person added meanwhile is not overwritten. */
+    public function testPruningNeverOverwritesAnAcceptanceMadeMeanwhile(): void
+    {
+        $console = $this->console();
+        $id = self::$fleetId;
+        $until = trim($console->php('echo date("Y-m-d", strtotime("+30 days"));'));
+        $old = json_encode(['check:Gone' => ['state' => 'warning', 'note' => 'old', 'until' => $until]]);
+        $new = json_encode(['check:Gone' => ['state' => 'warning', 'note' => 'old', 'until' => $until], 'check:Debug mode' => ['state' => 'warning', 'note' => 'accepted while the probes ran', 'until' => $until]]);
+        $console->exec('UPDATE tl_fleet_sites SET accepted = ? WHERE id = ?', [$new, $id]);
+        $call = fn (string $was, string $pruned): string => trim($console->php('var_dump(Talea\\Fleet\\Console::storeAcceptances(Talea\\Core\\App::boot()->db(), ' . $id . ', ' . var_export($was, true) . ', json_decode(' . var_export($pruned, true) . ', true)));'));
+        $this->assertStringContainsString('bool(false)', $call($old, '{}'), 'the pruning started from the old text: it does not apply');
+        $this->sameValue($new, (string) $console->value('SELECT accepted FROM tl_fleet_sites WHERE id = ?', [$id]), 'the acceptance made meanwhile is still there');
+        $this->assertStringContainsString('bool(true)', $call($new, '{"check:Debug mode":{"state":"warning","note":"kept","until":"' . $until . '"}}'), 'from the current text it applies');
+        $this->sameValue('1', $console->value("SELECT accepted LIKE '%kept%' AND accepted NOT LIKE '%Gone%' FROM tl_fleet_sites WHERE id = ?", [$id]), 'the pruned set is stored');
+        $console->exec('UPDATE tl_fleet_sites SET accepted = NULL WHERE id = ?', [$id]);
+    }
+
     /** #341: the inventory with a filter per column, the CSV and the MCP tool. */
     public function testInventoryFiltersAndCsv(): void
     {

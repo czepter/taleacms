@@ -267,13 +267,27 @@ final class Console
             // a state that changed or whose last day passed is dropped: it must not come back when the old state returns
             $accepted = Today::decode($site);
             $pruned = Today::prune($accepted, self::attention($update + $site, time())['items'], time());
-            if ($pruned !== $accepted) {
-                $update['accepted'] = $pruned === [] ? null : json_encode($pruned, JSON_UNESCAPED_UNICODE);
-            }
             $db->update('fleet_sites', $update, ['id' => (int) $site['id']]);
+            if ($pruned !== $accepted) {
+                self::storeAcceptances($db, (int) $site['id'], $site['accepted'] === null ? null : (string) $site['accepted'], $pruned);
+            }
         }
 
         return 'checked ' . count($sites) . ', down ' . $down;
+    }
+
+    /**
+     * Writes the pruned acceptances only if nobody changed them since they were read (the probes take seconds, and a person may accept
+     * a state meanwhile): a compare-and-swap on the stored text, portable to every engine. When it does not apply, the next run prunes again.
+     *
+     * @param ?string $was the stored text the pruning started from
+     * @param array<string, array<string, mixed>> $pruned
+     */
+    public static function storeAcceptances(Db $db, int $id, ?string $was, array $pruned): bool
+    {
+        $text = $pruned === [] ? null : json_encode($pruned, JSON_UNESCAPED_UNICODE);
+
+        return $db->run('UPDATE {fleet_sites} SET accepted = ? WHERE id = ? AND ' . ($was === null ? 'accepted IS NULL' : 'accepted = ?'), $was === null ? [$text, $id] : [$text, $id, $was])->rowCount() > 0;
     }
 
     /** @return list<array<string, mixed>> */
