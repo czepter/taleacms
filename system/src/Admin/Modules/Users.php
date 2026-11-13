@@ -96,9 +96,7 @@ final class Users extends Module
             // the user lost both the phone (or passkey device) and the backup codes: the administrator disables their two-factor sign-in
             $data['totp_secret'] = '';
             $data['totp_backup_codes'] = null;
-            $data['passkey_only'] = 0; // the passkeys go below: nothing is left to be "only"
-            $this->app->db()->run('DELETE FROM {user_passkeys} WHERE user_id = ?', [$id]); // a passkey is a second factor too: the account is left with the password only
-            $this->app->auth()->forgetOtherDevices($id); // and a remembered sign-in must not outlive the lost phone
+            $data['passkey_only'] = 0; // the passkeys go in the save, after the proof: nothing is left to be "only"
         }
 
         $errors = [];
@@ -158,9 +156,14 @@ final class Users extends Module
             }
         }
         $reactivated = $before !== null && (bool) $before['blocked'] && !$data['blocked'];
-        $this->db->transaction(function () use (&$id, $data, $modules, $sites, $sitesShown, $limited, $reactivated, $r): void {
+        $totpReset = !$isSelf && $r->postBool('totp_reset');
+        $this->db->transaction(function () use (&$id, $data, $modules, $sites, $sitesShown, $limited, $reactivated, $totpReset, $r): void {
             if ($id > 0) {
                 $this->db->update('users', $data, ['user_id' => $id]);
+                if ($totpReset) {
+                    $this->db->delete('user_passkeys', ['user_id' => $id]); // a passkey is a second factor too: the account is left with the password only
+                    $this->app->auth()->forgetOtherDevices($id); // and a remembered sign-in must not outlive the lost phone
+                }
                 if (isset($data['password'])) {
                     // a new password ends the user's Claude connections and personal tokens: an administrator sets one when the
                     // account may be in the wrong hands, and a token would outlive the old password

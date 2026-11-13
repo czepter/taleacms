@@ -100,6 +100,31 @@ final class UsersRulesTest extends SiteTestCase
         $this->assertSame('Other Person', (string) $site->value("SELECT name FROM tl_users WHERE username = 'other'"), 'a harmless change needs no proof');
     }
 
+    /** A refused two-factor reset leaves the passkeys and remembered sign-ins alone; an accepted one removes them. */
+    public function testARefusedTwoFactorResetKeepsPasskeysAndRememberedSignIns(): void
+    {
+        $site = $this->site();
+        $this->person('lostphone');
+        $uid = (int) $site->value("SELECT user_id FROM tl_users WHERE username = 'lostphone'");
+        $site->exec("UPDATE tl_users SET totp_secret = 'JBSWY3DPEHPK3PXP' WHERE user_id = " . $uid);
+        $now = date('Y-m-d H:i:s');
+        $site->exec("INSERT INTO tl_user_passkeys (public_id, user_id, name, credential_hash, credential_id, public_key, alg, sign_count, created_at) VALUES ('" . \Talea\Core\Uuid::v4() . "', $uid, 'Key', '" . str_repeat('a', 64) . "', 'abc', 'pem', -7, 0, '$now')");
+        $site->exec("INSERT INTO tl_user_remember_tokens (user_id, token_hash, fingerprint, created_at, expires_at) VALUES ($uid, '" . str_repeat('b', 64) . "', '" . str_repeat('c', 24) . "', '$now', '" . date('Y-m-d H:i:s', time() + 3600) . "')");
+        $count = static fn (string $table): string => (string) $site->value("SELECT COUNT(*) FROM tl_$table WHERE user_id = $uid");
+        $stale = $this->staleAdmin();
+
+        $refused = $this->saveUser($stale, 'lostphone', ['totp_reset' => '1']);
+        $this->assertStringContainsString('Confirm the change with your password or your passkey.', $refused->body);
+        $this->assertSame('1', $count('user_passkeys'), 'a refused reset keeps the passkeys');
+        $this->assertSame('1', $count('user_remember_tokens'), 'a refused reset keeps the remembered sign-ins');
+        $this->assertSame('JBSWY3DPEHPK3PXP', (string) $site->value('SELECT totp_secret FROM tl_users WHERE user_id = ' . $uid), 'and the app');
+
+        $this->saveUser($stale, 'lostphone', ['totp_reset' => '1', 'current_password' => $site->password]);
+        $this->assertSame('0', $count('user_passkeys'), 'an accepted reset removes the passkeys');
+        $this->assertSame('0', $count('user_remember_tokens'), 'and the remembered sign-ins');
+        $this->assertSame('', (string) $site->value('SELECT totp_secret FROM tl_users WHERE user_id = ' . $uid));
+    }
+
     public function testARecentSignInCounts(): void
     {
         $site = $this->site();
