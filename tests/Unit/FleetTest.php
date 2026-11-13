@@ -21,7 +21,7 @@ final class FleetTest extends TestCase
             ['https://console.example.com', 'http://console.example.com', 'http://127.0.0.1:8312', 'http://web.test', 'ftp://example.com', 'https://user:pw@example.com', 'javascript:alert(1)']), '2.9 / 3.3.2: Fleet\Http – https only; plain http (also to local addresses) just in the automated tests (TALEA_FLEET_LOCAL)');
         $this->assertSame([[null, null, null, null, null, ['93.184.216.34', 443, '93.184.216.34', 'https://93.184.216.34/x']], [0, 0], true], [
             array_map(fn (string $url): ?array => \Talea\Fleet\Http::pin($url), ['https://127.0.0.1:8443/', 'https://10.0.0.5/admin', 'https://[::1]/', 'https://169.254.169.254/', 'https://[64:ff9b::a00:1]/', 'https://93.184.216.34/x']),
-            \Talea\Fleet\Http::statuses(['http://10.0.0.5:8080/admin', 'gopher://example.com/']), \Talea\Fleet\Http::allowedUrl('http://example.com/', true)], '3.3.2: Fleet\Http pins public addresses only – loopback, private, link-local and NAT64 are refused; the uptime check of a refused address is 0 without a request');
+            array_column(\Talea\Fleet\Http::probe(['http://10.0.0.5:8080/admin', 'gopher://example.com/']), 'status'), \Talea\Fleet\Http::allowedUrl('http://example.com/', true)], '3.3.2: Fleet\Http pins public addresses only – loopback, private, link-local and NAT64 are refused; the uptime check of a refused address is 0 without a request');
         $fleetKey = \Talea\Fleet\Link::makeKey('https://console.example.com/', str_repeat('ab', 16), $fleetPub, 'Agency console');
         $this->assertSame([['url' => 'https://console.example.com', 'code' => str_repeat('ab', 16), 'key' => $fleetPub, 'name' => 'Agency console'], null, null, null], [
             \Talea\Fleet\Link::parseKey(" \n" . chunk_split($fleetKey, 40, "\n")), \Talea\Fleet\Link::parseKey('talea-console:junk'), \Talea\Fleet\Link::parseKey(str_repeat('ab', 16)),
@@ -117,5 +117,23 @@ final class FleetTest extends TestCase
         $this->assertSame([], \Talea\Fleet\Console::attention($row, $now)['reasons'], 'an old heartbeat needs no attention for what it does not say');
         $full = \Talea\Fleet\Console::clean($old + ['database' => 'MariaDB 11.4', 'extensions' => array_map(fn (int $i): string => 'ext' . $i, range(1, 50))]);
         $this->assertSame(['MariaDB 11.4', 40], [$full['database'], count($full['extensions'])]);
+    }
+
+    /** #341: the end of a site's certificate from what curl reports */
+    public function testCertificateEnd(): void
+    {
+        $this->assertSame([null, gmmktime(23, 59, 59, 1, 14, 2027), gmmktime(23, 59, 59, 1, 14, 2027), null], [
+            \Talea\Fleet\Http::certificateEnd([]),
+            \Talea\Fleet\Http::certificateEnd([['Expire date' => 'Jan 14 23:59:59 2027 GMT']]),
+            \Talea\Fleet\Http::certificateEnd([['Expire date' => '2027-01-14 23:59:59 GMT']]),
+            \Talea\Fleet\Http::certificateEnd([['Expire date' => 'junk']])]);
+        $this->assertSame([null], array_column(\Talea\Fleet\Http::probe(['http://10.0.0.5:8080/admin']), 'certificate_ends'), 'a refused address has no certificate');
+        if (!function_exists('openssl_csr_new')) {
+            $this->markTestSkipped('openssl is missing');
+        }
+        $key = openssl_pkey_new(['private_key_bits' => 2048]);
+        $csr = openssl_csr_new(['commonName' => 'console.test'], $key);
+        openssl_x509_export(openssl_csr_sign($csr, null, $key, 10), $pem);
+        $this->assertEqualsWithDelta(time() + 10 * 86400, \Talea\Fleet\Http::certificateEnd([['Cert' => $pem, 'Expire date' => 'junk']]), 86400, 'the end of a real certificate is read from its PEM');
     }
 }

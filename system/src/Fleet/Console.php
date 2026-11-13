@@ -17,7 +17,8 @@ use Talea\Core\Settings;
  *  - Heartbeat: each site reports every hour, signed; an older or repeated heartbeat is refused. The console stores the
  *    last one and answers, signed by its own key (and announces the newest design kit, Fleet\Kit).
  *  - Versions: the console shows which version each site runs; sites update by pulling a new image, never through the console.
- *  - Uptime: the console asks each site's home page every 5 minutes; down twice in a row = the event fleet.site_down.
+ *  - Uptime: the console asks each site's home page every 5 minutes; down twice in a row = the event fleet.site_down. The same
+ *    request reads the end of the site's certificate (Fleet\Http::probe), kept in cert_expires.
  * The console never calls into a site and holds no credentials for it: it only answers the sites.
  */
 final class Console
@@ -211,13 +212,19 @@ final class Console
     {
         $db = $app->db();
         $sites = array_values(array_filter(self::sites($db), fn (array $s): bool => $siteId === null || (int) $s['id'] === $siteId));
-        $statuses = Http::statuses(array_map(fn (array $s): string => (string) $s['url'] . '/', $sites));
+        $checks = Http::probe(array_map(fn (array $s): string => (string) $s['url'] . '/', $sites));
         $down = 0;
         foreach ($sites as $i => $site) {
-            $status = $statuses[$i] ?? 0;
+            $status = $checks[$i]['status'] ?? 0;
             $up = $status > 0 && $status < 500;
             $failures = $up ? 0 : min(255, (int) $site['up_failures'] + 1);
             $update = ['up_status' => $status, 'up_checked' => date('Y-m-d H:i:s'), 'up_failures' => $failures];
+            // the end of the certificate: a fresh date replaces the stored one; a failed handshake keeps what was known (Today then shows the expiry); a plain http site has none
+            if (($checks[$i]['certificate_ends'] ?? null) !== null) {
+                $update['cert_expires'] = date('Y-m-d H:i:s', (int) $checks[$i]['certificate_ends']);
+            } elseif (str_starts_with((string) $site['url'], 'http://')) {
+                $update['cert_expires'] = null;
+            }
             if ($up && $site['up'] !== null && (int) $site['up'] === 0) {
                 $update += ['up' => 1, 'up_changed' => date('Y-m-d H:i:s')];
                 Events::record($db, 'fleet.site_up', 'info', t('%s answers again.', (string) $site['url']), ['site' => (int) $site['id']]);

@@ -156,39 +156,47 @@ final class Http
     }
 
     /**
-     * The HTTP status of a public address (0 = no answer or not allowed) – the console's uptime check (Fleet\Console): pinned
-     * like post(), no redirects (any answer below 500 counts as up), at most 1 kB read.
+     * The HTTP status of a public address (0 = no answer or not allowed) and, for https, the end of its certificate – the
+     * console's uptime check (Fleet\Console): pinned like post(), no redirects (any answer below 500 counts as up), at most 1 kB
+     * read. The end date is information only, read from the handshake that verification already accepted: verification stays on,
+     * and a certificate that fails it fails the request (no date then – the console keeps the one it knows).
      *
      * @param list<string> $urls
-     * @return list<int>
+     * @return list<array{status: int, certificate_ends: ?int}>
      */
-    public static function statuses(array $urls): array
+    public static function probe(array $urls): array
     {
         $pins = array_map(fn (string $url): ?array => self::allowedUrl($url, true) ? self::pin($url) : null, $urls);
         if (!function_exists('curl_multi_init')) {
-            return array_map(function (string $url, ?array $pin): int {
+            return array_map(function (string $url, ?array $pin): array {
                 if ($pin === null) {
-                    return 0;
+                    return ['status' => 0, 'certificate_ends' => null];
                 }
                 [$host, $port, $ip, $url] = $pin;
                 $parts = parse_url($url);
                 $target = $parts['scheme'] . '://' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip) . ':' . $port . ($parts['path'] ?? '/');
-                @file_get_contents($target, false, stream_context_create(['http' => ['timeout' => 10, 'ignore_errors' => true, 'follow_location' => 0, 'max_redirects' => 0,
+                $context = stream_context_create(['http' => ['timeout' => 10, 'ignore_errors' => true, 'follow_location' => 0, 'max_redirects' => 0,
                     'header' => 'Host: ' . $host . (isset($parts['port']) ? ':' . $port : '') . "\r\nUser-Agent: Talea-console/" . TALEA_VERSION . "\r\n"],
-                    'ssl' => ['peer_name' => $host, 'SNI_enabled' => true, 'verify_peer' => true, 'verify_peer_name' => true]]), 0, 1024);
+                    'ssl' => ['peer_name' => $host, 'SNI_enabled' => true, 'verify_peer' => true, 'verify_peer_name' => true, 'capture_peer_cert' => true]]);
+                @file_get_contents($target, false, $context, 0, 1024);
                 $status = 0;
                 foreach (http_get_last_response_headers() ?? [] as $line) {
                     if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
                         $status = (int) $m[1];
                     }
                 }
+                $certificate = stream_context_get_params($context)['options']['ssl']['peer_certificate'] ?? null;
+                $ends = null;
+                if ($certificate instanceof \OpenSSLCertificate && function_exists('openssl_x509_parse')) {
+                    $ends = (int) (openssl_x509_parse($certificate)['validTo_time_t'] ?? 0) ?: null;
+                }
 
-                return $status;
+                return ['status' => $status, 'certificate_ends' => $ends];
             }, $urls, $pins);
         }
         $multi = curl_multi_init();
         $handles = [];
-        $out = array_fill(0, count($urls), 0);
+        $out = array_fill(0, count($urls), ['status' => 0, 'certificate_ends' => null]);
         foreach ($urls as $i => $url) {
             if ($pins[$i] === null) {
                 continue;
@@ -199,6 +207,9 @@ final class Http
             curl_setopt_array($ch, [CURLOPT_RANGE => '0-1023',
                 CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_USERAGENT => 'Talea-console/' . TALEA_VERSION,
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP, CURLOPT_WRITEFUNCTION => fn ($ch, string $chunk): int => 0]); // the status is enough: stop at the first byte of the body
+            if (str_starts_with($target, 'https://')) {
+                curl_setopt($ch, CURLOPT_CERTINFO, true); // only reports the chain of the verified handshake; CURLOPT_SSL_VERIFYPEER and VERIFYHOST are never touched
+            }
             curl_multi_add_handle($multi, $ch);
             $handles[$i] = $ch;
         }
@@ -209,11 +220,34 @@ final class Http
             }
         } while ($running > 0 && $status === CURLM_OK);
         foreach ($handles as $i => $ch) {
-            $out[$i] = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $chain = curl_getinfo($ch, CURLINFO_CERTINFO);
+            $out[$i] = ['status' => (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE), 'certificate_ends' => is_array($chain) ? self::certificateEnd($chain) : null];
             curl_multi_remove_handle($multi, $ch);
         }
         curl_multi_close($multi);
 
         return $out;
+    }
+
+    /**
+     * The end of the leaf certificate (the first of the chain curl reports) as a timestamp; null when there is none or it cannot be read. Pure.
+     *
+     * @param list<array<string, mixed>> $chain curl's CURLINFO_CERTINFO: per certificate "Cert" (PEM) and "Expire date"
+     */
+    public static function certificateEnd(array $chain): ?int
+    {
+        $leaf = $chain[0] ?? null;
+        if (!is_array($leaf)) {
+            return null;
+        }
+        if (is_string($leaf['Cert'] ?? null) && function_exists('openssl_x509_parse')) {
+            $parsed = @openssl_x509_parse($leaf['Cert']);
+            if (is_array($parsed) && isset($parsed['validTo_time_t'])) {
+                return (int) $parsed['validTo_time_t'];
+            }
+        }
+        $time = is_string($leaf['Expire date'] ?? null) ? strtotime($leaf['Expire date']) : false; // "Jan 14 23:59:59 2027 GMT" or "2027-01-14 23:59:59 GMT"
+
+        return $time === false ? null : $time;
     }
 }

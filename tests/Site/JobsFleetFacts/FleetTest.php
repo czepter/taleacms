@@ -123,6 +123,7 @@ final class FleetTest extends SiteTestCase
         $id = self::$fleetId;
         $this->postAs($console, '/admin.php?module=fleet&action=check', [], '/admin.php?module=fleet');
         $this->sameValue('1', $console->value('SELECT up FROM tl_fleet_sites WHERE id = ?', [$id]), 'uptime: the console sees the site up');
+        $this->sameValue('1', $console->value('SELECT cert_expires IS NULL FROM tl_fleet_sites WHERE id = ?', [$id]), 'uptime: a plain http site has no certificate date');
         $console->exec("UPDATE tl_fleet_sites SET url = 'http://127.0.0.1:1', last_seen = NOW() - INTERVAL 30 HOUR, silent_reported = 0 WHERE id = ?", [$id]);
         $this->postAs($console, '/admin.php?module=fleet&action=check', [], '/admin.php?module=fleet');
         $this->postAs($console, '/admin.php?module=fleet&action=check', [], '/admin.php?module=fleet');
