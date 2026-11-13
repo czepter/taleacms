@@ -1436,10 +1436,18 @@ await step('collection list: only its own page is fetched and swapped (#331)', a
     const ul = document.createElement('ul'); ul.className = 'tl-collection-filters'; const a = document.createElement('a'); a.href = h; a.textContent = 'go';
     ul.append(document.createElement('li')); ul.firstChild.append(a); w.append(ul); document.body.prepend(w);
   }, href);
+  // the home page has no collection list, so the server leaves lists.js out: load it as a list page would have it, then prove it listens
+  if (!await page.locator('script[src*="/image/lists.js"]').count()) { await page.addScriptTag({ url: new URL('/image/lists.js', own.origin).href }); }
+  if (!await page.locator('script[src*="/image/lists.js"]').count()) { throw new Error('lists.js is not on the page'); }
+  const ownKinds = [];
+  page.on('request', (rq) => { if (ownList(new URL(rq.url()))) { ownKinds.push(rq.resourceType()); } });
   await plant(own.pathname + '?f-x331=own');
+  await page.evaluate(() => { window.__s331 = 1; }); // a full page load would clear it
   await page.click('[data-collection="x331"] a');
   await page.waitForSelector('#swapped331');
   if (new URL(page.url()).searchParams.get('f-x331') !== 'own') { throw new Error('the own filter link did not change the address'); }
+  if (await page.evaluate(() => window.__s331) !== 1) { throw new Error('the own filter link reloaded the page instead of swapping the list'); }
+  if (ownKinds.join() !== 'fetch') { throw new Error('the own list was requested as: ' + ownKinds.join()); }
   await plant('https://evil.example/p');
   await Promise.all([page.waitForURL('https://evil.example/p'), page.click('[data-collection="x331"] a')]);
   if (foreign.join() !== 'document') { throw new Error('a foreign list link was requested as: ' + foreign.join()); } // a fetch would be "fetch"
