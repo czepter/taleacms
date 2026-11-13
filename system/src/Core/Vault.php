@@ -93,7 +93,8 @@ final class Vault
     }
 
     /**
-     * Seals what is still stored in plain text on this site: the secret settings. Only with an install key. Idempotent.
+     * Seals what is still stored in plain text on this site: the secret settings, and the seeds of the authenticator app of the owner's
+     * accounts. Only with an install key. Idempotent.
      *
      * @return int how many values were sealed
      */
@@ -109,6 +110,10 @@ final class Vault
                 $settings->set((string) $name, (string) $value); // set() seals it
                 $sealed++;
             }
+        }
+        foreach ($db->all("SELECT user_id, totp_secret FROM {users} WHERE totp_secret <> '' AND totp_secret NOT LIKE 'sealed:%'") as $user) {
+            $db->update('users', ['totp_secret' => self::sealValue($settings, (string) $user['totp_secret'])], ['user_id' => $user['user_id']]);
+            $sealed++;
         }
 
         return $sealed;
@@ -144,6 +149,9 @@ final class Vault
             foreach ($row as $sealed) {
                 $unreadable += (int) ($sealed !== null && $sealed !== '' && Connectors::decrypt($settings, (string) $sealed) === null);
             }
+        }
+        foreach ($db->all("SELECT totp_secret FROM {users} WHERE totp_secret LIKE 'sealed:%'") as $user) {
+            $unreadable += (int) (self::openValue($settings, (string) $user['totp_secret']) === null);
         }
         $plain = 0;
         foreach (self::SETTINGS as $name) {

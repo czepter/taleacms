@@ -164,7 +164,7 @@ final class Account
                     }
                     [$codes, $json] = Totp::backupCodes();
                     // the confirming code is spent too: it cannot sign in a second time
-                    $db->update('users', ['totp_secret' => $secret, 'totp_backup_codes' => $json, 'totp_last_step' => $step], ['user_id' => $user['user_id']]);
+                    $db->update('users', ['totp_secret' => \Talea\Core\Vault::sealValue($app->settings(), $secret), 'totp_backup_codes' => $json, 'totp_last_step' => $step], ['user_id' => $user['user_id']]);
                     $app->session->remove('totp_new');
                     $app->auth()->forgetOtherDevices((int) $user['user_id']); // a remembered sign-in from before would skip the new code
                     ChangeLog::write($app, 'account', 'two_step_on');

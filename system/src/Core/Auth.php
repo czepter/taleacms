@@ -390,7 +390,7 @@ final class Auth
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_backup_codes'], $code);
-        $step = $user === null || $this->passkeyOnly($user) ? null : Totp::step($user['totp_secret'], $code); // a passkey-only account: backup codes and passkeys only
+        $step = $user === null || $this->passkeyOnly($user) ? null : Totp::step(Vault::openValue($this->settings(), (string) $user['totp_secret']) ?? '', $code); // a passkey-only account: backup codes and passkeys only; a seed that cannot be opened never passes
         if ($step !== null && !$this->claimCodeStep((int) $user['user_id'], $step)) {
             $step = null; // a code of a step this account already signed in with never passes again
         }

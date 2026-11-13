@@ -82,4 +82,30 @@ PHP);
         $this->assertPage('/admin.php?module=status', 200, 'cannot be read', message: 'System status says so');
         $this->assertStringStartsWith(Vault::PREFIX, $site->settingValue('ai_key'), 'the stored value is left alone');
     }
+
+    public function testTwoFactorStillSignsIn(): void
+    {
+        $site = $this->site();
+        $account = '/admin.php?action=account';
+        $admin = $site->admin();
+        $admin->post($account, ['_csrf' => $admin->get($account)->csrf(), 'op' => 'totp_start', 'current_password' => $site->password]);
+        $setup = $admin->get($account . '&tab=sign-in');
+        $this->assertSame(1, preg_match('/<code class="totp-key">([A-Z2-7 ]+)<\/code>/', $setup->body, $key));
+        $seed = str_replace(' ', '', $key[1]);
+        $code = trim($site->php('echo Talea\Core\Totp::code("' . $seed . '", intdiv(time(), 30));'));
+        $admin->post($account, ['_csrf' => $setup->csrf(), 'op' => 'totp_confirm', 'code' => $code]);
+
+        $stored = (string) $site->value("SELECT totp_secret FROM tl_users WHERE username = 'admin'");
+        $this->assertStringStartsWith(Vault::PREFIX, $stored, 'the seed is stored sealed');
+        $this->assertSame($seed, $this->opened($stored));
+
+        $site->exec("UPDATE tl_users SET totp_last_step = NULL WHERE username = 'admin'");
+        $browser = $site->client('second');
+        $csrf = $browser->get('/admin.php')->csrf();
+        $first = $browser->post('/admin.php', ['_csrf' => $csrf, 'username' => 'admin', 'password' => $site->password]);
+        $this->assertStringContainsString('name="code"', $first->body, 'the second step is asked for');
+        $next = trim($site->php('echo Talea\Core\Totp::code("' . $seed . '", intdiv(time(), 30) + 1);'));
+        $this->assertSame(302, $browser->post('/admin.php', ['_csrf' => $csrf, 'step' => 'code', 'code' => $next])->status, 'a code of the opened seed signs in');
+        $site->exec("UPDATE tl_users SET totp_secret = '', totp_backup_codes = NULL WHERE username = 'admin'");
+    }
 }

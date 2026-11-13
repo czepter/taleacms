@@ -44,6 +44,7 @@ final class SealedSecretsTest extends DatabaseTestCase
         $names = array_merge(Vault::SETTINGS, ['secret_key', 'extensions']);
         $this->db()->run('DELETE FROM {settings} WHERE name IN (' . implode(', ', array_fill(0, count($names), '?')) . ')', $names);
         $this->db()->run('DELETE FROM {connectors}');
+        $this->db()->run("DELETE FROM {users} WHERE username = 'seed-user'");
     }
 
     private function settings(): Settings
@@ -155,5 +156,22 @@ final class SealedSecretsTest extends DatabaseTestCase
         } finally {
             @unlink((string) Backup::path($file));
         }
+    }
+
+    public function testTotpSeedsAreSealedAndStillVerify(): void
+    {
+        $seed = 'JBSWY3DPEHPK3PXP';
+        $id = $this->db()->insert('users', ['username' => 'seed-user', 'password' => 'x', 'totp_secret' => $seed, 'admin' => 0, 'blocked' => 0]);
+        $this->assertSame(0, Vault::sealStored($this->db()), 'no install key: nothing is sealed');
+        putenv('TALEA_SECRET_KEY=' . self::SECRET);
+        $this->assertSame('ok', Vault::status($this->settings())[0], 'the status counts passwords and keys, not seeds, as "not encrypted yet"');
+        $this->assertSame(1, Vault::sealStored($this->db()));
+        $stored = (string) $this->db()->value('SELECT totp_secret FROM {users} WHERE user_id = ?', [$id]);
+        $this->assertStringStartsWith(Vault::PREFIX, $stored);
+        $this->assertNotNull(\Talea\Core\Totp::step((string) Vault::openValue($this->settings(), $stored), \Talea\Core\Totp::code($seed, intdiv(time(), 30))), 'the opened seed verifies a code');
+        $this->assertSame(0, Vault::sealStored($this->db()), 'sealed once');
+        putenv('TALEA_SECRET_KEY=' . self::OTHER);
+        $this->assertNull(Vault::openValue($this->settings(), $stored), 'another key opens nothing');
+        $this->assertSame('error', Vault::status($this->settings())[0]);
     }
 }
