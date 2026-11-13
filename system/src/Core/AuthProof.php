@@ -17,7 +17,8 @@ trait AuthProof
     /**
      * Confirms the signed-in person's current password for a sensitive step (3.3.3, N56). A wrong one counts like a wrong
      * sign-in: ten in a row lock the account for 15 minutes, while the person stays signed in. A locked account is not
-     * checked at all, so the right password is refused too. The password is taken as typed (N61).
+     * checked at all, so the right password is refused too – unless the browser is a known device of the account (lockedFor), so
+     * that strangers typing wrong passwords at the sign-in page cannot lock the signed-in person out of their confirmations. The password is taken as typed (N61).
      *
      * @param string $wrong the (untranslated) text for a wrong password
      * @return string|null null = confirmed, else the untranslated English reason
@@ -28,7 +29,7 @@ trait AuthProof
         if ($user === null) {
             return $wrong;
         }
-        if (self::isLocked($user)) {
+        if ($this->lockedFor($user)) {
             return self::CONFIRM_LOCKED;
         }
         if (self::matchingPassword($typed, (string) $user['password']) === null) {
@@ -137,7 +138,7 @@ trait AuthProof
         if ($user === null) {
             return 'The backup code is not correct.';
         }
-        if (self::isLocked($user)) {
+        if ($this->lockedFor($user)) {
             return self::CONFIRM_LOCKED;
         }
         $left = Totp::useBackupCode($user['totp_backup_codes'], $code);
@@ -174,7 +175,7 @@ trait AuthProof
 
     /**
      * "Confirm with your passkey", part 2: the signature of a key of the signed-in account, made by a device that checked its owner.
-     * A wrong one counts like a wrong password. Success is a proof of kind passkey in the session.
+     * A wrong one counts like a wrong password; the lock does not stop it, as a signature cannot be guessed. Success is a proof of kind passkey in the session.
      *
      * @param array<string, mixed> $response
      * @return string|null null = confirmed, else the untranslated reason
@@ -186,9 +187,6 @@ trait AuthProof
         $this->session->remove('proof_challenge'); // valid for one attempt
         if ($user === null) {
             return 'The sign-in has expired, please start again.';
-        }
-        if (self::isLocked($user)) {
-            return self::CONFIRM_LOCKED;
         }
         $key = $this->db->one('SELECT * FROM {user_passkeys} WHERE credential_hash = ? AND user_id = ?', [hash('sha256', Passkey::fromB64((string) ($response['id'] ?? ''))), $user['user_id']]);
         try {

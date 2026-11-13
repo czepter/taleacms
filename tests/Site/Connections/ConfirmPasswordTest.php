@@ -73,6 +73,17 @@ final class ConfirmPasswordTest extends SiteTestCase
         $site->exec("UPDATE tl_users SET locked_until = NULL, failed_logins = 0 WHERE username = 'confirmer'");
     }
 
+    public function testAnAccountLockedByStrangersStillConfirmsFromItsKnownDevice(): void
+    {
+        $site = $this->site();
+        $this->person();
+        $site->exec("UPDATE tl_user_devices SET failures = 0 WHERE user_id = (SELECT user_id FROM tl_users WHERE username = 'confirmer')"); // the earlier tests guessed from this browser
+        // ten wrong passwords typed at the public sign-in page lock the account (set directly: the per-address limit would stop the loop)
+        $site->exec("UPDATE tl_users SET locked_until = NOW() + INTERVAL 15 MINUTE, failed_logins = 10 WHERE username = 'confirmer'");
+        $this->assertMatchesRegularExpression('/talea_[a-f0-9]{48}/', $this->newToken($site->password), 'the signed-in browser is a known device: the right password confirms');
+        $site->exec("UPDATE tl_users SET locked_until = NULL, failed_logins = 0 WHERE username = 'confirmer'");
+    }
+
     public function testWrongPasswordInTheOAuthConsentCounts(): void
     {
         $site = $this->site();

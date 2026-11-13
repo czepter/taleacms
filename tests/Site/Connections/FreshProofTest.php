@@ -98,6 +98,19 @@ final class FreshProofTest extends SiteTestCase
         $this->assertStringContainsString('code=', $answer->redirect, 'the consent passes without the password');
     }
 
+    public function testALockedAccountStillConfirmsWithItsPasskey(): void
+    {
+        $site = $this->site();
+        $person = $this->person();
+        $page = $this->startConsent($person, 'lock');
+        $site->exec("UPDATE tl_users SET locked_until = NOW() + INTERVAL 15 MINUTE, failed_logins = 10 WHERE username = 'prover'");
+        [$status, $json] = $this->confirm($person, 0x05);
+        $this->assertSame([200, true], [$status, $json['ok'] ?? null], 'wrong sign-ins of strangers do not block a signature that cannot be guessed');
+        $answer = $person->post('/admin.php?action=oauth', ['_csrf' => $page->csrf(), 'request' => $page->field('request'), 'allow' => '1']);
+        $this->assertStringContainsString('code=', $answer->redirect);
+        $site->exec("UPDATE tl_users SET locked_until = NULL, failed_logins = 0 WHERE username = 'prover'");
+    }
+
     public function testProofEndpointWithoutPasskeys(): void
     {
         $site = $this->site();
