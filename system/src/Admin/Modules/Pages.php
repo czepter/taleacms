@@ -32,7 +32,7 @@ final class Pages extends Module
     protected function actionList(): Response
     {
         $status = $this->request->get('status');
-        $status = in_array($status, ['published', 'hidden', 'changes', 'trash'], true) ? $status : '';
+        $status = in_array($status, ['published', 'hidden', 'changes', 'layout', 'trash'], true) ? $status : '';
         $trash = $status === 'trash';
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
@@ -44,11 +44,12 @@ final class Pages extends Module
         }
         // the status tabs count within the language filter, before the search (docs/specs/admin-lists.md)
         $counts = $this->db->one('SELECT COUNT(*) AS total, SUM(CASE WHEN visible = TRUE THEN 1 ELSE 0 END) AS published, SUM(CASE WHEN visible = FALSE THEN 1 ELSE 0 END) AS hidden,'
-            . ' SUM(CASE WHEN build_draft IS NOT NULL THEN 1 ELSE 0 END) AS changes FROM {pages} WHERE deleted_at IS NULL' . ($column !== null ? ' AND language = ?' : ''), $column !== null ? [$column] : []) ?? [];
+            . ' SUM(CASE WHEN build_draft IS NOT NULL THEN 1 ELSE 0 END) AS changes, SUM(CASE WHEN layout_pending = TRUE THEN 1 ELSE 0 END) AS layout FROM {pages} WHERE deleted_at IS NULL' . ($column !== null ? ' AND language = ?' : ''), $column !== null ? [$column] : []) ?? [];
         $where[] = match ($status) {
             'published' => 'visible = TRUE',
             'hidden' => 'visible = FALSE',
             'changes' => 'build_draft IS NOT NULL',
+            'layout' => 'layout_pending = TRUE',
             default => 'TRUE',
         };
         // the Page check columns and their filter (good from 80, mid from 50, low below; none = no focus keyword, hidden = noindex)
@@ -94,7 +95,7 @@ final class Pages extends Module
             'seoEdit' => $seoEdit,
             'comments' => $trash ? [] : \Talea\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'),
-            'counts' => array_map('intval', $counts + ['total' => 0, 'published' => 0, 'hidden' => 0, 'changes' => 0]),
+            'counts' => array_map('intval', $counts + ['total' => 0, 'published' => 0, 'hidden' => 0, 'changes' => 0, 'layout' => 0]),
         ]);
     }
 
@@ -503,7 +504,7 @@ final class Pages extends Module
             return $this->back();
         }
         $action = $this->request->post('bulk');
-        if (!in_array($action, ['visible', 'hide', 'language', 'trash'], true)) {
+        if (!in_array($action, ['visible', 'hide', 'language', 'trash', 'layout_done'], true)) {
             return $this->back('Unknown action.', '', [], 'error');
         }
         $auth = $this->app->auth();
@@ -523,6 +524,12 @@ final class Pages extends Module
                 $clashes++;
                 continue;
             }
+            if ($action === 'layout_done') {
+                // ticking off changes nothing but the marker; an author may do it on a page they can see
+                $done += \Talea\Core\LayoutQueue::done($this->db, [$id]);
+                \Talea\Admin\ChangeLog::write($this->app, 'pages', 'layout done', mb_substr($page['title'], 0, 80));
+                continue;
+            }
             match ($action) {
                 'visible' => $this->db->update('pages', ['visible' => 1, 'publish_at' => null, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
                 'hide' => $this->db->update('pages', ['visible' => 0, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
@@ -537,11 +544,27 @@ final class Pages extends Module
         }
         $message = match ($action) {
             'visible' => t('Pages published: %d.', $done), 'hide' => t('Pages hidden: %d.', $done),
-            'language' => t('Pages moved to the language version: %d.', $done), default => t('Pages moved to the trash: %d.', $done),
+            'language' => t('Pages moved to the language version: %d.', $done), 'layout_done' => t('Pages ticked off as layout done: %d.', $done), default => t('Pages moved to the trash: %d.', $done),
         };
 
         return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission, or the home page).', $skipped) : '')
             . ($clashes > 0 ? ' ' . t('Skipped: %d (that language version already has the address).', $clashes) : ''), '', [], $done > 0 ? 'ok' : 'error');
+    }
+
+    /** "Layout done": the imported page's layout is rebuilt – the marker goes, the page itself stays as it is. */
+    protected function actionLayoutDone(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $page = $this->loadPage($this->idParam('page_id'));
+        if ($page === null) {
+            return $this->back('Page does not exist.', '', [], 'error');
+        }
+        \Talea\Core\LayoutQueue::done($this->db, [(int) $page['page_id']]);
+        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'layout done', mb_substr((string) $page['title'], 0, 80));
+
+        return $this->back('The page is ticked off – its layout is done.');
     }
 
     /** A builder page's settings live in Website mode's sidebar; a text page keeps its form (the text is edited there). */

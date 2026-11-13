@@ -42,7 +42,7 @@ final class ParityTest extends TestCase
                 'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
                 'duplicate' => 'admin: a copy of a page – Claude creates the page and saves the build', 'import' => 'admin: upload of a page export file',
                 'build_text' => 'admin: back from the builder to a text page', 'restore_version' => 'admin: text revisions of a text page', 'compare' => $readOnly,
-                'translations' => 'translation_status', 'bulk' => 'update_page'],
+                'translations' => 'translation_status', 'bulk' => 'update_page', 'layout_done' => 'layout_queue'],
             'news' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'compare' => $readOnly, 'versions' => $readOnly, 'search_json' => $readOnly,
                 'save' => 'update_news', 'save_text' => 'update_news', 'delete' => 'trash_news', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
                 'draft' => 'admin: autosave of the editor', 'duplicate' => 'admin: a copy of a news item – Claude creates a new one', 'links' => 'admin: link check runs on its own',

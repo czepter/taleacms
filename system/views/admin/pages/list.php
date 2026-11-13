@@ -7,10 +7,10 @@
  * @var string $csrf
  * @var list<array<string, mixed>> $pages
  * @var bool $trash     the trash is shown
- * @var string $status  '' | published | hidden | changes | trash
+ * @var string $status  '' | published | hidden | changes | layout | trash
  * @var string $search
  * @var int $inTrash    number of pages in the trash
- * @var array{total: int, published: int, hidden: int, changes: int} $counts
+ * @var array{total: int, published: int, hidden: int, changes: int, layout: int} $counts
  * @var array<int, int> $comments  unresolved comments from shared previews per page id (2.15)
  * @var list<string> $siteLanguages
  * @var string $language
@@ -44,7 +44,8 @@ echo $app->view->render('admin/list/head', [
 <?= $app->view->render('admin/list/toolbar', [
     'tabsLabel' => t('Pages'),
     'tabs' => [$tab('', t('All'), $counts['total']), $tab('published', t('Published'), $counts['published']), $tab('hidden', t('Hidden'), $counts['hidden']),
-        $tab('changes', t('Unpublished changes'), $counts['changes']), $tab('trash', t('Trash'), $inTrash)],
+        $tab('changes', t('Unpublished changes'), $counts['changes']),
+        ...($counts['layout'] > 0 || $status === 'layout' ? [$tab('layout', t('Layout not rebuilt'), $counts['layout'])] : []), $tab('trash', t('Trash'), $inTrash)],
     'action' => $app->url('admin.php'),
     'hidden' => ['module' => 'pages'] + ($status !== '' ? ['status' => $status] : []) + ($seoEdit ? ['seo_edit' => '1'] : []),
     'filters' => $trash ? '' : $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true])
@@ -107,6 +108,9 @@ echo $app->view->render('admin/list/head', [
     if ($s['build_draft'] !== null) {
         $notes[] = ['text' => t('Changes not published'), 'url' => $builder];
     }
+    if ($s['layout_pending']) {
+        $notes[] = ['text' => t('Layout not rebuilt yet'), 'url' => $builder];
+    }
     if ($s['publish_at'] && !$scheduled) {
         $notes[] = ['text' => t('from %s', format_date($s['publish_at'], true))];
     }
@@ -122,6 +126,7 @@ echo $app->view->render('admin/list/head', [
     $menu = [['url' => $settings, 'label' => t('Settings and SEO')], ['url' => $address, 'label' => t('View on the site'), 'external' => true],
         ['url' => $module->url('new', ['parent' => $s['public_id']]), 'label' => t('New page under this one'), 'icon' => 'subpage'],
         ['post' => $module->url('duplicate'), 'fields' => $fields, 'label' => t('Duplicate'), 'icon' => 'copy'],
+        ...($s['layout_pending'] ? [['post' => $module->url('layout_done'), 'fields' => $fields, 'label' => t('Layout done')]] : []),
         ...($hasBuild ? [['post' => $app->url('admin.php?module=page_templates&action=save'), 'fields' => $fields, 'label' => t('Save as template'), 'icon' => 'copy']] : []), '-',
         $isHome ? ['note' => t('The home page cannot be deleted.')]
             : ['post' => $module->url('delete'), 'fields' => $fields, 'label' => t('Move to trash'), 'confirm' => t('Move the page to the trash? It disappears from the site; you can restore it for 30 days.'), 'danger' => true]];
@@ -184,6 +189,7 @@ if ($siteLanguages !== []) {
 ?>
 <?= $app->view->render('admin/list/selection', ['form' => 'bulk', 'action' => $module->url('bulk'), 'csrf' => $csrf, 'extra' => $languageSelect, 'actions' => array_merge(
     [['value' => 'visible', 'label' => t('Publish'), 'kind' => 'primary'], ['value' => 'hide', 'label' => t('Hide')]],
+    $counts['layout'] > 0 ? [['value' => 'layout_done', 'label' => t('Layout done')]] : [],
     $siteLanguages !== [] ? [['value' => 'language', 'label' => t('Move to this language version')]] : [],
     [['value' => 'trash', 'label' => t('Move to trash'), 'kind' => 'danger', 'confirm' => t('Move the selected pages to the trash?')]],
 )]) ?>
