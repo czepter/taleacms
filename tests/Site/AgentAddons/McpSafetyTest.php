@@ -71,6 +71,10 @@ final class McpSafetyTest extends SiteTestCase
         $this->assertContains('text', $comments['comments'][0]['untrusted'] ?? []);
 
         $this->assertContains('referrers', $this->mcpData('get_stats')['untrusted'] ?? []);
+        $this->site()->exec("INSERT INTO tl_monthly_reports (public_id, month, data, created_at) VALUES (?, '2026-01', ?, NOW())", ['3f9c1b6e-5d2a-4c1b-9a7e-0b1c2d3e4f5a', json_encode(['referrers' => [['name' => 'evil.example', 'count' => 3]]])]);
+        $this->assertSame(['report'], $this->mcpData('get_monthly_report', ['month' => '2026-01'])['untrusted'] ?? null, 'the stored report holds the same visitor data as get_stats');
+        $this->site()->exec("UPDATE tl_enquiries SET category = 'sales', suggested_reply = 'Hello Eve' WHERE email = 'eve@example.com'");
+        $this->assertContains('draft_reply', $this->mcpData('list_enquiries')[0]['untrusted'] ?? [], 'a draft reply is derived from visitor text');
         $this->assertContains('not_found', $this->mcpData('list_redirects')['untrusted'] ?? []);
     }
 
