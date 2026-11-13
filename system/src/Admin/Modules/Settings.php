@@ -342,19 +342,22 @@ class Settings extends Module
             }
             $settings->set($key, $clean);
         }
+        // two refusals on the General tab are checked together: one must not let the other's change through unconfirmed
+        $refused = [];
         if ($tab === 'general' && (self::weakensTwoFactor($twoFactorBefore, $settings->get('require_2fa')) || ($passkeyOnlyBefore && !$settings->bool('passkey_only')))
             && ($refusal = $this->app->auth()->requireFresh($this->request)) !== null) {
             // making two-factor sign-in optional for more people, or turning passkey-only off for the site, needs a fresh proof (#332, #333)
             $settings->set('require_2fa', $twoFactorBefore);
             $settings->set('passkey_only', $passkeyOnlyBefore ? '1' : '0');
-
-            return $this->back(t('The other settings are saved, but sign-in was not weakened: %s', t($refusal)), '', $this->tabParams($tab), 'error');
+            $refused[] = t('The other settings are saved, but sign-in was not weakened: %s', t($refusal));
         }
         if (($fallbacks = \Talea\Core\SiteUrl::passkeyFallbacks($this->db, $urlBefore, $settings->get('site_url'))) > 0 && !$this->request->postBool('site_url_confirm')) {
             $settings->set('site_url', $urlBefore); // passkeys work only on the host they were registered for: confirm first
             $this->app->session->set('settings_invalid', ['tab' => $tab, 'fields' => ['site_url'], 'values' => ['site_url' => $this->request->post('site_url')]]);
-
-            return $this->back(t('The new address has another host name. Passkeys work only on the host they were registered for: %d account(s) would sign in with the password and the second step until they add a passkey again. Tick “Change the host name anyway” and save again.', $fallbacks), '', $this->tabParams($tab), 'error');
+            $refused[] = t('The new address has another host name. Passkeys work only on the host they were registered for: %d account(s) would sign in with the password and the second step until they add a passkey again. Tick “Change the host name anyway” and save again.', $fallbacks);
+        }
+        if ($refused !== []) {
+            return $this->back(implode(' ', $refused), '', $this->tabParams($tab), 'error');
         }
         \Talea\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'), typed: true);
         // a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;

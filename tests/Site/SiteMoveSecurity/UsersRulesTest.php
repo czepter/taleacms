@@ -173,6 +173,26 @@ final class UsersRulesTest extends SiteTestCase
         $site->exec("UPDATE tl_users SET totp_secret = '' WHERE username = 'admin'");
     }
 
+    public function testARefusedWeakeningDoesNotLetANewHostThroughUnconfirmed(): void
+    {
+        $site = $this->site();
+        $stale = $this->staleAdmin();
+        $base = $site->base;
+        $site->setting('site_url', $base);
+        $site->exec("UPDATE tl_users SET totp_secret = 'JBSWY3DPEHPK3PXP' WHERE username = 'admin'");
+        $site->setting('require_2fa', 'everyone');
+        $uid = (int) $site->value("SELECT user_id FROM tl_users WHERE username = 'admin'");
+        $site->exec("INSERT INTO tl_user_passkeys (public_id, user_id, name, credential_hash, credential_id, public_key, alg, sign_count, created_at, rp_id) VALUES ('" . \Talea\Core\Uuid::v4() . "', $uid, 'Key', '" . str_repeat('d', 64) . "', 'abc', 'pem', -7, 0, '" . date('Y-m-d H:i:s') . "', '" . \Talea\Core\Passkey::rpId($base) . "')");
+
+        $this->saveGeneral($stale, ['require_2fa' => '', 'site_url' => 'http://other-host.test']);
+        $this->assertSame('everyone', $site->settingValue('require_2fa'), 'the weakening is refused without proof');
+        $this->assertSame($base, $site->settingValue('site_url'), 'and the new host does not slip through without its confirmation');
+
+        $site->exec('DELETE FROM tl_user_passkeys');
+        $site->setting('require_2fa', '');
+        $site->exec("UPDATE tl_users SET totp_secret = '' WHERE username = 'admin'");
+    }
+
     /** A blocked person with a personal token and an OAuth token. */
     private function blockedWithTokens(string $username): void
     {
