@@ -474,7 +474,10 @@ be changed over the connection.
 **What a connection may do.** When you connect Claude (or create a token), you choose:
 
 - **Drafts only – you publish** (the default, recommended) – Claude builds pages, writes news drafts and prepares look
-  changes, and you publish them; it cannot change settings, redirects or anything else on the live site. Files it uploads wait
+  changes, and you publish them; it cannot change settings, redirects or anything else on the live site. It sends files
+  itself – downloading a file or a whole site from an address needs full access. Notes it writes in the notebook are
+  proposals: they are never pinned, **Waiting for you** lists them, and a note becomes yours when you save or pin it in the
+  administration (Claude treats a proposal as a suggestion until then). Files it uploads wait
   for your approval: you and your previews see them, visitors do not until you publish content that uses them or approve them
   in Media → Waiting for approval; files nobody approves are deleted after 30 days;
 - **Can also publish** – build, edit and publish, never beyond your role;
@@ -482,6 +485,14 @@ be changed over the connection.
 
 A form sent without a choice always gets drafts only. The consent screen stands on its own (no menu, no Publish bar).
 Existing connections keep the access they were given.
+
+**Two steps for e-mails and erasing.** Whatever sends an e-mail to people (booking answers, course registrations, a course
+cancellation, a newsletter, a form link sent by e-mail) or erases something for good (personal data, a file, a collection,
+an enquiry, an undone Claude session) takes two calls. The first answers with a short code and does nothing; Claude shows you
+exactly what would happen and asks. Only after your yes does it repeat the same call with the code, which works once, for ten
+minutes, on that connection and for exactly those arguments. A scheduled run never repeats such a call: it leaves it for you
+and reports the run as partly done. Text that visitors, colleagues or other sites wrote – enquiries, bookings, comments on
+drafts, the statistics' referrers – reaches Claude marked as such, so it is treated as data and never as an instruction.
 
 My account shows the access of every connected app and token. The **change log** marks every change Claude made with the
 name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).
@@ -497,7 +508,8 @@ over 48 hours with nothing to pick it up is marked in Ask AI, and System status 
 customers, words to use or avoid, house rules. Every connection gets them when it connects. A connection may change them
 too, so every change – in the admin or through Claude – goes to the change log with the whole text before and after, and
 **Home** tells the administrators until one of them has looked at the change in Settings → AI and pressed **I have checked
-the instructions**. Claude also offers ready-made
+the instructions**. The instructions of an applied industry blueprint reach every connection too, so applying or removing a
+blueprint that brings instructions raises the same notice. Claude also offers ready-made
 tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
 item, and a weekly review of the site. The longer ones are complete runbooks, from the first step to the hand-over:
 **launch a new site**, **move a site** here (WordPress, also a shop or a multilingual site, or any other platform),

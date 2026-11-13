@@ -181,6 +181,17 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   English; the recorded contract is `tools/contracts/mcp-tools.json`, the prompts (runbooks in `Mcp\Prompts`) `mcp-prompts.json` (`php tools/contracts.php`). Nothing over MCP may write outside
   content or run code or queries; PHP templates are never created or changed through MCP. A connection lists all tools or the **Essentials** set (`tool_set` on `api_tokens`/`oauth_codes`, chosen on the consent screen, kept by a refresh; personal tokens and existing connections default to all): the rest is reached through `find_tools` and three runners `run_read_tool` / `run_tool` / `run_destructive_tool` (`Mcp\Discovery::runner()` classifies every tool by `Catalog::access()`, `Catalog::SENDS` and `Catalog::OPEN_WORLD`; the inner call is a normal `tools/call`). Every admin action is in the `$parity` map of
   `tests/Unit/Mcp/ParityTest.php`: read-only, an MCP tool, or "admin: reason".
+- **MCP safety (#334):** text people outside the team wrote (visitors, preview-link commenters, other sites) is marked with
+  `Mcp\Untrusted::mark(keys)` – the result object gets `untrusted: [keys]`; every new tool that returns such text uses it
+  (read_old_page too). `Catalog::OPEN_WORLD` is the one list of tools that make the site fetch from outside (an add-on tool
+  declares `openWorld` in `Api::mcpTool`); `Catalog::fetchesUrl($name, $arguments)` says whether a call does (upload_* only with
+  a `url`, `Catalog::FETCH_ARGUMENTS`) and only full-access connections may (`Catalog::fetchRefusal`; `Catalog::allows` hides
+  the always-fetching ones). Tools that e-mail people or erase for good are in `Mcp\Confirmation::TOOLS`: `Mcp\Server` answers
+  the first acting call with `confirmation_required` and a code (HMAC of the site key over tool, user, connection, the canonical
+  arguments and 10 minutes), the same call with `confirmation` acts once (`ip_checks` type `mcp_confirm`); a connection with a
+  running scheduled run never gets one (`AgentSchedules::withhold`, the run becomes partial). A notebook note from a drafts-only
+  connection is a proposal (`notebook.proposal`) until a person saves it in the admin. The instructions notice watches
+  `ClaudeInstructions::watched()` – the owner's text and the applied blueprints' instructions.
 - **Files waiting for approval** (`Core\MediaStaging`): what a drafts-only Claude connection uploads waits outside the web root in
   `storage/staging/` (`media.staged_at`; the row keeps the public `media/…` path). A missing `/media/…` file reaches `index.php`, which
   shows a waiting file to signed-in users and draft previews only. It goes public once published content uses it (`promotePublished`
