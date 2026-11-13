@@ -11,6 +11,8 @@ use Talea\Builder\Context;
 use Talea\Builder\HtmlConverter;
 use Talea\Builder\Library;
 use Talea\Builder\Renderer;
+use Talea\Core\Html;
+use Talea\Core\WpContent;
 
 /** #331: "tl-" class names are Talea's own, and the collection list script fetches only its own page. */
 final class ReservedClassPrefixTest extends TestCase
@@ -103,5 +105,22 @@ final class ReservedClassPrefixTest extends TestCase
                 self::assertSame(0, preg_match('/"classes"\s*:\s*\[[^\]]*"tl-/', (string) file_get_contents($file)), basename($file));
             }
         }
+    }
+
+    public function testRichTextDropsReservedClasses(): void
+    {
+        self::assertSame(
+            ['card', '', 'gallery', ' a  b ', 'card large', 'atl-x tl_x tlx'],
+            [Html::textClasses('tl-collection-pages card'), Html::textClasses('TL-X Tl-y'), Html::textClasses('gallery'), Html::textClasses(' a  b '), Html::textClasses("card\ttl-button\nlarge"), Html::textClasses('atl-x tl_x tlx')],
+        );
+        self::assertSame('<p class="card"><a href="https://example.com/x">x</a></p>', Html::safe('<p class="tl-collection-pages card"><a class="TL-Button" href="https://example.com/x">x</a></p>'));
+        self::assertSame('<div><p id="price-list">t</p></div>', Html::safe('<div class="tl-locator-list"><p id="price-list" class="tl-x">t</p></div>'));
+        $figure = '<figure class="gallery"><img src="/media/a.jpg" alt="A" data-id="12"></figure>';
+        self::assertSame($figure, Html::safe($figure));
+        // the builder and collection path (not Html::safe) keeps no tl- class either
+        self::assertStringNotContainsString('tl-', WpContent::safeHtml('<p class="tl-collection-filters">x</p><figure class="tl-gallery gallery"><img src="/media/a.jpg" alt=""></figure>'));
+        // the editor writes no tl- class into a text: if it ever does, textClasses needs an allow-list
+        preg_match_all('/(?<![a-z0-9_-])tl-[a-z0-9-]+/', (string) file_get_contents(TALEA_ROOT . '/image/editor.js'), $m);
+        self::assertSame([], $m[0]);
     }
 }
