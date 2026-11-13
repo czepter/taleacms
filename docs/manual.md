@@ -176,6 +176,7 @@ admin screen shows a bar with what it changes and three buttons:
 - **Discard** – the published look stays.
 
 A brand-new shared class applies at once – it changes nothing that is already published, and new pages need it.
+Class names starting with `tl-` belong to Talea's own elements and cannot be used for shared classes or on elements.
 
 ## 4. Site parts: header, footer, wrappers, pop-ups
 

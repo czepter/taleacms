@@ -81,7 +81,9 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   never `!important`.
 - Dark mode: `<html data-dark>` by the setting `dark_mode`; CSS `@media (prefers-color-scheme: dark) { :root[data-dark] { … } }`.
 - Shared interactive pieces (gallery, photo viewer, video, outline, share, FAQ, edit-in-place) have style and script in
-  `image/web.css` / `image/web.js` (added by `Seo::head()`); rules are in `:where()` so that a template overrides them.
+  `image/web.css` / `image/web.js` (added by `Seo::head()`); rules are in `:where()` so that a template overrides them. Collection lists
+  (filters and pages swapped without a reload) have `image/lists.js`, kept by `PageFrame` only on a page with a list. A script that
+  fetches markup and puts it into the page fetches only its own page (`ownPage` in `image/lists.js`: same origin and path, an HTML answer from there).
 - **Right to left** (Arabic, `ar`): `Language::isRtl()/dir()/dirAttribute()` give `<html dir>` per page language; site CSS uses logical properties, rules they cannot say
   live in `Element::rtlCss()` (added by `Renderer::css` only on RTL pages); `image/web.js` follows `document.documentElement.dir`; the admin stays LTR (`bdi()` isolates typed
   values in lists, content fields get `dir`); split lines with `\R/u`, never byte-wise. `slugify()` transliterates Arabic; a title with nothing to transliterate gets `Slug::fromId` (`page-12`).
@@ -114,7 +116,10 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **Element** = a class in `Builder\Elements\` (extends `Element`, listed in `Build::ELEMENTS`): content fields (`properties()`),
   allowed tags, base CSS in layer `builder` through `:where()`. **Style** (`Builder\Style::PROPERTIES`) has the states
   `base`/`tablet` (≤1023 px)/`mobile` (≤767 px)/`hover`; values are tokens or safe free values. A class's own CSS goes through
-  `Style::customCss()` (no `url()`, blocks or `@`).
+  `Style::customCss()` (no `url()`, blocks or `@`). Class names starting with `tl-` are Talea's own (the elements' markup, the hooks of
+  the site's scripts): `Build::CLASS_PATTERN` refuses them as user classes (editor, class manager, MCP, imports, with
+  `Build::RESERVED_CLASS_NOTE`), `Renderer` drops them from a stored build (`Build::userClasses`) and `Html::safe` from rich text
+  (`Html::textClasses`).
 - **Publishing** (`Builder\Publisher`, also from MCP): the previous version goes to `build_revisions` (20 per page or part), the content
   without layout (`Build::asText`) is stored in `text` for search, llms.txt, the API and the return to text. The draft preview is
   `?build=draft` (needs the Pages right), `&editor=1` adds `data-tl-id`. A signed preview link (`Core\Preview`, HMAC, one target,
