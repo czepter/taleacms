@@ -24,7 +24,7 @@ final class Account
     private const array OP_TABS = [
         'profile' => 'details', 'password' => 'password', 'remember_end' => 'password',
         'token_new' => 'claude', 'token_delete' => 'claude', 'tool_set' => 'claude', 'app_disconnect' => 'claude',
-        'totp_start' => 'sign-in', 'totp_confirm' => 'sign-in', 'totp_off' => 'sign-in', 'passkey_delete' => 'sign-in',
+        'totp_start' => 'sign-in', 'totp_confirm' => 'sign-in', 'totp_off' => 'sign-in', 'passkey_delete' => 'sign-in', 'passkey_only' => 'sign-in',
     ];
 
     public function __construct(private readonly Kernel $kernel)
@@ -63,7 +63,7 @@ final class Account
                     $emailChanged = $email !== (string) $user['email'];
                     // the e-mail is where a password reset goes: changing it needs the current password, like a new password
                     // does – a stolen session alone must not take the account over (3.3.3, N56)
-                    if ($emailChanged && ($refusal = $app->auth()->confirmPassword($r->postRaw('current_password'), 'Enter your current password to change the e-mail address. Nothing was saved.')) !== null) {
+                    if ($emailChanged && ($refusal = $this->refusal($app->auth()->confirmOwn($r), 'Enter your current password to change the e-mail address. Nothing was saved.')) !== null) {
                         $message = ['error', $refusal];
                         break;
                     }
@@ -80,7 +80,7 @@ final class Account
                     break;
                 case 'password':
                     $newItems = (string) ($_POST['new_password'] ?? '');
-                    $refusal = $app->auth()->confirmPassword($r->postRaw('current_password'));
+                    $refusal = $app->auth()->confirmOwn($r);
                     $message = match (true) {
                         $refusal !== null => ['error', $refusal],
                         mb_strlen($newItems) < 10 => ['error', 'The new password must be at least 10 characters long.'],
@@ -107,7 +107,7 @@ final class Account
                         break;
                     }
                     // a token works without the person present, possibly for good: like a new password, it needs the current one (N56)
-                    if (($refusal = $app->auth()->confirmPassword($r->postRaw('current_password'))) !== null) {
+                    if (($refusal = $app->auth()->confirmOwn($r)) !== null) {
                         $message = ['error', $refusal];
                         break;
                     }
@@ -149,7 +149,7 @@ final class Account
                     break;
                 case 'totp_start':
                     // an attacker's secret on the account would be the second factor: the key appears only after the password (N56)
-                    if (($refusal = $app->auth()->confirmPassword($r->postRaw('current_password'))) !== null) {
+                    if (($refusal = $app->auth()->confirmOwn($r)) !== null) {
                         $message = ['error', $refusal];
                         break;
                     }
@@ -175,7 +175,7 @@ final class Account
                     return $this->key($r->post('op') === 'passkey_save', $user);
                 case 'passkey_delete':
                     // the last key may be the whole second factor: a stolen session alone must not take it away (as totp_off)
-                    if (($refusal = $app->auth()->confirmPassword($r->postRaw('current_password'), 'Enter the correct password to remove a passkey.')) !== null) {
+                    if (($refusal = $this->refusal($app->auth()->confirmOwn($r), 'Enter the correct password to remove a passkey.')) !== null) {
                         $message = ['error', $refusal];
                         break;
                     }
@@ -190,13 +190,27 @@ final class Account
                         $message = ['ok', 'The passkey has been removed. Two-factor sign-in is turned off.'];
                     }
                     break;
+                case 'passkey_only':
+                    // the account signs in only with a passkey (or password plus passkey / backup code) once it has one for this site
+                    if (($refusal = $app->auth()->confirmOwn($r)) !== null) {
+                        $message = ['error', $refusal];
+                        break;
+                    }
+                    $on = $r->postBool('passkey_only');
+                    $db->update('users', ['passkey_only' => (int) $on], ['user_id' => $user['user_id']]);
+                    if ($on) {
+                        $app->auth()->forgetOtherDevices((int) $user['user_id']); // a remembered sign-in from before would skip the passkey
+                    }
+                    ChangeLog::write($app, 'account', $on ? 'passkey_only_on' : 'passkey_only_off');
+                    $message = ['ok', $on ? 'Passkey-only sign-in is on.' : 'Passkey-only sign-in is off.'];
+                    break;
                 case 'remember_end':
                     $app->auth()->forgetOtherDevices((int) $user['user_id']);
                     ChangeLog::write($app, 'account', 'remembered_ended');
                     $message = ['ok', 'Stay signed in has ended on all other devices.'];
                     break;
                 case 'totp_off':
-                    if (($refusal = $app->auth()->confirmPassword($r->postRaw('current_password'), 'Enter the correct password to turn it off.')) !== null) {
+                    if (($refusal = $this->refusal($app->auth()->confirmOwn($r), 'Enter the correct password to turn it off.')) !== null) {
                         $message = ['error', $refusal];
                         break;
                     }
@@ -216,6 +230,12 @@ final class Account
         }
 
         return $this->page($tab, ['newSecret' => (string) $app->session->get('totp_new', '')] + $data);
+    }
+
+    /** The reason a confirmation was refused, with this operation's own text for the plain "password is not correct". */
+    private function refusal(?string $reason, string $opText): ?string
+    {
+        return $reason === 'The current password is not correct.' ? $opText : $reason;
     }
 
     /** A known screen of My account, else the first; the AI connection only while its extension is on. */
@@ -239,7 +259,7 @@ final class Account
         $app = $this->kernel->app;
         $url = $app->settings()->get('site_url') ?: $app->request->origin();
         if (!$save) {
-            if (($refusal = $app->auth()->confirmPassword($app->request->postRaw('current_password'), 'Enter your current password to add a passkey.')) !== null) {
+            if (($refusal = $this->refusal($app->auth()->confirmOwn($app->request), 'Enter your current password to add a passkey.')) !== null) {
                 return Response::json(['error' => t($refusal)], 403);
             }
             $challenge = Passkey::challenge();
@@ -320,6 +340,9 @@ final class Account
             'codesLeft' => count((array) json_decode((string) $user['totp_backup_codes'], true)),
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),
             'keys' => $app->auth()->accountKeys((int) $user['user_id']),
+            // passkey-only sign-in (#333): in force for this account, chosen by it, asked by the site, and how many passkeys work on this site's host
+            'passkeyOnly' => $app->auth()->passkeyOnly($user), 'passkeyOnlyWanted' => !empty($user['passkey_only']), 'siteRequires' => $app->settings()->get('passkey_only') === '1',
+            'workingKeys' => count($app->auth()->workingKeys((int) $user['user_id'])),
             'remembered' => $app->auth()->rememberedElsewhere((int) $user['user_id']),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokens} WHERE user_id = ? AND kind = 'token' ORDER BY token_id DESC", [$user['user_id']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token

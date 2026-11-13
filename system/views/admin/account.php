@@ -59,8 +59,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <dialog class="confirmation reauth" id="email-confirm" data-reauth="email" aria-labelledby="email-confirm-title" aria-describedby="email-confirm-text">
 	<h2 id="email-confirm-title"><?= e(t('Change your e-mail address')) ?></h2>
 	<p class="reauth-text" id="email-confirm-text"><?= str_replace('%s', '<strong data-reauth-value></strong>', e(t('Password resets will go to %s from now on, and the old address gets a notice.'))) ?></p>
-	<label for="email-password"><?= e(t('Current password')) ?></label>
-	<input class="textfield" type="password" id="email-password" name="current_password" autocomplete="current-password" data-reauth-input>
+	<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'email']) ?>
 	<div><button class="btn" type="submit"><?= e(t('Change e-mail')) ?></button> <button class="navigation" type="button" commandfor="email-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
 </dialog>
 </form>
@@ -70,7 +69,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <form class="form" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?><input type="hidden" name="op" value="password">
 <fieldset><legend><?= e(t('Change password')) ?></legend>
-<div class="row"><label for="current-password"><?= e(t('Current password')) ?></label><div><input class="textfield" type="password" id="current-password" name="current_password" size="30" autocomplete="current-password" required></div></div>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'current']) ?>
 <div class="row"><label for="new_password"><?= e(t('New password')) ?></label><div><input class="textfield" type="password" id="new_password" name="new_password" size="30" minlength="10" autocomplete="new-password" required><span class="help"><?= e(t('At least 10 characters.')) ?></span></div></div>
 <div class="row"><label for="new_password_again"><?= e(t('New password again')) ?></label><div><input class="textfield" type="password" id="new_password_again" name="new_password_again" size="30" autocomplete="new-password" required></div></div>
 <?php if ($tokens !== []): ?>
@@ -102,7 +101,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <?php if ($username['totp_secret'] !== ''): ?>
 <p><span class="badge badge-published"><?= e(t('on')) ?></span> <?= e(t('When signing in you enter a code from the app in addition to your password. Backup codes left: %d.', $codesLeft)) ?></p>
 <input type="hidden" name="op" value="totp_off">
-<div class="row"><label for="off-password"><?= e(t('Password to confirm')) ?></label><div><input class="textfield" type="password" id="off-password" name="current_password" size="30" autocomplete="current-password" required></div></div>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'off']) ?>
 <p class="buttons"><button class="navigation" type="submit"><?= e(t($keys !== [] ? 'Turn off the code from the app' : 'Turn off two-factor sign-in')) ?></button></p>
 <?php elseif ($newSecret !== ''): ?>
 <input type="hidden" name="op" value="totp_confirm">
@@ -126,8 +125,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <dialog class="confirmation reauth" id="start-confirm" data-reauth="" aria-labelledby="start-confirm-title" aria-describedby="start-confirm-text">
 	<h2 id="start-confirm-title"><?= e(t('Turn on two-factor sign-in')) ?></h2>
 	<p class="reauth-text" id="start-confirm-text"><?= e(t('This starts the setup of an authenticator app. Confirm with the current password.')) ?></p>
-	<label for="start-password"><?= e(t('Current password')) ?></label>
-	<input class="textfield" type="password" id="start-password" name="current_password" autocomplete="current-password" data-reauth-input>
+	<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'start']) ?>
 	<div><button class="btn" type="submit"><?= e(t('Turn on two-factor sign-in')) ?></button> <button class="navigation" type="button" commandfor="start-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
 </dialog>
 <?php endif ?>
@@ -159,12 +157,30 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <input type="hidden" name="op" value="passkey_delete">
 <?php endif ?>
 <div class="row"><label for="passkey-name"><?= e(t('Device name')) ?></label><div><input class="textfield" type="text" id="passkey-name" name="name" size="30" maxlength="80" placeholder="<?= e(t('e.g. MacBook, phone')) ?>"></div></div>
-<div class="row"><label for="passkey-password"><?= e(t('Current password')) ?></label><div><input class="textfield" type="password" id="passkey-password" name="current_password" size="30" autocomplete="current-password" data-passkey-password><span class="help"><?= e(t('Needed to add or remove a passkey.')) ?></span></div></div>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'passkey', 'passkeyAdd' => true, 'help' => t('Needed to add or remove a passkey.')]) ?>
 <p class="buttons"><button class="navigation" type="button" data-passkey-add><?= e(t('Add a passkey from this device')) ?></button></p>
 <p class="notice notice-error" data-passkey-error hidden role="alert"></p>
 <p class="help" data-passkey-unsupported hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
 </fieldset>
 </form>
+
+<?php if ($keys !== []): ?>
+<form class="form" method="post" action="<?= $action ?>" autocomplete="off">
+<?= $csrf ?><input type="hidden" name="op" value="passkey_only">
+<fieldset><legend><?= e(t('Passkey-only sign-in')) ?></legend>
+<div class="row"><span class="caption"></span><div class="options"><label><input type="checkbox" name="passkey_only" value="1"<?= $passkeyOnlyWanted ? ' checked' : '' ?>> <?= e(t('Sign in with a passkey only')) ?></label>
+	<span class="help"><?= e(t('Your password alone or with the app code no longer signs you in: you sign in with a passkey, or with your password and a passkey or a backup code. It applies only while you have a passkey for this site.')) ?></span></div></div>
+<?php if ($siteRequires): ?>
+<p class="help"><?= e(t('The site requires passkey-only sign-in for every account that has a passkey.')) ?></p>
+<?php endif ?>
+<?php if ($passkeyOnlyWanted && $workingKeys === 0): ?>
+<p class="help"><?= e(t('Not in force yet: add a passkey for this site.')) ?></p>
+<?php endif ?>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'only']) ?>
+<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"></p>
+</fieldset>
+</form>
+<?php endif ?>
 <script src="<?= e($app->url('image/passkeys.js')) ?>?v=<?= e(TALEA_VERSION) ?>" defer></script>
 <?php endif ?>
 
@@ -219,8 +235,7 @@ $toolSetSwitch = fn (string $set, string $target): string => '<button class="nav
 <dialog class="confirmation reauth" id="token-confirm" data-reauth="" aria-labelledby="token-confirm-title" aria-describedby="token-confirm-text">
 	<h2 id="token-confirm-title"><?= e(t('Create a token')) ?></h2>
 	<p class="reauth-text" id="token-confirm-text"><?= e(t('A token gives a connection lasting access to this site. Confirm with the current password.')) ?></p>
-	<label for="token-password"><?= e(t('Current password')) ?></label>
-	<input class="textfield" type="password" id="token-password" name="current_password" autocomplete="current-password" data-reauth-input>
+	<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'token']) ?>
 	<div><button class="btn" type="submit" name="op" value="token_new"><?= e(t('Create token')) ?></button> <button class="navigation" type="button" commandfor="token-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
 </dialog>
 </fieldset>

@@ -88,6 +88,11 @@ trait AuthProof
      */
     public function requireFresh(Request $request): ?string
     {
+        $user = $this->user();
+        if ($user !== null && $this->passkeyOnly($user)) {
+            // a passkey-only account never proves itself with the password: a passkey, a backup code, or the operator's handoff
+            return $this->hasFreshProof(['passkey', 'backup', 'handoff']) ? null : $this->confirmBackupOrAsk($request);
+        }
         if ($this->hasFreshProof(self::PROOF_KINDS)) {
             return null;
         }
@@ -97,8 +102,9 @@ trait AuthProof
     }
 
     /**
-     * A change to the person's own lasting access (a Claude connection): a passkey or backup code confirmed in the last ten minutes, or
-     * the password typed now. A sign-in with the password alone does not count: the password is asked every time.
+     * A change to the person's own lasting access (a Claude connection, a passkey, two-factor sign-in): a passkey or backup code confirmed
+     * in the last ten minutes, or the password typed now. A sign-in with the password alone does not count: the password is asked every
+     * time. A passkey-only account is never asked for the password: a passkey or a backup code.
      *
      * @return string|null null = proven, else the untranslated reason
      */
@@ -107,9 +113,45 @@ trait AuthProof
         if ($this->hasFreshProof(['passkey', 'backup'])) {
             return null;
         }
+        $user = $this->user();
+        if ($user !== null && $this->passkeyOnly($user)) {
+            return $this->confirmBackupOrAsk($request);
+        }
         $typed = $request->postRaw('current_password');
 
         return $typed === '' ? 'The current password is not correct.' : $this->confirmPassword($typed);
+    }
+
+    /** A passkey-only account without a fresh proof: the backup code it typed, else the request to confirm. @return string|null null = confirmed */
+    private function confirmBackupOrAsk(Request $request): ?string
+    {
+        $code = $request->post('backup_code');
+
+        return $code === '' ? 'Confirm with your passkey or a backup code.' : $this->confirmBackupCode($code);
+    }
+
+    /** A backup code typed to confirm a step: spent when it is right, counted like a wrong sign-in when it is not. @return string|null null = confirmed */
+    private function confirmBackupCode(string $code): ?string
+    {
+        $user = $this->user();
+        if ($user === null) {
+            return 'The backup code is not correct.';
+        }
+        if (self::isLocked($user)) {
+            return self::CONFIRM_LOCKED;
+        }
+        $left = Totp::useBackupCode($user['totp_backup_codes'], $code);
+        if ($left === null) {
+            $this->countError($user);
+            $this->countDeviceFailure($user);
+
+            return 'The backup code is not correct.';
+        }
+        $this->db->update('users', ['totp_backup_codes' => $left], ['user_id' => $user['user_id']]);
+        $this->user['totp_backup_codes'] = $left;
+        $this->recordProof('backup', (int) $user['user_id']);
+
+        return null;
     }
 
     /**

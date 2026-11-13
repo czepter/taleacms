@@ -98,9 +98,9 @@
 			showError('');
 			button.disabled = true;
 
-			// adding a passkey needs the current password (3.3.3): the server issues the challenge only with it
-			var password = formEl.querySelector('[data-passkey-password]');
-			deliver(register ? { op: 'passkey_options', current_password: password ? password.value : '' } : { step: 'passkey_options' }).then(function (m) {
+			// adding a passkey needs the current password (3.3.3), or for a passkey-only account a backup code: the server issues the challenge only with it
+			var password = formEl.querySelector('[data-passkey-password]'), backup = formEl.querySelector('[data-passkey-backup]');
+			deliver(register ? { op: 'passkey_options', current_password: password ? password.value : '', backup_code: backup ? backup.value : '' } : { step: 'passkey_options' }).then(function (m) {
 				m.challenge = toBytes(m.challenge);
 				if (register) {
 					m.user.id = toBytes(m.user.id);

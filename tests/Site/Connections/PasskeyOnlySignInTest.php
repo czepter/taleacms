@@ -40,7 +40,7 @@ final class PasskeyOnlySignInTest extends SiteTestCase
         $site->exec('DELETE FROM tl_user_devices');
         $site->setting('passkey_only', '0');
         $site->exec('UPDATE tl_users SET totp_secret = ?, totp_backup_codes = ?, passkey_only = ?, failed_logins = 0, locked_until = NULL, totp_last_step = NULL WHERE username = ?',
-            [in_array('app', $has, true) ? self::SECRET : '', in_array('backup', $has, true) ? json_encode([hash('sha256', self::BACKUP)]) : null, in_array('only', $has, true) ? 1 : 0, 'author']);
+            [in_array('app', $has, true) ? self::SECRET : '', in_array('backup', $has, true) ? json_encode([hash('sha256', self::BACKUP), hash('sha256', 'bbbbb-22222'), hash('sha256', 'ccccc-33333')]) : null, in_array('only', $has, true) ? 1 : 0, 'author']);
         $key = null;
         if (in_array('key', $has, true)) {
             $key = $this->registerKey('author', '7c3b4d5e-6f70-4182-9c9d-1e2f3a4b5c6d');
@@ -160,5 +160,87 @@ final class PasskeyOnlySignInTest extends SiteTestCase
         [$browser, , $first] = $this->passwordStep();
         $this->assertSame(302, $first->status, 'no second factor at all: the password signs in');
         $this->assertTrue($this->signedIn($browser));
+    }
+
+    private const string ACCOUNT = '/admin.php?action=account';
+
+    /** A browser signed in as "author" with its key, whose session was then lost: "stay signed in" restores it with no proof recorded. */
+    private function staleSession(\OpenSSLAsymmetricKey $key, string $id): Http
+    {
+        $browser = $this->site()->client('author');
+        $this->assertSame(200, $this->signInWithKey($browser, $key, $id, true)->status);
+        $browser->dropCookie('talea');
+        $this->assertTrue($this->signedIn($browser), 'the sign-in is restored');
+
+        return $browser;
+    }
+
+    private function newToken(Http $browser, array $proof): string
+    {
+        $csrf = (string) ($browser->get('/admin.php?action=token')->json()['csrf'] ?? '');
+
+        return $browser->post(self::ACCOUNT, $proof + ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'T', 'access' => 'drafts', 'lifetime' => '30'])->body;
+    }
+
+    private function tokenCount(): int
+    {
+        return (int) $this->site()->value("SELECT COUNT(*) FROM tl_api_tokens t JOIN tl_users u ON u.user_id = t.user_id WHERE u.username = 'author' AND t.kind = 'token'");
+    }
+
+    private function backupCodesLeft(): int
+    {
+        return count((array) json_decode((string) $this->site()->value("SELECT totp_backup_codes FROM tl_users WHERE username = 'author'"), true));
+    }
+
+    public function testAPasskeyOnlyAccountNeverConfirmsWithThePassword(): void
+    {
+        [$key, $id] = $this->author(['app', 'key', 'backup', 'only']);
+        $site = $this->site();
+
+        // a sign-in with the password and a backup code is a fresh proof of kind backup
+        [$browser, $csrf] = $this->passwordStep();
+        $browser->post('/admin.php', ['_csrf' => $csrf, 'step' => 'code', 'code' => self::BACKUP]);
+        $this->assertMatchesRegularExpression('/talea_[a-f0-9]{48}/', $this->newToken($browser, []), 'a fresh backup-code sign-in confirms without anything typed');
+        $this->assertSame(1, $this->tokenCount());
+
+        $stale = $this->staleSession($key, $id);
+        $answer = $this->newToken($stale, ['current_password' => $site->password]);
+        $this->assertDoesNotMatchRegularExpression('/talea_[a-f0-9]{48}/', $answer);
+        $this->assertSame(1, $this->tokenCount(), 'the password confirms nothing for a passkey-only account');
+        $this->assertStringContainsString('Confirm with your passkey or a backup code.', $stale->get(self::ACCOUNT . '&tab=claude')->body);
+
+        $this->assertDoesNotMatchRegularExpression('/talea_[a-f0-9]{48}/', $this->newToken($stale, ['backup_code' => 'wrong-wrong']));
+        $left = $this->backupCodesLeft();
+        $this->assertMatchesRegularExpression('/talea_[a-f0-9]{48}/', $this->newToken($stale, ['backup_code' => 'bbbbb-22222']), 'a backup code confirms');
+        $this->assertSame($left - 1, $this->backupCodesLeft(), 'and is spent');
+
+        $stale = $this->staleSession($key, $id);
+        $csrf = (string) ($stale->get('/admin.php?action=token')->json()['csrf'] ?? '');
+        $options = $stale->post('/admin.php?action=proof', ['_csrf' => $csrf, 'step' => 'options'])->json();
+        $this->assertSame(200, $stale->post('/admin.php?action=proof', ['_csrf' => $csrf, 'step' => 'verify', 'answer' => $this->keyAnswer($key, $id, (string) $options['challenge'], 0x05)])->status);
+        $this->assertMatchesRegularExpression('/talea_[a-f0-9]{48}/', $this->newToken($stale, []), 'a passkey confirmation counts');
+    }
+
+    public function testTheAccountSwitch(): void
+    {
+        [$key, $id] = $this->author(['app', 'key', 'backup']);
+        $site = $this->site();
+        $set = function (Http $browser, array $fields): void {
+            $browser->post(self::ACCOUNT, $fields + ['_csrf' => (string) ($browser->get('/admin.php?action=token')->json()['csrf'] ?? ''), 'op' => 'passkey_only']);
+        };
+        $flag = fn (): string => (string) $site->value("SELECT passkey_only FROM tl_users WHERE username = 'author'");
+
+        $stale = $this->staleSession($key, $id);
+        $set($stale, ['passkey_only' => '1']);
+        $this->assertSame('0', $flag(), 'nothing is saved without a confirmation');
+        $set($stale, ['passkey_only' => '1', 'current_password' => $site->password]);
+        $this->assertSame('1', $flag(), 'a normal account turns it on with its password');
+
+        $stale = $this->staleSession($key, $id);
+        $set($stale, ['passkey_only' => '', 'current_password' => $site->password]);
+        $this->assertSame('1', $flag(), 'now the password no longer confirms');
+        $set($stale, ['passkey_only' => '', 'backup_code' => self::BACKUP]);
+        $this->assertSame('0', $flag(), 'a backup code turns it off');
+        $this->assertStringContainsString('Passkey-only sign-in', $stale->get(self::ACCOUNT . '&tab=sign-in')->body);
     }
 }
