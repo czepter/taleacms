@@ -68,7 +68,7 @@ final class SecurityReleaseTest extends TestCase
     {
         // every data-* attribute a script on the public page mentions must be refused as a custom attribute – a new hook in web.js fails here until it is reserved
         $frontScripts = ['image/web.js' => (string) file_get_contents(TALEA_ROOT . '/image/web.js'), 'image/vitals.js' => (string) file_get_contents(TALEA_ROOT . '/image/vitals.js'),
-            'image/forms.js' => (string) file_get_contents(TALEA_ROOT . '/image/forms.js')];
+            'image/forms.js' => (string) file_get_contents(TALEA_ROOT . '/image/forms.js'), 'image/lists.js' => (string) file_get_contents(TALEA_ROOT . '/image/lists.js')];
         foreach (glob(TALEA_SYSTEM . '/views/front/*.php') ?: [] as $frontView) {
             preg_match_all('#<script>(.*?)</script>#s', (string) file_get_contents($frontView), $inlineScripts);
             $frontScripts['views/front/' . basename($frontView)] = implode("\n", $inlineScripts[1]);

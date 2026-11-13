@@ -414,6 +414,8 @@ final class Seo
         $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::SCRIPT_TEXTS) . $clicks . '></script>';
         // forms (steps, conditions, the estimate): a script of their own, kept by Front\PageFrame only on a page with a form
         $h[] = '<script src="' . e($this->app->url('image/forms.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::FORM_SCRIPT_TEXTS) . '></script>';
+        // collection lists (filters and pages swapped without a reload): a script of their own, kept by Front\PageFrame only on a page with a list
+        $h[] = '<script src="' . e($this->app->url('image/lists.js')) . '?v=' . $version . '" defer blocking="render"></script>';
         if (!empty($meta['vitals'])) {
             // real-user speed (2.8, Core\WebVitals) and the visit beacon (Front\Stats::view): a small deferred script of its own, so pages
             // without image/web.js stay without it; the beacons go to POST /vitals and POST /_view without cookies or identifiers

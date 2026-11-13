@@ -161,6 +161,6 @@ final class CollectionList extends Element
 
         // filters and pagination are around the grid (not in it, otherwise they would look like another card)
         return $surroundings['before'] === '' && $surroundings['after'] === '' ? $listing
-            : '<div class="tl-collection" data-collection="' . e((string) $p['id']) . '">' . $surroundings['before'] . $listing . $surroundings['after'] . '</div>'; // web.js swaps it without a reload (2.10)
+            : '<div class="tl-collection" data-collection="' . e((string) $p['id']) . '">' . $surroundings['before'] . $listing . $surroundings['after'] . '</div>'; // image/lists.js swaps it without a reload (2.10)
     }
 }

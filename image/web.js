@@ -623,38 +623,6 @@
 		});
 	})();
 
-	/* ---------- collection lists: filters and pages without reloading the page (2.10). The links work without JavaScript too
-	   (they carry ?f-<id>= / ?s-<id>=); here only the list is fetched and swapped, the address changes, Back works ---------- */
-
-	function swapList(wrapper, url, push) {
-		var id = wrapper.getAttribute('data-collection');
-		wrapper.setAttribute('aria-busy', 'true');
-		fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'talea-list' } }).then(function (r) {
-			if (!r.ok) { throw new Error('HTTP ' + r.status); }
-			return r.text();
-		}).then(function (html) {
-			var fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-collection="' + id + '"]');
-			if (!fresh) { throw new Error('no list'); }
-			wrapper.replaceWith(fresh);
-			document.dispatchEvent(new CustomEvent('talea:list')); // new cards: the comparison marks its boxes again
-			if (push) { history.pushState({ collection: id }, '', url); }
-			var current = fresh.querySelector('.tl-collection-filters [aria-current], .tl-collection-pages [aria-current]');
-			if (current) { current.focus({ preventScroll: true }); }
-		}).catch(function () { location.href = url; }); // anything unexpected: the ordinary page load
-	}
-
-	document.addEventListener('click', function (e) {
-		var link = e.target.closest && e.target.closest('[data-collection] .tl-collection-filters a, [data-collection] .tl-collection-pages a');
-		if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0 || !window.fetch || !window.DOMParser) { return; }
-		e.preventDefault();
-		swapList(link.closest('[data-collection]'), link.href, true);
-	});
-	window.addEventListener('popstate', function (e) {
-		var id = e.state && e.state.collection;
-		var wrapper = id ? document.querySelector('[data-collection="' + id + '"]') : null;
-		if (wrapper) { swapList(wrapper, location.href, false); }
-	});
-
 	/* ---------- store locator (2.11, Builder\Elements\StoreLocator): the list is complete without the script; here a search box filters it as
 	   you type, "Nearest to me" asks for the position only after the click (nothing is sent anywhere) and sorts by distance, and a Leaflet map
 	   with OpenStreetMap tiles loads only after a click – until then no third party is contacted. Texts come translated in data attributes ---------- */

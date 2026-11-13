@@ -1418,6 +1418,36 @@ await step('public site: home, phone menu, cookies', async () => {
   await page.setViewportSize({ width: 1440, height: 900 });
 });
 
+// #331: the collection list script fetches a list only from its own page: a link to another origin inside the list's filter
+// buttons is an ordinary link (no fetch), a filter link of this page is still swapped in place
+await step('collection list: only its own page is fetched and swapped (#331)', async () => {
+  await visit('/');
+  const foreign = [];
+  await page.route('https://evil.example/**', (r) => { foreign.push(r.request().resourceType()); r.fulfill({ status: 200, contentType: 'text/html',
+    headers: { 'Access-Control-Allow-Origin': '*' }, body: '<!doctype html><title>elsewhere</title><div data-collection="x331"><p id="evil331">x</p></div>' }); });
+  const own = new URL(page.url());
+  const ownList = (u) => u.origin === own.origin && u.searchParams.get('f-x331') === 'own';
+  const ownAnswer = (r) => r.fulfill({ status: 200, contentType: 'text/html',
+    body: '<!doctype html><div class="tl-collection" data-collection="x331"><p id="swapped331">fresh</p></div>' });
+  await page.route(ownList, ownAnswer);
+  const plant = (href) => page.evaluate((h) => {
+    document.querySelector('[data-collection="x331"]')?.remove();
+    const w = document.createElement('div'); w.className = 'tl-collection'; w.setAttribute('data-collection', 'x331');
+    const ul = document.createElement('ul'); ul.className = 'tl-collection-filters'; const a = document.createElement('a'); a.href = h; a.textContent = 'go';
+    ul.append(document.createElement('li')); ul.firstChild.append(a); w.append(ul); document.body.prepend(w);
+  }, href);
+  await plant(own.pathname + '?f-x331=own');
+  await page.click('[data-collection="x331"] a');
+  await page.waitForSelector('#swapped331');
+  if (new URL(page.url()).searchParams.get('f-x331') !== 'own') { throw new Error('the own filter link did not change the address'); }
+  await plant('https://evil.example/p');
+  await Promise.all([page.waitForURL('https://evil.example/p'), page.click('[data-collection="x331"] a')]);
+  if (foreign.join() !== 'document') { throw new Error('a foreign list link was requested as: ' + foreign.join()); } // a fetch would be "fetch"
+  await page.unroute('https://evil.example/**');
+  await page.unroute(ownList, ownAnswer);
+  await visit('/');
+});
+
 for (const url of ['/services', '/contact', '/news', '/search?q=test']) {
   await step(`site ${url}`, () => visit(url));
 }
