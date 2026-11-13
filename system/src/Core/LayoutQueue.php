@@ -50,4 +50,16 @@ final class LayoutQueue
 
         return $done;
     }
+
+    /**
+     * A copy of a page (or any row made from one) was not imported itself: it neither enters the layout queue nor counts as imported.
+     * The columns are left out, so they fall back to their defaults (no source, not pending).
+     *
+     * @param array<string, mixed> $page
+     * @return array<string, mixed>
+     */
+    public static function withoutImportTraces(array $page): array
+    {
+        return array_diff_key($page, ['import_source' => 0, 'layout_pending' => 0]);
+    }
 }

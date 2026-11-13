@@ -1034,7 +1034,7 @@ final class Pages extends Module
         if ($page === null) {
             return $this->back();
         }
-        $copy = array_diff_key($page, ['page_id' => 0, 'public_id' => 0, 'deleted_at' => 0]);
+        $copy = \Talea\Core\LayoutQueue::withoutImportTraces(array_diff_key($page, ['page_id' => 0, 'public_id' => 0, 'deleted_at' => 0]));
         $copy['title'] = mb_substr(t('%s (copy)', $page['title']), 0, 200);
         $copy['slug'] = $this->availableSlug(mb_substr($page['slug'] . '-copy', 0, 110), 0, (string) $page['language']);
         $copy['visible'] = 0;
