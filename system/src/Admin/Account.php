@@ -267,7 +267,7 @@ final class Account
         $first = !$app->auth()->hasTwoStep($user);
         $app->db()->insert('user_passkeys', [
             'user_id' => $user['user_id'], 'name' => $name !== '' ? $name : t('Passkey'), 'credential_hash' => $hash, 'credential_id' => $new['id'],
-            'public_key' => $new['key'], 'alg' => $new['alg'], 'sign_count' => $new['counter'], 'created_at' => date('Y-m-d H:i:s'),
+            'public_key' => $new['key'], 'alg' => $new['alg'], 'rp_id' => Passkey::rpId($url), 'sign_count' => $new['counter'], 'created_at' => date('Y-m-d H:i:s'),
         ]);
         ChangeLog::write($app, 'account', 'passkey_added', $name);
         if ($first) {

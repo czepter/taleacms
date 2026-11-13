@@ -473,6 +473,19 @@ final class Auth
     }
 
     /**
+     * The passkeys that work on this site: the ones registered for its host (user_passkeys.rp_id). A passkey of another host (a site
+     * of the same owner, an address the site has left) cannot sign in here, so it does not count for passkey-only sign-in.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function workingKeys(int $idu): array
+    {
+        $host = Passkey::rpId($this->settings()->get('site_url'));
+
+        return $host === '' ? [] : $this->db->all('SELECT * FROM {user_passkeys} WHERE user_id = ? AND rp_id = ? ORDER BY passkey_id', [$idu, $host]);
+    }
+
+    /**
      * Sign-in with a passkey, part 1: a challenge for the device. After the password it lists the account's keys; on the
      * first step it lists none, so the device offers the keys it keeps for the site and nothing tells which accounts exist.
      *
@@ -528,7 +541,7 @@ final class Auth
 
             return t($e->getMessage());
         }
-        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s')], ['passkey_id' => $key['passkey_id']]);
+        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s'), 'rp_id' => Passkey::rpId($siteUrl)], ['passkey_id' => $key['passkey_id']]);
         $this->recordSignIn((int) $user['user_id']);
         $this->session->remove('pending_user');
         $this->session->regenerate();

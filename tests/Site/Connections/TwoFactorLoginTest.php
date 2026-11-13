@@ -128,6 +128,7 @@ final class TwoFactorLoginTest extends SiteTestCase
         $site = $this->site();
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
         [$key, $id] = $this->registerKey('8f1c3a52-7b2e-4c1d-9a6f-0e5b4d3c2a10');
+        $site->exec("UPDATE tl_user_passkeys SET rp_id = 'old.example'");
         $answer = fn (string $challenge, int $flags): string => $this->keyAnswer($key, $id, $challenge, $flags);
         $browser = $site->client('passkey');
         $page = $browser->get('/admin.php');
@@ -144,6 +145,7 @@ final class TwoFactorLoginTest extends SiteTestCase
         $this->assertSame([200, true], [$signed->status, $signed->json()['ok'] ?? null], 'the verified passkey signs in without name, password or code');
         $this->assertArrayHasKey('tl_remember', $browser->cookies(), '"stay signed in" works with a passkey too');
         $this->assertSame(1, substr_count($browser->get('/admin.php?action=token')->body, '"csrf"'), 'the browser is signed in');
+        $this->assertSame(Passkey::rpId($site->base), (string) $site->value("SELECT rp_id FROM tl_user_passkeys WHERE name = 'test'"), 'a successful use rewrites the host of the key');
         $site->exec("DELETE FROM tl_user_passkeys WHERE name = 'test'");
         $site->exec("UPDATE tl_users SET failed_logins = 0 WHERE username = 'author'");
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
@@ -288,6 +290,7 @@ final class TwoFactorLoginTest extends SiteTestCase
             'publicKey' => Passkey::b64($der), 'publicKeyAlgorithm' => -7,
         ])]);
         $this->assertTrue($saved->json()['ok'] ?? false, 'the first passkey is saved: ' . $saved->body);
+        $this->assertSame(Passkey::rpId($site->base), (string) $site->value('SELECT rp_id FROM tl_user_passkeys'), 'the key remembers the host it was registered for');
         $this->assertNotSame('', (string) $site->value("SELECT totp_backup_codes FROM tl_users WHERE username = 'author'"), 'it turned two-factor sign-in on: backup codes exist');
 
         $page = $browser->get('/admin.php?action=account&tab=sign-in');
