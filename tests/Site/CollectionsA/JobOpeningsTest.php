@@ -47,6 +47,7 @@ final class JobOpeningsTest extends SiteTestCase
         $this->assertStringContainsString('"addressLocality":"Brno","addressCountry":"CZ"', $job->body, '... the place');
         $this->assertStringContainsString('"baseSalary":{"@type":"MonetaryAmount","currency":"CZK","value":{"@type":"QuantitativeValue","minValue":35000,"maxValue":45000,"unitText":"MONTH"}}', $job->body, '... the salary');
         $this->assertStringContainsString('"hiringOrganization":{"@type":"Organization","name":"', $job->body, '... the company');
+        $this->assertStringContainsString('"directApply":true', $job->body, 'the job page with an application form says direct apply');
 
         $this->assertStringContainsString('name="p3" type="file"', $job->body, 'the application form has a CV field');
         $this->assertStringContainsString('type="hidden" name="p6" value="Carpenter"', $job->body, '... carries the job name in a hidden field');
