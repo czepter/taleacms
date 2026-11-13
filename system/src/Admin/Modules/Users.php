@@ -156,15 +156,18 @@ final class Users extends Module
                 $sites[] = (int) $site['site_id'];
             }
         }
-        $this->db->transaction(function () use (&$id, $data, $modules, $sites, $sitesShown, $limited): void {
+        $reactivated = $before !== null && (bool) $before['blocked'] && !$data['blocked'];
+        $this->db->transaction(function () use (&$id, $data, $modules, $sites, $sitesShown, $limited, $reactivated, $r): void {
             if ($id > 0) {
                 $this->db->update('users', $data, ['user_id' => $id]);
                 if (isset($data['password'])) {
                     // a new password ends the user's Claude connections and personal tokens: an administrator sets one when the
                     // account may be in the wrong hands, and a token would outlive the old password
-                    \Talea\Front\OAuth::revokeConnections($this->db, $id);
-                    $this->db->delete('api_tokens', ['user_id' => $id, 'kind' => 'token']);
+                    self::revokeAccess($this->db, $id);
                     $this->db->delete('user_devices', ['user_id' => $id]); // and no browser stays "known" to the old password
+                }
+                if ($reactivated && !$r->postBool('keep_connections')) {
+                    self::revokeAccess($this->db, $id); // a blocked account may have been blocked because a token leaked
                 }
             } else {
                 $id = $this->db->insert('users', $data);
@@ -192,6 +195,12 @@ final class Users extends Module
         }
 
         return $this->back('User saved.');
+    }
+
+    /** Ends the Claude connections (connected applications) and personal tokens of the account. @return int how many tokens went */
+    public static function revokeAccess(\Talea\Core\Db $db, int $id): int
+    {
+        return \Talea\Front\OAuth::revokeConnections($db, $id) + $db->delete('api_tokens', ['user_id' => $id, 'kind' => 'token']);
     }
 
     /**
@@ -276,8 +285,9 @@ final class Users extends Module
             return $this->back('The account is not blocked.', type: 'error');
         }
         $this->db->update('users', ['blocked' => 0, 'auto_blocked_at' => null, 'failed_logins' => 0, 'locked_until' => null, 'confirmed_at' => date('Y-m-d H:i:s')], ['user_id' => $id]);
+        $revoked = self::revokeAccess($this->db, $id);
 
-        return $this->back('The account has been reactivated – the user can sign in again.');
+        return $this->back($revoked > 0 ? 'The account has been reactivated – the user can sign in again. Its Claude connections and personal tokens were revoked.' : 'The account has been reactivated – the user can sign in again.');
     }
 
     /** Revokes one Claude connection of the user: a personal token (token_id) or a connected application (klient). */

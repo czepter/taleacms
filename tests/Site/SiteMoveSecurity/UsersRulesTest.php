@@ -147,4 +147,40 @@ final class UsersRulesTest extends SiteTestCase
         $site->setting('require_2fa', '');
         $site->exec("UPDATE tl_users SET totp_secret = '' WHERE username = 'admin'");
     }
+
+    /** A blocked person with a personal token and an OAuth token. */
+    private function blockedWithTokens(string $username): void
+    {
+        $site = $this->site();
+        $this->person($username);
+        foreach (['token' => null, 'access' => str_repeat('c', 32)] as $kind => $client) {
+            $site->exec('INSERT INTO tl_api_tokens (user_id, name, client_id, kind, token_hash, created_at) SELECT user_id, ?, ?, ?, ?, NOW() FROM tl_users WHERE username = ?',
+                [$username . '-' . $kind, $client, $kind, hash('sha256', $username . $kind), $username]);
+        }
+        $site->exec('UPDATE tl_users SET blocked = TRUE WHERE username = ?', [$username]);
+    }
+
+    private function tokens(string $username): int
+    {
+        return (int) $this->site()->value('SELECT COUNT(*) FROM tl_api_tokens t JOIN tl_users u ON u.user_id = t.user_id WHERE u.username = ?', [$username]);
+    }
+
+    public function testReactivationRevokesConnections(): void
+    {
+        $site = $this->site();
+        $this->blockedWithTokens('revoked');
+        $this->saveUser($site->admin(), 'revoked', ['blocked' => '']);
+        $this->assertSame('0', (string) $site->value("SELECT blocked FROM tl_users WHERE username = 'revoked'"), 'the account is reactivated');
+        $this->assertSame(0, $this->tokens('revoked'), 'its connections and tokens are revoked');
+
+        $this->blockedWithTokens('kept');
+        $this->saveUser($site->admin(), 'kept', ['blocked' => '', 'keep_connections' => '1']);
+        $this->assertSame(2, $this->tokens('kept'), 'the box keeps them');
+
+        $this->blockedWithTokens('listed');
+        $csrf = $site->admin()->get('/admin.php?module=users')->csrf();
+        $site->admin()->post('/admin.php?module=users&action=reactivate', ['_csrf' => $csrf, 'user_id' => $site->value("SELECT public_id FROM tl_users WHERE username = 'listed'")]);
+        $this->assertSame('0', (string) $site->value("SELECT blocked FROM tl_users WHERE username = 'listed'"));
+        $this->assertSame(0, $this->tokens('listed'), 'reactivating from the list revokes too');
+    }
 }

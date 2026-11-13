@@ -126,6 +126,9 @@ $role = [
 <div class="row">
 	<span class="caption"><?= e(t('Block account')) ?></span>
 	<div class="options"><label><input type="checkbox" name="blocked" value="1"<?= $author['blocked'] ? ' checked' : '' ?>> <?= e(t('user cannot sign in')) ?></label>
+<?php if ($author['blocked']): ?>
+	<label><input type="checkbox" name="keep_connections" value="1"> <?= e(t('keep its Claude connections and personal tokens when it is reactivated')) ?></label>
+<?php endif ?>
 <?php if ($author['blocked'] && !empty($author['auto_blocked_at'])): ?>
 	<span class="help"><?= e(t('Blocked automatically on %s – nobody had used the account for %d days. Untick the box and save to reactivate the account.', format_date($author['auto_blocked_at']), Talea\Core\SecurityHygiene::ACCOUNT_DAYS)) ?></span>
 <?php endif ?>
