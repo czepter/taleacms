@@ -429,15 +429,16 @@ PHP);
         }
         $this->assertSame('done', $this->fieldOf($text, 'phase'), 'website import finished');
         $attention = json_decode($text, true)['attention'] ?? [];
-        $this->assertCount(1, $attention, 'website import: the video file of the old page needs the owner');
+        $this->assertCount(2, $attention, 'website import: the video file and the document that is no document need the owner');
         $this->assertStringContainsString('A video file was not brought over', (string) ($attention[0] ?? ''), 'website import: and says so');
+        $this->assertStringContainsString('fake.pdf could not be brought over', (string) ($attention[1] ?? ''), 'website import: a document that could not be brought over is reported (#339)');
 
         $this->assertSame('About us:0|Our first post:0:2024-05-06', $site->value("SELECT CONCAT((SELECT CONCAT(title, ':', visible) FROM tl_pages WHERE slug = 'our-story'), '|', (SELECT CONCAT(title, ':', visible, ':', DATE(published_at)) FROM tl_news WHERE title = 'Our first post'))"),
             'website import: pages hidden, the post as a hidden news item');
         $about = (string) $site->value("SELECT CONCAT(text, ' ', IFNULL(build, '')) FROM tl_pages WHERE slug = 'our-story'");
         $this->assertStringContainsString('oak furniture', $about, 'website import: the content is imported');
         $this->assertStringContainsString('media/', $about, 'website import: the image is in Media');
-        $this->assertDoesNotMatchRegularExpression('#Old footer|Old home|We use cookies|127\.0\.0\.1#', $about, 'website import: no header, footer or cookie bar');
+        $this->assertDoesNotMatchRegularExpression('#Old footer|Old home|We use cookies|src="http://127\.0\.0\.1#', $about, 'website import: no header, footer or cookie bar, no image from the old site');
         $this->assertStringContainsString('"type":"heading"', $about, 'website import: the content is in the builder');
         // 3.3.2 (N23, N30): markup in attribute values of the old site stays text, and an imported page never gets Custom HTML
         $aboutText = (string) $site->value("SELECT text FROM tl_pages WHERE slug = 'our-story'");
@@ -447,7 +448,7 @@ PHP);
         // #339: documents of the old site go into Media, a fake one stays where it was; the old title and share image become SEO fields
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_media WHERE image_path LIKE 'media/%.pdf'"), 'website import: the real PDF is in Media, the fake one is not');
         $this->assertMatchesRegularExpression('#href="/media/[^"]+\.pdf"#', $aboutText, 'website import: the link points at Media');
-        $this->assertStringContainsString('href="/files/fake.pdf"', $aboutText, 'website import: the fake document keeps its old address');
+        $this->assertStringContainsString('href="' . $origin . '/files/fake.pdf"', $aboutText, 'website import: the fake document keeps its old address (it still works there; the attention line names it)');
         $this->assertSame('About us | Old Oak', (string) $site->value("SELECT seo_title FROM tl_pages WHERE slug = 'our-story'"), 'website import: the old <title> is the SEO title');
         $this->assertStringStartsWith('media/', (string) $site->value("SELECT image FROM tl_pages WHERE slug = 'our-story'"), 'website import: the share image is in Media');
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_redirects WHERE from_path = 'blog/first-post' AND to_path LIKE 'news/%'"), 'website import: the old address of the post redirects');
