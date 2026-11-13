@@ -97,7 +97,10 @@ final class Scheduler
 
                 return 'ok';
             },
-            'backup' => function (App $app): string {
+            'backup' => function (App $app, string $source): string {
+                if (!self::backupMayRun($source)) {
+                    return 'waits for cron'; // a visitor never waits for a dump
+                }
                 Backup::createAutomatic($app->db(), $app->settings());
 
                 return 'ok';
@@ -206,6 +209,15 @@ final class Scheduler
         }
 
         return $results;
+    }
+
+    /**
+     * A dump takes seconds to minutes: on a visit it runs only when the response is already with the visitor (PHP-FPM, LiteSpeed). Under
+     * mod_php or the built-in server the visitor would wait for it, so there the backup stays with cron and the administration.
+     */
+    public static function backupMayRun(string $source): bool
+    {
+        return $source !== 'visit' || Notifications::detached();
     }
 
     /** Jobs of a role the site may not have: the heartbeat only on a site paired with a console, the uptime checks only on a console (2.9). */

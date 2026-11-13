@@ -80,6 +80,12 @@ On start the entrypoint
 3. stores `TALEA_SITE_URL` as the site address when it differs (see "Site address and domain moves"),
 4. starts the background-job loop (`TALEA_CRON=0` switches it off, see Replicas), then the web server.
 
+Automatic backups run as a background job. A visit starts it only after the page has been sent (PHP-FPM, LiteSpeed): a visitor never waits
+for a dump. Under mod_php or the built-in PHP server the job is left to cron (`docker.php cron`, the container's loop) and to the
+administration, so a host that has neither keeps making backups only when someone makes one on the Backups tab. A run that was killed
+leaves a hidden `.talea-*.part` file in `storage/backups/`: the next backup removes those older than an hour and System status shows
+the interrupted run as a failed backup.
+
 Pin a version with a tag (`...:1.4.2`), follow a minor line (`...:1.4`) or a major (`...:1`). `latest` is the newest stable release;
 a staging site follows a pre-release tag (`X.Y.Z-rc.N`). All tags: docs/RELEASING.md, "Image tags".
 

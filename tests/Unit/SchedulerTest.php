@@ -22,4 +22,11 @@ final class SchedulerTest extends TestCase
         $this->assertSame('any', \Talea\Core\Scheduler::JOBS['backup'][1], 'without cron a visit still makes the automatic backup');
         $this->assertArrayHasKey('trash', \Talea\Core\Scheduler::jobs());
     }
+
+    public function testAVisitNeverWaitsForABackup(): void
+    {
+        $this->assertFalse(\Talea\Core\Scheduler::backupMayRun('visit'), 'the response has not been detached (no web server hook here)');
+        $this->assertTrue(\Talea\Core\Scheduler::backupMayRun('cron'));
+        $this->assertFalse(\Talea\Core\Notifications::detached());
+    }
 }
