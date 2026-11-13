@@ -33,8 +33,14 @@ final class KaletaImportTest extends SiteTestCase
         $zip->addFile(dirname(__DIR__, 2) . '/Fixtures/kaleta/obsah.json', 'obsah.json');
         $zip->addFromString('media/2026/10/fixture.png', (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
         $zip->close();
-        // the only word left is the Kaleta class in the page text: it is not renamed to a tl- class (reserved, #331), so the import reports it
-        $this->assertSame(['Kaleta CSS name ka-tlacitko left as it is (1 times) – no Talea name is known' => 1], KaletaExport::convert($dir . '/kaleta.zip', $dir . '/talea.zip'), 'the converter knows every word of the fixture');
+        // the Kaleta class in the page text becomes a reserved tl- class that the import drops later (#331): the converter says so, once per name
+        $this->assertSame(["Kaleta class ka-tlacitko on content dropped (1 times) – Talea's tl- classes are reserved for its own markup; restyle with a class of your own" => 1],
+            KaletaExport::convert($dir . '/kaleta.zip', $dir . '/talea.zip'), 'the converter knows every word of the fixture and warns about the class on content');
+        // a selector of the site's custom CSS keeps naming Kaleta's core class, which Talea emits as its own: ka-obal -> tl-wrap
+        $converted = new \ZipArchive();
+        $converted->open($dir . '/talea.zip', \ZipArchive::RDONLY);
+        $this->assertStringContainsString('.tl-wrap .x { margin: 0; }', (string) $converted->getFromName('content.json'), 'a selector in custom CSS is renamed');
+        $converted->close();
 
         $new = self::$new = Site::boot(['web' => 'export', 'siteName' => 'New site', 'extensions' => ['news']]);
         $admin = $new->admin();
@@ -69,7 +75,7 @@ final class KaletaImportTest extends SiteTestCase
         $popup = $new->rows('SELECT type, trigger_type, frequency, rules FROM tl_popups')[0];
         $rules = json_decode($popup['rules'], true);
         $this->assertSame(['bottom_bar', 'time', 'always', 'selected', [$about], 'phone'], [$popup['type'], $popup['trigger_type'], $popup['frequency'], $rules['where'], $rules['pages'], $rules['device']], 'pop-up and its rules');
-        $this->assertSame('{"base":{"line_length":"var(--tl-text-width)","margin_bottom":"l"}}|font-family: var(--tl-font-body);', implode('|', $new->rows("SELECT style, css FROM tl_classes WHERE name = 'fixture-section'")[0]), 'class style and CSS');
+        $this->assertSame('{"base":{"line_length":"var(--tl-text-width)","margin_bottom":"l"}}|font-family: var(--tl-font-body);', implode('|', $new->rows("SELECT style, css FROM tl_classes WHERE name = 'fixture-section'")[0]), 'class style and CSS (the import keeps declarations only)');
         $this->assertSame('header', (string) $new->value('SELECT type FROM tl_site_parts'), 'site part');
 
         $build = json_decode((string) $new->value('SELECT build FROM tl_pages WHERE page_id = ?', [$home]), true);
@@ -82,9 +88,9 @@ final class KaletaImportTest extends SiteTestCase
         foreach (['Fixture heading', 'Fixture component value', 'Item: Fixture project', 'Fixture about'] as $text) {
             $this->assertStringContainsString($text, $page->body, "the home page shows: $text");
         }
-        // Kaleta's ka-tlacitko is deliberately not renamed to Talea's own tl-button (the prefix is reserved, #331, a user's text cannot carry it): the text stays and the import warns the name was left as it is
+        // the Kaleta class is renamed to Talea's own tl-button, and Talea's own classes are not for a user's text (#331): the text stays, the class goes
         $about = $new->client()->get('/about')->body;
-        $this->assertStringContainsString('<p class="ka-tlacitko">Fixture about text</p>', $about, 'a Kaleta class in page HTML stays as it is');
+        $this->assertStringContainsString('<p>Fixture about text</p>', $about, 'Kaleta classes in page HTML do not become Talea classes');
         $this->assertStringNotContainsString('class="tl-button"', $about);
     }
 }

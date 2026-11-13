@@ -86,6 +86,51 @@ final class KaletaExport
             $warnings[$message] = ($warnings[$message] ?? 0) + 1;
         };
 
+        /* ---------- Kaleta classes on content (counted before the rename) ---------- */
+
+        // Talea's tl- classes are reserved for its own markup (#331): a class that Kaleta's name turns into one is dropped from a class="" attribute of HTML text and from an
+        // element's `classes` list when the content is saved. Selectors in custom CSS are renamed and stay (a selector may name a core class).
+        $onContent = [];
+        $countClasses = function (mixed $value, string $key = '') use (&$countClasses, &$onContent, $v): void {
+            if (is_string($value)) {
+                if ($value !== '' && ($value[0] === '{' || $value[0] === '[')) {
+                    $decoded = json_decode($value, true);
+                    if (is_array($decoded)) {
+                        $countClasses($decoded, $key);
+
+                        return;
+                    }
+                }
+                $tokens = [];
+                if ($key === 'tridy') {
+                    $tokens = [$value]; // one entry of an element's classes list
+                } elseif (str_contains($value, 'class') && preg_match_all('/\bclass\s*=\s*(?:"([^"]*)"|\'([^\']*)\')/i', $value, $m)) {
+                    $tokens = preg_split('/\s+/', trim(implode(' ', array_merge($m[1], $m[2]))), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                }
+                foreach ($tokens as $token) {
+                    if (str_starts_with((string) ($v['css'][$token] ?? ''), 'tl-')) {
+                        $onContent[$token] = ($onContent[$token] ?? 0) + 1;
+                    }
+                }
+
+                return;
+            }
+            if (is_array($value)) {
+                foreach ($value as $k => $x) {
+                    $countClasses($x, is_string($k) ? $k : ($key === 'tridy' ? 'tridy' : ''));
+                }
+            }
+        };
+        foreach ($data as $table => $rows) {
+            // "tridy" at the top is the list of class definitions (name, style, CSS), not names on content; the settings hold no markup
+            if (is_array($rows) && !in_array($table, ['tridy', 'nastaveni'], true)) {
+                $countClasses($rows);
+            }
+        }
+        foreach ($onContent as $name => $n) {
+            $warn("Kaleta class $name on content dropped ($n times) – Talea's tl- classes are reserved for its own markup; restyle with a class of your own");
+        }
+
         /* ---------- public ids ---------- */
 
         $seed = (string) ($data['nastaveni']['site_url'] ?? '') . "\0" . (string) ($data['vytvoreno'] ?? '');
