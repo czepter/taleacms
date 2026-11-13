@@ -503,14 +503,27 @@ final class ErrorReport
             $seen = json_decode((string) stream_get_contents($f), true);
             $seen = is_array($seen) ? array_filter($seen, fn ($day): bool => $day === $today) : [];
             $new = !isset($seen[$key]);
-            if ($new && count($seen) < 500) {
-                $seen[$key] = $today;
-                ftruncate($f, 0);
-                rewind($f);
-                fwrite($f, (string) json_encode($seen));
+            $suppressed = false;
+            if ($new) {
+                if (count($seen) < 500) {
+                    $seen[$key] = $today;
+                } else {
+                    // the memo is full: logging every further place on every request would push the real errors out of the log
+                    $new = false;
+                    $suppressed = !isset($seen['full']);
+                    $seen['full'] = $today;
+                }
+                if ($new || $suppressed) {
+                    ftruncate($f, 0);
+                    rewind($f);
+                    fwrite($f, (string) json_encode($seen));
+                }
             }
             flock($f, LOCK_UN);
             fclose($f);
+            if ($suppressed) {
+                self::append(sprintf("[%s] Deprecated: more than 500 different deprecations today; further ones are not logged until tomorrow\n  %s\n", date('c'), self::context()), $log);
+            }
             if ($new) {
                 self::append(sprintf("[%s] Deprecated: %s in %s:%d\n  %s\n", date('c'), mb_substr(trim((string) preg_replace('/\s+/u', ' ', self::scrub($message))), 0, self::LOG_MESSAGE), self::relative($file), $line, self::context()), $log);
             }

@@ -143,6 +143,30 @@ final class ErrorLogTest extends TestCase
         $this->assertCount(3, ErrorReport::entries(40, $file), 'a new day logs it again');
     }
 
+    public function testAFullMemoLogsOneLineInsteadOfEveryNewDeprecation(): void
+    {
+        $file = $this->dir . '/errors.log';
+        $memo = [];
+        for ($i = 0; $i < 500; $i++) {
+            $memo[sha1('seen' . $i)] = date('Y-m-d');
+        }
+        file_put_contents($this->dir . '/deprecations.json', json_encode($memo));
+
+        foreach ([1, 2, 3] as $request) {
+            ErrorReport::reset(); // every request is a new process
+            ErrorReport::deprecation('Function y() is deprecated', TALEA_ROOT . '/system/src/c.php', $request, $file);
+            ErrorReport::deprecation('Function z() is deprecated', TALEA_ROOT . '/system/src/c.php', $request, $file);
+        }
+        $entries = ErrorReport::entries(40, $file);
+        $this->assertCount(1, $entries, 'one line, not one per request');
+        $this->assertStringContainsString('further ones are not logged', $entries[0]);
+        $this->assertStringNotContainsString('Function y()', $entries[0]);
+
+        ErrorReport::reset();
+        ErrorReport::deprecation('Function y() is deprecated', TALEA_ROOT . '/system/src/c.php', 9, $file);
+        $this->assertCount(1, ErrorReport::entries(40, $file), 'still one line the same day');
+    }
+
     public function testCountsSeparateDeprecations(): void
     {
         $file = $this->dir . '/errors.log';
