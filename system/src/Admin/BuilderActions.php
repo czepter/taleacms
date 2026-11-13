@@ -399,6 +399,9 @@ trait BuilderActions
             return Response::json(['ok' => false], 405);
         }
         $name = $this->request->post('name');
+        if (Build::isReservedClass($name)) {
+            return Response::json(['ok' => false, 'error' => t('Class names starting with “tl-” are reserved for Talea.')], 400);
+        }
         if (!preg_match(Build::CLASS_PATTERN, $name)) {
             return Response::json(['ok' => false, 'error' => t('Class name: lowercase letters without accents, digits and hyphens (e.g. card, card--highlighted).')], 400);
         }
@@ -415,6 +418,9 @@ trait BuilderActions
         }
         if (($new = $this->request->post('new_name')) !== '') {
             // renaming: the class row and all builds that use it (pages, site parts, collection item templates, components, my sections)
+            if (Build::isReservedClass($new)) {
+                return Response::json(['ok' => false, 'error' => t('Class names starting with “tl-” are reserved for Talea.')], 400);
+            }
             if (!preg_match(Build::CLASS_PATTERN, $new) || $this->db->value('SELECT 1 FROM {classes} WHERE name = ?', [$new]) !== null) {
                 return Response::json(['ok' => false, 'error' => t('The new name must be unused and written in lowercase without accents (e.g. card-large).')], 400);
             }

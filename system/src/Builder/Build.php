@@ -18,7 +18,16 @@ final class Build
     public const int VERSION = 1;
     public const int MAX_ELEMENTS = 800;
     public const int MAX_DEPTH = 12;
-    public const string CLASS_PATTERN = '/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/';
+    /**
+     * A class name an element or a shared class may take. Names starting with "tl-" are Talea's own (#331): the elements write them and
+     * the site's scripts hook on them (image/lists.js swaps a list on .tl-collection-filters / .tl-collection-pages, the locator reads
+     * .tl-locator-list …), so a class from the editor, the class manager, MCP or an import never starts with it – the same rule as data-tl-…
+     * attributes and tl-… anchors (Html::isSafeId). The renderer checks a stored build again (userClasses).
+     */
+    public const string CLASS_PATTERN = '/^(?!tl-)[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/D';
+
+    /** The note of a build, a conversion or an import that met a class name starting with "tl-". */
+    public const string RESERVED_CLASS_NOTE = 'Class names starting with “tl-” are reserved for Talea – left out.';
 
     /**
      * Custom attributes of an element: only harmless ones – no on…, style, href or src, and none of the hooks the site's scripts read
@@ -50,6 +59,23 @@ final class Build
         }
 
         return null;
+    }
+
+    /** Is this a name Talea keeps for its own markup ("tl-…", any case)? */
+    public static function isReservedClass(string $name): bool
+    {
+        return stripos($name, 'tl-') === 0;
+    }
+
+    /**
+     * The classes of an element that may be written to the page: valid names only, never one of Talea's own ("tl-…", CLASS_PATTERN).
+     * Used when a build is saved and again when it is rendered (a build stored before #331 loses such a class quietly).
+     *
+     * @return list<string>
+     */
+    public static function userClasses(mixed $classes): array
+    {
+        return array_values(array_unique(array_filter(is_array($classes) ? $classes : [], fn (mixed $t): bool => is_string($t) && preg_match(self::CLASS_PATTERN, $t) === 1)));
     }
 
     public static function newId(): string
@@ -149,7 +175,10 @@ final class Build
             if ($style !== []) {
                 $clean['style'] = $style;
             }
-            $classes = array_values(array_unique(array_filter(is_array($p['classes'] ?? null) ? $p['classes'] : [], fn (mixed $t): bool => is_string($t) && preg_match(self::CLASS_PATTERN, $t) === 1)));
+            $classes = self::userClasses($p['classes'] ?? null);
+            if (is_array($p['classes'] ?? null) && array_filter($p['classes'], fn (mixed $t): bool => is_string($t) && self::isReservedClass($t)) !== []) {
+                $errors[$place . '.classes'] = self::RESERVED_CLASS_NOTE;
+            }
             if ($classes !== []) {
                 $clean['classes'] = array_slice($classes, 0, 8);
             }

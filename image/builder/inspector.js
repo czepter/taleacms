@@ -687,16 +687,18 @@ function advancedPanel(panel, p, s) {
 	const newClass = el('input', { type: 'text', list: 'bd-dl-classes', placeholder: T('e.g. card'), onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); addClass(); } } });
 	const addClass = () => {
 		const name = newClass.value.trim().toLowerCase();
-		if (!/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/.test(name) || classes.includes(name)) { return; }
+		if (name.startsWith('tl-')) { setState(T('Class names starting with “tl-” are reserved for Talea.'), true); return; }
+		if (!/^(?!tl-)[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/.test(name) || classes.includes(name)) { return; }
 		applyChange(() => { p.classes = classes.concat([name]); });
 	};
-	panel.append(el('div', { class: 'bd-field' }, el('span', {}, T('Classes')),
+	panel.append(el('div', { class: 'bd-field' + (state.errors[state.selectedPath + '.classes'] ? ' bd-field-error' : '') }, el('span', {}, T('Classes')),
 		el('div', { class: 'bd-classes' }, classes.map((t) => el('span', { class: 'bd-class' },
 			el('a', { href: '#', title: T('Edit class'), onclick: (e) => { e.preventDefault(); state.editedClass = t; redrawRight(); } }, '.' + t),
 			el('button', { type: 'button', title: T('Remove class from element'), onclick: () => applyChange(() => { p.classes = classes.filter((x) => x !== t); if (!p.classes.length) { delete p.classes; } }) }, '×')))),
 		el('span', { class: 'bd-field-row' }, newClass, el('button', { type: 'button', class: 'bd-btn', onclick: addClass }, T("Add"))),
 		el('datalist', { id: 'bd-dl-classes' }, Object.keys(D.classes).map((t) => el('option', { value: t }))),
-		el('small', { style: 'color:var(--text-weak)' }, T('A class shares its look between elements on all pages. Click a class to edit it.'))));
+		el('small', { style: 'color:var(--text-weak)' }, T('A class shares its look between elements on all pages. Click a class to edit it.')),
+		state.errors[state.selectedPath + '.classes'] ? el('small', { class: 'bd-error-field' }, state.errors[state.selectedPath + '.classes']) : null));
 	const cssField = el('textarea', { rows: 4, placeholder: 'transition: transform .2s;\nbackdrop-filter: blur(8px);', onchange: (e) => applyChange(() => { const h = e.target.value.trim(); if (h) { p.css = h; } else { delete p.css; } }) });
 	cssField.value = p.css || '';
 	const attributeField = el('textarea', { rows: 3, placeholder: 'data-track=cta\naria-label=' + T('Main call to action'), onchange: (e) => applyChange(() => {

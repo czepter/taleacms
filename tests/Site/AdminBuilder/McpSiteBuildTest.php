@@ -158,4 +158,37 @@ final class McpSiteBuildTest extends SiteTestCase
         $old = $this->assertPage('/news/category/category-xss', 200, 'Old description', message: 'a stored old category description');
         $this->assertStringNotContainsString('<script>alert(3)', $old->body, 'the listing cleans an earlier stored description too');
     }
+
+    /** #331: "tl-" is Talea's own – a drafts-only connection cannot give an element a class the site's scripts hook on */
+    public function testReservedClassPrefix(): void
+    {
+        $site = $this->site();
+        $token = 'talea_' . bin2hex(random_bytes(24));
+        $site->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, access, created_at) SELECT user_id, 'drafts 331', ?, 'drafts', NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', $token)]);
+        $page = $site->mcpResult('create_page', ['title' => 'Reserved 331', 'slug' => 'reserved-331', 'visible' => true])['id'];
+
+        $saved = $site->mcpResult('save_build', ['id' => $page, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+            ['type' => 'button', 'classes' => ['tl-collection-filters', 'card331'], 'content' => ['text' => 'More', 'link' => 'https://evil.example/p']],
+        ]]]]], $token);
+        $this->assertStringContainsString('reserved for Talea', json_encode($saved['errors'] ?? $saved));
+        $draft = (string) $site->value("SELECT build_draft FROM tl_pages WHERE slug = 'reserved-331'");
+        $this->assertStringNotContainsString('tl-collection', $draft, 'the reserved class is not stored');
+        $this->assertStringContainsString('"card331"', $draft);
+
+        $classes = $site->mcpResult('save_classes', ['css' => '.tl-collection-filters { color: red } .ok331 { color: blue }']);
+        $this->assertStringContainsString('reserved for Talea', json_encode($classes));
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_classes WHERE name = 'ok331'"));
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_classes WHERE name LIKE 'tl-%'"));
+
+        // a build stored before the rule (or written around the sanitizer) renders without the hook
+        $stored = json_encode(['v' => 1, 'children' => [['id' => 'sec331', 'type' => 'section', 'tag' => 'section', 'content' => [], 'children' => [
+            ['id' => 'btn331', 'type' => 'button', 'tag' => 'a', 'content' => ['text' => 'More', 'link' => 'https://evil.example/p'], 'classes' => ['tl-collection-filters', 'card331']],
+        ]]]]);
+        $site->exec("UPDATE tl_pages SET build = ?, visible = 1 WHERE slug = 'reserved-331'", [$stored]);
+        $site->clearPageCache();
+        $body = $site->client()->get('/reserved-331')->body;
+        $this->assertStringNotContainsString('tl-collection-filters', $body);
+        $this->assertMatchesRegularExpression('/class="[^"]*\bcard331\b[^"]*"/', $body);
+        $this->assertStringContainsString('href="https://evil.example/p"', $body);
+    }
 }

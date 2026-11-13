@@ -1169,6 +1169,7 @@ return [
     'Class' => 'Klasse',
     'Class changes apply to all elements with this class across the site – immediately after saving, without publishing.' => 'Änderungen an einer Klasse gelten für alle Elemente mit dieser Klasse auf der gesamten Website – sofort nach dem Speichern, ohne Veröffentlichung.',
     'Class name: lowercase letters without accents, digits and hyphens (e.g. card, card--highlighted).' => 'Klassenname: Kleinbuchstaben ohne Akzente, Ziffern und Bindestriche (z. B. card, card--highlighted).',
+    'Class names starting with “tl-” are reserved for Talea.' => 'Klassennamen, die mit „tl-“ beginnen, sind für Talea reserviert.',
     'Class saved with a warning' => 'Klasse mit Warnung gespeichert',
     'Class saved – it applies on all pages' => 'Klasse gespeichert – gilt auf allen Seiten',
     'Classes' => 'Klassen',

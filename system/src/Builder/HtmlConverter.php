@@ -416,6 +416,9 @@ final class HtmlConverter
     private function classesOf(Element $el): array
     {
         $classes = preg_split('/\s+/', trim((string) $el->getAttribute('class'))) ?: [];
+        if (array_filter($classes, Build::isReservedClass(...)) !== []) {
+            $this->messages[] = Build::RESERVED_CLASS_NOTE;
+        }
 
         return array_values(array_filter($classes, fn (string $t): bool => preg_match(Build::CLASS_PATTERN, $t) === 1));
     }
@@ -427,6 +430,9 @@ final class HtmlConverter
     private function styles(string $css): void
     {
         $css = (string) preg_replace('#/\*.*?\*/#s', '', $css);
+        if (preg_match('/(?<![\w-])\.tl-[a-z0-9_-]/i', $css)) {
+            $this->messages[] = Build::RESERVED_CLASS_NOTE;
+        }
         // @media with max-width = a builder breakpoint; the block is processed and removed from the CSS
         $css = (string) preg_replace_callback('/@media\s*([^{]*)\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}/i', function (array $m): string {
             $state = $this->stateFromMedia($m[1]);
