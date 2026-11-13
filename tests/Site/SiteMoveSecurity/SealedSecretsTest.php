@@ -37,6 +37,15 @@ final class SealedSecretsTest extends SiteTestCase
         $this->assertStringContainsString('password is saved', $site->admin()->get('/admin.php?module=settings&tab=mail')->body, 'the form knows it has a password');
     }
 
+    public function testATypedSecretThatStartsWithTheMarkerIsKept(): void
+    {
+        $site = $this->site();
+        $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'mail', 'smtp_password' => 'sealed:typed-secret']);
+        $stored = $site->settingValue('smtp_password');
+        $this->assertNotSame('sealed:typed-secret', $stored, 'it is sealed like any other value');
+        $this->assertSame('sealed:typed-secret', $this->opened($stored), 'and opens to what was typed');
+    }
+
     public function testPlainValuesAreSealedOnTheFirstAdminPage(): void
     {
         $site = $this->site();

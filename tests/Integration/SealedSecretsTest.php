@@ -66,6 +66,17 @@ final class SealedSecretsTest extends DatabaseTestCase
         $this->assertSame(0, Vault::sealStored($this->db()), 'and nothing is sealed afterwards either');
     }
 
+    public function testASecretThatLooksSealedIsSealedLikeAnyOther(): void
+    {
+        putenv('TALEA_SECRET_KEY=' . self::SECRET);
+        $settings = $this->settings();
+        $settings->set('smtp_password', 'sealed:hunter2');
+        $this->assertNotSame('sealed:hunter2', $this->raw('smtp_password'), 'stored sealed, not as typed');
+        $this->assertSame('sealed:hunter2', $settings->get('smtp_password'));
+        $this->assertSame('sealed:hunter2', $this->settings()->get('smtp_password'), 'and it reads back');
+        $this->assertSame('ok', Vault::status($this->settings())[0], 'nothing is flagged unreadable');
+    }
+
     public function testRoundTrip(): void
     {
         putenv('TALEA_SECRET_KEY=' . self::SECRET);

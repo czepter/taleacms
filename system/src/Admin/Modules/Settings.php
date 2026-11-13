@@ -322,6 +322,8 @@ class Settings extends Module
                     $settings->set($key, '');
                 } elseif ($value !== '' && $type !== 'secret' && !preg_match(substr($type, 7), $value)) {
                     $errors[] = $key; // the value is never printed in the message, only the field name
+                } elseif (\Talea\Core\Vault::isSealed($value) && \Talea\Core\Vault::installKey($settings) === null && in_array($key, \Talea\Core\Vault::SETTINGS, true)) {
+                    $errors[] = $key; // without an install key it would be stored plain, read as a sealed value and come back empty
                 } elseif ($value !== '') {
                     $settings->set($key, mb_substr($value, 0, 300));
                 }

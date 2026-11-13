@@ -71,10 +71,14 @@ final class Vault
         return str_starts_with($stored, self::PREFIX);
     }
 
-    /** The value as it is stored: sealed when there is an install key; '' and a value sealed already stay as they are. */
+    /**
+     * The value as it is stored: sealed when there is an install key; '' stays as it is. A value is always sealed, whatever it starts
+     * with: a typed secret that begins with "sealed:" is a secret like any other (stored plain it would read back empty). Callers pass
+     * plain text only; sealStored skips what is sealed already.
+     */
     public static function sealValue(Settings $settings, string $plain): string
     {
-        if ($plain === '' || self::isSealed($plain) || ($key = self::installKey($settings)) === null) {
+        if ($plain === '' || ($key = self::installKey($settings)) === null) {
             return $plain;
         }
 
