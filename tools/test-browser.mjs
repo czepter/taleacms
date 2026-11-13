@@ -80,6 +80,16 @@ for (const url of ADMIN_PAGES) {
   await step(`open ${url}`, async () => { await visit(url); await nothingSpillsOut(); });
 }
 
+// #338: System status lists the groups with a problem first and open, the groups that are fine folded behind a tick
+await step('system status: problems first', async () => {
+  await visit('/admin.php?module=status');
+  const groups = await page.locator('details.health-group').evaluateAll((els) => els.map((e) => ({ open: e.open, badge: e.querySelector('summary .badge').textContent.trim() })));
+  if (!groups.length) { throw new Error('no groups'); }
+  const firstFine = groups.findIndex((g) => g.badge === '✓');
+  if (firstFine !== -1 && groups.slice(firstFine).some((g) => g.badge !== '✓')) { throw new Error('a group with a problem comes after one that is fine: ' + JSON.stringify(groups)); }
+  if (groups.some((g) => g.open !== (g.badge !== '✓'))) { throw new Error('a group is open when fine or folded with a problem: ' + JSON.stringify(groups)); }
+});
+
 // a collection's fields are tiles on the item form's grid, each with its settings in the sidebar (collections/form.php): the typing
 // shows on the tile, Earlier / Later moves it without a reload, and the item form lays the fields out by their width
 await step('collection fields: add, width and description, reorder, the item form follows', async () => {

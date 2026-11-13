@@ -213,6 +213,29 @@ final class Health
         return ['ok', t('%s (%s) – PHP and the database count time the same way', $phpZone, $offset($phpMinutes))];
     }
 
+    /**
+     * The checks as groups, the ones with a problem first (an error before a warning, those that are fine last); a group keeps the
+     * place of its first check among the groups of the same state, and its checks keep their order.
+     *
+     * @param list<array<string, mixed>> $checks
+     * @return list<array{group: string, status: string, checks: list<array<string, mixed>>}>
+     */
+    public static function grouped(array $checks): array
+    {
+        $groups = [];
+        foreach ($checks as $check) {
+            $name = (string) $check['group'];
+            $groups[$name] ??= ['group' => $name, 'status' => 'ok', 'checks' => []];
+            $groups[$name]['checks'][] = $check;
+            $groups[$name]['status'] = self::summary($groups[$name]['checks']);
+        }
+        $rank = ['error' => 2, 'warning' => 1, 'ok' => 0];
+        $groups = array_values($groups);
+        usort($groups, fn (array $a, array $b): int => $rank[$b['status']] <=> $rank[$a['status']]); // usort is stable
+
+        return $groups;
+    }
+
     /** Summary for monitoring: the worst status found. */
     public static function summary(array $checks): string
     {

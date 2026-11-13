@@ -2,16 +2,15 @@
 /** The "System health" tab. */
 $icons = ['ok' => '✓', 'warning' => '!', 'error' => '✕'];
 $summary = Talea\Core\Health::summary($checks);
-$group = '';
 ?>
 <p class="notice notice-<?= ['ok' => 'ok', 'warning' => 'warning', 'error' => 'error'][$summary] ?>"><?= e(t(['ok' => 'Everything is fine.', 'warning' => 'The system is running, but some items deserve attention.', 'error' => 'Errors were found that prevent the site from running properly.'][$summary])) ?></p>
+<?php foreach (Talea\Core\Health::grouped($checks) as $g): $problems = count(array_filter($g['checks'], fn (array $k): bool => $k['status'] !== 'ok')); ?>
+<details class="panel-collapsed health-group"<?= $g['status'] !== 'ok' ? ' open' : '' ?>>
+<summary><span class="badge badge-<?= ['ok' => 'published', 'warning' => 'draft', 'error' => 'error'][$g['status']] ?>" title="<?= e(t(['ok' => 'OK', 'warning' => 'warning', 'error' => 'error'][$g['status']])) ?>"><?= $icons[$g['status']] ?></span> <strong><?= e($g['group']) ?></strong> <span class="small-text"><?= e($problems === 0 ? t('%d checks, all fine', count($g['checks'])) : t('%d of %d need attention', $problems, count($g['checks']))) ?></span></summary>
 <div class="tab-wrap">
 <table class="listing">
 <tbody>
-<?php foreach ($checks as $k): ?>
-<?php if ($k['group'] !== $group): $group = $k['group']; ?>
-<tr><th colspan="3" scope="colgroup"><?= e($group) ?></th></tr>
-<?php endif ?>
+<?php foreach ($g['checks'] as $k): ?>
 <tr>
 	<td class="center"><span class="badge badge-<?= ['ok' => 'published', 'warning' => 'draft', 'error' => 'error'][$k['status']] ?>" title="<?= e(t(['ok' => 'OK', 'warning' => 'warning', 'error' => 'error'][$k['status']])) ?>"><?= $icons[$k['status']] ?></span></td>
 	<td><strong><?= e($k['name']) ?></strong></td>
@@ -21,6 +20,8 @@ $group = '';
 </tbody>
 </table>
 </div>
+</details>
+<?php endforeach ?>
 <?php if (!Talea\Core\Config::fromEnv() && Talea\Core\Config::readableByEveryone(TALEA_ROOT . '/config.php') && Talea\Core\Owners::isFirst($app->db())): ?>
 <fieldset>
 <legend><?= e(t('Permissions of config.php')) ?></legend>
