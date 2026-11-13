@@ -170,6 +170,25 @@ final class FleetTest extends SiteTestCase
         $this->sameValue('1', $console->value('SELECT accepted IS NULL FROM tl_fleet_sites WHERE id = ?', [$id]), 'withdrawn');
     }
 
+    /** #341: the inventory with a filter per column, the CSV and the MCP tool. */
+    public function testInventoryFiltersAndCsv(): void
+    {
+        $console = $this->console();
+        $name = (string) $console->value('SELECT name FROM tl_fleet_sites WHERE id = ?', [self::$fleetId]);
+        $page = $console->admin()->get('/admin.php?module=fleet&show=all');
+        $this->assertStringContainsString('<select name="database"', $page->body, 'a select per column');
+        $this->assertStringContainsString($name, $page->body);
+        $this->assertStringNotContainsString($name, $console->admin()->get('/admin.php?module=fleet&show=all&language=zz')->body, 'a filter that matches nothing hides the site');
+        $csv = $console->admin()->get('/admin.php?module=fleet&action=inventory_csv');
+        $this->assertSame(200, $csv->status);
+        $this->assertStringContainsString('text/csv', (string) ($csv->headers['content-type'] ?? ''));
+        $this->assertStringContainsString($console->value('SELECT url FROM tl_fleet_sites WHERE id = ?', [self::$fleetId]), $csv->body, 'the file lists the site address');
+        $tool = $this->consoleMcp('fleet_inventory');
+        $this->assertStringContainsString('"web_server"', $tool);
+        $this->assertStringContainsString('"values"', $tool);
+        $this->assertStringContainsString('"count":0', $this->consoleMcp('fleet_inventory', ['language' => 'zz']));
+    }
+
     /** #341: a typed domain date and a certificate date make the calendar, one reminder e-mail, events and an entry in the bell. */
     public function testDomainDateCalendarAndReminders(): void
     {

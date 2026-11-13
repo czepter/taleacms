@@ -6,6 +6,7 @@ namespace Talea\Mcp\Handlers;
 
 use Talea\Fleet\Console;
 use Talea\Fleet\Expiry;
+use Talea\Fleet\Inventory;
 use Talea\Fleet\Kit;
 
 /**
@@ -79,6 +80,26 @@ trait FleetTools
                 array_filter(Expiry::dates(Console::sites($this->app->db()), time()), fn (array $d): bool => $d['days'] <= $days))),
             'certificate_reminder_days' => Expiry::CERTIFICATE_DAYS,
             'domain_reminder_days' => Expiry::DOMAIN_DAYS,
+        ];
+    }
+
+    /** fleet_inventory */
+    private function toolFleetInventory(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('The fleet console is for administrators.');
+        }
+        $rows = array_map(Inventory::row(...), Console::overview($this->app->db(), time()));
+        $listed = Inventory::filter($rows, Inventory::filtersFrom(fn (string $k): string => is_string($a[$k] ?? null) ? $a[$k] : ''), is_string($a['search'] ?? null) ? $a['search'] : '');
+
+        return [
+            'sites' => array_map(function (array $r): array {
+                unset($r['public_id']);
+
+                return $r;
+            }, $listed),
+            'count' => count($listed),
+            'values' => Inventory::values($rows),
         ];
     }
 }

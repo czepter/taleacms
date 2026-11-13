@@ -783,6 +783,23 @@
             "openWorldHint": false
         }
     },
+    "fleet_inventory": {
+        "parameters": {
+            "database": "string",
+            "feature": "string",
+            "language": "string",
+            "php": "string",
+            "search": "string",
+            "version": "string",
+            "web_server": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_blueprint": {
         "parameters": [],
         "required": [],

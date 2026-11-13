@@ -146,10 +146,10 @@ final class Console
     /**
      * Why a site needs attention, by weight (REASONS), and the items behind it (Fleet\Today). What a person accepted
      * (fleet_sites.accepted, still in force) is not an open reason and not in the score: a reason leaves the open ones when all its
-     * items are accepted, and is listed under "accepted". Pure.
+     * items are accepted, and is listed under "accepted_reasons" ("accepted" stays the stored JSON of the row). Pure.
      *
      * @param array<string, mixed> $site a row of tl_fleet_sites
-     * @return array{score: int, reasons: list<string>, accepted: list<string>, items: list<array<string, mixed>>} items carry "accepted" (the acceptance or null)
+     * @return array{score: int, reasons: list<string>, accepted_reasons: list<string>, items: list<array<string, mixed>>} items carry "accepted" (the acceptance or null)
      */
     public static function attention(array $site, int $now): array
     {
@@ -209,7 +209,7 @@ final class Console
             }
         }
 
-        return ['score' => array_sum(array_map(fn (string $r): int => self::REASONS[$r], $open)), 'reasons' => $open, 'accepted' => $accepted, 'items' => $items];
+        return ['score' => array_sum(array_map(fn (string $r): int => self::REASONS[$r], $open)), 'reasons' => $open, 'accepted_reasons' => $accepted, 'items' => $items];
     }
 
     /**

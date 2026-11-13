@@ -9,6 +9,7 @@ use Talea\Admin\Module;
 use Talea\Core\Response;
 use Talea\Fleet\Console;
 use Talea\Fleet\Expiry;
+use Talea\Fleet\Inventory;
 use Talea\Fleet\Kit;
 use Talea\Fleet\Today;
 
@@ -35,10 +36,13 @@ final class Fleet extends Module
         $needing = count(array_filter($sites, fn (array $s): bool => $s['score'] >= Console::REASONS['warnings']));
         $matches = fn (array $s): bool => $query === '' || str_contains(mb_strtolower($s['name'] . ' ' . $s['url']), $query);
         $listed = array_values(array_filter($sites, fn (array $s): bool => $matches($s)));
+        $rows = array_map(Inventory::row(...), $sites);
+        $filters = Inventory::filtersFrom($this->request->get(...));
+        $inventory = $show === 'all' ? Inventory::filter($rows, $filters, $query) : [];
         $key = $this->app->session->get('fleet_pairing_key');
         $this->app->session->set('fleet_pairing_key', null); // shown once
 
-        return $this->view('list', 'Fleet', ['sites' => $listed, 'groups' => $show === 'today' ? Today::groups($listed) : [], 'total' => count($sites), 'needing' => $needing, 'show' => $show, 'query' => $query,
+        return $this->view('list', 'Fleet', ['sites' => $listed, 'groups' => $show === 'today' ? Today::groups($listed) : [], 'inventory' => $inventory, 'values' => Inventory::values($rows), 'filters' => $filters, 'total' => count($sites), 'needing' => $needing, 'show' => $show, 'query' => $query,
             'latest' => TALEA_VERSION, 'pairingKey' => is_string($key) ? $key : '']);
     }
 
@@ -51,6 +55,15 @@ final class Fleet extends Module
         $events = $this->db->all("SELECT created_at, type, severity, message FROM {events} WHERE type LIKE 'fleet.%' AND " . $this->db->dialect()->jsonExtract('data', '$.site') . " = ? ORDER BY id DESC LIMIT 20", [(string) (int) $site['id']]);
 
         return $this->view('detail', (string) $site['name'], ['site' => $site, 'events' => $events]);
+    }
+
+    /** The inventory as a CSV file for a spreadsheet, with the filters of the list of all sites. */
+    protected function actionInventoryCsv(): Response
+    {
+        $rows = Inventory::filter(array_map(Inventory::row(...), Console::overview($this->db, time())), Inventory::filtersFrom($this->request->get(...)), $this->request->get('q'));
+        ChangeLog::write($this->app, 'fleet', 'export CSV', '');
+
+        return new Response(Inventory::csv($rows), 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="fleet-' . date('Y-m-d') . '.csv"']);
     }
 
     /** Accepts a known state of one check of one site until a day: it leaves the open reasons until then or until the state changes (Fleet\Today). */

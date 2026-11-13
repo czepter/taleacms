@@ -28,7 +28,7 @@ final class FleetTest extends TestCase
             \Talea\Fleet\Link::parseKey(\Talea\Fleet\Link::makeKey('http://console.example.com', str_repeat('ab', 16), $fleetPub, 'x'))], '2.9: Fleet\Link – the pairing key carries the console address, the one-time code and the console key');
         $fleetNow = 1_800_000_000;
         $fleetRow = fn (array $more, array $beat = []): array => $more + ['up' => 1, 'last_seen' => date('Y-m-d H:i:s', $fleetNow - 600), 'status' => 'ok', 'heartbeat' => (string) json_encode($beat + ['last_backup' => $fleetNow - 3600, 'cron_last_run' => $fleetNow - 300])];
-        $this->assertSame([['score' => 0, 'reasons' => [], 'accepted' => [], 'items' => []], ['down', 'errors'], ['not_reporting'], ['no_heartbeat'], ['jobs_failing', 'no_backup', 'enquiries']], [
+        $this->assertSame([['score' => 0, 'reasons' => [], 'accepted_reasons' => [], 'items' => []], ['down', 'errors'], ['not_reporting'], ['no_heartbeat'], ['jobs_failing', 'no_backup', 'enquiries']], [
             \Talea\Fleet\Console::attention($fleetRow([]), $fleetNow),
             \Talea\Fleet\Console::attention($fleetRow(['up' => 0, 'status' => 'error']), $fleetNow)['reasons'],
             \Talea\Fleet\Console::attention($fleetRow(['last_seen' => date('Y-m-d H:i:s', $fleetNow - 30 * 3600)]), $fleetNow)['reasons'],
@@ -212,7 +212,7 @@ final class FleetTest extends TestCase
             $all = \Talea\Fleet\Today::accept($all, ['key' => $key, 'state' => 'warning'], 'ok', $plus(30), 'admin', $now);
         }
         $none = \Talea\Fleet\Console::attention($row(['accepted' => json_encode($all)]), $now);
-        $this->assertSame([['down', 'enquiries'], ['warnings'], $attention['score'] - 10], [$none['reasons'], $none['accepted'], $none['score']], 'all warning items accepted: the reason moves to accepted and the score drops');
+        $this->assertSame([['down', 'enquiries'], ['warnings'], $attention['score'] - 10], [$none['reasons'], $none['accepted_reasons'], $none['score']], 'all warning items accepted: the reason moves to accepted and the score drops');
 
         $worse = \Talea\Fleet\Console::attention($row(['accepted' => json_encode($all), 'status' => 'error'], ['problems' => [['group' => 'Security', 'check' => 'Debug mode', 'status' => 'error'], $problems[1], $problems[2]]]), $now);
         $this->assertSame('check:Debug mode', array_values(array_filter($worse['items'], fn (array $i): bool => $i['accepted'] === null && $i['severity'] === 'error' && str_starts_with($i['key'], 'check:')))[0]['key'], 'a worse state is not held');
@@ -228,5 +228,24 @@ final class FleetTest extends TestCase
         $site += \Talea\Fleet\Console::attention($site, $now);
         $this->assertSame([[], []], [\Talea\Fleet\Expiry::due($site, $now, ['certificate'])[0], \Talea\Fleet\Expiry::soon([$site], $now)], 'an accepted certificate has no reminder and is not in the bell');
         $this->assertSame(1, count(\Talea\Fleet\Expiry::due($site, $now)[0]), 'without the acceptance the reminder is due');
+    }
+
+    /** #341: the inventory – rows from the reports, values, filters, CSV */
+    public function testInventory(): void
+    {
+        $old = \Talea\Fleet\Inventory::row(['id' => 1, 'public_id' => 'a', 'name' => 'Old', 'url' => 'https://old.example', 'version' => '2.9.0', 'beat' => ['php' => '8.4.1'], 'last_seen' => null, 'reasons' => [], 'accepted_reasons' => []]);
+        $this->assertSame(['', '', [], []], [$old['database'], $old['web_server'], $old['features'], $old['languages']], 'an old report gives empty values');
+        $rows = [
+            \Talea\Fleet\Inventory::row(['id' => 1, 'public_id' => 'a', 'name' => 'Aria', 'url' => 'https://aria.example', 'version' => '4.2.3', 'last_seen' => null, 'reasons' => ['errors'], 'accepted_reasons' => [],
+                'beat' => ['php' => '8.5.0', 'database' => 'MySQL 8.4', 'web_server' => 'nginx', 'extensions' => ['news', 'fleet'], 'languages' => ['en', 'de']]]),
+            \Talea\Fleet\Inventory::row(['id' => 2, 'public_id' => 'b', 'name' => '=cmd', 'url' => 'https://b.example', 'version' => '4.2.10', 'last_seen' => null, 'reasons' => [], 'accepted' => [],
+                'beat' => ['php' => '8.5.0', 'database' => 'MariaDB 11.4', 'web_server' => 'Apache', 'extensions' => ['news'], 'languages' => ['en']]]),
+        ];
+        $values = \Talea\Fleet\Inventory::values($rows);
+        $this->assertSame([['MariaDB 11.4', 'MySQL 8.4'], ['fleet', 'news'], ['4.2.3', '4.2.10']], [$values['database'], $values['feature'], $values['version']]);
+        $this->assertSame([1, 2, 1], [count(\Talea\Fleet\Inventory::filter($rows, ['feature' => 'fleet'], '')), count(\Talea\Fleet\Inventory::filter($rows, ['language' => 'en'], '')), count(\Talea\Fleet\Inventory::filter($rows, [], 'ARIA'))]);
+        $this->assertEquals(['feature' => 'fleet', 'database' => ''], array_intersect_key(\Talea\Fleet\Inventory::filtersFrom(fn (string $k): string => $k === 'feature' ? ' fleet ' : ''), ['feature' => 1, 'database' => 1]));
+        $csv = \Talea\Fleet\Inventory::csv($rows);
+        $this->assertSame(["\xEF\xBB\xBF", true, true], [substr($csv, 0, 3), str_contains($csv, ';'), str_contains($csv, "'=cmd;")]);
     }
 }

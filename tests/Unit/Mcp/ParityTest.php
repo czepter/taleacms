@@ -144,7 +144,7 @@ final class ParityTest extends TestCase
                 'check' => 'admin: the console checks the sites every 5 minutes on its own', 'remove' => 'admin: removing a site from the console',
                 'kit' => $readOnly, 'kit_publish' => 'admin: publishing a design kit to a whole fleet is a person\'s decision (2.16); list_sites shows the versions',
                 'calendar' => 'fleet_calendar', 'domain' => 'admin: the registration date is typed from the registrar\'s account by a person; fleet_calendar reads it',
-                'accept' => 'admin: accepting a known state is a person\'s judgement on the console; list_sites and get_site show it', 'withdraw' => 'admin: see accept'],
+                'accept' => 'admin: accepting a known state is a person\'s judgement on the console; list_sites and get_site show it', 'withdraw' => 'admin: see accept', 'inventory_csv' => 'fleet_inventory'],
         ];
         $missingParity = [];
         foreach (\Talea\Admin\Kernel::MODULES as $moduleClass) {

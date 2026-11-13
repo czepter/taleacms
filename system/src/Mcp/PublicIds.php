@@ -122,7 +122,7 @@ final class PublicIds
         'send_newsletter' => ['id' => 'newsletters', 'news_ids.*' => 'news'], 'delete_newsletter' => ['deleted' => 'newsletters'],
         'list_requests' => ['requests.*.id' => 'requests', 'requests.*.about.id' => ['type', ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items']], 'requests.*.attachments.*.id' => 'media'],
         'update_request' => ['id' => 'requests'],
-        'list_sites' => ['sites.*.id' => 'fleet_sites'], 'get_site' => ['id' => 'fleet_sites'], 'fleet_calendar' => ['dates.*.site_id' => 'fleet_sites'],
+        'list_sites' => ['sites.*.id' => 'fleet_sites'], 'get_site' => ['id' => 'fleet_sites'], 'fleet_calendar' => ['dates.*.site_id' => 'fleet_sites'], 'fleet_inventory' => ['sites.*.id' => 'fleet_sites'],
         'list_short_links' => ['short_links.*.id' => 'short_links', 'short_links.*.target.id' => self::BY_TARGET],
         'save_short_link' => ['id' => 'short_links', 'target.id' => self::BY_TARGET],
         'list_member_groups' => ['groups.*.id' => 'member_groups'], 'save_member_group' => ['group.id' => 'member_groups'], 'delete_member_group' => ['deleted' => 'member_groups'],
