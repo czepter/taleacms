@@ -213,6 +213,7 @@ final class Blueprint
                 $out[$key] = $m['claude'];
             }
         }
+        ksort($out); // applied_at ties (same second) must not change the fingerprint of the combined text
 
         return $out;
     }
