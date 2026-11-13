@@ -156,4 +156,18 @@ final class WebImportFilesTest extends DatabaseTestCase
         $this->assertSame($html, $files->bring($html, $state));
         $this->assertSame([['kind' => 'document', 'path' => '/prices', 'host' => 'Missing List.pdf']], $state['attention']);
     }
+
+    public function testADocumentWhoseMediaEntryWasDeletedIsBroughtOverAgain(): void
+    {
+        $state = $this->state();
+        $this->old->put('docs/file-1.pdf', "%PDF-1.4\n1 0 obj<<>>endobj\n%%EOF");
+        $html = $this->links(1, 1);
+        $first = $this->files()->bring($html, $state);
+        \Talea\Core\Files::delete((string) $this->db()->value('SELECT image_path FROM {media}'));
+        $this->db()->run('DELETE FROM {media}');
+        $second = $this->files()->bring($html, $state);
+        $this->assertNotSame($first, $second, 'a new Media file');
+        $this->assertMatchesRegularExpression('#href="/media/[^"]+\.pdf"#', $second, 'the link points at the new file, not at the site root');
+        $this->assertSame(2, $state['result']['files']);
+    }
 }

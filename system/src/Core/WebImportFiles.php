@@ -140,7 +140,14 @@ final class WebImportFiles
         $key = sha1($address);
         $known = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'file' AND source_id = ?", [$source, $key]);
         if ($known !== null) {
-            return (int) $known === 0 ? null : (string) $this->db->value('SELECT image_path FROM {media} WHERE media_id = ?', [(int) $known]);
+            if ((int) $known === 0) {
+                return null;
+            }
+            $path = $this->db->value('SELECT image_path FROM {media} WHERE media_id = ?', [(int) $known]);
+            if (is_string($path) && $path !== '') {
+                return $path;
+            }
+            // the Media entry was deleted since: the document is brought over again (never a link to the site root)
         }
         if ($this->mayDownload !== null && !($this->mayDownload)()) {
             throw new WebImportPaused();
