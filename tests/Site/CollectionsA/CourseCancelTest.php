@@ -188,4 +188,61 @@ final class CourseCancelTest extends SiteTestCase
         $this->assertSame('Already registered: Mambo', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'zed@example.com' ORDER BY mail_id DESC LIMIT 1"));
         $this->assertStringContainsString('This link no longer works', $this->visitor()->post($path)->body, 'now the token is used');
     }
+
+    /**
+     * The whole journey of a seat taken over: the new registration is an enquiry like one sent by the form (the form record, what it
+     * was about, the holder is told which course, the webhook hears of it), a trashed cancelled registration offers nothing, and a
+     * course that is cancelled again sends new links that work.
+     */
+    public function testTakenOverSeatIsAFullRegistrationAndCanBeCancelledAgain(): void
+    {
+        $start = $this->siteDate('+40 days');
+        foreach ([['Bachata', 'bachata'], ['Kizomba', 'kizomba'], ['Forro', 'forro']] as [$name, $slug]) {
+            $this->mcpText('save_collection_item', ['collection' => 'courses-test', 'name' => $name, 'slug' => $slug, 'values' => ['start' => "$start 18:00", 'capacity' => '5', 'registration' => 'instant'], 'visible' => true]);
+        }
+        $this->site()->clearPageCache();
+        $this->register('bachata', 'carl@example.com', 'Carl');
+        $this->register('bachata', 'dana@example.com', 'Dana');
+        $original = $this->site()->rows("SELECT form_id, topic FROM tl_enquiries WHERE email = 'carl@example.com'")[0];
+        $this->assertSame('Courses test – Bachata', $original['topic']);
+        $this->site()->setting('webhook_enquiries', 'https://hooks.example.com/crm');
+
+        $screen = '&id=' . $this->collectionId() . '&item=' . $this->itemPid('bachata');
+        $this->adminPost('/admin.php?module=collections&action=cancel_course', ['id' => $this->collectionId(), 'item' => $this->itemPid('bachata'), 'offer' => [$this->itemPid('kizomba')], 'message' => ''],
+            '/admin.php?module=collections&action=cancel_course' . $screen);
+        $carl = $this->link('carl@example.com', 1);
+        $dana = $this->link('dana@example.com', 1);
+
+        // the holder trashes Dana's cancelled registration: her link registers nobody
+        $this->adminPost('/admin.php?module=enquiries&action=delete', ['enquiry_id' => $this->site()->publicId('enquiries', (int) $this->sq("SELECT enquiry_id FROM tl_enquiries WHERE email = 'dana@example.com'"))], '/admin.php?module=enquiries');
+        $this->assertStringContainsString('This link no longer works', $this->visitor()->get($dana)->body, 'a trashed registration offers no seat');
+        $this->assertStringContainsString('This link no longer works', $this->visitor()->post($dana)->body);
+        $this->assertSame('0', $this->enquiries('kizomba', 'dana@example.com'), 'a trashed registration takes no seat');
+
+        $hooks = (int) $this->sq("SELECT COUNT(*) FROM tl_webhook_deliveries WHERE event = 'enquiry_received'");
+        $holders = $this->holderMails();
+        $this->assertStringContainsString('You are registered', $this->visitor()->post($carl)->body);
+        $taken = $this->site()->rows("SELECT e.enquiry_id, e.form_id, e.topic, e.page FROM tl_enquiries e JOIN tl_collection_items i ON i.item_id = e.item_id WHERE i.slug = 'kizomba' AND e.email = 'carl@example.com'")[0];
+        $this->assertSame((string) $original['form_id'], (string) $taken['form_id'], 'the registration stays with its form record (Enquiries → Forms counts it)');
+        $this->assertSame('Courses test – Kizomba', $taken['topic'], 'the enquiry says which course it is about');
+        $this->assertSame('/courses-test/kizomba', $taken['page']);
+        $this->assertSame($holders + 1, $this->holderMails());
+        $this->assertStringContainsString('Kizomba', (string) $this->sq("SELECT body FROM tl_mail WHERE recipient = 'holder@example.org' ORDER BY mail_id DESC LIMIT 1"), 'the holder is told which course was taken');
+        $this->assertSame($hooks + 1, (int) $this->sq("SELECT COUNT(*) FROM tl_webhook_deliveries WHERE event = 'enquiry_received'"), 'the webhook hears of the new registration as of any');
+        $this->assertStringContainsString('Courses test – Kizomba', $this->assertPage('/admin.php?module=enquiries&action=detail&id=' . $this->site()->publicId('enquiries', (int) $taken['enquiry_id']), 200, ['Confirmed'])->body);
+        $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM tl_enquiries e JOIN tl_collection_items i ON i.item_id = e.item_id WHERE i.slug = 'kizomba' AND e.seat_state = 'confirmed'"));
+
+        // Kizomba is cancelled too: Carl gets new links, the new one works, the old one stays dead
+        $screen = '&id=' . $this->collectionId() . '&item=' . $this->itemPid('kizomba');
+        $this->adminPost('/admin.php?module=collections&action=cancel_course', ['id' => $this->collectionId(), 'item' => $this->itemPid('kizomba'), 'offer' => [$this->itemPid('forro')], 'message' => ''],
+            '/admin.php?module=collections&action=cancel_course' . $screen);
+        $this->assertSame('Cancelled: Kizomba', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'carl@example.com' ORDER BY mail_id DESC LIMIT 1"));
+        $again = $this->link('carl@example.com', 1);
+        $this->assertNotSame($carl, $again);
+        $this->assertStringContainsString('This link no longer works', $this->visitor()->post($carl)->body);
+        $this->assertStringContainsString('You are registered', $this->visitor()->post($again)->body);
+        $this->assertSame('confirmed', $this->sq("SELECT e.seat_state FROM tl_enquiries e JOIN tl_collection_items i ON i.item_id = e.item_id WHERE i.slug = 'forro' AND e.email = 'carl@example.com'"));
+        $this->assertSame('Courses test – Forro', $this->sq("SELECT e.topic FROM tl_enquiries e JOIN tl_collection_items i ON i.item_id = e.item_id WHERE i.slug = 'forro' AND e.email = 'carl@example.com'"));
+        $this->assertSame((string) $original['form_id'], (string) $this->sq("SELECT e.form_id FROM tl_enquiries e JOIN tl_collection_items i ON i.item_id = e.item_id WHERE i.slug = 'forro' AND e.email = 'carl@example.com'"));
+    }
 }
