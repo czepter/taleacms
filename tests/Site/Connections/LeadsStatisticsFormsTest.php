@@ -444,28 +444,33 @@ PHP);
         for ($i = 0; $i < 20 && $this->fieldOf($text, 'phase') === 'importing'; $i++) {
             $text = $this->toolText('import_website', ['import_id' => $importId]);
         }
-        $this->assertSame('{"new_pages":0,"new_news":0,"images":0,"redirects":0,"skipped":3,"failed":0}', $this->fieldOf($text, 'result'), 'website import: running it again skips what is already there');
+        $this->assertSame('{"new_pages":0,"new_news":0,"images":0,"redirects":0,"skipped":3,"failed":0,"parents":0}', $this->fieldOf($text, 'result'), 'website import: running it again skips what is already there');
 
         // 2.7: the migration report - a fourth old page with a form that nothing on the new site answers
         file_put_contents($old . '/visit-us/index.html', $this->oldPage('Contact', 'Write to us', '<p>Write to us about a table, a chair or a whole kitchen and we answer within two working days, promised.</p><form action="/send"><input name="email"><textarea name="message"></textarea></form>'));
         file_put_contents($old . '/sitemap.xml', $sitemap(['/', '/our-story/', '/blog/first-post/', '/visit-us/']));
         $report = $this->reportDone($origin);
-        $this->assertSame('{"addresses":4,"checked":4,"ok":1,"redirected":0,"not_published":2,"missing":1,"errors":1,"warnings":3}', $this->fieldOf($report, 'summary'),
+        // the old home lands on the starter Home: an error until the imported home is set (#340)
+        $this->assertSame('{"addresses":4,"checked":4,"ok":1,"redirected":0,"not_published":2,"missing":1,"errors":2,"warnings":3,"old_site_reachable":true}', $this->fieldOf($report, 'summary'),
             'migration report: four old addresses - the imported ones not published yet, the contact page missing');
         $this->assertStringContainsString('/visit-us', $report, 'migration report: the contact address is listed');
         $this->assertMatchesRegularExpression('#form_missing|missing#', $report, 'migration report: the missing page is flagged');
         $this->assertStringContainsString('site_checks', $report, 'migration report: the checks of the whole site');
+        $move = json_decode($this->toolText('site_audit', []), true)['move'] ?? null;
+        $this->assertGreaterThanOrEqual(2, $move['pages_imported'] ?? 0, 'site audit: the move status counts the imported pages');
+        $this->assertGreaterThanOrEqual(1, $move['layout_pending'] ?? 0, 'site audit: and the layouts still to rebuild');
+        $this->assertSame([true, false], [$move['report']['done'] ?? null, $move['report']['clean'] ?? null], 'site audit: and says the latest report is not clean');
 
         $site->mcp('save_redirect', ['from' => '/visit-us', 'to' => '/our-story']);
         $site->exec("UPDATE tl_pages SET visible = 1 WHERE slug = 'our-story'");
-        $this->assertSame('{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}', $this->fieldOf($this->reportDone($origin), 'summary'),
+        $this->assertSame('{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":2,"warnings":2,"old_site_reachable":true}', $this->fieldOf($this->reportDone($origin), 'summary'),
             'migration report: after a redirect and publishing, the contact address redirects (but the form is gone)');
         // the target page shows a form through a component: the form is there
         $component = $this->firstId($site->mcp('save_component', ['name' => 'Report form']));
         $build = $site->value("SELECT build FROM tl_pages WHERE slug = 'our-story'");
         $site->exec('UPDATE tl_components SET build = ? WHERE component_id = ?', ['{"v":1,"children":[{"id":"rf00001","type":"form","tag":"form","content":{}}]}', $component]);
         $site->exec("UPDATE tl_pages SET build = ? WHERE slug = 'our-story'", ['{"v":1,"children":[{"id":"rf00002","type":"component","tag":"div","content":{"component":"' . $component . '"}}]}']);
-        $this->assertSame(0, json_decode($this->fieldOf($this->reportDone($origin), 'summary'), true)['errors'] ?? null, 'migration report: a form inside a component of the target page counts');
+        $this->assertSame(1, json_decode($this->fieldOf($this->reportDone($origin), 'summary'), true)['errors'] ?? null, 'migration report: a form inside a component of the target page counts (the one error left is the old home on the starter Home)');
         $site->exec("UPDATE tl_pages SET build = ? WHERE slug = 'our-story'", [$build]);
         $site->exec('DELETE FROM tl_components WHERE component_id = ?', [$component]);
         $site->exec("UPDATE tl_pages SET visible = 0 WHERE slug = 'our-story'");
@@ -537,7 +542,7 @@ PHP);
 
         $this->assertSame('0', (string) $site->value("SELECT visible FROM tl_pages WHERE slug = 'contact' AND deleted_at IS NULL"), 'the imported page has the address, hidden');
         $this->assertNotNull($site->value("SELECT deleted_at FROM tl_pages WHERE slug = 'contact-starter'"), 'the starter Contact page is in the trash');
-        $this->assertSame('home-2', (string) $site->value("SELECT slug FROM tl_pages WHERE import_source = ?", [$origin . '/']), 'the old home page is a hidden page beside the starter Home');
+        $this->assertMatchesRegularExpression('/^home-\d+$/', (string) $site->value('SELECT slug FROM tl_pages WHERE import_source = ?', [$origin . '/']), 'the old home page is a hidden page beside the starter Home');
         $this->assertNull($site->value("SELECT deleted_at FROM tl_pages WHERE slug = 'home'"));
         $result = json_decode($text, true)['starter_pages_result'] ?? [];
         $this->assertSame('/contact', $result['replaced'][0]['address'] ?? null, 'the result lists what was replaced');

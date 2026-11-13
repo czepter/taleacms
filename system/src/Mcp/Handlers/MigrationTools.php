@@ -43,7 +43,7 @@ trait MigrationTools
         return ['report_id' => $state['id'], 'old_site' => $state['web'],
             'phase' => ['finding' => 'finding', 'check' => 'checking', 'done' => 'done'][$state['phase']] ?? $state['phase'],
             'summary' => ['addresses' => $s['urls'], 'checked' => $s['checked'], 'ok' => $s['ok'], 'redirected' => $s['redirected'],
-                'not_published' => $s['hidden'], 'missing' => $s['missing'], 'errors' => $s['failed'], 'warnings' => $s['warnings']],
+                'not_published' => $s['hidden'], 'missing' => $s['missing'], 'errors' => $s['failed'], 'warnings' => $s['warnings'], 'old_site_reachable' => !$s['unreachable']],
             'problems' => array_map(fn (array $row): array => ['old' => $row['old'], 'new' => $row['new'] ?: null, 'status' => $row['status'],
                 'problems' => array_map(fn (string $p): array => ['code' => $p, 'severity' => MigrationReport::PROBLEMS[$p] ?? 'info', 'message' => MigrationReport::describe($p)], $row['problems']),
                 'old_title' => $row['old_title'], 'new_title' => $row['new_title']], array_slice($rows, 0, 100)),
