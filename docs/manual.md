@@ -531,6 +531,29 @@ become news, and old addresses redirect to the new ones. The header, footer, men
 are left out and the look comes from your design system. Claude does the same with `import_website` and can then match
 the look and tidy the texts.
 
+**An empty site for a move.** In the installer choose **Move a site here from WordPress or another platform**: the site
+starts with a placeholder home page, the hidden privacy policy and the look – nothing else – and you import the old site
+right away. On a site you have already installed, **Import and export → Starter pages of the installation** moves the
+starter pages nobody has changed to the trash in one step (the home page stays).
+
+**Starter pages.** The installer records its pages (Home, About us, Services, Contact). When an imported page wants the
+address of one that is still unchanged – the same text, never saved, no translation – the preview offers to **replace** it:
+the starter page goes to the trash for 30 days and the imported page takes its address; without the tick the imported page
+gets a number (/contact-2). An edited starter page and the home page are never replaced: the old home page arrives hidden
+(`home-2`) until you publish it and set it as the home page. The result lists what was replaced, kept and renamed.
+
+**Nested addresses** keep their structure: `/services/heating/boilers` becomes a page below `/services/heating`, below
+`/services`. A parent the old site's sitemap does not list becomes an empty hidden page (the result lists them), and
+the result lists the redirects written – only for an address that changed.
+
+**Layout not rebuilt.** Every imported page carries a marker until you tick it off: **Pages → Layout not rebuilt** lists
+them (with a count), **Layout done** in the row menu or as a bulk action clears the marker without changing the page.
+Claude lists them with `list_layout_queue` (50 at a time, with the old address of each) and ticks them off with
+`layout_queue`. **Site audit → Moving the site** shows where the move stands: pages imported, layouts still to rebuild,
+starter pages left, redirects, forms and whether the latest **Check the move** report was clean. That report marks an old
+address that lands on a starter page as an error, reports a form found on every old page once for the whole site, notes
+changed titles and says plainly when the old site could not be reached.
+
 **Administration → Import and export → WordPress:** upload a WordPress export (Tools → Export, an XML file). The import
 turns posts into news, pages optionally **straight into the builder**, downloads images into Media and creates redirects
 from old addresses. You can run the import again – whatever it already converted is skipped.

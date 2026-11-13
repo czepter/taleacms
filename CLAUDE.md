@@ -232,6 +232,7 @@ Transfer between owners (`Core\SiteTransfer`, Owners → Move a site, MCP `trans
 row goes through the sanitizers, settings only from the allow-list `SiteExport::SETTINGS`). Never relax: XML with DOCTYPE/entities is
 refused, content passes an allow-list of tags, the image downloader only fetches public addresses of the old site with pinned connections
 and size/time limits, never SVG.
+**Site moves** (#340): `Core\StarterPages` – the installer records its pages in the setting `starter_pages` ({public id: fingerprint}); an import (`WebImport`, `WpImport`) trashes an *untouched* starter page (fingerprint equal, `updated_at` NULL, no draft, no translation) that sits at an imported address, never the home page; the installer's choice `move` makes an empty site (`Starter::createForMove`). `pages.import_source` / `layout_pending` (`Core\LayoutQueue`, Pages tab, MCP `list_layout_queue`/`layout_queue`) mark imported pages whose layout is not rebuilt; ticking off touches nothing else. `WebImport` keeps nested addresses (`parent_id`, hidden empty parent pages, shallow addresses first). `Core\MoveStatus` is the block of Site audit and `site_audit.move`.
 
 ## Running and testing
 
