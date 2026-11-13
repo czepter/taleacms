@@ -96,6 +96,16 @@ final class MultisiteRoutingTest extends SiteTestCase
         $this->assertNotSame(503, $link->status, 'an upload link of Claude works on a paused site');
         $this->assertNotSame(503, $this->on('second.test', '/', admin: true)->status, 'a signed-in administrator passes');
         $this->assertNotSame(503, $this->on('127.0.0.1', '/')->status, 'the other site is unaffected');
+
+        // cron goes on sending a paused site's newsletter: withdrawing consent passes (the link's page and the one-click POST), signing up does not
+        $site = $this->site();
+        $token = bin2hex(random_bytes(16));
+        $site->exec("INSERT INTO tl2_subscribers (email, status, token, created_at, confirmed_at) VALUES ('paused-reader@example.com', 1, ?, NOW(), NOW())", [$token]);
+        $host = ['Host: second.test:' . $this->port()];
+        $this->assertStringContainsString('Do you really no longer want to receive news at paused-reader@example.com?', $this->on('second.test', '/subscribe?unsubscribe=' . $token)->body, 'the unsubscribe link opens on a paused site');
+        $oneClick = $site->client('mail-client')->post('/subscribe?unsubscribe=' . $token, 'List-Unsubscribe=One-Click', [...$host, 'Content-Type: application/x-www-form-urlencoded']);
+        $this->assertSame([200, '0'], [$oneClick->status, (string) $site->value("SELECT COUNT(*) FROM tl2_subscribers WHERE email = 'paused-reader@example.com'")], 'one click from the mail client unsubscribes on a paused site');
+        $this->assertSame(503, $site->client('visitor')->post('/subscribe', ['email' => 'new@example.com'], $host)->status, 'signing up stays closed on a paused site');
     }
 
     public function testAnArchivedSiteRedirectsOrIsReadOnly(): void
