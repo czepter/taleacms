@@ -24,6 +24,15 @@ final class ConfirmationTest extends TestCase
         $this->assertFalse(Confirmation::needed('save_build', ['confirm' => true]));
     }
 
+    public function testEveryConditionOfTheToolsIsKnownAndAnUnknownOneFailsClosed(): void
+    {
+        foreach (Confirmation::TOOLS as $tool => [$condition]) {
+            $this->assertContains($condition, Confirmation::CONDITIONS, $tool . ' names a condition needed() has no rule for (a typo would leave it ungated)');
+        }
+        $this->assertTrue(Confirmation::holds('alway', []), 'a condition without a rule asks for the code');
+        $this->assertFalse(Confirmation::needed('not_a_two_step_tool', ['confirm' => true]));
+    }
+
     public function testCanonicalIgnoresOrderReasonAndCode(): void
     {
         $a = Confirmation::canonical(['b' => 1, 'a' => ['y' => 1, 'x' => 2], 'reason' => 'r', 'confirmation' => 'c', 'site' => 's']);

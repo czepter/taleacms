@@ -40,6 +40,9 @@ final class Confirmation
         'delete_collection' => ['always', 'erase'], 'delete_enquiry' => ['always', 'erase'],
     ];
 
+    /** The conditions of TOOLS that needed() knows (ConfirmationTest fails on any other). */
+    public const array CONDITIONS = ['confirm', 'send', 'unless_unschedule', 'registration_action', 'always'];
+
     /** What update_registration does with these actions: each may e-mail the person. */
     private const array REGISTRATION_ACTIONS = ['confirm', 'decline', 'cancel', 'promote'];
 
@@ -52,13 +55,25 @@ final class Confirmation
      */
     public static function needed(string $tool, array $arguments): bool
     {
-        return match (self::TOOLS[$tool][0] ?? null) {
+        $condition = self::TOOLS[$tool][0] ?? null;
+
+        return $condition !== null && self::holds($condition, $arguments);
+    }
+
+    /**
+     * One condition of TOOLS. A condition nobody wrote a rule for fails closed: the call needs the code.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public static function holds(string $condition, array $arguments): bool
+    {
+        return match ($condition) {
             'confirm' => ($arguments['confirm'] ?? null) === true,
             'send' => !empty($arguments['send']),
             'unless_unschedule' => empty($arguments['unschedule']),
             'registration_action' => in_array($arguments['action'] ?? null, self::REGISTRATION_ACTIONS, true),
             'always' => true,
-            default => false,
+            default => true,
         };
     }
 
