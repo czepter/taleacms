@@ -128,4 +128,38 @@ final class AgentNotebookTest extends SiteTestCase
         );
         $this->assertStringContainsString('does not exist', $this->mcpRawText('delete_notebook_entry', ['id' => 999999]), 'notebook: deleting a note that does not exist is an error');
     }
+
+    public function testADraftsOnlyConnectionProposes(): void
+    {
+        $drafts = $this->draftsToken();
+        $full = $this->mcpData('write_notebook', ['topic' => 'decisions', 'title' => 'A decision of the owner', 'text' => 'Kept by a full connection.']);
+        $own = (int) $this->pick($full, 'note', 'id');
+
+        $written = $this->mcpData('write_notebook', ['topic' => 'todo', 'title' => 'Maybe rename the menu', 'text' => 'Idea from a drafts-only connection.', 'pinned' => true], $drafts);
+        $proposal = (int) $this->pick($written, 'note', 'id');
+        $this->assertSame('1|', $this->pick($written, 'note', 'proposal') . '|' . $this->pick($written, 'note', 'pinned'), 'a drafts-only connection proposes, and a proposal is never pinned');
+        $this->assertStringContainsString('proposal', $this->pick($written, 'next'));
+
+        $read = $this->mcpData('read_notebook');
+        $notes = array_column($read['notes'], null, 'id');
+        $this->assertTrue($notes[$proposal]['proposal']);
+        $this->assertFalse($notes[$own]['proposal']);
+        $this->assertStringContainsString('proposal: true', (string) $read['next']);
+        $this->assertNotContains('Maybe rename the menu', (array) ($this->mcpData('site_info')['notebook_pinned'] ?? []));
+
+        $this->assertStringContainsString('changes only the notes it proposed', $this->mcpRawText('write_notebook', ['id' => $own, 'text' => 'Overwritten'], $drafts), 'it cannot change a note of a person or a full connection');
+        $this->assertStringNotContainsString('Overwritten', $this->sq('SELECT text FROM tl_notebook WHERE id = ?', [$own]));
+        $again = $this->mcpData('write_notebook', ['id' => $proposal, 'text' => 'Changed idea.'], $drafts);
+        $this->assertSame('1', $this->pick($again, 'note', 'proposal'), 'it may change its own proposal');
+
+        $edited = $this->mcpData('write_notebook', ['id' => $proposal, 'pinned' => true]);
+        $this->assertSame('1|', $this->pick($edited, 'note', 'proposal') . '|' . $this->pick($edited, 'note', 'pinned'), 'a full connection editing a proposal leaves it a proposal');
+
+        $this->assertStringContainsString('notebook_proposals', (string) json_encode($this->mcpData('list_pending_review')), 'Waiting for you lists it');
+        $this->assertStringContainsString('Proposed by', $this->site()->admin()->get('/admin.php?module=notebook&action=edit&id=' . $proposal)->body, 'the edit page says who proposed it');
+
+        $this->adminPost('/admin.php?module=notebook&action=save', ['id' => $proposal, 'topic' => 'todo', 'title' => 'Maybe rename the menu', 'text' => 'Accepted by a person.'], '/admin.php?module=notebook&action=edit&id=' . $proposal);
+        $this->assertSame('0', $this->sq('SELECT proposal FROM tl_notebook WHERE id = ?', [$proposal]), 'saving it in the administration makes it a note');
+        $this->assertStringNotContainsString('Proposed by', $this->site()->admin()->get('/admin.php?module=notebook&action=edit&id=' . $proposal)->body);
+    }
 }

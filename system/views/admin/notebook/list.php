@@ -33,7 +33,7 @@ echo $app->view->render('admin/list/toolbar', ['tabsLabel' => t('Topic'), 'tabs'
 <tbody>
 <?php foreach ($notes as $n): $edit = $module->url('edit', ['id' => $n['id']]); $keep = ['id' => (string) $n['id'], 'topic' => $topic, 'search' => $search]; ?>
 <tr>
-	<td class="cell-main"><div class="cell-text"><span class="cell-row"><a class="cell-title" href="<?= e($edit) ?>"><?= e($n['title']) ?></a><?= $n['pinned'] ? ' <span class="tag">' . e(t('pinned')) . '</span>' : '' ?></span><span class="cell-sub"><?= e(mb_strimwidth((string) $n['text'], 0, 160, '…')) ?></span></div></td>
+	<td class="cell-main"><div class="cell-text"><span class="cell-row"><a class="cell-title" href="<?= e($edit) ?>"><?= e($n['title']) ?></a><?= $n['pinned'] ? ' <span class="tag">' . e(t('pinned')) . '</span>' : '' ?><?= !empty($n['proposal']) ? ' <span class="tag">' . e(t('proposed')) . '</span>' : '' ?></span><span class="cell-sub"><?= e(mb_strimwidth((string) $n['text'], 0, 160, '…')) ?></span></div></td>
 	<td><?= e(t(Notebook::TOPICS[$n['topic']] ?? $n['topic'])) ?></td>
 	<td><?= e($n['author']) ?></td>
 	<td class="cell-weak"><?= e(format_ago($n['updated_at'])) ?></td>

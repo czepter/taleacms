@@ -100,7 +100,7 @@ trait SiteImportRows
         }
         $date = fn (mixed $v): string => is_string($v) && strtotime($v) !== false ? date('Y-m-d H:i:s', (int) strtotime($v)) : date('Y-m-d H:i:s');
 
-        return ['id' => (int) ($r['id'] ?? 0) > 0 ? (int) $r['id'] : null, 'topic' => Notebook::topic($r['topic'] ?? '') ?? 'other', 'title' => $title, 'text' => $text, 'pinned' => !empty($r['pinned']) ? 1 : 0,
+        return ['id' => (int) ($r['id'] ?? 0) > 0 ? (int) $r['id'] : null, 'topic' => Notebook::topic($r['topic'] ?? '') ?? 'other', 'title' => $title, 'text' => $text, 'pinned' => !empty($r['pinned']) && empty($r['proposal']) ? 1 : 0, 'proposal' => !empty($r['proposal']) ? 1 : 0,
             'author' => self::text(trim(strip_tags((string) ($r['author'] ?? ''))), 100), 'created_at' => $date($r['created_at'] ?? null), 'updated_at' => $date($r['updated_at'] ?? null)];
     }
 
