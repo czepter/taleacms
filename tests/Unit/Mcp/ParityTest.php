@@ -160,4 +160,19 @@ final class ParityTest extends TestCase
         }
         $this->assertSame([], $missingParity, 'Parity: every admin action is a read, an MCP tool or admin only on purpose');
     }
+
+    /** #334: what e-mails people or erases for good takes two steps (Mcp\Confirmation), or says here why it does not */
+    public function testToolsThatEmailPeopleOrEraseForGoodNeedTwoSteps(): void
+    {
+        $expected = ['cancel_booking', 'cancel_course', 'confirm_booking', 'create_form_link', 'decline_booking', 'delete_collection', 'delete_enquiry', 'delete_media',
+            'erase_personal_data', 'propose_booking_times', 'send_newsletter', 'undo_agent_session', 'update_registration'];
+        $actual = array_keys(\Talea\Mcp\Confirmation::TOOLS);
+        sort($actual);
+        $this->assertSame($expected, $actual);
+
+        $notConfirmed = ['send_test_newsletter' => 'goes to the connected user only', 'update_request' => 'e-mails the colleague who wrote the request – inside the team'];
+        foreach (\Talea\Mcp\Catalog::SENDS as $tool) {
+            $this->assertTrue(isset(\Talea\Mcp\Confirmation::TOOLS[$tool]) || isset($notConfirmed[$tool]), $tool . ' sends: two steps, or a reason why not');
+        }
+    }
 }

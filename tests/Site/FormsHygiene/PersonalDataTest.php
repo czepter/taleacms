@@ -61,7 +61,7 @@ final class PersonalDataTest extends SiteTestCase
             JSON_OBJECT('enquiry_id', enquiry_id, 'created_at', created_at, 'form', form, 'email', email, 'data', data), NULL, NOW() - INTERVAL 3 HOUR FROM tl_enquiries WHERE enquiry_id = ?", [self::$oldSession, self::$enquiry]);
 
         $this->mcpText('update_enquiry', ['id' => $this->site()->publicId('enquiries', self::$enquiry), 'status' => 'read']);
-        $this->mcpText('erase_personal_data', ['email' => 'pd.person@example.com', 'confirm' => true]);
+        $this->site()->mcpConfirmedText('erase_personal_data', ['email' => 'pd.person@example.com', 'confirm' => true]);
 
         $this->assertSame('3|0|1', (string) $this->site()->value("SELECT CONCAT((SELECT COUNT(*) FROM tl_enquiries WHERE form = 'PD'), '|', (SELECT COUNT(*) FROM tl_subscribers WHERE email = 'pd.person@example.com'), '|', (SELECT COUNT(*) FROM tl_events WHERE type = 'personal_data.erased' AND data NOT LIKE '%@%'))"),
             'personal data: erased – both enquiries and the subscriber; other people\'s enquiry stays; the log has no address');
@@ -71,7 +71,7 @@ final class PersonalDataTest extends SiteTestCase
 
     public function testUndoingTheOlderSessionDoesNotBringTheErasedEnquiryBack(): void
     {
-        $text = $this->mcpText('undo_agent_session', ['id' => self::$oldSession, 'confirm' => true]);
+        $text = $this->site()->mcpConfirmedText('undo_agent_session', ['id' => self::$oldSession, 'confirm' => true]);
 
         $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM tl_enquiries WHERE enquiry_id = ?', [self::$enquiry]), '3.3.2 personal data: undoing the older session does not bring the erased enquiry back');
         $this->assertSame(1, preg_match_all('/^.*personal data erased on request.*$/m', $text), '3.3.2 personal data: the undo names the redacted write');

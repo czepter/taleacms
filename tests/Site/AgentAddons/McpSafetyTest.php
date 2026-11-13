@@ -73,4 +73,65 @@ final class McpSafetyTest extends SiteTestCase
         $this->assertContains('referrers', $this->mcpData('get_stats')['untrusted'] ?? []);
         $this->assertContains('not_found', $this->mcpData('list_redirects')['untrusted'] ?? []);
     }
+
+    /** Uploads a small image (as the full connection) and returns its public id. */
+    private function uploadPixel(string $name): string
+    {
+        $png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+        $data = $this->mcpData('upload_file', ['filename' => $name, 'data' => $png]);
+
+        return (string) ($data['id'] ?? '');
+    }
+
+    public function testTwoStepConfirmation(): void
+    {
+        $site = $this->site();
+        $first = $this->uploadPixel('two-step-a.png');
+        $second = $this->uploadPixel('two-step-b.png');
+        $this->assertNotSame('', $first);
+        $count = fn (): int => (int) $this->sq('SELECT COUNT(*) FROM tl_media');
+        $start = $count();
+
+        // the first call does nothing and answers with a code
+        $answer = $this->mcpData('delete_media', ['id' => $first]);
+        $this->assertTrue($answer['confirmation_required'] ?? false);
+        $this->assertFalse($answer['done'] ?? true);
+        $code = (string) ($answer['confirmation'] ?? '');
+        $this->assertNotSame('', $code);
+        $this->assertSame($start, $count(), 'nothing is deleted by the first call');
+
+        // a code of another call (other arguments) does not fit: a new one comes back
+        $refused = $this->mcpData('delete_media', ['id' => $second, 'confirmation' => $code]);
+        $this->assertArrayHasKey('confirmation_refused', $refused);
+        $this->assertSame($start, $count());
+
+        // another connection (a second token of the same user) cannot use it either
+        $other = $this->tokenOf('admin', 'Second', 'b');
+        $this->assertArrayHasKey('confirmation_refused', $this->mcpData('delete_media', ['id' => $first, 'confirmation' => $code], $other));
+        $this->assertSame($start, $count());
+
+        // the same call with the code acts, once
+        $done = $this->mcpText('delete_media', ['id' => $first, 'confirmation' => $code]);
+        $this->assertSame($start - 1, $count(), 'the file is gone: ' . $done);
+        $again = $this->mcpData('delete_media', ['id' => $second, 'confirmation' => $code]);
+        $this->assertArrayHasKey('confirmation_refused', $again, 'a code works once');
+
+        // the runner passes the code through
+        $viaRunner = json_decode((string) $this->site()->mcp('run_destructive_tool', ['name' => 'delete_media', 'arguments' => ['id' => $second]])['result']['content'][0]['text'], true);
+        $this->assertTrue($viaRunner['confirmation_required'] ?? false);
+        $this->site()->mcp('run_destructive_tool', ['name' => 'delete_media', 'arguments' => ['id' => $second], 'confirmation' => $viaRunner['confirmation']]);
+        $this->assertSame($start - 2, $count(), 'run_destructive_tool forwards confirmation');
+
+        // single use is the only thing that refuses an otherwise fitting code
+        $erase = ['email' => 'nobody-at-all@example.com', 'confirm' => true];
+        $code = (string) ($this->mcpData('erase_personal_data', $erase)['confirmation'] ?? '');
+        $this->assertNotSame('', $code);
+        $this->assertArrayNotHasKey('confirmation_required', $this->mcpData('erase_personal_data', $erase + ['confirmation' => $code]));
+        $this->assertArrayHasKey('confirmation_refused', $this->mcpData('erase_personal_data', $erase + ['confirmation' => $code]));
+        $this->assertGreaterThanOrEqual(2, (int) $this->sq("SELECT COUNT(*) FROM tl_ip_checks WHERE type = 'mcp_confirm'"));
+
+        // a call the tool refuses anyway (no confirm) gets no code
+        $this->assertStringContainsString('confirm', $this->mcpText('erase_personal_data', ['email' => 'nobody-at-all@example.com']));
+        $this->assertStringNotContainsString('confirmation_required', $this->mcpText('erase_personal_data', ['email' => 'nobody-at-all@example.com']));
+    }
 }

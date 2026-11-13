@@ -26,7 +26,7 @@ final class McpSitesTest extends SiteTestCase
     /** @param array<string, mixed> $arguments @return array<string, mixed> */
     private function call(string $tool, array $arguments = [], ?string $token = null): array
     {
-        $result = $this->site()->mcp($tool, $arguments, $token)['result'] ?? [];
+        $result = $this->site()->mcpConfirmed($tool, $arguments, $token)['result'] ?? [];
 
         return ['error' => ($result['isError'] ?? false) === true, 'text' => (string) ($result['content'][0]['text'] ?? '')];
     }

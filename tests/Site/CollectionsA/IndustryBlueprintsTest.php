@@ -93,7 +93,7 @@ final class IndustryBlueprintsTest extends SiteTestCase
         // the site as before: the blueprint off, its collections and their hidden pages gone
         $this->mcpText('remove_blueprint', ['key' => 'software_saas']);
         foreach ($this->site()->rows('SELECT slug FROM tl_collections WHERE collection_id > ?', [$before]) as $row) {
-            $this->mcpText('delete_collection', ['collection' => $row['slug']]);
+            $this->site()->mcpConfirmedText('delete_collection', ['collection' => $row['slug']]);
             $this->site()->exec('DELETE FROM tl_pages WHERE slug IN (?, ?) AND visible = 0', [$row['slug'], $row['slug'] . '-archive']);
         }
     }

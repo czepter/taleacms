@@ -60,4 +60,17 @@ final class ConfirmationTest extends TestCase
         $this->assertArrayNotHasKey('confirmation_refused', Confirmation::answer('cancel_booking', 'c', false));
         $this->assertSame(7, Confirmation::withheld('cancel_booking', 7)['scheduled_run']);
     }
+
+    public function testEveryToolIsATwoStepToolOfTheDestructiveRunner(): void
+    {
+        $definitions = array_column(\Talea\Mcp\Tools::definitions(), null, 'name');
+        foreach (array_keys(Confirmation::TOOLS) as $tool) {
+            $this->assertArrayHasKey($tool, \Talea\Mcp\Catalog::TOOLS);
+            $this->assertSame('run_destructive_tool', \Talea\Mcp\Discovery::runner($tool), $tool);
+            $this->assertArrayHasKey(Confirmation::PARAMETER, $definitions[$tool]['inputSchema']['properties'], $tool . ' takes the code');
+        }
+        $this->assertArrayNotHasKey(Confirmation::PARAMETER, $definitions['save_build']['inputSchema']['properties']);
+        $runner = array_column(\Talea\Mcp\Discovery::definitions(), null, 'name')['run_destructive_tool'];
+        $this->assertArrayHasKey(Confirmation::PARAMETER, $runner['inputSchema']['properties']);
+    }
 }

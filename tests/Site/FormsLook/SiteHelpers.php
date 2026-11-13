@@ -10,13 +10,13 @@ trait SiteHelpers
     /** The decoded result of an MCP tool (the text when it is not JSON). @param array<string, mixed> $arguments */
     private function call(string $tool, array $arguments = []): mixed
     {
-        return $this->site()->mcpResult($tool, $arguments);
+        return $this->site()->mcpConfirmedResult($tool, $arguments);
     }
 
     /** The whole JSON-RPC answer as text, for the old "mcp … | contains 'text'" checks. @param array<string, mixed> $arguments */
     private function raw(string $tool, array $arguments = []): string
     {
-        return (string) json_encode($this->site()->mcp($tool, $arguments), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return (string) json_encode($this->site()->mcpConfirmed($tool, $arguments), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /** The old mcp_value: a value by keys; scalars as text (true = "1", false/null = ""), arrays as JSON. */
