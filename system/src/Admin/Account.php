@@ -115,11 +115,12 @@ final class Account
                     $access = \Talea\Front\OAuth::access($r->post('access') ?: 'drafts'); // no choice sent: drafts only
                     // a personal token lists all tools unless the person picks the essentials (Claude Code and scripts)
                     $toolSet = \Talea\Mcp\Catalog::toolSet($r->post('tool_set'));
+                    $toolSet = in_array($toolSet, \Talea\Mcp\Catalog::offered($app->settings()), true) ? $toolSet : 'all';
                     // a token with an expiry ends by itself (2.8); one without works until it is revoked and System status reports it
                     $days = in_array($r->postInt('lifetime', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('lifetime', 365) : 365;
                     $db->insert('api_tokens', ['user_id' => $user['user_id'], 'name' => mb_substr($r->post('name') ?: 'Claude', 0, 100), 'access' => $access, 'tool_set' => $toolSet, 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
                         'expires_at' => $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null]);
-                    ChangeLog::write($app, 'account', 'claude_token', $access . ($toolSet === 'essentials' ? ', essentials' : '') . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
+                    ChangeLog::write($app, 'account', 'claude_token', $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
                     // the token is shown only now - hence no redirect
                     return $this->page($tab, ['newToken' => $token] + $data);
                 case 'token_delete':
@@ -131,6 +132,7 @@ final class Account
                     // personal token, "<set>:app:<client_id>" for every token of a connected application (a refresh copies it)
                     $parts = explode(':', $r->post('tool_set_switch'), 3);
                     $toolSet = \Talea\Mcp\Catalog::toolSet($parts[0]);
+                    $toolSet = in_array($toolSet, \Talea\Mcp\Catalog::offered($app->settings()), true) ? $toolSet : 'all';
                     $changed = match ($parts[1] ?? '') {
                         'token' => $db->run("UPDATE {api_tokens} SET tool_set = ? WHERE token_id = ? AND user_id = ? AND kind = 'token'", [$toolSet, $db->internalId('api_tokens', (string) ($parts[2] ?? '')), $user['user_id']])->rowCount(),
                         'app' => $db->run('UPDATE {api_tokens} SET tool_set = ? WHERE client_id = ? AND user_id = ?', [$toolSet, (string) ($parts[2] ?? ''), $user['user_id']])->rowCount(),
@@ -139,8 +141,12 @@ final class Account
                     if ($changed > 0) {
                         ChangeLog::write($app, 'account', 'claude_tool_set', $toolSet);
                     }
-                    $message = ['ok', $toolSet === 'essentials' ? 'Done – Claude will load the essentials in the next conversation it starts and find the other tools when it needs them.'
-                        : 'Done – Claude will see all tools in the next conversation it starts.'];
+                    $message = ['ok', match ($toolSet) {
+                        'essentials' => 'Done – Claude will load the essentials in the next conversation it starts and find the other tools when it needs them.',
+                        'migration' => 'Done – Claude will load the tools of a site move in the next conversation it starts and find the others when it needs them.',
+                        'fleet' => 'Done – Claude will load the fleet console tools in the next conversation it starts and find the others when it needs them.',
+                        default => 'Done – Claude will see all tools in the next conversation it starts.',
+                    }];
                     break;
                 case 'app_disconnect':
                     $db->delete('api_tokens', ['client_id' => $r->post('disconnect_client'), 'user_id' => $user['user_id']]);
