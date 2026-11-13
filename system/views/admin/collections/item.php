@@ -183,11 +183,17 @@ if ($actions !== '') {
 			<section class="website-settings-section" aria-label="<?= e(t('Visibility')) ?>">
 				<div class="website-field"><span class="website-caption"><?= e(t('Visibility')) ?></span>
 					<div class="website-choices" role="radiogroup" aria-label="<?= e(t('Visibility')) ?>">
-						<label><input type="radio" name="visible" value="1"<?= $p['visible'] ? ' checked' : '' ?>><span><?= e(t('Published')) ?><small><?= e(t('Everyone can see the item.')) ?></small></span></label>
-						<label><input type="radio" name="visible" value="0"<?= $p['visible'] ? '' : ' checked' ?>><span><?= e(t('Hidden')) ?><small><?= e(t('Only you and your team see the item.')) ?></small></span></label>
+<?php $canPublish = $app->auth()->canPublish(); ?>
+						<label><input type="radio" name="visible" value="1"<?= $p['visible'] && ($canPublish || $p['item_id'] > 0) ? ' checked' : '' ?><?= $canPublish ? '' : ' disabled' ?>><span><?= e(t('Published')) ?><small><?= e(t('Everyone can see the item.')) ?></small></span></label>
+						<label><input type="radio" name="visible" value="0"<?= $p['visible'] && ($canPublish || $p['item_id'] > 0) ? '' : ' checked' ?>><span><?= e(t('Hidden')) ?><small><?= e(t('Only you and your team see the item.')) ?></small></span></label>
 					</div>
+<?php if (!$canPublish): ?>
+					<span class="help"><?= e(t('An editor or an administrator publishes the item.')) ?></span>
+<?php endif ?>
 				</div>
+<?php if ($canPublish): ?>
 				<div class="website-field"><label for="publish_at"><?= e(t('Publish automatically at')) ?></label><input class="textfield" type="datetime-local" id="publish_at" name="publish_at" value="<?= e(($p['publish_at'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['publish_at'])) : '') ?>"><span class="help"><?= e(t('Only for a hidden item.')) ?></span></div>
+<?php endif ?>
 <?= $app->view->render('admin/members/gating', ['app' => $app, 'type' => 'item', 'row' => (int) ($p['item_id'] ?? 0), 'from' => (int) ($p['original_id'] ?? 0)]) ?>
 			</section>
 			<section class="website-settings-section" aria-labelledby="item-dates">
