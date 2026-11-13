@@ -828,9 +828,8 @@ final class Kernel
                 return Response::redirect($oauth->deny($pending));
             }
             // a connection keeps working without the person present (refresh tokens): like a personal token, it needs the current password (N56)
-            if (!password_verify($app->request->post('current_password'), (string) $app->auth()->user()['password'])) {
-                $error = 'The current password is not correct.'; // the pending request stays, the form is shown again
-            }
+            // the pending request stays and the form is shown again; a wrong password counts like a wrong sign-in
+            $error = $app->auth()->confirmPassword($app->request->postRaw('current_password'));
         }
         if ($error === null && $app->request->isPost()) {
             $app->session->set('pending_oauth', null);

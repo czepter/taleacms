@@ -933,6 +933,7 @@ return [
     'Too many requests. Try again in 15 minutes.' => 'Zu viele Anfragen. Versuche es in 15 Minuten erneut.',
     'Too many searches in a row. Please try again in a moment.' => 'Zu viele Suchanfragen hintereinander. Bitte versuche es gleich noch einmal.',
     'Too many sign-in attempts. Try again in 15 minutes.' => 'Zu viele Anmeldeversuche. Versuche es in 15 Minuten erneut.',
+    'Too many wrong passwords: confirming is locked for 15 minutes. You stay signed in.' => 'Zu viele falsche Passwörter: Das Bestätigen ist 15 Minuten lang gesperrt. Du bleibst angemeldet.',
     'Tracking codes run immediately. Only if you handle consent another way.' => 'Tracking-Codes laufen sofort. Nur wenn du die Einwilligung anderweitig handhabst.',
     'Translate the Services page into German.' => 'Übersetze die Seite Leistungen ins Englische.',
     'Translate the saved version with the assistant? A draft is created for you to read before publishing. Translation can take up to a minute.' => 'Die gespeicherte Version mit dem Assistenten übersetzen? Es entsteht ein Entwurf, den du vor der Veröffentlichung durchliest. Die Übersetzung kann bis zu einer Minute dauern.',

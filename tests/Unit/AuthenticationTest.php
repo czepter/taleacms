@@ -119,7 +119,7 @@ final class AuthenticationTest extends TestCase
             str_contains($mailSource, 'WHERE mail_id = ? AND attempts = ? AND sent_at IS NULL')], '3.3.3 (N59): the reset link is queued and sent after the response; the queue claims a message before sending it');
         $accountSource = (string) file_get_contents(TALEA_SYSTEM . '/src/Admin/Account.php');
         $this->assertSame([7, true, true, []], [
-            substr_count($accountSource, "password_verify((string) (\$_POST['current_password'] ?? ''), \$user['password'])"), str_contains($accountSource, 'noticeOfNewEmail($user, $email)'),
+            substr_count($accountSource, '->confirmPassword('), str_contains($accountSource, 'noticeOfNewEmail($user, $email)'),
             str_contains((string) file_get_contents(TALEA_ROOT . '/image/passkeys.js'), "current_password: password ? password.value : ''"),
             array_values(array_filter(['Enter your current password to change the e-mail address. Nothing was saved.', 'Enter your current password to add a passkey.', 'The e-mail address of your account was changed'],
                 fn (string $k): bool => !isset($adminDe[$k])))], '3.3.3 (N56): a new e-mail, adding or removing a passkey, a personal token and two-factor enrolment need the current password; the old address hears about the change; the texts are translated');

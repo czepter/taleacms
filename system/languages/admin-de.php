@@ -5926,6 +5926,7 @@ return [
     'Too many requests. Try again in 15 minutes.' => 'Zu viele Anfragen. Versuchen Sie es in 15 Minuten erneut.',
     'Too many searches in a row. Please try again in a moment.' => 'Zu viele Suchanfragen hintereinander. Bitte versuchen Sie es gleich noch einmal.',
     'Too many sign-in attempts. Try again in 15 minutes.' => 'Zu viele Anmeldeversuche. Versuchen Sie es in 15 Minuten erneut.',
+    'Too many wrong passwords: confirming is locked for 15 minutes. You stay signed in.' => 'Zu viele falsche Passwörter: Das Bestätigen ist 15 Minuten lang gesperrt. Sie bleiben angemeldet.',
     'Tools' => 'Werkzeuge',
     'Top level' => 'Oberste Ebene',
     'Top line' => 'Obere Linie',

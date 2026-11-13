@@ -149,7 +149,7 @@ final class App
 
     public function auth(): Auth
     {
-        return $this->auth ??= new Auth($this->db(), $this->session);
+        return $this->auth ??= new Auth($this->db(), $this->session, $this->settings());
     }
 
     public function settings(): Settings

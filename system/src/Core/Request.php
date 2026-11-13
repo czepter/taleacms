@@ -85,6 +85,14 @@ final class Request
         return is_string($value) ? trim($value) : $default;
     }
 
+    /** The value as typed, not trimmed: passwords are taken as typed (3.3.3, N61); '' for a missing or non-text value. */
+    public function postRaw(string $key): string
+    {
+        $value = $this->post[$key] ?? null;
+
+        return is_string($value) ? $value : '';
+    }
+
     public function postInt(string $key, int $default = 0): int
     {
         $value = $this->post[$key] ?? null;

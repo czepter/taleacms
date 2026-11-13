@@ -65,8 +65,14 @@ final class Auth
     /** @var list<string>|null */
     private ?array $modules = null;
 
-    public function __construct(private readonly Db $db, private readonly Session $session)
+    public function __construct(private readonly Db $db, private readonly Session $session, private ?Settings $settings = null)
     {
+    }
+
+    /** The settings of the site the account is signed in to (passkey-only, the host of the passkeys). */
+    private function settings(): Settings
+    {
+        return $this->settings ??= new Settings($this->db);
     }
 
     /**
@@ -227,6 +233,39 @@ final class Auth
         $this->db->update('users', $errorCount >= self::MAX_ERRORS
             ? ['failed_logins' => 0, 'locked_until' => date('Y-m-d H:i:s', time() + 900)]
             : ['failed_logins' => $errorCount], ['user_id' => $user['user_id']]);
+    }
+
+    /** Shown when confirming with the password is locked; the person stays signed in. */
+    public const string CONFIRM_LOCKED = 'Too many wrong passwords: confirming is locked for 15 minutes. You stay signed in.';
+
+    /**
+     * Confirms the signed-in person's current password for a sensitive step (3.3.3, N56). A wrong one counts like a wrong
+     * sign-in: ten in a row lock the account for 15 minutes, while the person stays signed in. A locked account is not
+     * checked at all, so the right password is refused too. The password is taken as typed (N61).
+     *
+     * @param string $wrong the (untranslated) text for a wrong password
+     * @return string|null null = confirmed, else the untranslated English reason
+     */
+    public function confirmPassword(string $typed, string $wrong = 'The current password is not correct.'): ?string
+    {
+        $user = $this->user();
+        if ($user === null) {
+            return $wrong;
+        }
+        if (self::isLocked($user)) {
+            return self::CONFIRM_LOCKED;
+        }
+        if (self::matchingPassword($typed, (string) $user['password']) === null) {
+            $this->countError($user);
+            $this->countDeviceFailure($user);
+
+            return $wrong;
+        }
+        // "ten in a row": a right password ends the series
+        $this->db->update('users', ['failed_logins' => 0], ['user_id' => $user['user_id']]);
+        $this->user['failed_logins'] = 0;
+
+        return null;
     }
 
     /**

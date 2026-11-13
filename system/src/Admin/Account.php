@@ -63,8 +63,8 @@ final class Account
                     $emailChanged = $email !== (string) $user['email'];
                     // the e-mail is where a password reset goes: changing it needs the current password, like a new password
                     // does – a stolen session alone must not take the account over (3.3.3, N56)
-                    if ($emailChanged && !password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                        $message = ['error', 'Enter your current password to change the e-mail address. Nothing was saved.'];
+                    if ($emailChanged && ($refusal = $app->auth()->confirmPassword($r->postRaw('current_password'), 'Enter your current password to change the e-mail address. Nothing was saved.')) !== null) {
+                        $message = ['error', $refusal];
                         break;
                     }
                     $db->update('users', ['name' => mb_substr($r->post('name'), 0, 100), 'email' => $email, 'url' => mb_substr($r->post('url'), 0, 255), 'position' => mb_substr($r->post('position'), 0, 100), 'photo' => mb_substr($r->post('photo'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
@@ -80,8 +80,9 @@ final class Account
                     break;
                 case 'password':
                     $newItems = (string) ($_POST['new_password'] ?? '');
+                    $refusal = $app->auth()->confirmPassword($r->postRaw('current_password'));
                     $message = match (true) {
-                        !password_verify((string) ($_POST['current_password'] ?? ''), $user['password']) => ['error', 'The current password is not correct.'],
+                        $refusal !== null => ['error', $refusal],
                         mb_strlen($newItems) < 10 => ['error', 'The new password must be at least 10 characters long.'],
                         $newItems !== (string) ($_POST['new_password_again'] ?? '') => ['error', 'The new passwords do not match.'],
                         default => null,
@@ -106,8 +107,8 @@ final class Account
                         break;
                     }
                     // a token works without the person present, possibly for good: like a new password, it needs the current one (N56)
-                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                        $message = ['error', 'The current password is not correct.'];
+                    if (($refusal = $app->auth()->confirmPassword($r->postRaw('current_password'))) !== null) {
+                        $message = ['error', $refusal];
                         break;
                     }
                     $token = 'talea_' . bin2hex(random_bytes(24));
@@ -148,8 +149,8 @@ final class Account
                     break;
                 case 'totp_start':
                     // an attacker's secret on the account would be the second factor: the key appears only after the password (N56)
-                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                        $message = ['error', 'The current password is not correct.'];
+                    if (($refusal = $app->auth()->confirmPassword($r->postRaw('current_password'))) !== null) {
+                        $message = ['error', $refusal];
                         break;
                     }
                     $app->session->set('totp_new', Totp::newSecret());
@@ -174,8 +175,8 @@ final class Account
                     return $this->key($r->post('op') === 'passkey_save', $user);
                 case 'passkey_delete':
                     // the last key may be the whole second factor: a stolen session alone must not take it away (as totp_off)
-                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                        $message = ['error', 'Enter the correct password to remove a passkey.'];
+                    if (($refusal = $app->auth()->confirmPassword($r->postRaw('current_password'), 'Enter the correct password to remove a passkey.')) !== null) {
+                        $message = ['error', $refusal];
                         break;
                     }
                     $db->run('DELETE FROM {user_passkeys} WHERE passkey_id = ? AND user_id = ?', [$db->internalId('user_passkeys', $r->post('passkey_id')), $user['user_id']]);
@@ -195,8 +196,8 @@ final class Account
                     $message = ['ok', 'Stay signed in has ended on all other devices.'];
                     break;
                 case 'totp_off':
-                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                        $message = ['error', 'Enter the correct password to turn it off.'];
+                    if (($refusal = $app->auth()->confirmPassword($r->postRaw('current_password'), 'Enter the correct password to turn it off.')) !== null) {
+                        $message = ['error', $refusal];
                         break;
                     }
                     // passkeys are a second factor of their own and stay – with them the backup codes stay too
@@ -238,8 +239,8 @@ final class Account
         $app = $this->kernel->app;
         $url = $app->settings()->get('site_url') ?: $app->request->origin();
         if (!$save) {
-            if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                return Response::json(['error' => t('Enter your current password to add a passkey.')], 403);
+            if (($refusal = $app->auth()->confirmPassword($app->request->postRaw('current_password'), 'Enter your current password to add a passkey.')) !== null) {
+                return Response::json(['error' => t($refusal)], 403);
             }
             $challenge = Passkey::challenge();
             $app->session->set('passkey_registration', $challenge);
