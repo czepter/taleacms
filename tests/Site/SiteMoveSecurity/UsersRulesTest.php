@@ -123,4 +123,28 @@ final class UsersRulesTest extends SiteTestCase
         $stale->post('/admin.php?module=roles&action=save', ['_csrf' => $csrf, 'role_id' => 0, 'name' => 'Small', 'level' => 0, 'modules' => ['news']]);
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_role WHERE name = 'Small'"), 'a role with a few sections needs no proof');
     }
+
+    /** Posts the General tab as $as with the field values it shows and $fields on top. @param array<string, mixed> $fields */
+    private function saveGeneral(Http $as, array $fields): void
+    {
+        $site = $this->site();
+        $csrf = (string) ($as->get('/admin.php?action=token')->json()['csrf'] ?? '');
+        $as->post('/admin.php?module=settings&action=save', $fields + ['_csrf' => $csrf, 'tab' => 'general', 'site_name' => $site->settingValue('site_name'), 'site_url' => $site->settingValue('site_url')]);
+    }
+
+    public function testWeakeningTwoFactorNeedsAFreshProof(): void
+    {
+        $site = $this->site();
+        $stale = $this->staleAdmin();
+        $site->exec("UPDATE tl_users SET totp_secret = 'JBSWY3DPEHPK3PXP' WHERE username = 'admin'"); // the requirement does not send the administrator away
+        $site->setting('require_2fa', 'everyone');
+        $this->saveGeneral($stale, ['require_2fa' => '']);
+        $this->assertSame('everyone', $site->settingValue('require_2fa'), 'weakening without proof is not saved');
+        $this->saveGeneral($stale, ['require_2fa' => '', 'current_password' => $site->password]);
+        $this->assertSame('', $site->settingValue('require_2fa'), 'with the password it is');
+        $this->saveGeneral($stale, ['require_2fa' => 'admins']);
+        $this->assertSame('admins', $site->settingValue('require_2fa'), 'tightening needs no proof');
+        $site->setting('require_2fa', '');
+        $site->exec("UPDATE tl_users SET totp_secret = '' WHERE username = 'admin'");
+    }
 }

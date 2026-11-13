@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use Talea\Admin\Modules\Settings;
 use Talea\Core\Auth;
 
 /** The proof of identity in the session (#332): known kind, ten minutes. */
@@ -21,5 +22,16 @@ final class FreshProofTest extends TestCase
         $this->assertFalse(Auth::freshProof(['kind' => 'password'], ['password'], 1100), 'no time');
         $this->assertFalse(Auth::freshProof(['at' => 1000], ['password'], 1100), 'no kind');
         $this->assertFalse(Auth::freshProof(['at' => '1000', 'kind' => 'password'], ['password'], 1100), 'a time that is not a number');
+    }
+
+    public function testWeakeningTwoFactor(): void
+    {
+        $this->assertTrue(Settings::weakensTwoFactor('everyone', 'admins'));
+        $this->assertTrue(Settings::weakensTwoFactor('admins', ''));
+        $this->assertTrue(Settings::weakensTwoFactor('everyone', ''));
+        $this->assertFalse(Settings::weakensTwoFactor('', 'admins'));
+        $this->assertFalse(Settings::weakensTwoFactor('admins', 'everyone'));
+        $this->assertFalse(Settings::weakensTwoFactor('admins', 'admins'));
+        $this->assertFalse(Settings::weakensTwoFactor('', ''));
     }
 }

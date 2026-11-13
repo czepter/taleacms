@@ -275,6 +275,7 @@ class Settings extends Module
         $errors = [];
         $given = [];
         $zoneBefore = $settings->get('time_zone');
+        $twoFactorBefore = $settings->get('require_2fa');
         $instructionsBefore = $settings->get('claude_instructions'); // a change goes to the change log with both texts (#149)
         $override = []; // values saved instead of what the form sent
         if ($tab === 'analytics' && $this->request->postBool('disconnect')) {
@@ -337,6 +338,11 @@ class Settings extends Module
                 continue;
             }
             $settings->set($key, $clean);
+        }
+        if ($tab === 'general' && self::weakensTwoFactor($twoFactorBefore, $settings->get('require_2fa')) && ($refusal = $this->app->auth()->requireFresh($this->request)) !== null) {
+            $settings->set('require_2fa', $twoFactorBefore); // making two-factor sign-in optional for more people needs a fresh proof (#332)
+
+            return $this->back(t('The other settings are saved, but two-factor sign-in was not weakened: %s', t($refusal)), '', $this->tabParams($tab), 'error');
         }
         \Talea\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'), typed: true);
         // a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
@@ -406,6 +412,14 @@ class Settings extends Module
         return $errors === []
             ? $this->back('Settings saved.', '', $this->tabParams($tab))
             : $this->rejectInvalid($tab, $errors, $given);
+    }
+
+    /** Does the change make two-factor sign-in required for fewer people? Ranks: optional < administrators < everyone. */
+    public static function weakensTwoFactor(string $before, string $after): bool
+    {
+        $rank = ['' => 0, 'admins' => 1, 'everyone' => 2];
+
+        return ($rank[$after] ?? 0) < ($rank[$before] ?? 0);
     }
 
     protected function actionBackup(): Response

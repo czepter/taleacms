@@ -20,6 +20,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 <?php endforeach ?>
 	</select><span class="help"><?= e(t('Anyone who must have it and has not turned it on yet can only reach My account after signing in until they set it up.')) ?></span></div>
 </div>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'weaken-confirm', 'help' => t('Needed to make two-factor sign-in optional for more people – unless you signed in less than 10 minutes ago.')]) ?>
 <?php $autoSuspend = explode(',', $values['auto_suspend'] ?? ''); ?>
 <div class="row">
 	<span class="caption"><?= e(t('Suspend automatically')) ?></span>
