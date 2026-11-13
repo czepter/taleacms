@@ -63,7 +63,7 @@ return [
                 ['label' => t('Name'), 'type' => 'text', 'required' => true],
                 ['label' => t('Email'), 'type' => 'email', 'required' => true],
                 ['label' => t('Phone'), 'type' => 'tel', 'required' => false],
-                ['label' => t('CV'), 'type' => 'file', 'required' => true],
+                ['label' => t('CV'), 'type' => 'file', 'required' => true, 'accept' => 'cv'],
                 ['label' => t('A few words about you'), 'type' => 'textarea', 'required' => false],
                 ['label' => t('I agree to the processing of my personal data for the purpose of this selection procedure.'), 'type' => 'checkbox', 'required' => true],
                 ['label' => t('Job opening'), 'type' => 'hidden', 'value' => '{{name}}'],

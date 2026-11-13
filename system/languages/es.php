@@ -977,6 +977,7 @@ El enlace es válido %d días.
     'Unsubscribe link' => 'Enlace de baja',
     'Unsubscribed' => 'Baja confirmada',
     'Until (YYYY-MM-DD HH:MM)' => 'Hasta (AAAA-MM-DD HH:MM)',
+    'Up to %d MB: PDF, Word, OpenDocument or an image.' => 'Hasta %d MB: PDF, Word, OpenDocument o una imagen.',
     'Up to %d MB: PDF, image, document or ZIP.' => 'Hasta %d MB: PDF, imagen, documento o ZIP.',
     'Up to %d per registration.' => 'Hasta %d por inscripción.',
     'Updated' => 'Actualizado',

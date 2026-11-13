@@ -975,6 +975,7 @@ Link jest ważny %d dni.
     'Unsubscribe link' => 'Link do wypisania się',
     'Unsubscribed' => 'Wypisano z subskrypcji',
     'Until (YYYY-MM-DD HH:MM)' => 'Do kiedy (RRRR-MM-DD GG:MM)',
+    'Up to %d MB: PDF, Word, OpenDocument or an image.' => 'Maksymalnie %d MB: PDF, Word, OpenDocument lub obraz.',
     'Up to %d MB: PDF, image, document or ZIP.' => 'Maksymalnie %d MB: PDF, obraz, dokument lub ZIP.',
     'Up to %d per registration.' => 'Do %d na jedno zgłoszenie.',
     'Updated' => 'Zaktualizowano',

@@ -1025,6 +1025,7 @@ Der Link gilt %d Tage.
     'Unsubscribe link' => 'Abmeldelink',
     'Unsubscribed' => 'Abgemeldet',
     'Until (YYYY-MM-DD HH:MM)' => 'Bis (JJJJ-MM-TT HH:MM)',
+    'Up to %d MB: PDF, Word, OpenDocument or an image.' => 'Höchstens %d MB: PDF, Word, OpenDocument oder ein Bild.',
     'Up to %d MB: PDF, image, document or ZIP.' => 'Höchstens %d MB: PDF, Bild, Dokument oder ZIP.',
     'Up to %d per registration.' => 'Bis zu %d pro Anmeldung.',
     'Updated' => 'Aktualisiert',

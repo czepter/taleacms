@@ -62,6 +62,7 @@ final class JobsTest extends TestCase
             str_contains($jobsPreset['claude'], 'remote:'), ($jobForm['content']['confirmation'] ?? false) === true,
             ($jobForm['content']['confirmation_subject'] ?? '') === t('We have received your application'), str_contains(json_encode(\Talea\Builder\Presets::itemTemplate($jobsPreset, $jobFields)), '{{remote}}')],
             '#342 jobs preset: street, postal code and workplace are appended; they feed the structured data; the application form sends a received confirmation');
+        $this->assertSame('cv', $jobForm['content']['fields'][3]['accept'] ?? null, '#342 the CV field of the jobs form takes documents only');
         $this->assertSame(['JobPosting', ['sort' => 'newest'], true, ['preset' => 'people'], true], [$jobsPreset['schema']['type'], $jobsPreset['list'], $jobsPreset['redirect_hidden'], $jobsPreset['fields'][8][3] ?? null, str_contains($jobsPreset['claude'], 'valid_until')], '2.11 jobs preset: JobPosting data, newest first, hidden jobs lead to the jobs page, the contact links to the team');
         // retention of applications: enquiries from a jobs collection (their source) older than the months
         $jobSources = ['collection:5'];

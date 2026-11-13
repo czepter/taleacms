@@ -84,6 +84,26 @@ final class JobOpeningsTest extends SiteTestCase
         $this->assertPage('/admin.php?module=audit', 200, 'No deadline', message: 'Administration → Site audit lists the job opening without a closing date');
     }
 
+    /** #342: a CV is a document – a ZIP is refused, and so is a file that only calls itself a PDF while it is HTML. */
+    public function testACvMustBeADocument(): void
+    {
+        $dir = $this->site()->workDir('cv');
+        file_put_contents($dir . '/cv.zip', "PK\x03\x04 not a CV");
+        file_put_contents($dir . '/fake.pdf', '<html><script>alert(1)</script></html>');
+        $before = $this->sq("SELECT COUNT(*) FROM tl_enquiries WHERE source = 'collection:" . self::$idk . "'");
+        foreach (['cv.zip', 'fake.pdf'] as $name) {
+            $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
+            sleep(1); // the antispam minimum time
+            $response = $this->visitor()->upload('/form', [
+                'source' => self::$source, 'element' => self::$element, 'back' => '/job-openings/carpenter', 'as_time' => self::$time, 'as_signature' => self::$signature,
+                'p0' => 'John', 'p1' => 'jan@example.cz', 'p2' => '', 'p4' => 'I am applying.', 'p5' => '1', 'p6' => 'Carpenter',
+            ], ['p3' => $dir . '/' . $name]);
+            $this->assertStringContainsString('result=field&field=3', (string) $response->redirect, "$name is not accepted as a CV");
+        }
+        $this->assertSame($before, $this->sq("SELECT COUNT(*) FROM tl_enquiries WHERE source = 'collection:" . self::$idk . "'"), 'no enquiry was added');
+        $this->assertStringContainsString('accept=".pdf,.doc,.docx,.odt,.jpg,.jpeg,.png"', $this->visitor()->get('/job-openings/carpenter')->body, 'the CV field offers documents only');
+    }
+
     /** The retention of applications next to the enquiries retention, with the usual practice of the company country as a hint. */
     public function testApplicationRetentionIsSavedAndEnforced(): void
     {

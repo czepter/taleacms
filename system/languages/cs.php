@@ -2602,6 +2602,7 @@ Odkaz platí %d dní.
     'Until you publish a news item, it stays a draft that nobody sees on the site.' => 'Než novinku vydáte, zůstává konceptem, který na webu nikdo nevidí.',
     'Unused' => 'Nepoužité',
     'Up' => 'Nahoru',
+    'Up to %d MB: PDF, Word, OpenDocument or an image.' => 'Nejvýš %d MB: PDF, Word, OpenDocument nebo obrázek.',
     'Up to %d MB: PDF, image, document or ZIP.' => 'Nejvýš %d MB: PDF, obrázek, dokument nebo ZIP.',
     'Up to %d per registration.' => 'Nejvýše %d na jednu registraci.',
     'Updated' => 'Aktualizováno',

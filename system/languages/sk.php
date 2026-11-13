@@ -959,6 +959,7 @@ Odkaz platí %d dní.
     'Unsubscribe link' => 'Odkaz na odhlásenie',
     'Unsubscribed' => 'Odhlásené',
     'Until (YYYY-MM-DD HH:MM)' => 'Do kedy (RRRR-MM-DD HH:MM)',
+    'Up to %d MB: PDF, Word, OpenDocument or an image.' => 'Najviac %d MB: PDF, Word, OpenDocument alebo obrázok.',
     'Up to %d MB: PDF, image, document or ZIP.' => 'Najviac %d MB: PDF, obrázok, dokument alebo ZIP.',
     'Updated' => 'Aktualizované',
     'Upload the font files (.woff2) to Media and paste their address here. One variable font file is enough, or a regular and a bold weight. After saving, choose the font above.' => 'Nahrajte súbory písma (.woff2) do Médií a vložte sem ich adresu. Stačí jeden variabilný súbor alebo bežný a tučný rez. Po uložení písmo vyberiete vyššie.',

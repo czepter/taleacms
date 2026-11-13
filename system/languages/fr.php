@@ -974,6 +974,7 @@ Le lien est valable %d jours.
     'Unsubscribe link' => 'Lien de désabonnement',
     'Unsubscribed' => 'Désabonné',
     'Until (YYYY-MM-DD HH:MM)' => 'Jusqu’au (AAAA-MM-JJ HH:MM)',
+    'Up to %d MB: PDF, Word, OpenDocument or an image.' => 'Jusqu’à %d Mo : PDF, Word, OpenDocument ou une image.',
     'Up to %d MB: PDF, image, document or ZIP.' => 'Jusqu’à %d Mo : PDF, image, document ou ZIP.',
     'Up to %d per registration.' => 'Jusqu’à %d par inscription.',
     'Updated' => 'Mis à jour',

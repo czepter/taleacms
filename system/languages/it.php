@@ -976,6 +976,7 @@ Il link è valido %d giorni.
     'Unsubscribe link' => 'Link di disiscrizione',
     'Unsubscribed' => 'Iscrizione annullata',
     'Until (YYYY-MM-DD HH:MM)' => 'Fino a (AAAA-MM-GG HH:MM)',
+    'Up to %d MB: PDF, Word, OpenDocument or an image.' => 'Massimo %d MB: PDF, Word, OpenDocument o un\'immagine.',
     'Up to %d MB: PDF, image, document or ZIP.' => 'Massimo %d MB: PDF, immagine, documento o ZIP.',
     'Up to %d per registration.' => 'Fino a %d per iscrizione.',
     'Updated' => 'Aggiornato',
