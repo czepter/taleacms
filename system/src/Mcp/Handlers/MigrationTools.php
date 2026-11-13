@@ -54,6 +54,36 @@ trait MigrationTools
             + \Talea\Mcp\Untrusted::mark(['problems']);
     }
 
+    /** read_old_page: one page of the old site in sections (Core\OldPage) */
+    private function toolReadOldPage(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('Old pages are read by an administrator.');
+        }
+        $url = trim((string) ($a['url'] ?? ''));
+        $url = preg_match('#^https?://#i', $url) ? $url : 'https://' . $url;
+        if (!\Talea\Core\WebImport::validUrl($url) || !ImageDownloader::isAvailable()) {
+            throw new \InvalidArgumentException('Give the address of the old page, e.g. https://www.example.com/services/.');
+        }
+        $section = isset($a['section']) ? filter_var($a['section'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => \Talea\Core\OldPage::MAX_SECTIONS - 1]]) : null;
+        if ($section === false) {
+            throw new \InvalidArgumentException('section: the index of a section, 0 to ' . (\Talea\Core\OldPage::MAX_SECTIONS - 1) . '.');
+        }
+        $format = (string) ($a['format'] ?? 'sections');
+        if (!in_array($format, ['sections', 'semantic'], true)) {
+            throw new \InvalidArgumentException('format: sections or semantic.');
+        }
+        try {
+            $page = (new \Talea\Core\OldPage(new ImageDownloader($url, true)))->read($url, $section, $format);
+        } catch (\RuntimeException $e) {
+            throw new \InvalidArgumentException('The old page could not be read: ' . $e->getMessage());
+        }
+
+        return ['old_page' => $page,
+            'next' => 'Rebuild it section by section as semantic HTML with one <style> block (rules of one class, tokens var(--tl-…)) and call build_from_html with the id of the imported page (list_layout_queue lists them); set colours and fonts once with update_design_system; tick the page off with layout_queue.']
+            + \Talea\Mcp\Untrusted::mark(['old_page']);
+    }
+
     /** list_layout_queue */
     private function toolListLayoutQueue(string $name, array $a): mixed
     {

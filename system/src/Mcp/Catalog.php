@@ -154,6 +154,7 @@ final class Catalog
         'get_search_performance' => ['read', ''],
         // Moving a site (2.7)
         'migration_report' => ['read', ''],
+        'read_old_page' => ['read', ''],
         'list_layout_queue' => ['read', ''],
         'layout_queue' => ['draft', ''], // ticking a page off is a work note, never publishing
         // A site that runs itself (2.8)
@@ -248,7 +249,7 @@ final class Catalog
      * rule that only a connection with full access may use them (fetchesUrl, fetchRefusal, allows). A new tool that downloads
      * or reads another address (read_old_page …) goes here; an add-on tool declares `openWorld` in Api::mcpTool.
      */
-    public const array OPEN_WORLD = ['upload_file', 'upload_files', 'replace_media', 'import_website', 'migration_report', 'check_site_domain'];
+    public const array OPEN_WORLD = ['upload_file', 'upload_files', 'replace_media', 'import_website', 'migration_report', 'read_old_page', 'check_site_domain'];
 
     /** OPEN_WORLD tools that reach outside only with this argument (upload_files: in any of its files); the others on every call. */
     public const array FETCH_ARGUMENTS = ['upload_file' => 'url', 'upload_files' => 'url', 'replace_media' => 'url'];
@@ -265,8 +266,25 @@ final class Catalog
      */
     public const array SITE_TOOLS = ['list_owner_sites', 'create_site', 'update_site', 'set_look_parent', 'transfer_site', 'trash_site', 'restore_site', 'add_site_domain', 'check_site_domain', 'update_site_domain', 'remove_site_domain'];
 
-    /** How a connection lists its tools: "all" (as before) or "essentials" (ESSENTIALS, find_tools and the runners it needs). */
-    public const array TOOL_SETS = ['all', 'essentials'];
+    /**
+     * How a connection lists its tools: "all" (as before), "essentials" (ESSENTIALS), "migration" (MIGRATION: moving a site here) or "fleet"
+     * (FLEET: the console of several Talea sites) – each with find_tools and the runners it needs. A set decides which tools Claude sees
+     * first; the connection's access and the user's role still decide what it may do.
+     */
+    public const array TOOL_SETS = ['all', 'essentials', 'migration', 'fleet'];
+
+    /** The tools of a site move: the import, old pages, rebuilding, redirects, media, forms and the check. */
+    public const array MIGRATION = ['site_info', 'list_pages', 'get_page', 'create_page', 'update_page', 'builder_schema', 'get_build', 'build_from_html', 'edit_build', 'save_build',
+        'publish_build', 'preview_link', 'list_classes', 'save_classes', 'update_design_system', 'apply_part_template', 'get_menu', 'save_menu', 'list_media', 'upload_file', 'upload_files',
+        'list_redirects', 'save_redirect', 'import_website', 'read_old_page', 'migration_report', 'list_layout_queue', 'layout_queue', 'list_forms', 'create_form', 'import_enquiries',
+        'site_audit', 'list_changes', 'undo_agent_session', 'read_notebook'];
+
+    /** The tools of a fleet console (extension fleet): the sites, their health and events. */
+    public const array FLEET = ['site_info', 'list_sites', 'get_site', 'get_health', 'list_events', 'site_audit', 'list_changes', 'list_requests', 'update_request', 'read_notebook',
+        'write_notebook', 'undo_agent_session'];
+
+    /** The listed tools of each set that lists only some (all lists every tool). */
+    public const array SETS = ['essentials' => self::ESSENTIALS, 'migration' => self::MIGRATION, 'fleet' => self::FLEET];
 
     /**
      * The core tools an essentials connection lists: pages, the builder, the menu and the look, collections, media,
@@ -298,6 +316,22 @@ final class Catalog
     public static function toolSet(string $set): string
     {
         return in_array($set, self::TOOL_SETS, true) ? $set : 'all';
+    }
+
+    /** The tools a set lists up front, or null for "all" (every tool the connection may use). @return list<string>|null */
+    public static function listed(string $set): ?array
+    {
+        return self::SETS[self::toolSet($set)] ?? null;
+    }
+
+    /**
+     * The sets a site offers on the consent screen and in My account: Fleet only on a fleet console.
+     *
+     * @return list<string>
+     */
+    public static function offered(\Talea\Core\Settings $settings): array
+    {
+        return ['essentials', 'migration', ...(\Talea\Core\Extensions::isEnabled($settings, 'fleet') ? ['fleet'] : []), 'all'];
     }
 
     /** Does the tool reach outside the site? */

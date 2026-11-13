@@ -1730,6 +1730,21 @@
             "openWorldHint": false
         }
     },
+    "read_old_page": {
+        "parameters": {
+            "format": "string",
+            "section": "integer",
+            "url": "string"
+        },
+        "required": [
+            "url"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": true
+        }
+    },
     "remove_blueprint": {
         "parameters": {
             "key": "string"
