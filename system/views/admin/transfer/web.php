@@ -44,6 +44,9 @@ $urls = array_keys($state['urls']);
 	<div class="tiles-item"><strong><?= (int) $v['articles'] ?></strong><span><?= e(t('New news items')) ?></span></div>
 	<div class="tiles-item"><strong><?= (int) $v['images'] ?></strong><span><?= e(t('Images in Media')) ?></span></div>
 	<div class="tiles-item"><strong><?= (int) $v['redirects'] ?></strong><span><?= e(t('Redirects from old addresses')) ?></span></div>
+<?php if (!empty($v['files'])): ?>
+	<div class="tiles-item"><strong><?= (int) $v['files'] ?></strong><span><?= e(t('Documents in Media')) ?></span></div>
+<?php endif ?>
 <?php if (!empty($v['parents'])): ?>
 	<div class="tiles-item"><strong><?= (int) $v['parents'] ?></strong><span><?= e(t('Empty parent pages')) ?></span></div>
 <?php endif ?>

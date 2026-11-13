@@ -204,4 +204,17 @@ final class WebImportPagesTest extends DatabaseTestCase
         $this->assertStringContainsString('[A form was here: switch on Enquiries', (string) $this->db()->value("SELECT build FROM {pages} WHERE slug = 'write'"));
         $this->assertSame(['form_off'], array_column($state['attention'], 'kind'));
     }
+
+    public function testTheOldTitleBecomesTheSeoTitle(): void
+    {
+        [$import, $state] = $this->importer();
+        $import->importHtml('https://old.example/about/', self::PAGE, $state);
+        $row = $this->db()->one("SELECT title, seo_title FROM {pages} WHERE slug = 'about'");
+        $this->assertSame(['About us', 'About us | Acme'], [$row['title'], $row['seo_title']]);
+        $this->assertSame(1, $state['kept']['seo']);
+
+        $same = '<html><head><title>Contact</title></head><body><main><h1>Contact</h1><p>' . str_repeat('Write to us about anything at all. ', 4) . '</p></main></body></html>';
+        $import->importHtml('https://old.example/contact/', $same, $state);
+        $this->assertSame('', $this->db()->value("SELECT seo_title FROM {pages} WHERE slug = 'contact'"), 'the same title is no SEO title');
+    }
 }

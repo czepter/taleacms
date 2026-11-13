@@ -74,7 +74,7 @@ final class WebImport
                 'redirects' => (bool) ($options['redirects'] ?? true), 'news' => (bool) ($options['news'] ?? true),
                 'keep_starters' => null], // ids of the installer's starter pages that stay when an imported page wants their address; null = untouched ones are replaced (Core\StarterPages)
             'starters' => ['replaced' => [], 'kept' => [], 'renamed' => []],
-            'result' => ['pages' => 0, 'articles' => 0, 'images' => 0, 'redirects' => 0, 'skipped' => 0, 'failed' => 0, 'parents' => 0],
+            'result' => ['pages' => 0, 'articles' => 0, 'images' => 0, 'redirects' => 0, 'skipped' => 0, 'failed' => 0, 'parents' => 0, 'files' => 0],
             'kept' => [], 'attention' => [], // what arrived as elements, by type; what needs the owner: [kind, old path, host] (Core\WebImportWidgets)
             'paths' => [], // old path => id of the page this run made for it (the parent of a nested address)
             'moved' => [], 'parents' => [], // the redirects written, and the empty parent pages made for nested addresses (listed in the result, at most MAX_LISTED each)
@@ -305,11 +305,20 @@ final class WebImport
         $old = self::path($url);
         // widgets: placeholders for what cannot be brought over, images of the answers and panels in Media
         $page['widgets'] = WebImportWidgets::prepare($page['widgets'], $page['content'], $language !== '' ? $language : Language::defaults($this->settings), Extensions::isEnabled($this->settings, 'enquiries'), '/' . $old, $state);
+        $seo = ['seo_title' => $page['seo_title'] !== $page['title'] ? $page['seo_title'] : '', 'image' => ''];
         if ($state['options']['images']) {
-            $page['content'] = $this->images($page['content'], $state);
+            $files = new WebImportFiles($this->db, $this->downloader, $this->author, $this->base);
+            $page['content'] = $files->bring($this->images($page['content'], $state), $state);
             foreach ($page['widgets'] as $i => $widget) {
-                $page['widgets'][$i]['html'] = $widget['html'] === '' ? '' : $this->images($widget['html'], $state);
+                $page['widgets'][$i]['html'] = $widget['html'] === '' ? '' : $files->bring($this->images($widget['html'], $state), $state);
             }
+            // the picture the old page showed in a share (og:image) is the page's own share image
+            $shared = $page['share_image'] !== '' ? $this->image($page['share_image'], $page['title'], $state) : null;
+            $seo['image'] = $shared === null ? '' : (string) $shared['image_path'];
+        }
+        $page['seo'] = $seo;
+        if ($seo['seo_title'] !== '' || $seo['image'] !== '') {
+            $state['kept']['seo'] = (int) ($state['kept']['seo'] ?? 0) + 1;
         }
         $page['content'] = self::safeContent($page['content']); // sanitized once more as the very last step before it is stored
         $page['text'] = self::safeContent(WebImportWidgets::text($page['content'], $page['widgets']));
@@ -471,7 +480,7 @@ final class WebImport
 
         return $this->db->insert('pages', [
             'slug' => $seo, 'title' => mb_substr($page['title'], 0, 200), 'text' => $page['text'], 'build' => $build,
-            'description' => mb_substr($page['description'], 0, 300),
+            'description' => mb_substr($page['description'], 0, 300), 'seo_title' => mb_substr($page['seo']['seo_title'], 0, 200), 'image' => $page['seo']['image'],
             'visible' => 0, // hidden until the administrator checks it – nothing changes for visitors
             'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'language' => $language, 'parent_id' => $parent['page_id'] ?? null,
             'import_source' => mb_substr($url, 0, 500), 'layout_pending' => 1,
@@ -490,6 +499,7 @@ final class WebImport
         $now = date('Y-m-d H:i:s');
         $idc = $this->db->insert('news', [
             'slug' => $seo, 'title' => mb_substr($page['title'], 0, 255), 'intro' => $page['description'] !== '' ? '<p>' . e($page['description']) . '</p>' : '',
+            'seo_title' => mb_substr($page['seo']['seo_title'], 0, 255), 'image' => str_contains($page['text'], $page['seo']['image']) ? '' : $page['seo']['image'],
             'text' => $page['text'], 'category_id' => $category, 'language' => $language, 'author_id' => $this->author,
             'published_at' => $page['date'] !== '' ? $page['date'] : $now, 'visible' => 0, 'edited_at' => $now, 'announced_at' => $now, // never announced (webhook, IndexNow)
         ]);
@@ -717,7 +727,7 @@ final class WebImport
      * The content of a page: title, description, publication date, whether it is an article, and the main content as
      * clean HTML with absolute image addresses.
      *
-     * @return array{title: string, description: string, content: string, date: string, article: bool, widgets: list<array{kind: string, html: string, host: string}>}
+     * @return array{title: string, description: string, content: string, date: string, article: bool, widgets: list<array{kind: string, html: string, host: string}>, seo_title: string, share_image: string}
      */
     public static function extract(string $html, string $url): array
     {
@@ -745,7 +755,7 @@ final class WebImport
         }
         $root ??= $doc->body;
         if ($root === null) {
-            return ['title' => $title, 'description' => $description, 'content' => '', 'date' => '', 'article' => false, 'widgets' => []];
+            return ['title' => $title, 'description' => $description, 'content' => '', 'date' => '', 'article' => false, 'widgets' => [], 'seo_title' => '', 'share_image' => ''];
         }
         // lazy-loaded images get their real address and links their path first: the widgets are cut out of the page after that
         foreach (iterator_to_array($root->querySelectorAll('img')) as $img) {
@@ -797,6 +807,8 @@ final class WebImport
             'date' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
             'article' => $article,
             'widgets' => $widgets,
+            'seo_title' => mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $doc->querySelector('title')?->textContent)), 0, 200),
+            'share_image' => ($share = $meta('meta[property="og:image"]') ?: $meta('meta[name="twitter:image"]')) !== '' ? self::absolute($share, $url) : '',
         ];
     }
 }

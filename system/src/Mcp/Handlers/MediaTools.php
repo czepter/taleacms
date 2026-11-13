@@ -181,7 +181,7 @@ trait MediaTools
 
         return ['import_id' => $state['id'], 'site' => $state['web'], 'phase' => ['finding' => 'finding', 'preview' => 'preview', 'import' => 'importing', 'done' => 'done'][$state['phase']] ?? $state['phase'],
             'found' => count($urls), 'processed' => (int) $state['position'],
-            'result' => ['new_pages' => $r['pages'], 'new_news' => $r['articles'], 'images' => $r['images'], 'redirects' => $r['redirects'], 'skipped' => $r['skipped'], 'failed' => $r['failed'], 'parents' => (int) ($r['parents'] ?? 0)],
+            'result' => ['new_pages' => $r['pages'], 'new_news' => $r['articles'], 'images' => $r['images'], 'documents' => (int) ($r['files'] ?? 0), 'redirects' => $r['redirects'], 'skipped' => $r['skipped'], 'failed' => $r['failed'], 'parents' => (int) ($r['parents'] ?? 0)],
             // the redirects written (old address → new) and the empty hidden parent pages made for nested addresses
             'redirects_written' => $state['moved'] ?? [], 'parents' => $state['parents'] ?? [],
             // what arrived as elements (forms, faq, tabs, video, map, embed, counter) and what needs the user: a placeholder marks its place on the page

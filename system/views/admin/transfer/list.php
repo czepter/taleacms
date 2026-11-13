@@ -174,7 +174,7 @@ $phase = [
 <?php foreach ($languages as $code): ?><option value="<?= e($code) ?>"><?= e(Talea\Core\Language::AVAILABLE[$code][0] ?? $code) ?></option><?php endforeach ?></select></div></div>
 <?php endif ?>
 <div class="row"><span></span><div>
-	<label><input type="checkbox" name="images" value="1" checked> <?= e(t('Download the images into Media')) ?></label><br>
+	<label><input type="checkbox" name="images" value="1" checked> <?= e(t('Download images and linked documents into Media')) ?></label><br>
 	<label><input type="checkbox" name="redirects" value="1" checked> <?= e(t('Redirect the old addresses to the new pages')) ?></label><br>
 	<label><input type="checkbox" name="news" value="1" checked> <?= e(t('Import blog posts as news (addresses like /blog/…, or with a publication date)')) ?></label>
 </div></div>

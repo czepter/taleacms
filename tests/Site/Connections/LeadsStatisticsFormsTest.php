@@ -407,7 +407,13 @@ PHP);
         $sitemap = static fn (array $paths): string => '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . implode('', array_map(static fn ($p) => "<url><loc>$origin$p</loc></url>", $paths)) . '</urlset>';
         file_put_contents($old . '/sitemap.xml', $sitemap(['/', '/our-story/', '/blog/first-post/']));
         file_put_contents($old . '/index.html', $this->oldPage('Welcome', 'The old home page', '<p>Old Oak makes furniture by hand in our workshop near the river, since many years, for homes and offices alike.</p>'));
-        file_put_contents($old . '/our-story/index.html', $this->oldPage('About us', 'Who we are', '<p>We build oak furniture since 1990, for homes and offices across the region and beyond it, always by hand.</p><img src="/img/team.png" alt="Our team"><p><a href="/blog/first-post/">Read our story</a></p><div class="cookie-notice">We use cookies</div><p>Our tools id="</p><p title="><svg onload=alert(1)>">and</p><img src="/img/team.png" alt="q><svg onload=alert(2)>"><video src="/film.mp4" controls></video>'));
+        file_put_contents($old . '/our-story/index.html', $this->oldPage('About us', 'Who we are', '<p>We build oak furniture since 1990, for homes and offices across the region and beyond it, always by hand.</p><img src="/img/team.png" alt="Our team"><p><a href="/blog/first-post/">Read our story</a></p><div class="cookie-notice">We use cookies</div><p>Our tools id="</p><p title="><svg onload=alert(1)>">and</p><img src="/img/team.png" alt="q><svg onload=alert(2)>"><video src="/film.mp4" controls></video><p><a href="/files/price-list.pdf">Price list</a> <a href="/files/fake.pdf">Fake list</a></p>'));
+        // #339: the old page's share image and its documents (one real PDF; a page of HTML named .pdf must not become a file)
+        $about = file_get_contents($old . '/our-story/index.html');
+        file_put_contents($old . '/our-story/index.html', str_replace('</head>', '<meta property="og:image" content="/img/team.png"></head>', (string) $about));
+        @mkdir($old . '/files', 0775, true);
+        file_put_contents($old . '/files/price-list.pdf', "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
+        file_put_contents($old . '/files/fake.pdf', '<html><body>not a pdf</body></html>');
         file_put_contents($old . '/blog/first-post/index.html', '<!doctype html><html><head><title>Our first post | Old Oak</title><meta property="article:published_time" content="2024-05-06T09:00:00+02:00"></head><body><article><h1>Our first post</h1><p>Today we opened the new workshop for visitors, come and see how a table is made from a single oak.</p></article></body></html>');
         $site->startPhp($old, 'router.php', [], $port);
 
@@ -438,6 +444,12 @@ PHP);
         $this->assertStringNotContainsString('<svg', $aboutText, 'website import: attribute text never becomes markup');
         $this->assertStringContainsString('alt="q&gt;&lt;svg onload=alert(2)&gt;"', $aboutText, 'website import: attribute text stays escaped text');
         $this->assertStringNotContainsString('"type":"custom_html"', $about, 'website import: no Custom HTML from the old site');
+        // #339: documents of the old site go into Media, a fake one stays where it was; the old title and share image become SEO fields
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_media WHERE image_path LIKE 'media/%.pdf'"), 'website import: the real PDF is in Media, the fake one is not');
+        $this->assertMatchesRegularExpression('#href="/media/[^"]+\.pdf"#', $aboutText, 'website import: the link points at Media');
+        $this->assertStringContainsString('href="/files/fake.pdf"', $aboutText, 'website import: the fake document keeps its old address');
+        $this->assertSame('About us | Old Oak', (string) $site->value("SELECT seo_title FROM tl_pages WHERE slug = 'our-story'"), 'website import: the old <title> is the SEO title');
+        $this->assertStringStartsWith('media/', (string) $site->value("SELECT image FROM tl_pages WHERE slug = 'our-story'"), 'website import: the share image is in Media');
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_redirects WHERE from_path = 'blog/first-post' AND to_path LIKE 'news/%'"), 'website import: the old address of the post redirects');
 
         $text = $this->pump('import_website', ['url' => $origin], 'import_id', 'finding');
@@ -447,7 +459,7 @@ PHP);
         for ($i = 0; $i < 20 && $this->fieldOf($text, 'phase') === 'importing'; $i++) {
             $text = $this->toolText('import_website', ['import_id' => $importId]);
         }
-        $this->assertSame('{"new_pages":0,"new_news":0,"images":0,"redirects":0,"skipped":3,"failed":0,"parents":0}', $this->fieldOf($text, 'result'), 'website import: running it again skips what is already there');
+        $this->assertSame('{"new_pages":0,"new_news":0,"images":0,"documents":0,"redirects":0,"skipped":3,"failed":0,"parents":0}', $this->fieldOf($text, 'result'), 'website import: running it again skips what is already there');
 
         // 2.7: the migration report - a fourth old page with a form that nothing on the new site answers
         file_put_contents($old . '/visit-us/index.html', $this->oldPage('Contact', 'Write to us', '<p>Write to us about a table, a chair or a whole kitchen and we answer within two working days, promised.</p><form action="/send"><input name="email"><textarea name="message"></textarea></form>'));
