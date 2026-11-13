@@ -301,7 +301,7 @@ final class Catalog
     /** Does the tool reach outside the site? */
     public static function isOpenWorld(string $name): bool
     {
-        return in_array($name, self::OPEN_WORLD, true) || $name === 'run_destructive_tool';
+        return in_array($name, self::OPEN_WORLD, true) || $name === 'run_destructive_tool' || (bool) (\Talea\Extension\Registry::get()->tool($name)['open_world'] ?? false);
     }
 
     /** Does this call make the site fetch something from an address outside it? Only full-access connections may (fetchRefusal). */
