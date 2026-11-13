@@ -731,7 +731,7 @@ final class Registrations
      * The field type of every stored answer (as Front\Forms passes them on: a CRM maps the e-mail, phone and name by type), found
      * by label in the form; 'info' for an answer the form no longer has.
      *
-     * @param list<array{0: string, 1: string}> $data
+     * @param array<mixed> $data the stored answers ([label, value] pairs; decoded JSON, so not trusted to be one)
      * @return list<string>
      */
     private static function answerTypes(?array $element, array $data): array
