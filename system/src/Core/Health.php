@@ -135,8 +135,8 @@ final class Health
                 . ($tracking['browser'] ? ', ' . t('browser errors of the public site too') : ''));
         if (Owners::isFirst($app->db())) {
             $last = Backup::listAll()[0]['time'] ?? 0;
-            $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
-            $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
+            $age = $last > 0 ? days_ago($last) : null;
+            $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups tab') : (match ($age) { 0 => t('today'), 1 => t('yesterday'), default => t('%d days ago', $age) }) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
         }
         $add(t('Operation'), t('Search engine indexing'), $siteSettings->bool('indexing') ? 'ok' : 'warning', $siteSettings->bool('indexing') ? t('allowed') : t('disabled on the SEO and GEO tab - the site will not appear in search results'));
         $add(t('Operation'), t('Media size'), 'ok', self::size(MediaFolder::bytes(MediaFolder::dir())));
