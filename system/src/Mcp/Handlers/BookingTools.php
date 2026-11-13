@@ -37,6 +37,10 @@ trait BookingTools
         $from = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($a['from'] ?? '')) ? (string) $a['from'] : date('Y-m-d');
         $to = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($a['to'] ?? '')) ? (string) $a['to'] : date('Y-m-d', strtotime($from . ' +30 days'));
         $status = (string) ($a['status'] ?? 'active');
+        if (!in_array($status, ['active', 'all', ...array_keys(Booking::STATUSES)], true)) {
+            // Booking::list ignores a status it does not know – that would answer a typo with every booking
+            throw new \InvalidArgumentException('Unknown status "' . $status . '". Use active, all, or one of: ' . implode(', ', array_keys(Booking::STATUSES)) . '.');
+        }
         $rows = Booking::list($this->app->db(), ['from' => $from, 'to' => $to, 'staff' => (int) ($a['staff'] ?? 0), 'service' => (int) ($a['service'] ?? 0),
             'status' => $status === 'all' ? '' : $status, 'limit' => max(1, min(200, (int) ($a['limit'] ?? 100)))]);
         // bookings hold personal data: every read by Claude is in the change log, with how many it saw (as list_enquiries)
@@ -111,7 +115,8 @@ trait BookingTools
         }
         $db = $this->app->db();
 
-        return ['staff' => $result + ['hours' => Booking::hours($db, $result['id']) ?: 'the site\'s opening hours', 'service_hours' => $this->serviceHoursOut($result['id']), 'days_off' => Booking::offs($db, $result['id'])],
+        return ['staff' => $result + ['hours' => Booking::hours($db, $result['id']) ?: 'the site\'s opening hours', 'service_hours' => $this->serviceHoursOut($result['id']),
+            'days_off' => array_map(fn (array $o): array => ['from' => $o['from'], 'to' => $o['to'], 'note' => $o['note']], Booking::offs($db, $result['id']))],
             'next' => $result['services'] === [] ? 'The person offers no service yet – pass services (ids from booking_availability).' : null];
     }
 
