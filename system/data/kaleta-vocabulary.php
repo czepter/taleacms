@@ -222,7 +222,9 @@ return [
     'dark_mode' => ['vypnuto' => 'off', 'tmavy' => 'dark'],
     'extensions' => ['novinky' => 'news', 'poptavky' => 'enquiries', 'statistika' => 'stats', 'presmerovani' => 'redirects', 'jazyky' => 'languages', 'asistent' => 'assistant'],
 
-    // CSS custom properties and classes of the site in custom CSS and HTML (longest first is applied by convert.php)
+    // CSS custom properties of the site in custom CSS and HTML (longest first is applied by convert.php). Kaleta's own classes (ka-tlacitko, ka-obal …) are
+    // deliberately not renamed to Talea's tl- classes: tl- is reserved for the core (#331), a user's text and classes lose it, so they stay as they are and
+    // the import reports them as "Kaleta CSS name … left as it is"
     'css' => [
         '--ka-barva-primarni-jemna' => '--tl-color-primary-soft', '--ka-barva-na-primarni' => '--tl-color-on-primary', '--ka-barva-primarni' => '--tl-color-primary',
         '--ka-barva-sekundarni' => '--tl-color-secondary', '--ka-barva-text-svetle' => '--tl-color-text-light', '--ka-barva-text-tmave' => '--tl-color-text-dark',
@@ -232,8 +234,5 @@ return [
         '--ka-sirka' => '--tl-width', '--ka-zaobleni-plne' => '--tl-radius-full', '--ka-zaobleni' => '--tl-radius', '--ka-krok' => '--tl-step', '--ka-mezera' => '--tl-space',
         '--ka-stin' => '--tl-shadow', '--ka-typ-titulek' => '--tl-type-title', '--ka-typ-nadpis-sekce' => '--tl-type-section-heading', '--ka-typ-podnadpis' => '--tl-type-subheading', '--ka-typ-perex' => '--tl-type-lead', '--ka-typ-drobny' => '--tl-type-small', '--ka-typ-nadtitulek' => '--tl-type-eyebrow', '--ka-typ' => '--tl-type',
         '--ka-prekryv' => '--tl-overlay', '--ka-delic' => '--tl-split', '--ka-naraz' => '--tl-per-view', '--ka-osa-x' => '--tl-axis-x', '--ka-okraj' => '--tl-margin',
-        'ka-tlacitko--primarni' => 'tl-button--primary', 'ka-tlacitko--sekundarni' => 'tl-button--secondary', 'ka-tlacitko--obrys' => 'tl-button--outline',
-        'ka-tlacitko--odkaz' => 'tl-button--link', 'ka-tlacitko' => 'tl-button', 'ka-formular' => 'tl-form', 'ka-hledani' => 'tl-search', 'ka-obal--uzka' => 'tl-wrap--narrow',
-        'ka-obal' => 'tl-wrap', 'ka-galerie' => 'tl-gallery', 'ka-ikona' => 'tl-icon', 'ka-nahoru' => 'tl-back-to-top',
     ],
 ];

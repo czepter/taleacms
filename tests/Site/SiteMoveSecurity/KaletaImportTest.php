@@ -33,7 +33,8 @@ final class KaletaImportTest extends SiteTestCase
         $zip->addFile(dirname(__DIR__, 2) . '/Fixtures/kaleta/obsah.json', 'obsah.json');
         $zip->addFromString('media/2026/10/fixture.png', (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
         $zip->close();
-        $this->assertSame([], KaletaExport::convert($dir . '/kaleta.zip', $dir . '/talea.zip'), 'the converter knows every word of the fixture');
+        // the only word left is the Kaleta class in the page text: it is not renamed to a tl- class (reserved, #331), so the import reports it
+        $this->assertSame(['Kaleta CSS name ka-tlacitko left as it is (1 times) – no Talea name is known' => 1], KaletaExport::convert($dir . '/kaleta.zip', $dir . '/talea.zip'), 'the converter knows every word of the fixture');
 
         $new = self::$new = Site::boot(['web' => 'export', 'siteName' => 'New site', 'extensions' => ['news']]);
         $admin = $new->admin();
@@ -81,9 +82,9 @@ final class KaletaImportTest extends SiteTestCase
         foreach (['Fixture heading', 'Fixture component value', 'Item: Fixture project', 'Fixture about'] as $text) {
             $this->assertStringContainsString($text, $page->body, "the home page shows: $text");
         }
-        // the Kaleta class is renamed to Talea's own tl-button, and Talea's own classes are not for a user's text (#331): the text stays, the class goes
+        // Kaleta's ka-tlacitko is deliberately not renamed to Talea's own tl-button (the prefix is reserved, #331, a user's text cannot carry it): the text stays and the import warns the name was left as it is
         $about = $new->client()->get('/about')->body;
-        $this->assertStringContainsString('<p>Fixture about text</p>', $about, 'Kaleta classes in page HTML do not become Talea classes');
+        $this->assertStringContainsString('<p class="ka-tlacitko">Fixture about text</p>', $about, 'a Kaleta class in page HTML stays as it is');
         $this->assertStringNotContainsString('class="tl-button"', $about);
     }
 }
