@@ -99,4 +99,23 @@ final class FleetTest extends TestCase
             $kitRefused(['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => 'No answer.'], \Talea\Fleet\Keys::publicKey($kitConsole), 3, $kitSha),
             isset(\Talea\Core\Events::TYPES['fleet.kit_received']), isset(\Talea\Core\Events::TYPES['fleet.kit_refused']), isset(\Talea\Core\Events::TYPES['fleet.kit_published'])], '2.16 Kit::verifyAnswer – the signed kit with the announced hash passes; a tampered body, another console\'s key, a different version, a manifest that does not hash to the announcement, or no answer are refused');
     }
+
+    /** #341: the heartbeat names the database, the web server, the features and the languages; an older heartbeat without them stays valid */
+    public function testHeartbeatInventory(): void
+    {
+        $this->assertSame(['MySQL 8.4', 'MariaDB 11.4', 'PostgreSQL 18.1', 'SQLite 3.40', ''], array_map(\Talea\Fleet\Heartbeat::database(...),
+            ['8.4.3', '11.4.2-MariaDB-ubu2404', 'PostgreSQL 18.1 on x86_64-pc-linux-gnu', 'SQLite 3.40.1', 'junk']));
+        $this->assertSame(['Apache', 'nginx', 'FrankenPHP', 'PHP built-in server', ''], [
+            \Talea\Fleet\Heartbeat::serverFamily('Apache/2.4.62 (Debian)', 'fpm-fcgi'), \Talea\Fleet\Heartbeat::serverFamily('nginx/1.27', 'fpm-fcgi'), \Talea\Fleet\Heartbeat::serverFamily('', 'frankenphp'),
+            \Talea\Fleet\Heartbeat::serverFamily('PHP 8.5.0 Development Server', 'cli-server'), \Talea\Fleet\Heartbeat::serverFamily('', 'cli')]);
+
+        $now = 1_800_000_000;
+        $old = ['name' => 'Old', 'version' => '2.9.0', 'last_backup' => $now - 3600, 'cron_last_run' => $now - 300, 'status' => 'ok'];
+        $cleaned = \Talea\Fleet\Console::clean($old);
+        $this->assertSame([null, null, null, null], [$cleaned['database'], $cleaned['web_server'], $cleaned['extensions'], $cleaned['languages']], 'a heartbeat without the new keys reads them as null');
+        $row = ['up' => 1, 'last_seen' => date('Y-m-d H:i:s', $now - 600), 'status' => 'ok', 'heartbeat' => (string) json_encode($cleaned)];
+        $this->assertSame([], \Talea\Fleet\Console::attention($row, $now)['reasons'], 'an old heartbeat needs no attention for what it does not say');
+        $full = \Talea\Fleet\Console::clean($old + ['database' => 'MariaDB 11.4', 'extensions' => array_map(fn (int $i): string => 'ext' . $i, range(1, 50))]);
+        $this->assertSame(['MariaDB 11.4', 40], [$full['database'], count($full['extensions'])]);
+    }
 }

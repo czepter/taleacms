@@ -70,6 +70,7 @@ final class FleetTest extends SiteTestCase
 
         $this->sameValue($console->base . '|1', $site->value("SELECT CONCAT((SELECT value FROM tl_settings WHERE name = 'fleet_console_url'), '|', (SELECT value <> '' FROM tl_settings WHERE name = 'fleet_site_id'))"), 'pairing: the site knows its console and its number there');
         $this->sameValue('1|1|1|1', $console->value("SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM tl_fleet_sites"), 'pairing: the console has the site with its first report');
+        $this->sameValue('1', $console->value("SELECT heartbeat LIKE '%\"database\":\"%' AND heartbeat LIKE '%\"languages\":[%' FROM tl_fleet_sites"), 'pairing: the first report names the database and the languages (the inventory)');
         $this->sameValue('1', $console->value('SELECT COUNT(*) FROM tl_fleet_pairing WHERE used_at IS NOT NULL'), 'pairing: the code works only once');
         $this->assertStringNotContainsString('@', (string) $console->value('SELECT heartbeat FROM tl_fleet_sites'), 'the report carries no e-mail addresses');
 

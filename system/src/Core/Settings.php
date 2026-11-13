@@ -188,6 +188,7 @@ final class Settings
         'fleet_kit_version' => '0',    // the kit version applied here
         'fleet_kit_applied_at' => '',
         'fleet_kit_error' => '',       // why the last kit was refused (English, translated where shown)
+        'fleet_web_server' => '',      // the web server family a web request last saw (Fleet\Heartbeat) – the cron cannot see it
         'remote_backup' => 'off', // copy of the backup off the server: off | ftp | s3
         'backup_host' => '',          // FTP server, or the S3 storage URL (s3.eu-central-1.amazonaws.com)
         'backup_user' => '',      // FTP user name / S3 access key
