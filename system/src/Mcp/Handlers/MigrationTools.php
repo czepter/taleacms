@@ -50,7 +50,8 @@ trait MigrationTools
             'more_problems' => max(0, count($rows) - 100),
             'site_checks' => array_map(fn (array $c): array => ['message' => $c['message'], 'fix_in' => $this->app->request->origin() . $this->app->url($c['fix'])], $r['web']),
             'next' => $state['phase'] !== 'done' ? 'Call again with the same report_id until the phase is done.'
-                : 'Fix what you can as drafts (save_redirect for missing addresses, descriptions, forms), list the rest for the user, and run a new report before the domain is switched.'];
+                : 'Fix what you can as drafts (save_redirect for missing addresses, descriptions, forms), list the rest for the user, and run a new report before the domain is switched.']
+            + \Talea\Mcp\Untrusted::mark(['problems']);
     }
 
     /** import_enquiries */

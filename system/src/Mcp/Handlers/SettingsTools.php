@@ -266,7 +266,7 @@ trait SettingsTools
         return ['redirects' => array_map(fn (array $r): array => ['from' => $r['from_path'], 'to' => $r['to_path'], 'code' => $r['type'], 'match' => $r['match_type'], 'active' => (bool) $r['active'], 'last_hit_at' => $r['last_hit_at'], 'count' => $r['hits'], 'auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null],
                 $db->all('SELECT from_path, to_path, type, match_type, active, last_hit_at, hits, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
             'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at'], 'referrer' => $n['referrer'], 'first_seen_at' => $n['first_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
-            'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Talea\Core\RedirectMatcher::threshold($siteSettings)]];
+            'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Talea\Core\RedirectMatcher::threshold($siteSettings)]] + \Talea\Mcp\Untrusted::mark(['not_found']);
     }
 
     /** save_redirect: the same as list_redirects */
@@ -290,7 +290,8 @@ trait SettingsTools
         $need($paths !== [] || !empty($a['all']), 'Send paths, or all: true.');
 
         return ['ignored' => \Talea\Core\NotFound::ignore($this->app, !empty($a['all']) ? null : $paths),
-            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at']], \Talea\Core\NotFound::pending($this->app, 60, 30))];
+            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at']], \Talea\Core\NotFound::pending($this->app, 60, 30))]
+            + \Talea\Mcp\Untrusted::mark(['not_found']);
     }
 
     /** site_audit */
@@ -328,7 +329,7 @@ trait SettingsTools
 
         // counting.since: the day visits began to be counted by the browser's beacon (null when no older figures exist); the figures
         // of earlier days counted every request and are not comparable
-        return $report + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings()), 'counting' => ['method' => \Talea\Front\Stats::method(), 'changed_on' => $report['counting_since']]];
+        return $report + \Talea\Mcp\Untrusted::mark(['landing_pages', 'campaigns', 'referrers', 'referrers_of_enquiries', 'search']) + ['statistics_on' => \Talea\Front\Stats::enabled($this->app->settings()), 'counting' => ['method' => \Talea\Front\Stats::method(), 'changed_on' => $report['counting_since']]];
     }
 
     /** get_search_performance: what Search engines → Performance shows, for whoever may open it (the Statistics right) */

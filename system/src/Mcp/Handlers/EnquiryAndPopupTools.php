@@ -65,7 +65,8 @@ trait EnquiryAndPopupTools
             'campaign' => \Talea\Front\Forms::campaignText((string) $p['campaign']), 'first_page' => $p['landing_page'] !== '' ? $p['landing_page'] : null, 'came_from' => $p['referrer'] !== '' ? $p['referrer'] : null, 'email' => $p['email'], 'status' => $statusNames[(int) $p['status']] ?? '',
             'fields' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
             + ($p['category'] !== '' ? ['category' => $p['category'], 'priority' => \Talea\Core\Triage::PRIORITIES[(int) $p['priority']] ?? null,
-                'draft_reply' => $p['suggested_reply'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : []),
+                'draft_reply' => $p['suggested_reply'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : [])
+            + \Talea\Mcp\Untrusted::mark(['page', 'campaign', 'first_page', 'came_from', 'email', 'fields']),
             $db->all('SELECT enquiry_id, created_at, form, page, topic, landing_page, referrer, campaign, email, status, category, priority, suggested_reply, triaged_by, data FROM {enquiries} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY enquiry_id DESC LIMIT ' . $limit, $params));
     }
 
@@ -179,7 +180,9 @@ trait EnquiryAndPopupTools
                 'fixed' => \Talea\Core\FormLinks::fixed($l),
                 'answer_item' => !empty($l['item_id']) ? $db->publicId('collection_items', (int) $l['item_id']) : null,
                 'reviews' => !empty($l['target_item_id']) ? $db->publicId('collection_items', (int) $l['target_item_id']) : null,
-                'answer_state' => in_array((string) $l['state'], ['waiting', 'applied', 'discarded'], true) ? (string) $l['state'] : null];
+                'answer_state' => in_array((string) $l['state'], ['waiting', 'applied', 'discarded'], true) ? (string) $l['state'] : null]
+                // a draft a visitor saved on the link holds what they typed
+                + (in_array('person', array_column(\Talea\Core\FormLinks::drafts($l), 'by'), true) ? \Talea\Mcp\Untrusted::mark(['prefill']) : []);
         }, $rows)];
     }
 
@@ -226,7 +229,7 @@ trait EnquiryAndPopupTools
             $compare = \Talea\Core\FormLinks::comparison($db, $link);
 
             return ['item' => (string) $compare['original']['public_id'], 'answer_item' => (string) $compare['draft']['public_id'], 'fields' => $compare['rows'],
-                'next' => 'Show the user what changed. review_form_answer with decision apply (when they approve) or discard.'];
+                'next' => 'Show the user what changed. review_form_answer with decision apply (when they approve) or discard.'] + \Talea\Mcp\Untrusted::mark(['fields']);
         }
         if ($auth->draftsOnly()) {
             throw new \DomainException('A connection limited to drafts cannot change a published item. The user applies the answer in Collections.');
@@ -297,7 +300,7 @@ trait EnquiryAndPopupTools
         $limit = max(1, min(20, (int) ($a['limit'] ?? 10)));
         $rows = $this->app->db()->all("SELECT * FROM {enquiries} WHERE category = '' AND deleted_at IS NULL ORDER BY enquiry_id DESC LIMIT " . $limit);
 
-        return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['enquiry_id'], 'date' => substr((string) $p['created_at'], 0, 16), 'text' => \Talea\Core\Triage::text($p)], $rows),
+        return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['enquiry_id'], 'date' => substr((string) $p['created_at'], 0, 16), 'text' => \Talea\Core\Triage::text($p)] + \Talea\Mcp\Untrusted::mark(['text']), $rows),
             // the site's kinds (Settings → Enquiries): the key to save and how to recognise each
             'categories' => array_map(fn (string $key, string $what): array => ['key' => $key, 'means' => $what], array_keys($descriptions = \Talea\Core\Triage::descriptions($this->app->settings())), $descriptions),
             'priorities' => ['high', 'normal', 'low'],

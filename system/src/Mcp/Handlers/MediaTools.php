@@ -180,7 +180,7 @@ trait MediaTools
                 'finding', 'import' => 'Call again with the same import id.',
                 'preview' => 'Show the user what was found; on their instruction call again with confirm: true.',
                 default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction.',
-            }];
+            }] + \Talea\Mcp\Untrusted::mark(['addresses', 'failures']);
     }
 
     /** upload_file */
