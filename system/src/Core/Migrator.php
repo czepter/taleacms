@@ -85,7 +85,10 @@ final class Migrator
     {
         try {
             $applied = array_map('strval', array_column($db->all('SELECT version FROM {migrations}'), 'version'));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            if (!Db::isMissing($e)) {
+                throw $e; // an unreachable database is not "nothing applied"
+            }
             $applied = []; // the log table does not exist yet: nothing has been applied
         }
 

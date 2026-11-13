@@ -277,6 +277,24 @@ final class Db
     }
 
     /**
+     * The table or column is not there (a site before its migration): MySQL/MariaDB 42S02 / 42S22, PostgreSQL 42P01 / 42703,
+     * SQLite "no such table / column". Anything else (a lost connection, a refused row, a syntax error) is a real error.
+     */
+    public static function isMissing(\PDOException $e): bool
+    {
+        $state = (string) ($e->errorInfo[0] ?? $e->getCode());
+
+        return in_array($state, ['42S02', '42S22', '42P01', '42703'], true)
+            || ($state === 'HY000' && preg_match('/no such (table|column)/i', $e->getMessage()) === 1);
+    }
+
+    /** The table refused the row: a duplicate or a broken key (SQLSTATE class 23) or a value it cannot hold (class 22). */
+    public static function isRefusedRow(\PDOException $e): bool
+    {
+        return in_array(substr((string) ($e->errorInfo[0] ?? $e->getCode()), 0, 2), ['22', '23'], true);
+    }
+
+    /**
      * Takes a named lock (between processes) for at most $timeout seconds; false = somebody else holds it. Released with unlock() or
      * when the connection ends. The name is scoped to this database here (two installs on one MySQL server never wait for each other);
      * a caller adds the table prefix when the lock is per site or per owner.
