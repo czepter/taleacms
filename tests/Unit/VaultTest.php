@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Talea\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use Talea\Admin\Modules\Settings;
+use Talea\Core\SiteExport;
 use Talea\Core\Vault;
 
 /** The secretbox that seals stored secrets (#335). */
@@ -36,5 +38,26 @@ final class VaultTest extends TestCase
         $this->assertSame(32, strlen(Vault::derive('s')));
         $this->assertSame(Vault::derive('s'), Vault::derive('s'));
         $this->assertNotSame(Vault::derive('s'), Vault::derive('t'));
+    }
+
+    /** A new secret setting must be listed here (and in Vault::SETTINGS) or it stays readable in the database and in backups. */
+    public function testSecretSettingsAreKnown(): void
+    {
+        $secretFields = [];
+        foreach ((new \ReflectionClass(Settings::class))->getReflectionConstant('FIELDS')->getValue() as $fields) {
+            foreach ($fields as $key => $type) {
+                if (str_starts_with((string) $type, 'secret')) {
+                    $secretFields[] = $key;
+                }
+            }
+        }
+        sort($secretFields);
+        $this->assertSame(['ai_key', 'backup_password', 'captcha_secret', 'newsletter_key', 'smtp_password'], $secretFields, 'the settings of type secret');
+        $this->assertSame([], array_values(array_diff($secretFields, Vault::SETTINGS)), 'every settings field of type secret is sealed');
+        $defaults = array_keys(\Talea\Core\Settings::DEFAULTS);
+        $this->assertSame(['newsletter_key'], array_values(array_diff(Vault::SETTINGS, $defaults)), 'only the key of the mailing service has no default');
+        foreach (Vault::SETTINGS as $key) {
+            $this->assertFalse(SiteExport::exportsSetting($key), $key . ' is not exported');
+        }
     }
 }
