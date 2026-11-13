@@ -127,6 +127,9 @@ final class FleetTest extends TestCase
             \Talea\Fleet\Http::certificateEnd([['Expire date' => 'Jan 14 23:59:59 2027 GMT']]),
             \Talea\Fleet\Http::certificateEnd([['Expire date' => '2027-01-14 23:59:59 GMT']]),
             \Talea\Fleet\Http::certificateEnd([['Expire date' => 'junk']])]);
+        $chain = [['Expire date' => 'Jan 14 23:59:59 2027 GMT']];
+        $this->assertSame([null, null, null, strtotime('2027-01-14 23:59:59 UTC')], [\Talea\Fleet\Http::verifiedCertificateEnd(0, $chain), \Talea\Fleet\Http::verifiedCertificateEnd(0, [['Expire date' => 'junk']]), \Talea\Fleet\Http::verifiedCertificateEnd(200, false), \Talea\Fleet\Http::verifiedCertificateEnd(200, $chain)],
+            'the chain of a request that failed (status 0, e.g. a certificate for another name) gives no date');
         $this->assertSame([null], array_column(\Talea\Fleet\Http::probe(['http://10.0.0.5:8080/admin']), 'certificate_ends'), 'a refused address has no certificate');
         if (!function_exists('openssl_csr_new')) {
             $this->markTestSkipped('openssl is missing');

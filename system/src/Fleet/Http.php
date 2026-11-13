@@ -220,13 +220,24 @@ final class Http
             }
         } while ($running > 0 && $status === CURLM_OK);
         foreach ($handles as $i => $ch) {
-            $chain = curl_getinfo($ch, CURLINFO_CERTINFO);
-            $out[$i] = ['status' => (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE), 'certificate_ends' => is_array($chain) ? self::certificateEnd($chain) : null];
+            $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $out[$i] = ['status' => $code, 'certificate_ends' => self::verifiedCertificateEnd($code, curl_getinfo($ch, CURLINFO_CERTINFO))];
             curl_multi_remove_handle($multi, $ch);
         }
         curl_multi_close($multi);
 
         return $out;
+    }
+
+    /**
+     * The end of the certificate of a request that completed: curl collects the chain before it checks the host name, so a certificate
+     * for another name still shows up in CERTINFO although the request failed (status 0) – its date is not the site's. Pure.
+     *
+     * @param mixed $chain curl's CURLINFO_CERTINFO
+     */
+    public static function verifiedCertificateEnd(int $status, mixed $chain): ?int
+    {
+        return $status > 0 && is_array($chain) ? self::certificateEnd($chain) : null;
     }
 
     /**
