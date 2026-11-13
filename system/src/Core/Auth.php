@@ -13,6 +13,8 @@ namespace Talea\Core;
  */
 final class Auth
 {
+    use AuthProof;
+
     public const int AUTHOR = 0;
     public const int EDITOR = 1;
     public const int ADMIN = 2;
@@ -130,6 +132,7 @@ final class Auth
         }
         $this->recordSignIn((int) $user['user_id']);
         $this->startSignIn((int) $user['user_id'], (string) $this->db->value('SELECT password FROM {users} WHERE user_id = ?', [$user['user_id']]), $remember);
+        $this->recordProof('password', (int) $user['user_id']);
 
         return null;
     }
@@ -235,39 +238,6 @@ final class Auth
             : ['failed_logins' => $errorCount], ['user_id' => $user['user_id']]);
     }
 
-    /** Shown when confirming with the password is locked; the person stays signed in. */
-    public const string CONFIRM_LOCKED = 'Too many wrong passwords: confirming is locked for 15 minutes. You stay signed in.';
-
-    /**
-     * Confirms the signed-in person's current password for a sensitive step (3.3.3, N56). A wrong one counts like a wrong
-     * sign-in: ten in a row lock the account for 15 minutes, while the person stays signed in. A locked account is not
-     * checked at all, so the right password is refused too. The password is taken as typed (N61).
-     *
-     * @param string $wrong the (untranslated) text for a wrong password
-     * @return string|null null = confirmed, else the untranslated English reason
-     */
-    public function confirmPassword(string $typed, string $wrong = 'The current password is not correct.'): ?string
-    {
-        $user = $this->user();
-        if ($user === null) {
-            return $wrong;
-        }
-        if (self::isLocked($user)) {
-            return self::CONFIRM_LOCKED;
-        }
-        if (self::matchingPassword($typed, (string) $user['password']) === null) {
-            $this->countError($user);
-            $this->countDeviceFailure($user);
-
-            return $wrong;
-        }
-        // "ten in a row": a right password ends the series
-        $this->db->update('users', ['failed_logins' => 0], ['user_id' => $user['user_id']]);
-        $this->user['failed_logins'] = 0;
-
-        return null;
-    }
-
     /**
      * A completed sign-in in the session: the account, the password fingerprint, and since 3.3.3 (N60) when it started and
      * when it was last used – user() ends it after IDLE_LIMIT without a request, or SESSION_LIMIT after it started.
@@ -275,6 +245,7 @@ final class Auth
     private function startSignIn(int $idu, string $passwordHash, bool $remember = false): void
     {
         $this->session->set('user_id', $idu);
+        $this->session->remove('proof'); // a sign-in starts without proof; the credential that opened it records its own (recordProof)
         $this->session->set('fingerprint', self::passwordHash($passwordHash));
         $this->session->set('login_at', time());
         $this->session->set('last_seen', time());
@@ -441,6 +412,7 @@ final class Auth
         $this->session->remove('pending_user');
         $this->session->regenerate();
         $this->startSignIn((int) $user['user_id'], (string) $user['password'], $remember);
+        $this->recordProof($step === null ? 'backup' : 'code', (int) $user['user_id']);
 
         return null;
     }
@@ -531,7 +503,7 @@ final class Auth
             if ($key === null || $user === null) {
                 throw new \RuntimeException($pending !== null ? 'This key does not belong to the account.' : 'This passkey is not registered on this site.');
             }
-            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['public_key'], (int) $key['sign_count'], $pending === null);
+            $this->assertKey($key, $response, $challenge, $siteUrl, $pending === null);
         } catch (\RuntimeException $e) {
             $this->db->insert('ip_checks', ['ip' => Antispam::hash($ip), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
@@ -541,13 +513,27 @@ final class Auth
 
             return t($e->getMessage());
         }
-        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s'), 'rp_id' => Passkey::rpId($siteUrl)], ['passkey_id' => $key['passkey_id']]);
         $this->recordSignIn((int) $user['user_id']);
         $this->session->remove('pending_user');
         $this->session->regenerate();
         $this->startSignIn((int) $user['user_id'], (string) $user['password'], $pending !== null ? !empty($pending['remember']) : $remember);
+        $this->recordProof('passkey', (int) $user['user_id']);
 
         return null;
+    }
+
+    /**
+     * Verifies a passkey assertion of $key and records that the key was used: the signature counter, the time and the host (a
+     * successful assertion proves the host the key works for, so user_passkeys.rp_id heals itself).
+     *
+     * @param array<string, mixed> $key row of user_passkeys
+     * @param array<string, mixed> $response
+     * @throws \RuntimeException with the (untranslated) reason for the refusal
+     */
+    private function assertKey(array $key, array $response, string $challenge, string $siteUrl, bool $verified): void
+    {
+        $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['public_key'], (int) $key['sign_count'], $verified);
+        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s'), 'rp_id' => Passkey::rpId($siteUrl)], ['passkey_id' => $key['passkey_id']]);
     }
 
     /**
@@ -576,6 +562,8 @@ final class Auth
         $this->startSignIn($userId, (string) $user['password']);
         if ($fingerprint !== null) {
             $this->session->set('operator_fp', $fingerprint); // checked on every request (sessionUser)
+            // an operator's row has no password or passkey of its own: the handoff is the proof (a normal handoff records none)
+            $this->recordProof('handoff', $userId);
         }
 
         return true;

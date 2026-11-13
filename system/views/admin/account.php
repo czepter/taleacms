@@ -60,7 +60,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 	<h2 id="email-confirm-title"><?= e(t('Change your e-mail address')) ?></h2>
 	<p class="reauth-text" id="email-confirm-text"><?= str_replace('%s', '<strong data-reauth-value></strong>', e(t('Password resets will go to %s from now on, and the old address gets a notice.'))) ?></p>
 	<label for="email-password"><?= e(t('Current password')) ?></label>
-	<input class="textfield" type="password" id="email-password" name="current_password" autocomplete="current-password">
+	<input class="textfield" type="password" id="email-password" name="current_password" autocomplete="current-password" data-reauth-input>
 	<div><button class="btn" type="submit"><?= e(t('Change e-mail')) ?></button> <button class="navigation" type="button" commandfor="email-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
 </dialog>
 </form>
@@ -127,7 +127,7 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 	<h2 id="start-confirm-title"><?= e(t('Turn on two-factor sign-in')) ?></h2>
 	<p class="reauth-text" id="start-confirm-text"><?= e(t('This starts the setup of an authenticator app. Confirm with the current password.')) ?></p>
 	<label for="start-password"><?= e(t('Current password')) ?></label>
-	<input class="textfield" type="password" id="start-password" name="current_password" autocomplete="current-password">
+	<input class="textfield" type="password" id="start-password" name="current_password" autocomplete="current-password" data-reauth-input>
 	<div><button class="btn" type="submit"><?= e(t('Turn on two-factor sign-in')) ?></button> <button class="navigation" type="button" commandfor="start-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
 </dialog>
 <?php endif ?>
@@ -220,7 +220,7 @@ $toolSetSwitch = fn (string $set, string $target): string => '<button class="nav
 	<h2 id="token-confirm-title"><?= e(t('Create a token')) ?></h2>
 	<p class="reauth-text" id="token-confirm-text"><?= e(t('A token gives a connection lasting access to this site. Confirm with the current password.')) ?></p>
 	<label for="token-password"><?= e(t('Current password')) ?></label>
-	<input class="textfield" type="password" id="token-password" name="current_password" autocomplete="current-password">
+	<input class="textfield" type="password" id="token-password" name="current_password" autocomplete="current-password" data-reauth-input>
 	<div><button class="btn" type="submit" name="op" value="token_new"><?= e(t('Create token')) ?></button> <button class="navigation" type="button" commandfor="token-confirm" command="close"><?= e(t('Cancel')) ?></button></div>
 </dialog>
 </fieldset>

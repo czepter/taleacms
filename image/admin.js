@@ -143,7 +143,9 @@
 	// is empty (a new token, turning on two-factor sign-in); [data-reauth-value] shows the new value
 	document.addEventListener('submit', function (e) {
 		var dialog = e.target.querySelector('dialog[data-reauth]');
-		var name = dialog && dialog.getAttribute('data-reauth'), field = name && e.target.elements[name], password = dialog && dialog.querySelector('input[type="password"]');
+		var name = dialog && dialog.getAttribute('data-reauth'), field = name && e.target.elements[name], password = dialog && dialog.querySelector('[data-reauth-input]');
+		// confirmed with a passkey already (image/passkeys.js): nothing to type
+		if (e.target.elements.passkey_confirmed) { return; }
 		if (!password || password.value !== '' || (name !== '' && (!field || field.value === field.defaultValue))) { return; }
 		e.preventDefault();
 		var value = dialog.querySelector('[data-reauth-value]');

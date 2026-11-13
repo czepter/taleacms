@@ -22,7 +22,7 @@ final class Kernel
      * The editors' ongoing requests (unsaved state, assistant, build draft, the SEO tab's live check): they do not change the site, so they neither clear the
      * page cache (it would be cold all the time during work) nor publish files waiting for approval (Core\MediaStaging).
      */
-    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask', 'seo_check'];
+    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask', 'seo_check', 'proof'];
 
     /** A path segment that may stand for a module, an action or an id (anything else stays in the query). */
     private const string SEGMENT = '[A-Za-z0-9_.-]+';
@@ -379,7 +379,7 @@ final class Kernel
             return Response::redirect($app->url('admin.php' . ($ident !== '' ? '?module=' . rawurlencode($ident) : '')));
         }
         // mandatory two-factor sign-in: whoever does not have it yet can only go to My account (and sign out) until they enable it
-        if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['account', 'token'], true)) {
+        if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['account', 'token', 'proof'], true)) {
             $app->session->flash('error', t('This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.'));
 
             return Response::redirect($app->url('admin.php?action=account&tab=sign-in'));
@@ -397,6 +397,9 @@ final class Kernel
         if ($action === 'token') {
             // after a new sign-in in another tab, the editor takes the valid form token here and continues saving
             return Response::json(['csrf' => $app->session->csrfToken()]);
+        }
+        if ($action === 'proof' && $request->isPost()) {
+            return $this->proof();
         }
         if ($action === 'account') {
             return (new Account($this))->handle();
@@ -801,6 +804,25 @@ final class Kernel
     }
 
     /**
+     * "Confirm with your passkey" (image/passkeys.js, button[data-passkey-confirm]): a signed-in person proves it is them with a passkey
+     * instead of typing the password; the proof counts for ten minutes (Auth::requireFresh). step=options asks for a challenge,
+     * step=verify sends the device's signature. Answers JSON.
+     */
+    private function proof(): Response
+    {
+        $app = $this->app;
+        $url = $app->settings()->get('site_url') ?: $app->request->origin();
+        if ($app->request->post('step') === 'options') {
+            $options = $app->auth()->proofChallenge($url);
+
+            return Response::json($options ?? ['error' => t('This account has no passkey for this site.')], $options === null ? 400 : 200);
+        }
+        $error = $app->auth()->verifyProof((array) json_decode((string) ($_POST['answer'] ?? ''), true), $url);
+
+        return Response::json($error === null ? ['ok' => true] : ['error' => t($error)], $error === null ? 200 : 401);
+    }
+
+    /**
      * Consent to connecting an app via OAuth (the Claude connector): shows who is asking and with which permissions, and
      * after confirmation returns a one-time code to the app. The request waits in the session (Front\OAuth::authorize) for
      * at most 15 minutes.
@@ -829,7 +851,7 @@ final class Kernel
             }
             // a connection keeps working without the person present (refresh tokens): like a personal token, it needs the current password (N56)
             // the pending request stays and the form is shown again; a wrong password counts like a wrong sign-in
-            $error = $app->auth()->confirmPassword($app->request->postRaw('current_password'));
+            $error = $app->auth()->confirmOwn($app->request);
         }
         if ($error === null && $app->request->isPost()) {
             $app->session->set('pending_oauth', null);

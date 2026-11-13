@@ -7,6 +7,7 @@ namespace Talea\Tests\Site\Connections;
 use Talea\Core\Passkey;
 use Talea\Tests\Site\Support\Http;
 use Talea\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SoftwareAuthenticator;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -14,6 +15,8 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('site')]
 final class TwoFactorLoginTest extends SiteTestCase
 {
+    use SoftwareAuthenticator;
+
     private const string SECRET = 'JBSWY3DPEHPK3PXP';
 
     private static ?Http $app = null;
@@ -127,7 +130,7 @@ final class TwoFactorLoginTest extends SiteTestCase
     {
         $site = $this->site();
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
-        [$key, $id] = $this->registerKey('8f1c3a52-7b2e-4c1d-9a6f-0e5b4d3c2a10');
+        [$key, $id] = $this->registerKey('author', '8f1c3a52-7b2e-4c1d-9a6f-0e5b4d3c2a10');
         $site->exec("UPDATE tl_user_passkeys SET rp_id = 'old.example'");
         $answer = fn (string $challenge, int $flags): string => $this->keyAnswer($key, $id, $challenge, $flags);
         $browser = $site->client('passkey');
@@ -149,28 +152,6 @@ final class TwoFactorLoginTest extends SiteTestCase
         $site->exec("DELETE FROM tl_user_passkeys WHERE name = 'test'");
         $site->exec("UPDATE tl_users SET failed_logins = 0 WHERE username = 'author'");
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'login'");
-    }
-
-    /** A software authenticator: an ES256 key registered for the author. @return array{OpenSSLAsymmetricKey, string} */
-    private function registerKey(string $publicId): array
-    {
-        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
-        $id = random_bytes(20);
-        $this->site()->exec("INSERT INTO tl_user_passkeys (public_id, user_id, name, credential_hash, credential_id, public_key, alg, sign_count, created_at) SELECT ?, user_id, 'test', ?, ?, ?, -7, 0, NOW() FROM tl_users WHERE username = 'author'",
-            [$publicId, hash('sha256', $id), Passkey::b64($id), (string) openssl_pkey_get_details($key)['key']]);
-
-        return [$key, $id];
-    }
-
-    /** The answer of the authenticator to a sign-in challenge. */
-    private function keyAnswer(\OpenSSLAsymmetricKey $key, string $id, string $challenge, int $flags): string
-    {
-        $origin = Passkey::origin($this->site()->base);
-        $client = (string) json_encode(['type' => 'webauthn.get', 'challenge' => $challenge, 'origin' => $origin, 'crossOrigin' => false], JSON_UNESCAPED_SLASHES);
-        $data = hash('sha256', Passkey::rpId($origin), true) . chr($flags) . pack('N', 0);
-        openssl_sign($data . hash('sha256', $client, true), $signature, $key, OPENSSL_ALGO_SHA256);
-
-        return (string) json_encode(['id' => Passkey::b64($id), 'clientDataJSON' => Passkey::b64($client), 'authenticatorData' => Passkey::b64($data), 'signature' => Passkey::b64((string) $signature)]);
     }
 
     #[Depends('testAppCodeAndBackupCodes')]
@@ -226,7 +207,7 @@ final class TwoFactorLoginTest extends SiteTestCase
         $site->exec("UPDATE tl_users SET totp_secret = '', totp_last_step = NULL, failed_logins = 0, locked_until = NULL, totp_backup_codes = ? WHERE username = 'author'",
             [json_encode([hash('sha256', 'aaaaa-11111'), hash('sha256', 'bbbbb-22222')])]);
 
-        return $this->registerKey('8f1c3a52-7b2e-4c1d-9a6f-0e5b4d3c2a11');
+        return $this->registerKey('author', '8f1c3a52-7b2e-4c1d-9a6f-0e5b4d3c2a11');
     }
 
     #[Depends('testAppCodeAndBackupCodes')]
@@ -277,18 +258,8 @@ final class TwoFactorLoginTest extends SiteTestCase
         $this->assertSame(200, $options->status, 'the challenge is issued to an account without the app');
 
         // a software authenticator registers
-        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
-        $details = openssl_pkey_get_details($key);
-        $id = random_bytes(20);
-        $origin = Passkey::origin($site->base);
-        $client = (string) json_encode(['type' => 'webauthn.create', 'challenge' => $options->json()['challenge'], 'origin' => $origin, 'crossOrigin' => false], JSON_UNESCAPED_SLASHES);
-        $data = hash('sha256', Passkey::rpId($origin), true) . chr(0x45) . pack('N', 0) . str_repeat("\0", 16) . pack('n', strlen($id)) . $id
-            . str_pad((string) $details['ec']['x'], 32, "\0", STR_PAD_LEFT) . str_pad((string) $details['ec']['y'], 32, "\0", STR_PAD_LEFT);
-        $der = base64_decode(preg_replace('/-----[A-Z ]+-----|\s/', '', $details['key']));
-        $saved = $post(['op' => 'passkey_save', 'name' => 'Laptop', 'answer' => json_encode([
-            'id' => Passkey::b64($id), 'clientDataJSON' => Passkey::b64($client), 'authenticatorData' => Passkey::b64($data),
-            'publicKey' => Passkey::b64($der), 'publicKeyAlgorithm' => -7,
-        ])]);
+        $registration = $this->registrationAnswer($options->json());
+        $saved = $post(['op' => 'passkey_save', 'name' => 'Laptop', 'answer' => $registration['answer']]);
         $this->assertTrue($saved->json()['ok'] ?? false, 'the first passkey is saved: ' . $saved->body);
         $this->assertSame(Passkey::rpId($site->base), (string) $site->value('SELECT rp_id FROM tl_user_passkeys'), 'the key remembers the host it was registered for');
         $this->assertNotSame('', (string) $site->value("SELECT totp_backup_codes FROM tl_users WHERE username = 'author'"), 'it turned two-factor sign-in on: backup codes exist');
