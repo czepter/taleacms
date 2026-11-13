@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Talea\Tests\Unit\Core;
 
 use PHPUnit\Framework\TestCase;
+use Talea\Core\ImageDownloader;
 use Talea\Core\OldPage;
+use Talea\Tests\Support\LocalOldSite;
 
 /** read_old_page: an old page in sections with the look of each, without a network (the page analysis is pure). */
 final class OldPageTest extends TestCase
@@ -114,5 +116,23 @@ final class OldPageTest extends TestCase
             $this->assertArrayHasKey($type, $types, $type);
         }
         $this->assertStringContainsString('[form whose fields a script draws', $html, 'what could not be read is a bracketed note');
+    }
+
+    public function testTheReadingHasATimeBudgetAndTheStylesheetsLeftOverCountAsNotRead(): void
+    {
+        $old = new LocalOldSite();
+        $old->start();
+        try {
+            $old->put('page.html', '<html><head><title>Home</title><link rel="stylesheet" href="/a.css"><link rel="stylesheet" href="/b.css"></head><body><main><h1>Home</h1><p>' . str_repeat('A page with enough text to be read. ', 4) . '</p></main></body></html>');
+            $old->put('a.css', 'main { color: #123456 }');
+            $old->put('b.css', 'p { color: #654321 }');
+            $reader = new OldPage(new ImageDownloader($old->origin, true));
+            $this->assertSame(['read' => 2, 'not_read' => 0], $reader->read($old->origin . '/page.html')['stylesheets']);
+            $late = $reader->read($old->origin . '/page.html', null, 'sections', 0.0);
+            $this->assertSame(['read' => 0, 'not_read' => 2], $late['stylesheets'], 'no time left after the page: the page comes back, the stylesheets count as not read');
+            $this->assertNotEmpty($late['sections']);
+        } finally {
+            $old->stop();
+        }
     }
 }

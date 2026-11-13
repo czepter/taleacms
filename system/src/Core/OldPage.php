@@ -26,6 +26,8 @@ final class OldPage
     public const int STYLESHEET_BYTES = 400 * 1024;
     public const int PAGE_BYTES = 5_000_000;
     public const float CSS_SECONDS = 3.0;
+    /** The time of the whole reading (the page and its stylesheets); what is left unread by then counts as not read – the call stays well under the request limit. */
+    public const float READ_SECONDS = 25.0;
     public const int MAX_RULES = 5000;
 
     private const string BLOCK_NAMES = 'main, [role="main"], #content, #main';
@@ -38,12 +40,13 @@ final class OldPage
     }
 
     /**
-     * Downloads the page and its first stylesheets and analyses them.
+     * Downloads the page and its first stylesheets and analyses them; stylesheets not started within $seconds of the start are left unread.
      *
      * @return array<string, mixed> see analyse()
      */
-    public function read(string $url, ?int $section = null, string $format = 'sections'): array
+    public function read(string $url, ?int $section = null, string $format = 'sections', float $seconds = self::READ_SECONDS): array
     {
+        $deadline = microtime(true) + $seconds;
         $html = $this->downloader->download($url, false);
         if ($html === '' || strlen($html) > self::PAGE_BYTES) {
             throw new \RuntimeException($html === '' ? 'The page is empty.' : 'The page is too large.');
@@ -64,6 +67,10 @@ final class OldPage
             }
             if (count($stylesheets) + $notRead >= self::STYLESHEETS) {
                 break;
+            }
+            if (microtime(true) >= $deadline) {
+                $notRead++;
+                continue;
             }
             try {
                 $stylesheets[] = substr($this->downloader->download($href, false), 0, self::STYLESHEET_BYTES);
