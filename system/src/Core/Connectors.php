@@ -12,7 +12,7 @@ use Talea\Connectors\Connector;
  *
  *  - A short curated list of services (SERVICES); nothing else can be connected.
  *  - Credentials are encrypted with a key derived from TALEA_SECRET_KEY, or from secret_key in the database while the variable
- *    is not set (sodium secretbox, vaultKey()), and never leave the server:
+ *    is not set (sodium secretbox, Core\Vault), and never leave the server:
  *    the admin form never shows them back, MCP never sees them, the site export never carries them.
  *  - OAuth with PKCE and a state bound to the session; the access token is refreshed with the refresh token when it
  *    expires; disconnecting revokes it where the service allows it.
@@ -50,47 +50,15 @@ final class Connectors
     /** The encrypted columns of {connectors}. */
     private const array SEALED = ['secret', 'access_token', 'refresh_token'];
 
-    /**
-     * The key of the credentials, derived from TALEA_SECRET_KEY when it is set (a database dump alone then decrypts nothing),
-     * otherwise from secret_key in the database. The signing key (Antispam::key()) comes from the same secret in another context.
-     */
-    private static function vaultKey(Settings $settings): string
-    {
-        return self::derive(Antispam::environmentSecret($settings) ?? (new Antispam($settings->db(), $settings))->key());
-    }
-
-    private static function derive(string $secret): string
-    {
-        return sodium_crypto_generichash('talea-connectors|' . $secret, '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
-    }
-
     public static function encrypt(Settings $settings, string $plain): string
     {
-        return self::seal(self::vaultKey($settings), $plain);
+        return Vault::seal(Vault::key($settings), $plain);
     }
 
     /** null when it cannot be read (another site's key, damaged). */
     public static function decrypt(Settings $settings, ?string $sealed): ?string
     {
-        return self::open(self::vaultKey($settings), $sealed);
-    }
-
-    private static function seal(string $key, string $plain): string
-    {
-        $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-
-        return base64_encode($nonce . sodium_crypto_secretbox($plain, $nonce, $key));
-    }
-
-    private static function open(string $key, ?string $sealed): ?string
-    {
-        $raw = $sealed !== null ? base64_decode($sealed, true) : false;
-        if ($raw === false || strlen($raw) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
-            return null;
-        }
-        $plain = sodium_crypto_secretbox_open(substr($raw, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), $key);
-
-        return $plain === false ? null : $plain;
+        return Vault::open(Vault::key($settings), $sealed);
     }
 
     /**
@@ -99,12 +67,12 @@ final class Connectors
      */
     public static function rekey(Db $site, string $old, string $new): void
     {
-        [$from, $to] = [self::derive($old), self::derive($new)];
+        [$from, $to] = [Vault::derive($old), Vault::derive($new)];
         foreach ($site->all('SELECT service, ' . implode(', ', self::SEALED) . ' FROM {connectors}') as $row) {
             $sealed = [];
             foreach (self::SEALED as $column) {
-                if (($plain = self::open($from, $row[$column])) !== null) {
-                    $sealed[$column] = self::seal($to, $plain);
+                if (($plain = Vault::open($from, $row[$column])) !== null) {
+                    $sealed[$column] = Vault::seal($to, $plain);
                 }
             }
             if ($sealed !== []) {
@@ -131,12 +99,12 @@ final class Connectors
                 if ($old === '') {
                     return;
                 }
-                [$from, $to] = [self::derive($old), self::derive($secret)];
+                [$from, $to] = [Vault::derive($old), Vault::derive($secret)];
                 foreach ($db->all('SELECT service, ' . implode(', ', self::SEALED) . ' FROM {connectors}') as $row) {
                     $sealed = [];
                     foreach (self::SEALED as $column) {
-                        if (($plain = self::open($from, $row[$column])) !== null) {
-                            $sealed[$column] = self::seal($to, $plain);
+                        if (($plain = Vault::open($from, $row[$column])) !== null) {
+                            $sealed[$column] = Vault::seal($to, $plain);
                         }
                     }
                     if ($sealed !== []) {
