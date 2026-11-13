@@ -84,12 +84,22 @@ final class Backup
             throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }
         @set_time_limit(300); // a background run on a visit has the web server's limit otherwise
+        self::sweepParts($folder, $connections[0]);
         $gz = function_exists('gzopen');
         $file = 'talea-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $reason) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');
         $path = $folder . '/' . $file;
         // written under a hidden name and renamed when complete: a run that is killed never leaves a half file that counts as the newest backup
         $part = $folder . '/.' . $file . '.part';
         $f = $gz ? gzopen($part, 'wb6') : fopen($part, 'wb');
+        // a fatal error (time or memory limit) skips the catch below: the same process removes its half file and leaves a trace
+        $db = $connections[0];
+        register_shutdown_function(static function () use ($part, $db): void {
+            if (!is_file($part)) {
+                return; // renamed (done) or already removed
+            }
+            @unlink($part);
+            self::recordInterrupted($db, (string) (error_get_last()['message'] ?? ''));
+        });
         $write = fn (string $s) => $gz ? gzwrite($f, $s) : fwrite($f, $s);
 
         $pdo = $connections[0]->pdo();
@@ -152,6 +162,33 @@ final class Backup
         self::prune($folder, $keep);
 
         return $file;
+    }
+
+    /** A half file older than this cannot belong to a running dump (the time limit is 300 seconds, the scheduler lock covers the automatic run). */
+    private const int PART_MAX_AGE = 3600;
+
+    /**
+     * Removes the half files (.talea-*.part) a killed run left behind (the process died without a chance to clean up, e.g. SIGKILL or a
+     * container restart) and records that a backup did not finish, so the failure is visible. Returns the number removed.
+     */
+    public static function sweepParts(string $folder, ?Db $db = null): int
+    {
+        $removed = 0;
+        foreach (glob($folder . '/.talea-*.part') ?: [] as $part) {
+            if (is_file($part) && time() - (int) filemtime($part) > self::PART_MAX_AGE && @unlink($part)) {
+                $removed++;
+            }
+        }
+        if ($removed > 0 && $db !== null) {
+            self::recordInterrupted($db, '');
+        }
+
+        return $removed;
+    }
+
+    private static function recordInterrupted(Db $db, string $detail): void
+    {
+        Events::record($db, 'backup.failed', 'error', t('A backup did not finish: the run was interrupted.') . ($detail !== '' ? ' ' . $detail : '')); // never throws
     }
 
     /**
