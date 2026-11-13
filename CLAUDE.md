@@ -42,7 +42,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **SQL is written portably (HF-14): the same code runs on MySQL 8 and PostgreSQL 18.** Not in product SQL: `INSERT IGNORE` / `ON DUPLICATE KEY`
   (`Db::insertIgnore()`, `insertIgnoreSelect()`, `upsert()` with `{old.col}`/`{new.col}` expressions), `IF()` / `IFNULL()` / `FIELD()` (`CASE`, `COALESCE`,
   `Dialect::listPosition()`), `GROUP_CONCAT`, `JSON_EXTRACT`, `MATCH … AGAINST` (`Dialect::groupConcat()`, `jsonExtract()`, `fulltextMatch()`), `CURDATE()`
-  (`CURRENT_DATE`), `SHOW …` or `information_schema` with `DATABASE()` (`Db::columns()`, `uniqueKeys()`, `tableExists()`), `GET_LOCK` (`Db::lock()`), `"text"` for strings.
+  (`CURRENT_DATE`), `SHOW …` or `information_schema` with `DATABASE()` (`Db::columns()`, `uniqueKeys()`, `tableExists()`), `GET_LOCK` (`Db::lock()`, which scopes the name by the database: add the table prefix for a per-site lock), `"text"` for strings.
   Boolean columns: `= TRUE` / `= FALSE`, `SUM(CASE WHEN … THEN 1 ELSE 0 END)`, and `TRUE`/`FALSE` or a parameter in `INSERT`s; fetched booleans are 1/0 on both
   engines (`Core\PgStatement`). `INTERVAL 5 DAY` and `INTERVAL ? HOUR` are fine (`Postgres::rewrite()` turns them into PostgreSQL syntax). User-facing `LIKE` goes through
   `Dialect::likeInsensitive()`; NULL ordering that shows is made explicit (`col IS NULL, col`). Schema differences live in `Core\MigrationSupport`.

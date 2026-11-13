@@ -69,10 +69,10 @@ final class Scheduler
     /** Of the OWNER_JOBS: those over files that belong to the whole install (backups, the media folder); they run for the first owner only (Owners::sharedFilesRefusal()). */
     public const array INSTALL_JOBS = ['backup', 'media_sync'];
 
-    /** Lock name per database and table prefix: GET_LOCK is server-wide, two sites on one MySQL server must not wait for each other's jobs. */
+    /** Lock name per table prefix (Db::lock adds the database): two sites must not wait for each other's jobs. */
     private static function lockName(Db $db): string
     {
-        return substr('talea-sched-' . hash('sha256', $db->databaseName() . '|' . $db->prefix), 0, 64);
+        return 'sched-' . $db->prefix;
     }
 
     /**
