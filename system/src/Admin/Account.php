@@ -373,8 +373,8 @@ final class Account
             'codesLeft' => count((array) json_decode((string) $user['totp_backup_codes'], true)),
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),
             'keys' => $app->auth()->accountKeys((int) $user['user_id']),
-            // passkey-only sign-in (#333): in force for this account, chosen by it, asked by the site, and how many passkeys work on this site's host
-            'passkeyOnly' => $app->auth()->passkeyOnly($user), 'passkeyOnlyWanted' => !empty($user['passkey_only']), 'siteRequires' => $app->settings()->get('passkey_only') === '1',
+            // passkey-only sign-in (#333): chosen by this account, asked by the site, and how many passkeys work on this site's host
+            'passkeyOnlyWanted' => !empty($user['passkey_only']), 'siteRequires' => $app->settings()->get('passkey_only') === '1',
             'workingKeys' => count($app->auth()->workingKeys((int) $user['user_id'])),
             'remembered' => $app->auth()->rememberedElsewhere((int) $user['user_id']),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokens} WHERE user_id = ? AND kind = 'token' ORDER BY token_id DESC", [$user['user_id']]),

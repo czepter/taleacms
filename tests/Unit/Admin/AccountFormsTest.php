@@ -44,4 +44,20 @@ final class AccountFormsTest extends TestCase
         }
         $this->assertStringContainsString('name="op" value="token_new"', $inDialogs, 'the dialog button keeps the operation');
     }
+
+    /** What My account hands its view (the keys written next to the passkey and sign-in data) is read there: nothing is computed for nothing. */
+    public function testEveryValueHandedToTheAccountViewIsRead(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $source = (string) file_get_contents($root . '/system/src/Admin/Account.php');
+        $views = (string) file_get_contents($root . '/system/views/admin/account.php');
+        foreach (glob($root . '/system/views/admin/account/*.php') ?: [] as $partial) {
+            $views .= (string) file_get_contents($partial);
+        }
+        $this->assertSame(1, preg_match("/'keys' =>.*?'remembered' =>/s", $source, $block));
+        preg_match_all("/'(\\w+)' =>/", $block[0], $keys);
+        foreach (array_unique($keys[1]) as $key) {
+            $this->assertSame(1, preg_match('/\\$' . $key . '\\b/', $views), "\$$key is passed to the view and never read");
+        }
+    }
 }
