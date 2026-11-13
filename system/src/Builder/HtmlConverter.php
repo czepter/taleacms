@@ -35,17 +35,19 @@ final class HtmlConverter
     /** @var array<string, array<string, array<string, string>>> class => state (tablet, mobile, hover…) => style properties */
     private array $classStyles = [];
 
-    private function __construct(private readonly bool $admin)
+    /** @param list<array{kind: string, html: string, host: string}> $widgets the widgets an import took out of the old page (Builder\HtmlWidgets): a <talea-widget title="N"> marker stands for the Nth */
+    private function __construct(private readonly bool $admin, private readonly array $widgets = [])
     {
     }
 
     /**
      * @param bool $admin a Custom HTML element may be created (for SVG and embedded maps)
+     * @param list<array{kind: string, html: string, host: string}> $widgets the widgets behind the markers of an imported page
      * @return array{build: array<string, mixed>, classes: array<string, string>, class_styles: array<string, array<string, array<string, string>>>, notes: list<string>}
      */
-    public static function convert(string $html, bool $admin = false): array
+    public static function convert(string $html, bool $admin = false, array $widgets = []): array
     {
-        $conversion = new self($admin);
+        $conversion = new self($admin, $widgets);
         $document = HTMLDocument::createFromString('<!doctype html><html><body>' . $html . '</body></html>', LIBXML_NOERROR);
         foreach ($document->querySelectorAll('style') as $style) {
             $conversion->styles($style->textContent);
@@ -151,7 +153,10 @@ final class HtmlConverter
             }
         };
 
-        foreach ($parent->childNodes as $node) {
+        foreach (iterator_to_array($parent->childNodes) as $node) {
+            if ($node->parentNode === null) {
+                continue; // a tab panel taken into a Tabs element
+            }
             if ($node->nodeType === XML_TEXT_NODE) {
                 if (trim($node->textContent) !== '') {
                     $flow .= '<p>' . e(trim($node->textContent)) . '</p>';
@@ -162,6 +167,11 @@ final class HtmlConverter
                 continue;
             }
             $htmlTag = strtolower($node->localName);
+            if (strtolower((string) $node->getAttribute('role')) === 'tablist' && ($tabs = $this->tabs($node, $parent)) !== null) {
+                $flushFlow();
+                $output[] = $tabs;
+                continue;
+            }
             if ($htmlTag === 'details' && ($question = $node->querySelector('summary')) !== null) {
                 if ($flow !== '') {
                     $output[] = Build::fresh('text', ['html' => $flow]);
@@ -194,6 +204,9 @@ final class HtmlConverter
     private function element(Element $el, int $depth): array
     {
         $htmlTag = strtolower($el->localName);
+        if ($htmlTag === 'talea-widget') {
+            return $this->widget($el, $depth);
+        }
         if (in_array($htmlTag, self::UNWRAP, true)) {
             return $this->children($el, $depth);
         }
@@ -214,6 +227,7 @@ final class HtmlConverter
         }
 
         $p = match (true) {
+            $htmlTag === 'div' && ($counter = $this->counter($el)) !== null => $counter,
             in_array($htmlTag, ['section', 'header', 'footer', 'aside', 'article', 'nav', 'div', 'li'], true) => $this->wrapper($el, $htmlTag, $depth),
             (bool) preg_match('/^h[1-6]$/', $htmlTag) => ['tag' => $htmlTag] + Build::fresh('heading', ['text' => trim($el->innerHTML)]),
             in_array($htmlTag, self::TEXT_TAGS, true) => $this->textOrWrapper($el, $htmlTag, $depth),
@@ -224,6 +238,7 @@ final class HtmlConverter
             $htmlTag === 'hr' => Build::fresh('divider'),
             $htmlTag === 'form' => $this->form($el),
             in_array($htmlTag, ['iframe', 'video'], true) && ($video = $this->video($el)) !== null => $video,
+            $htmlTag === 'iframe' && ($frame = $this->mapOrEmbed($el)) !== false => $frame, // null: a map that could not be read (noted)
             in_array($htmlTag, ['svg', 'iframe', 'video', 'picture', 'audio'], true) => $this->customHtml($el),
             default => Build::fresh('text', ['html' => '<p>' . trim($el->innerHTML) . '</p>']),
         };
@@ -242,6 +257,18 @@ final class HtmlConverter
         }
 
         return [$p];
+    }
+
+    /** The elements of an imported page's widget: its normalised HTML converted like any other HTML (the notes of the conversion are shared). */
+    private function widget(Element $marker, int $depth): array
+    {
+        $widget = $this->widgets[(int) $marker->getAttribute('title')] ?? null;
+        if ($widget === null || $widget['html'] === '') {
+            return [];
+        }
+        $document = HTMLDocument::createFromString('<!doctype html><html><body>' . $widget['html'] . '</body></html>', LIBXML_NOERROR);
+
+        return $this->children($document->body, $depth);
     }
 
     /** section/div/… – at the top level a section (section, header, footer), elsewhere a container or grid. */
@@ -286,6 +313,9 @@ final class HtmlConverter
     private function figure(Element $el, int $depth): ?array
     {
         $image = $el->querySelector('img');
+        if ($image === null && ($counter = $this->counter($el)) !== null) {
+            return $counter;
+        }
         if ($image === null) {
             return ['tag' => 'div'] + Build::fresh('container', [], $this->children($el, $depth + 1));
         }
@@ -315,7 +345,12 @@ final class HtmlConverter
     {
         $field = [];
         $radios = []; // groups of <input type="radio"> by name → one choice field
+        $trapped = false;
         foreach ($el->querySelectorAll('input, select, textarea') as $input) {
+            if (self::isSpamTrap($input, $el)) {
+                $trapped = true;
+                continue;
+            }
             $type = strtolower((string) ($input->getAttribute('type') ?? 'text'));
             if (in_array($type, ['hidden', 'submit', 'button', 'reset', 'image', 'file', 'password'], true)) {
                 if (in_array($type, ['file', 'password'], true)) {
@@ -344,11 +379,35 @@ final class HtmlConverter
                 default => ['label' => $labelText, 'type' => in_array($type, ['email', 'tel'], true) ? $type : 'text', 'required' => $required, 'options' => ''],
             };
         }
+        if ($trapped) {
+            $this->messages[] = 'Spam traps and captcha fields were left out – Talea protects its forms itself.';
+        }
         $button = $el->querySelector('button:not([type="button"]):not([type="reset"]), input[type="submit"]');
         $text = trim($button === null ? '' : ($button->localName === 'input' ? (string) $button->getAttribute('value') : $button->textContent));
         $this->messages[] = 'The form was converted to a Form element: it is sent to the site\'s Enquiries and by e-mail (the action address is not used).';
 
         return Build::fresh('form', array_filter(['fields' => array_slice($field, 0, 20), 'button_text' => $text], fn (mixed $v): bool => $v !== '' && $v !== []));
+    }
+
+    /** A honeypot (hidden from people, tab order and autofill) or a captcha field: a person never fills it in, Talea's own protection replaces it. */
+    private static function isSpamTrap(Element $input, Element $form): bool
+    {
+        $name = strtolower((string) $input->getAttribute('name'));
+        if (in_array($name, ['g-recaptcha-response', 'h-captcha-response', 'cf-turnstile-response'], true) || $input->closest('[data-sitekey]') !== null) {
+            return true;
+        }
+        if ($input->getAttribute('tabindex') === '-1' && $input->getAttribute('autocomplete') === 'off') {
+            return true;
+        }
+        for ($node = $input; $node instanceof Element && $node !== $form; $node = $node->parentElement) {
+            $style = strtolower((string) $node->getAttribute('style'));
+            if ($node->hasAttribute('hidden') || $node->getAttribute('aria-hidden') === 'true'
+                || preg_match('/display\s*:\s*none|visibility\s*:\s*hidden/', $style) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function fieldLabel(Element $form, Element $input): string
@@ -384,15 +443,179 @@ final class HtmlConverter
 
     private function video(Element $el): ?array
     {
-        $src = $el->getAttribute('src') ?? $el->querySelector('source')?->getAttribute('src') ?? '';
-        if (preg_match('#(youtube\.com/embed/|youtube-nocookie\.com/embed/)([\w-]{6,})#', $src, $m)) {
-            return Build::fresh('video', ['url' => 'https://www.youtube.com/watch?v=' . $m[2], 'title' => $el->getAttribute('title') ?? '']);
+        $src = $el->getAttribute('src') ?: $el->getAttribute('data-src') ?: $el->getAttribute('data-lazy-src') ?: $el->querySelector('source')?->getAttribute('src') ?: '';
+        $title = $el->getAttribute('title') ?? '';
+        if (preg_match('#(?:youtube\.com/embed/|youtube-nocookie\.com/embed/|youtu\.be/|youtube\.com/shorts/)([\w-]{6,})#', $src, $m) || preg_match('#youtube\.com/watch\?(?:[^"\s]*&)?v=([\w-]{6,})#', $src, $m)) {
+            return Build::fresh('video', ['url' => 'https://www.youtube.com/watch?v=' . $m[1], 'title' => $title]);
         }
-        if (preg_match('#player\.vimeo\.com/video/(\d+)#', $src, $m)) {
-            return Build::fresh('video', ['url' => 'https://vimeo.com/' . $m[1], 'title' => $el->getAttribute('title') ?? '']);
+        if (preg_match('#(?:player\.vimeo\.com/video/|//vimeo\.com/)(\d+)#', $src, $m)) {
+            return Build::fresh('video', ['url' => 'https://vimeo.com/' . $m[1], 'title' => $title]);
         }
 
         return null;
+    }
+
+    /**
+     * A frame of a map service becomes a Map element, one of a known service (booking page, form, player) an Embed element.
+     *
+     * @return array<string, mixed>|false|null the element; null = a map frame whose address could not be read (noted); false = neither
+     */
+    private function mapOrEmbed(Element $el): array|false|null
+    {
+        $src = trim($el->getAttribute('src') ?: $el->getAttribute('data-src') ?: $el->getAttribute('data-lazy-src') ?: '');
+        $map = self::mapFrame($src);
+        if ($map !== null) {
+            if ($map['address'] === '') {
+                $this->messages[] = 'A map frame (' . preg_replace('/[^a-z0-9.-]/', '', strtolower((string) parse_url($src, PHP_URL_HOST))) . ') was not converted – add a Map element with the address.';
+
+                return null;
+            }
+
+            return Build::fresh('map', ['address' => mb_substr($map['address'], 0, 200), 'zoom' => $map['zoom']]);
+        }
+        if ($src !== '' && Elements\Embed::resolve($src) !== null) {
+            return Build::fresh('embed', ['address' => $src, 'title' => mb_substr($el->getAttribute('title') ?? '', 0, 120)]);
+        }
+
+        return false;
+    }
+
+    /**
+     * What a map frame shows: the place's name or its coordinates ("lat, lng") and a zoom of the Map element. Google Maps, OpenStreetMap
+     * and Mapy.com addresses; null = not a map frame, an empty address = a map frame that says nothing readable.
+     *
+     * @return array{address: string, zoom: string}|null
+     */
+    public static function mapFrame(string $src): ?array
+    {
+        $c = parse_url($src);
+        $host = strtolower((string) ($c['host'] ?? ''));
+        $path = (string) ($c['path'] ?? '');
+        parse_str((string) ($c['query'] ?? ''), $q);
+        $q = array_map(fn (mixed $v): string => is_string($v) ? $v : '', $q);
+        $number = fn (string $v): string => rtrim(rtrim(sprintf('%.6f', (float) $v), '0'), '.');
+        $zoom = function (string $z): string {
+            $best = '15';
+            $distance = 99.0;
+            foreach (['11', '13', '15', '17'] as $step) {
+                if (is_numeric($z) && abs((float) $z - (int) $step) < $distance) {
+                    $best = $step;
+                    $distance = abs((float) $z - (int) $step);
+                }
+            }
+
+            return $best;
+        };
+        $address = '';
+        if (preg_match('/(^|\.)google\.[a-z.]+$/', $host) && str_starts_with($path, '/maps')) {
+            $address = trim((string) ($q['q'] ?? $q['query'] ?? ''));
+            if ($address === '' && ($pb = (string) ($q['pb'] ?? '')) !== '') {
+                $name = rawurldecode(str_replace('+', ' ', preg_match('/!2s([^!]+)/', $pb, $m) ? $m[1] : ''));
+                if (strlen($name) >= 4 && preg_match('/\pL/u', $name) === 1 && preg_match('/^[a-z]{2}(-[A-Za-z]{2,4})?$/', $name) !== 1) {
+                    $address = $name;
+                } elseif (preg_match('/!2d(-?\d+(?:\.\d+)?)/', $pb, $lng) && preg_match('/!3d(-?\d+(?:\.\d+)?)/', $pb, $lat)) {
+                    $address = $number($lat[1]) . ', ' . $number($lng[1]);
+                }
+            }
+
+            return ['address' => $address, 'zoom' => $zoom((string) ($q['z'] ?? ''))];
+        }
+        if (preg_match('/(^|\.)openstreetmap\.org$/', $host) && str_contains($path, '/export/embed')) {
+            if (preg_match('/^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/', (string) ($q['marker'] ?? ''), $m)) {
+                $address = $number($m[1]) . ', ' . $number($m[2]);
+            } elseif (preg_match('/^(-?[\d.]+),(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)$/', (string) ($q['bbox'] ?? ''), $m)) {
+                $address = $number((string) (((float) $m[2] + (float) $m[4]) / 2)) . ', ' . $number((string) (((float) $m[1] + (float) $m[3]) / 2));
+            }
+
+            return ['address' => $address, 'zoom' => '15'];
+        }
+        if (preg_match('/(^|\.)mapy\.(cz|com)$/', $host)) {
+            $address = trim((string) ($q['q'] ?? ''));
+            if ($address === '' && is_numeric($q['x'] ?? null) && is_numeric($q['y'] ?? null)) {
+                $address = $number($q['y']) . ', ' . $number($q['x']);
+            }
+
+            return ['address' => $address, 'zoom' => $zoom((string) ($q['z'] ?? ''))];
+        }
+
+        return null;
+    }
+
+    /**
+     * A number that counts up (a figure with a <data> element, or a block of one <data> and a caption) becomes a Counter element.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function counter(Element $el): ?array
+    {
+        $data = $el->querySelectorAll('data[value]');
+        if ($data->length !== 1 || $el->querySelector('img, a, h1, h2, h3, h4, h5, h6, ul, ol') !== null) {
+            return null;
+        }
+        $value = trim((string) $data->item(0)?->getAttribute('value'));
+        if (preg_match('/^-?\d+(?:[.,]\d+)?$/', $value) !== 1) {
+            return null;
+        }
+        $label = trim((string) $data->item(0)->textContent);
+        $caption = trim((string) ($el->querySelector('figcaption, small, p, span')?->textContent ?? ''));
+        // the surrounding text must be just the number and its caption
+        $text = trim((string) preg_replace('/\s+/u', ' ', $el->textContent));
+        if (mb_strlen($text) > mb_strlen($label) + mb_strlen($caption) + 4) {
+            return null;
+        }
+        preg_match('/^(\D*)[\d.,]*(.*)$/su', $label, $parts);
+        [$prefix, $suffix] = [$parts[1] ?? '', $parts[2] ?? ''];
+
+        return Build::fresh('counter', ['number' => $value, 'prefix' => mb_substr(trim($prefix), 0, 10), 'suffix' => mb_substr($suffix, 0, 20), 'caption' => mb_substr($caption, 0, 120)]);
+    }
+
+    /**
+     * An ARIA tab list with its panels becomes a Tabs element. The panel of a tab is the element its aria-controls names, else the
+     * next panel (role tabpanel) after the list; the panels are taken out of the document so they are not converted twice.
+     *
+     * @return array<string, mixed>|null null = a tab list without panels (ordinary content)
+     */
+    private function tabs(Element $list, Node $parent): ?array
+    {
+        $panels = $parent instanceof Element ? iterator_to_array($parent->querySelectorAll('[role="tabpanel"]')) : [];
+        $tabs = [];
+        $used = [];
+        foreach ($list->querySelectorAll('[role="tab"]') as $tab) {
+            $panel = null;
+            if (($id = $tab->getAttribute('aria-controls')) !== null && $id !== '') {
+                foreach ($panels as $i => $candidate) {
+                    if ($candidate->getAttribute('id') === $id) {
+                        $panel = $candidate;
+                        $used[$i] = true;
+                        break;
+                    }
+                }
+            }
+            if ($panel === null) {
+                foreach ($panels as $i => $candidate) {
+                    if (!isset($used[$i]) && ($candidate->getAttribute('id') ?? '') === '') {
+                        $panel = $candidate;
+                        $used[$i] = true;
+                        break;
+                    }
+                }
+            }
+            if ($panel === null) {
+                continue;
+            }
+            $tabs[] = ['name' => mb_substr(trim((string) preg_replace('/\s+/u', ' ', $tab->textContent)), 0, 80), 'content' => trim($panel->innerHTML)];
+        }
+        if ($tabs === []) {
+            return null;
+        }
+        foreach (array_keys($used) as $i) {
+            $panels[$i]->remove();
+        }
+        if (count($tabs) > 12) {
+            $this->messages[] = 'A tab list has more than 12 tabs – the first 12 were converted.';
+        }
+
+        return Build::fresh('tabs', ['tabs' => array_slice($tabs, 0, 12)]);
     }
 
     private function customHtml(Element $el): ?array
@@ -409,7 +632,7 @@ final class HtmlConverter
     /** Does the element contain block tags (then it is not plain text but structure)? */
     private function hasBlocks(Element $el): bool
     {
-        return $el->querySelector('div, section, article, header, footer, aside, nav, h1, h2, h3, h4, h5, h6, figure, img, blockquote, details, a.btn, a.button, a[class*="tlacitko"]') !== null;
+        return $el->querySelector('div, section, article, header, footer, aside, nav, h1, h2, h3, h4, h5, h6, figure, img, blockquote, details, a.btn, a.button, a[class*="tlacitko"], talea-widget') !== null;
     }
 
     /** @return list<string> classes in a form the build accepts */
