@@ -81,6 +81,9 @@ final class KaletaImportTest extends SiteTestCase
         foreach (['Fixture heading', 'Fixture component value', 'Item: Fixture project', 'Fixture about'] as $text) {
             $this->assertStringContainsString($text, $page->body, "the home page shows: $text");
         }
-        $this->assertStringContainsString('class="tl-button"', $new->client()->get('/about')->body, 'Kaleta classes in page HTML become Talea classes');
+        // the Kaleta class is renamed to Talea's own tl-button, and Talea's own classes are not for a user's text (#331): the text stays, the class goes
+        $about = $new->client()->get('/about')->body;
+        $this->assertStringContainsString('<p>Fixture about text</p>', $about, 'Kaleta classes in page HTML do not become Talea classes');
+        $this->assertStringNotContainsString('class="tl-button"', $about);
     }
 }
