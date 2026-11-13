@@ -170,7 +170,7 @@ final class Kernel
     public const array SETTINGS_SEARCH = [
         ['settings', 'general', 'site_name', 'Site name'], ['settings', 'general', 'site_url', 'Site address'], ['settings', 'general', 'site_email', 'Site email'],
         ['settings', 'general', 'site_description', 'Site description'], ['settings', 'general', 'time_zone', 'Time zone'], ['settings', 'general', 'site_language', 'Site language'],
-        ['settings', 'general', 'home_page', 'Site home page'], ['settings', 'general', 'footer_text', 'Footer text'], ['settings', 'general', 'require_2fa', 'Two-factor sign-in'],
+        ['settings', 'general', 'home_page', 'Site home page'], ['settings', 'general', 'footer_text', 'Footer text'], ['settings', 'general', 'require_2fa', 'Two-factor sign-in'], ['settings', 'general', 'passkey_only', 'Passkey-only sign-in'],
         ['settings', 'general', 'news_per_page', 'News items per page'], ['settings', 'general', 'page_cache', 'Page cache'],
         ['settings', 'address', 'indexing', 'Allow the site in search engines'], ['settings', 'address', 'redirect_to_site_url', 'Redirect other addresses to the site address'],
         ['settings', 'seo', 'share_image', 'Sharing image'], ['settings', 'seo', 'robots_extra', 'Custom robots.txt rules'], ['settings', 'seo', 'ai_crawlers', 'AI search engines and assistants'],
@@ -782,7 +782,8 @@ final class Kernel
                 // the password as typed, not trimmed – as every place that sets one reads it (3.3.3, N61)
                 : $app->auth()->login($app->request->post('username'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address, $app->request->postBool('remember'));
             if ($error === null && $app->auth()->user() !== null) {
-                ChangeLog::write($app, 'signed_in', 'login', $secondStep ? 'two-step' : '');
+                // the escape (TALEA_PASSKEY_ONLY_OFF) let an account with two-factor sign-in in with the password alone: the log says so
+                ChangeLog::write($app, 'signed_in', 'login', $secondStep ? 'two-step' : (\Talea\Core\Auth::passkeyOnlyOff() && $app->auth()->hasTwoStep((array) $app->auth()->user()) ? 'TALEA_PASSKEY_ONLY_OFF' : ''));
 
                 return Response::redirect($this->resolveAfterSignIn());
             }

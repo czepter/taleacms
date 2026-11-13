@@ -34,4 +34,15 @@ final class FreshProofTest extends TestCase
         $this->assertFalse(Settings::weakensTwoFactor('admins', 'admins'));
         $this->assertFalse(Settings::weakensTwoFactor('', ''));
     }
+
+    public function testTheEscapeConstant(): void
+    {
+        putenv('TALEA_PASSKEY_ONLY_OFF=1');
+        try {
+            $this->assertTrue(Auth::passkeyOnlyOff());
+        } finally {
+            putenv('TALEA_PASSKEY_ONLY_OFF');
+        }
+        $this->assertFalse(Auth::passkeyOnlyOff());
+    }
 }

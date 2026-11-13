@@ -69,6 +69,7 @@ final class Settings
         'webhook_url' => '',          // where to send the data of a just-published news item (Make, Zapier...)
         'webhook_enquiries' => '',    // where to send a new enquiry from a form (CRM, Make, Zapier, n8n…)
         'webhook_secret' => '',       // created by itself; signs webhook calls (X-Talea-Signature), shown only to administrators
+        'passkey_only' => '0',        // every account with a passkey for this site signs in only with it (#333, Auth::passkeyOnly); TALEA_PASSKEY_ONLY_OFF switches it off
         'require_2fa' => '',          // '' | admins (administrators) | everyone (everyone) – mandatory two-factor login
         'auto_suspend' => '',         // automatic suspension (2.8, Core\SecurityHygiene), a list: accounts = block accounts unused for 90 days, connections = revoke Claude connections unused for 60 days
         'page_cache' => '1',       // full-page cache for visitors who are not logged in (until a change or a new day, Front\Cache)

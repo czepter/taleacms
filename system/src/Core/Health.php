@@ -62,6 +62,9 @@ final class Health
         $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
         [$keyState, $keyInfo] = Connectors::keyStatus($siteSettings);
         $add(t('Security'), t('Encryption key'), $keyState, $keyInfo);
+        if (Auth::passkeyOnlyOff()) {
+            $add(t('Security'), t('Passkey-only sign-in'), 'warning', t('TALEA_PASSKEY_ONLY_OFF is set: passkey-only sign-in is off, and administrators without an app or backup codes sign in with the password alone. Remove it once you are back in.'));
+        }
         $add(t('Security'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
 
         // --- accounts and access (2.8, Core\SecurityHygiene): what the daily check looks at, each item with a link to fix it

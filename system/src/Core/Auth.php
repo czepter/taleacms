@@ -124,7 +124,7 @@ final class Auth
             return $noAccess; // asked after the password: it is not a way to find out which accounts exist
         }
         $this->session->regenerate();
-        if ($this->hasTwoStep($user)) {
+        if ($this->hasTwoStep($user) && !$this->escapeSignIn($user)) {
             // the password matches, but the account has two-factor sign-in: only the code from the app, a backup code or a passkey completes it
             $this->session->set('pending_user', ['user_id' => (int) $user['user_id'], 'time' => time(), 'remember' => $remember]);
 
@@ -390,7 +390,7 @@ final class Auth
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_backup_codes'], $code);
-        $step = $user === null ? null : Totp::step($user['totp_secret'], $code);
+        $step = $user === null || $this->passkeyOnly($user) ? null : Totp::step($user['totp_secret'], $code); // a passkey-only account: backup codes and passkeys only
         if ($step !== null && !$this->claimCodeStep((int) $user['user_id'], $step)) {
             $step = null; // a code of a step this account already signed in with never passes again
         }
@@ -435,7 +435,9 @@ final class Auth
     /** Does the account waiting for the second step have an authenticator app (else it has passkeys alone)? */
     public function awaitingApp(): bool
     {
-        return $this->isAwaitingCode() && (string) $this->db->value('SELECT totp_secret FROM {users} WHERE user_id = ?', [(int) $this->session->get('pending_user')['user_id']]) !== '';
+        $user = $this->isAwaitingCode() ? $this->db->one('SELECT * FROM {users} WHERE user_id = ?', [(int) $this->session->get('pending_user')['user_id']]) : null;
+
+        return $user !== null && (string) $user['totp_secret'] !== '' && !$this->passkeyOnly($user);
     }
 
     /** @return list<array<string, mixed>> passkeys of the account */
@@ -503,7 +505,7 @@ final class Auth
             if ($key === null || $user === null) {
                 throw new \RuntimeException($pending !== null ? 'This key does not belong to the account.' : 'This passkey is not registered on this site.');
             }
-            $this->assertKey($key, $response, $challenge, $siteUrl, $pending === null);
+            $this->assertKey($key, $response, $challenge, $siteUrl, $pending === null, $pending === null ? ['discoverable' => 1] : []);
         } catch (\RuntimeException $e) {
             $this->db->insert('ip_checks', ['ip' => Antispam::hash($ip), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
@@ -528,12 +530,13 @@ final class Auth
      *
      * @param array<string, mixed> $key row of user_passkeys
      * @param array<string, mixed> $response
+     * @param array<string, mixed> $extra more columns of the key row to write (a key that signed in alone is kept on its device)
      * @throws \RuntimeException with the (untranslated) reason for the refusal
      */
-    private function assertKey(array $key, array $response, string $challenge, string $siteUrl, bool $verified): void
+    private function assertKey(array $key, array $response, string $challenge, string $siteUrl, bool $verified, array $extra = []): void
     {
         $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['public_key'], (int) $key['sign_count'], $verified);
-        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s'), 'rp_id' => Passkey::rpId($siteUrl)], ['passkey_id' => $key['passkey_id']]);
+        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s'), 'rp_id' => Passkey::rpId($siteUrl)] + $extra, ['passkey_id' => $key['passkey_id']]);
     }
 
     /**
@@ -674,6 +677,32 @@ final class Auth
     public function isEditor(): bool
     {
         return (int) ($this->user()['admin'] ?? -1) === self::EDITOR;
+    }
+
+    /**
+     * The escape for a lockout (TALEA_PASSKEY_ONLY_OFF, as an environment variable or define() in config.php): passkey-only sign-in is off and
+     * an administrator who has neither the app nor backup codes any more signs in with the password alone (escapeSignIn).
+     */
+    public static function passkeyOnlyOff(): bool
+    {
+        return Config::flag('PASSKEY_ONLY_OFF', false) || (defined('TALEA_PASSKEY_ONLY_OFF') && (bool) constant('TALEA_PASSKEY_ONLY_OFF'));
+    }
+
+    /**
+     * The account signs in only with a passkey (or password plus passkey / backup code): the account chose it (users.passkey_only) or the
+     * site asks it of every account (setting passkey_only) – and it has a passkey that works on this site's host, so nobody is locked out.
+     *
+     * @param array<string, mixed> $user
+     */
+    public function passkeyOnly(array $user): bool
+    {
+        return !self::passkeyOnlyOff() && (!empty($user['passkey_only']) || $this->settings()->get('passkey_only') === '1') && $this->workingKeys((int) $user['user_id']) !== [];
+    }
+
+    /** While the escape is on: an administrator with no app and no backup codes left is let in with the password alone. @param array<string, mixed> $user */
+    private function escapeSignIn(array $user): bool
+    {
+        return self::passkeyOnlyOff() && (int) $user['admin'] === self::ADMIN && (string) $user['totp_secret'] === '' && (array) json_decode((string) $user['totp_backup_codes'], true) === [];
     }
 
     /** Two-factor sign-in is on: an authenticator app (TOTP) or at least one passkey – a passkey is a second factor of its own. @param array<string, mixed> $user */

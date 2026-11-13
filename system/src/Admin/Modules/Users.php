@@ -96,6 +96,7 @@ final class Users extends Module
             // the user lost both the phone (or passkey device) and the backup codes: the administrator disables their two-factor sign-in
             $data['totp_secret'] = '';
             $data['totp_backup_codes'] = null;
+            $data['passkey_only'] = 0; // the passkeys go below: nothing is left to be "only"
             $this->app->db()->run('DELETE FROM {user_passkeys} WHERE user_id = ?', [$id]); // a passkey is a second factor too: the account is left with the password only
             $this->app->auth()->forgetOtherDevices($id); // and a remembered sign-in must not outlive the lost phone
         }
