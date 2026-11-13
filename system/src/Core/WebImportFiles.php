@@ -33,6 +33,15 @@ final class WebImportFiles
     }
 
     /**
+     * The downloader for documents: the old site's own host only – also for every redirect step (the import's own downloader lets images
+     * come from any public host, a CDN may serve images but not documents).
+     */
+    public static function downloader(string $web): ImageDownloader
+    {
+        return new ImageDownloader($web);
+    }
+
+    /**
      * The addresses of the documents a page links to on the old site's own domain.
      *
      * @return list<string> absolute addresses, in the order of the page

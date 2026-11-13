@@ -313,7 +313,7 @@ final class WebImport
         $seo = ['seo_title' => $page['seo_title'] !== $page['title'] ? $page['seo_title'] : '', 'image' => ''];
         if ($state['options']['images']) {
             // one budget of documents and images for the page: its content and all its widgets share it
-            $files = new WebImportFiles($this->db, $this->downloader, $this->author, $this->base, $this->mayDownload(...), '/' . $old);
+            $files = new WebImportFiles($this->db, WebImportFiles::downloader((string) $state['web']), $this->author, $this->base, $this->mayDownload(...), '/' . $old);
             $budget = ['left' => self::IMAGES_PER_PAGE, 'seen' => []];
             try {
                 $page['content'] = $files->bring($this->images($page['content'], $state, $budget), $state);
