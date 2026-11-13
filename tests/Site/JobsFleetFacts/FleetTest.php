@@ -189,6 +189,21 @@ final class FleetTest extends SiteTestCase
         $this->assertStringContainsString('"count":0', $this->consoleMcp('fleet_inventory', ['language' => 'zz']));
     }
 
+    /** #341: fleet_plan names each site's own connector and no secret; the runbook is offered on a console only. */
+    public function testFleetPlanAndTheRunbook(): void
+    {
+        $console = $this->console();
+        $plan = $this->consoleMcp('fleet_plan');
+        $this->assertStringContainsString('"connector":"' . $this->site()->base . '/mcp"', str_replace('\\/', '/', $plan), 'the plan names the connector of the site');
+        $this->assertStringNotContainsString('talea_', $plan, 'no token in the plan');
+        $this->assertStringNotContainsString('relay', $plan);
+        $list = '{"jsonrpc":"2.0","id":1,"method":"prompts/list"}';
+        $this->assertStringContainsString('fleet_fix', json_encode($console->mcpRaw($list, self::$consoleToken)), 'a console offers the runbook');
+        $this->assertStringNotContainsString('fleet_fix', json_encode($this->site()->mcpRaw($list)), 'a site without the extension does not');
+        $get = json_encode($console->mcpRaw('{"jsonrpc":"2.0","id":2,"method":"prompts/get","params":{"name":"fleet_fix"}}', self::$consoleToken));
+        $this->assertStringContainsString('fleet_plan', $get);
+    }
+
     /** #341: a typed domain date and a certificate date make the calendar, one reminder e-mail, events and an entry in the bell. */
     public function testDomainDateCalendarAndReminders(): void
     {

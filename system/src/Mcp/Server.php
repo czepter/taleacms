@@ -164,7 +164,7 @@ final class Server
             // the site owner's instructions and an overview; ready-made tasks (2.2)
             'resources/list' => $ok(['resources' => Prompts::resources()]),
             'resources/read' => $this->guarded($id, fn (): array => Prompts::read($this->app, (string) ($z['params']['uri'] ?? ''))),
-            'prompts/list' => $ok(['prompts' => Prompts::listAll()]),
+            'prompts/list' => $ok(['prompts' => Prompts::listAll($this->app->settings())]),
             'prompts/get' => $this->guarded($id, fn (): array => Prompts::get((string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             'ping' => $ok([]),
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2); an essentials connection

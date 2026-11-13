@@ -800,6 +800,18 @@
             "openWorldHint": false
         }
     },
+    "fleet_plan": {
+        "parameters": {
+            "id": "string",
+            "severity": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_blueprint": {
         "parameters": [],
         "required": [],

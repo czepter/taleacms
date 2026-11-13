@@ -102,4 +102,34 @@ trait FleetTools
             'values' => Inventory::values($rows),
         ];
     }
+
+    /** fleet_plan */
+    private function toolFleetPlan(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('The fleet console is for administrators.');
+        }
+        $sites = Console::overview($this->app->db(), time());
+        if (($a['id'] ?? null) !== null && (int) $a['id'] > 0) {
+            $sites = array_values(array_filter($sites, fn (array $s): bool => (int) $s['id'] === (int) $a['id']));
+            if ($sites === []) {
+                throw new \DomainException('The site is not in the console. Use list_sites.');
+            }
+        }
+        $onlyErrors = ($a['severity'] ?? '') === 'error';
+        $accepted = 0;
+        $plan = [];
+        foreach ($sites as $s) {
+            $accepted += count(array_filter($s['items'], fn (array $i): bool => $i['accepted'] !== null));
+            $todo = array_values(array_map(fn (array $i): array => ['check' => $i['key'], 'group' => $i['group'], 'severity' => $i['severity'], 'title' => $i['title'], 'detail' => $i['detail']],
+                array_filter($s['items'], fn (array $i): bool => $i['accepted'] === null && (!$onlyErrors || $i['severity'] === 'error'))));
+            if ($todo !== []) {
+                $plan[] = ['id' => (int) $s['id'], 'name' => (string) $s['name'], 'url' => (string) $s['url'], 'admin' => (string) $s['url'] . '/admin.php', 'connector' => (string) $s['url'] . '/mcp',
+                    'claude' => $s['beat']['claude'] ?? null, 'score' => $s['score'], 'todo' => $todo];
+            }
+        }
+
+        return ['sites' => $plan, 'accepted' => $accepted,
+            'next' => 'Work one site at a time: connect Claude to that site with its connector address (the site\'s administrator adds the connection there – never paste a token here), fix what todo lists through that connection, then call fleet_plan again. Accepting a state is done by a person on the console.'];
+    }
 }

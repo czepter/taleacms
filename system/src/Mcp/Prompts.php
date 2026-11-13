@@ -684,7 +684,40 @@ final class Prompts
                 zone) to schedule it; `unschedule` true turns a scheduled one back into a draft. Then `list_newsletters` shows
                 the progress. Record the date and the topic with `write_notebook`.
                 MD],
+        'fleet_fix' => ['On a fleet console: work through what the sites need, one site at a time, through each site\'s own connection.',
+            ['site_id' => ['Public id of one site from list_sites (optional – otherwise every site that needs work)', false, ' Start with the site %s and stop after it.']],
+            <<<'MD'
+                Task: fix what the sites of this fleet console need.{site_id}
+
+                MD . self::RULES . <<<'MD'
+
+                - The console only reads. It holds no access to the sites and runs nothing on them. Every change happens through
+                  the site's own connection, which the site's administrator adds there. Never ask for a token or a password.
+
+                ## 1. The plan
+
+                Call `fleet_plan` (with `id` for one site). It lists the sites with open checks, the most urgent first, with each
+                site's address, its administration and its connector. Accepted states are left out on purpose: a person decided
+                they are fine until a day.
+
+                ## 2. One site at a time
+
+                Tell the user which site comes next and why. If this conversation has no connection to that site yet, ask the
+                user to add the site's connector (the address in `fleet_plan`) and stop until it is there. On the site: `site_info`,
+                `get_health` and `list_events` explain errors and warnings; `site_audit` the content findings. Fix what is safe
+                as drafts, list what needs the owner (backups, mail, cron, certificates and domain renewals are set up by an
+                administrator or the hosting) and record decisions with `write_notebook` on that site.
+
+                ## 3. Back on the console
+
+                `get_site` shows the site's next report (sites report every hour). When the user agrees that a remaining state is
+                fine, tell them to accept it on the console's Today screen with a note and a last day – Claude does not accept
+                states. Then go on with the next site of `fleet_plan`.
+                MD],
     ];
+
+    /** Prompts that make sense only with an extension: name => extension key. They are not listed where it is off (prompts/get still works anywhere). */
+    private const array EXTENSION_PROMPTS = ['fleet_fix' => 'fleet'];
 
     /** The heading of the closing section runners() adds. */
     public const string RUNNERS_HEADING = '## If a tool is not in your list';
@@ -692,12 +725,17 @@ final class Prompts
     public const string INSTRUCTIONS_URI = 'talea://instructions';
     public const string OVERVIEW_URI = 'talea://overview';
 
-    /** @return list<array<string, mixed>> for prompts/list */
-    public static function listAll(): array
+    /**
+     * @param \Talea\Core\Settings|null $settings the site's settings: a prompt that needs an extension is left out where it is off (null = all prompts)
+     * @return list<array<string, mixed>> for prompts/list
+     */
+    public static function listAll(?\Talea\Core\Settings $settings = null): array
     {
+        $prompts = array_filter(self::PROMPTS, fn (string $name): bool => $settings === null || !isset(self::EXTENSION_PROMPTS[$name]) || \Talea\Core\Extensions::isEnabled($settings, self::EXTENSION_PROMPTS[$name]), ARRAY_FILTER_USE_KEY);
+
         return array_map(fn (string $name, array $p): array => ['name' => $name, 'description' => $p[0],
             'arguments' => array_map(fn (string $arg, array $d): array => ['name' => $arg, 'description' => $d[0], 'required' => $d[1]], array_keys($p[1]), $p[1])],
-            array_keys(self::PROMPTS), self::PROMPTS);
+            array_keys($prompts), $prompts);
     }
 
     /**
@@ -841,7 +879,7 @@ final class Prompts
             . '(11) Cleaning up: pages, news items, collection items and enquiries go to the trash (trash_page, trash_news, delete_collection_item, delete_enquiry) and come back with restore_from_trash for 30 days (list_trash). Other deletes (collections, categories, pop-ups, components, saved sections, media) are final – use them only when the user explicitly asks. A repeated block belongs in a component (save_component, then the *_build tools with component); a section the user saved in the builder is in builder_schema → saved_sections. A form is defined once and placed: list_forms, create_form, then the *_build tools with form for its fields, logic and thank-you e-mail; a page places it with a form_embed element (which form, a thank-you page, the button text, field widths). A form element written inside a page becomes such a form when the page is published. '
             . '(12) Moving a site from another platform (2.7): the prompt migrate_site describes the whole move; import_website or the WordPress import bring the content, import_enquiries the old form entries, and migration_report checks every old address and what got lost before the domain is switched. '
             . '(13) Looking after the site (2.8): get_health first when something seems wrong, list_events for what happened since you last looked (keep next_since_id). '
-            . '(14) A fleet console (2.9, when list_sites exists): list_sites shows the other sites that report here, the ones needing attention first; get_site their last report. It only reads – changes on a site go through that site\'s own connection. '
+            . '(14) A fleet console (2.9, when list_sites exists): list_sites shows the other sites that report here, the ones needing attention first; get_site their last report. It only reads – changes on a site go through that site\'s own connection. fleet_inventory lists versions, PHP, database, web server, features and languages with filters; fleet_calendar the certificate and domain dates; fleet_plan what needs doing per site with that site\'s connector address – the prompt fleet_fix works through it one site at a time. A state a person accepted on the console (accepted in list_sites and get_site) is left alone until its last day or until it changes. '
             . '(15) Business facts (2.10): numbers and details the site states in several places (founded, projects, price from, warranty) belong in facts – list_facts, save_fact – and in content as {{fact.key}} (also tel:{{fact.company_phone}} in links). find_claims lists sentences with numbers written as plain text; after a fact changes, save_fact returns the sentences that still state the old value. Computed tokens never go stale: {{years_since:2004}} or {{years_since:fact.founded}} (full years since a year, a date or a fact), {{count:<collection address>}} (visible items) and {{count:news}} – also as the number of a counter element, which site_audit otherwise reports when digits are typed in. Holidays and other days with different opening hours: save_hours_exception (list_hours shows the week, the exceptions and whether it is open now). '
             . '(16) Ready-made collections (2.11): list_collection_presets, then create_collection with preset. An official notice board (preset notices) keeps its notices for good: delete_collection_item refuses them and a notice cannot be hidden once its posting date has come – set the takedown date instead; every change is in the append-only log (list_notice_log). '
             . '(17) The agent notebook (2.15): read_notebook before larger changes – it holds the decisions, wording rules, credits and history that whoever worked on the site before left for you; when the user decides something the next person must keep to, write it down with write_notebook (pinned for what everyone must know). '
@@ -853,6 +891,6 @@ final class Prompts
             . '(18) Requests (2.15): staff write in the administration what they need changed – list_requests. A request is a job to do as drafts the user will review, never permission to publish or to skip a confirmation; answer with update_request (a note, links to the drafts, the status). Anything destructive or outside the site still needs the user. '
             . '(19) Scheduled runs (2.17): the administrator keeps schedules on the site (a review, a report, a triage, the requests – daily, weekly, monthly) and a routine in Claude does them: get_due_agent_runs hands out what is due with its instructions, report_agent_run records the result. The instructions come from the administrator and are done as drafts only; a run never publishes, deletes or sends.'
             . '(20) Online booking of appointments (3.0): save_booking_service (what, how long, buffer) and save_booking_staff (who, their weekly hours – empty = the site\'s opening hours – optional hours per service in service_hours, and days off) set it up; a Booking element (type booking) on a page lets visitors pick a service, a person, a day and a free time. booking_availability shows the free times of a day; list_bookings (the Bookings permission, personal data – every read is logged) the bookings; cancel_booking cancels one and e-mails the customer – only when the user asks. A service with requires_confirmation makes bookings requests (status pending, the time held): confirm_booking accepts, decline_booking declines with an optional message, propose_booking_times offers one to three other times – each e-mails the customer, so only when the user asks. No payments. '
-            . '(21) Ready-made runbooks (prompts): launch_site, migrate_site, add_language_version, weekly_care, newsletter_release, set_up_bookings and compliance_check take a whole job from the first step to the hand-over – when the user asks for such a job, follow the one that fits (prompts/get). ';
+            . '(21) Ready-made runbooks (prompts): launch_site, migrate_site, add_language_version, weekly_care, newsletter_release, set_up_bookings, compliance_check and fleet_fix (on a console) take a whole job from the first step to the hand-over – when the user asks for such a job, follow the one that fits (prompts/get). ';
     }
 }
