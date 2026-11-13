@@ -412,7 +412,8 @@ final class Collections extends Module
             $language = Language::column($this->app->settings(), $this->request->get('language'));
             $original = $language !== '' ? $this->db->one("SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND language = '' AND deleted_at IS NULL", [$this->idParam('original', 'collection_items'), $k['collection_id']]) : null;
             $p = ['item_id' => 0, 'public_id' => '', 'name' => $original['name'] ?? '', 'slug' => $original['slug'] ?? '', 'data' => $original['data'] ?? '{}', 'sort_order' => $original['sort_order'] ?? 100, 'visible' => $original === null ? 1 : 0,
-                'language' => $language, 'created_at' => date('Y-m-d H:i:s'), 'seo_title' => '', 'description' => '', 'image' => $original['image'] ?? '', 'noindex' => 0, 'publish_at' => null, 'valid_until' => null, 'review_by' => null];
+                'language' => $language, 'created_at' => date('Y-m-d H:i:s'), 'seo_title' => '', 'description' => '', 'image' => $original['image'] ?? '', 'noindex' => 0, 'publish_at' => null, 'valid_until' => null, 'review_by' => null,
+                'original_id' => (int) ($original['item_id'] ?? 0)]; // its groups start ticked (views/admin/members/gating.php)
         }
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
         $settings = $this->app->settings();
@@ -562,6 +563,9 @@ final class Collections extends Module
         } else {
             $idp = $this->db->insert('collection_items', $row + ['created_at' => date('Y-m-d H:i:s')]);
             \Talea\Core\Slug::fromId($this->db, 'collection_items', $idp); // a name with nothing to transliterate: item-<id>
+            // a new language version of an item (the same address in the default language) keeps the original's restriction to member groups
+            $original = $language !== '' ? $this->db->value("SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = '' AND slug = ? AND deleted_at IS NULL", [$k['collection_id'], $seo]) : null;
+            \Talea\Core\Members::inheritFromOriginal($this->db, 'item', $idp, $original === null ? null : (int) $original, $_POST);
         }
         \Talea\Core\Members::saveFromForm($this->app, 'item', $idp);
         Notices::recordSave($this->app, $k, $previous, $row, $idp);

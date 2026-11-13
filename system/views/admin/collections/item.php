@@ -188,7 +188,7 @@ if ($actions !== '') {
 					</div>
 				</div>
 				<div class="website-field"><label for="publish_at"><?= e(t('Publish automatically at')) ?></label><input class="textfield" type="datetime-local" id="publish_at" name="publish_at" value="<?= e(($p['publish_at'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['publish_at'])) : '') ?>"><span class="help"><?= e(t('Only for a hidden item.')) ?></span></div>
-<?= $app->view->render('admin/members/gating', ['app' => $app, 'type' => 'item', 'row' => (int) ($p['item_id'] ?? 0)]) ?>
+<?= $app->view->render('admin/members/gating', ['app' => $app, 'type' => 'item', 'row' => (int) ($p['item_id'] ?? 0), 'from' => (int) ($p['original_id'] ?? 0)]) ?>
 			</section>
 			<section class="website-settings-section" aria-labelledby="item-dates">
 				<h3 id="item-dates"><?= e(t('Dates')) ?></h3>
