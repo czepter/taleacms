@@ -35,6 +35,10 @@ final class DatabaseErrorsTest extends TestCase
         foreach ([['23000', 1062], ['23505', 7], ['22001', 1406]] as [$state, $code]) {
             $this->assertTrue(Db::isRefusedRow($this->error($state, $code)), $state);
         }
+        foreach ([['HY000', 1364], ['HY000', 1366], ['HY000', 20]] as [$state, $code]) {
+            $this->assertTrue(Db::isRefusedRow($this->error($state, $code)), $state . ' ' . $code . ' (an unfit value on MySQL or SQLite)');
+        }
+        $this->assertFalse(Db::isRefusedRow($this->error('HY000', 1)), 'a general SQLite error is not a refused row');
         $this->assertFalse(Db::isRefusedRow($this->error('42S02', 1146)));
         $this->assertFalse(Db::isRefusedRow($this->error('HY000', 2006)));
     }

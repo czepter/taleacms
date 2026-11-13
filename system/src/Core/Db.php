@@ -288,10 +288,19 @@ final class Db
             || ($state === 'HY000' && preg_match('/no such (table|column)/i', $e->getMessage()) === 1);
     }
 
-    /** The table refused the row: a duplicate or a broken key (SQLSTATE class 23) or a value it cannot hold (class 22). */
+    /**
+     * The table refused the row: a duplicate or a broken key (SQLSTATE class 23) or a value it cannot hold (class 22). MySQL / MariaDB
+     * say some of those with the general state HY000 (1364 no default for the column, 1366 incorrect value for the column), and
+     * SQLite says "datatype mismatch" (code 20) the same way.
+     */
     public static function isRefusedRow(\PDOException $e): bool
     {
-        return in_array(substr((string) ($e->errorInfo[0] ?? $e->getCode()), 0, 2), ['22', '23'], true);
+        $state = (string) ($e->errorInfo[0] ?? $e->getCode());
+        if (in_array(substr($state, 0, 2), ['22', '23'], true)) {
+            return true;
+        }
+
+        return $state === 'HY000' && in_array((int) ($e->errorInfo[1] ?? 0), [1364, 1366, 20], true);
     }
 
     /**
