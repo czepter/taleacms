@@ -182,6 +182,14 @@ final class Health
         $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0);
         $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'error' : 'warning'),
             $failing === [] ? t('every job worked the last time it ran') : implode('; ', array_map(fn (array $j): string => t('%s failed %d× in a row: %s', t($j['label']), $j['failures'], $j['last_error']), $failing)));
+        // purgePersonalData() writes data_cleanup before its work, so this row says the clean-up is RUNNING; one that throws is reported by the row above (failures of the job cleanup)
+        $cleanup = $siteSettings->int('data_cleanup');
+        $state = self::cleanupState($cleanup, time());
+        $add(t('Operation'), t('Personal data clean-up'), $state === 'stale' ? 'warning' : 'ok', match ($state) {
+            'new' => t('has not run yet – the background jobs start it'),
+            'ok' => t('last run %s', format_date(date('Y-m-d H:i:s', $cleanup), true)),
+            'stale' => t('last run %s – enquiries and other personal data past their retention are not being deleted; check the background jobs and cron below', format_date(date('Y-m-d H:i:s', $cleanup), true)),
+        });
         $problems = Events::problems($db, 168);
         if ($problems !== []) {
             $add(t('Operation'), t('Problems in the last 7 days'), 'warning', implode(', ', array_map(fn (string $type, int $n): string => $type . ' ×' . $n, array_keys($problems), $problems)));
@@ -234,6 +242,19 @@ final class Health
         usort($groups, fn (array $a, array $b): int => $rank[$b['status']] <=> $rank[$a['status']]); // usort is stable
 
         return $groups;
+    }
+
+    /** Days without a run of the personal-data clean-up after which System status warns. */
+    public const int CLEANUP_DAYS = 2;
+
+    /** 'new' = never run (a fresh install), 'stale' = not for more than CLEANUP_DAYS days, else 'ok'. */
+    public static function cleanupState(int $lastRun, int $now): string
+    {
+        return match (true) {
+            $lastRun === 0 => 'new',
+            $now - $lastRun > self::CLEANUP_DAYS * 86400 => 'stale',
+            default => 'ok',
+        };
     }
 
     /** Summary for monitoring: the worst status found. */

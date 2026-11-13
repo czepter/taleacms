@@ -32,6 +32,15 @@ final class HealthGroupsTest extends TestCase
         $this->assertSame(['a1', 'a2'], array_column($groups[3]['checks'], 'name'));
     }
 
+    public function testCleanupState(): void
+    {
+        $now = 1_800_000_000;
+        $this->assertSame('new', Health::cleanupState(0, $now));
+        $this->assertSame('ok', Health::cleanupState($now - 86400, $now));
+        $this->assertSame('ok', Health::cleanupState($now - 2 * 86400, $now));
+        $this->assertSame('stale', Health::cleanupState($now - 2 * 86400 - 1, $now));
+    }
+
     public function testNoChecksNoGroups(): void
     {
         $this->assertSame([], Health::grouped([]));
