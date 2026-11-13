@@ -457,6 +457,13 @@ The **AI connection (MCP)** is switched on in new installations (under Features 
 claude mcp add --transport http talea https://your-site.com/mcp
 ```
 
+**Tool sets.** A connection lists all its tools, or a set that lists the tools of one job first: **Essentials** (pages, the
+builder, collections, media, the look and the audit), **Migration** (the import of an old site, reading old pages, the
+layout queue, redirects, media, forms and the migration report) or, on the console of your sites, **Fleet console**.
+Claude finds every other tool it may use when it needs it. Choose the set on the consent screen or change it in **My account →
+Change the tool set**. A tool set only decides which tools Claude sees first – what it may do still depends on your role and
+the access you chose.
+
 Claude then builds the whole site with your account permissions: it sets the look (colours, fonts, shared classes),
 uploads images and fonts to Media, assembles pages, the header, the footer and the item page of collections, fixes single elements by id, sets the site
 name, company details and redirects from old addresses, and writes news. It can also create header and footer **variants** for
@@ -553,6 +560,14 @@ Claude lists them with `list_layout_queue` (50 at a time, with the old address o
 starter pages left, redirects, forms and whether the latest **Check the move** report was clean. That report marks an old
 address that lands on a starter page as an error, reports a form found on every old page once for the whole site, notes
 changed titles and says plainly when the old site could not be reached.
+
+**What comes over from an old page.** Besides text and images, forms, questions and answers, tabs, videos, maps, embedded
+booking pages, forms and players and counters become their builder elements; a form the old page draws with a script, a
+video file or a frame of an unknown service leaves a bracketed placeholder where it was, and **Needs your attention** lists
+them. PDF and office documents the page links to on the old site go into Media together with the images (at most 10 a
+page, 200 an import), the old page's `<title>` becomes its SEO title when it differs from the heading, and its share image
+the page's image. Claude reads an old page section by section with `read_old_page` (colours, fonts, HTML) to rebuild its
+layout.
 
 **Administration → Import and export → WordPress:** upload a WordPress export (Tools → Export, an XML file). The import
 turns posts into news, pages optionally **straight into the builder**, downloads images into Media and creates redirects
