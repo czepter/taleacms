@@ -360,6 +360,9 @@ final class Kernel
         }
 
         if ($app->auth()->isAdmin() && !\Talea\Core\Demo::active()) {
+            if (!$request->isPost()) {
+                \Talea\Core\Vault::sealStored($app->db(), $app->settings()); // passwords and keys kept in plain text before TALEA_SECRET_KEY was set (#335)
+            }
             \Talea\Core\Backup::createAutomatic($app->db(), $app->settings());
         }
         if ($app->auth()->user() !== null) {

@@ -48,7 +48,7 @@ final class Connectors
     /* ---------- credentials ---------- */
 
     /** The encrypted columns of {connectors}. */
-    private const array SEALED = ['secret', 'access_token', 'refresh_token'];
+    public const array SEALED = ['secret', 'access_token', 'refresh_token'];
 
     public static function encrypt(Settings $settings, string $plain): string
     {
@@ -122,31 +122,6 @@ final class Connectors
         $settings->set('secret_key', ''); // the cached value too
 
         return true;
-    }
-
-    /**
-     * Where the key is, for System status: [ok | warning | error, what the administrator reads]. An error when a stored credential
-     * cannot be read with the key in use (a database restored without its TALEA_SECRET_KEY, or the variable changed).
-     *
-     * @return array{0: string, 1: string}
-     */
-    public static function keyStatus(Settings $settings): array
-    {
-        $unreadable = 0;
-        foreach ($settings->db()->all('SELECT ' . implode(', ', self::SEALED) . ' FROM {connectors}') as $row) {
-            foreach ($row as $sealed) {
-                $unreadable += (int) ($sealed !== null && $sealed !== '' && self::decrypt($settings, (string) $sealed) === null);
-            }
-        }
-        $variable = Config::env('SECRET_KEY');
-
-        return match (true) {
-            $unreadable > 0 => ['error', t('%d stored connector credential(s) cannot be read with the current key – a database restored without its TALEA_SECRET_KEY, or the variable changed. Set the variable the credentials were stored with, or connect the services again.', $unreadable)],
-            $variable !== '' && strlen($variable) < Antispam::SECRET_MIN_LENGTH => ['error', t('TALEA_SECRET_KEY is shorter than %d characters and is not used – the key stays in the database', Antispam::SECRET_MIN_LENGTH)],
-            $variable === '' => ['warning', t('kept in the database – a database dump or backup alone decrypts the stored connector credentials; set TALEA_SECRET_KEY (docs/DEPLOYMENT.md)')],
-            Antispam::environmentSecret($settings) === null => ['warning', t('TALEA_SECRET_KEY is set, but the stored credentials could not be moved to it yet – see the error log')],
-            default => ['ok', t('from TALEA_SECRET_KEY – the database holds no key')],
-        };
     }
 
     /** @return array<string, mixed>|null */

@@ -36,7 +36,7 @@ final class Scheduler
         'report_archive' => [3600, 'any', 'Monthly report archive: the previous month stored, 24 months kept'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
         'alerts' => [300, 'any', 'Alert e-mails'],
-        'security' => [86400, 'any', 'Suspending unused accounts and connections'],
+        'security' => [86400, 'any', 'Suspending unused accounts and connections, encrypting stored secrets'],
         'validity' => [3600, 'any', 'Content that expires or asks for review'],
         'experiments' => [3600, 'any', 'A/B tests: automatic promotion of a winner'],
         'events' => [3600, 'any', 'Repeating events move to their next date'],
@@ -116,8 +116,9 @@ final class Scheduler
             'alerts' => fn (App $app): string => Alerts::run($app),
             'security' => function (App $app): string {
                 $done = SecurityHygiene::run($app);
+                $sealed = Vault::sealAll($app->db()); // passwords and keys in plain text, in every site of the install (only with TALEA_SECRET_KEY)
 
-                return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']);
+                return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']) . ', sealed ' . $sealed;
             },
             'validity' => fn (App $app): string => Validity::run($app),
             'experiments' => fn (App $app): string => \Talea\Builder\Experiments::autoPromote($app),

@@ -70,6 +70,11 @@ final class Backup
      */
     private static function write(array $connections, string $folder, string $reason, array $skip = []): string
     {
+        foreach ($connections as $site) {
+            if ($site->tableExists('settings')) {
+                Vault::sealStored($site); // the file holds only sealed passwords and keys (with TALEA_SECRET_KEY)
+            }
+        }
         if (!is_dir($folder) && !mkdir($folder, 0775, true)) {
             throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }

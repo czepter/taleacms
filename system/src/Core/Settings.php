@@ -260,7 +260,8 @@ final class Settings
         }
 
         if (isset($this->values[$key])) {
-            return $this->values[$key];
+            // a password or key of an outside service is stored sealed while TALEA_SECRET_KEY is set; one that cannot be opened reads as empty (Vault, System status)
+            return in_array($key, Vault::SETTINGS, true) ? Vault::openValue($this, $this->values[$key]) ?? '' : $this->values[$key];
         }
 
         // default texts the visitor sees, in the site language (an English site must not show the Czech maintenance notice or cookie bar)
@@ -277,8 +278,27 @@ final class Settings
         return $this->get($key) === '1';
     }
 
+    /** The value as stored, a sealed one still sealed (Core\Vault, System status); '' for none. */
+    public function raw(string $key): string
+    {
+        $this->values ??= $this->db->pairs('SELECT name, value FROM {settings}');
+
+        return $this->values[$key] ?? '';
+    }
+
+    /** The setting is stored sealed and cannot be opened with the key in use (the variable is gone or another one): it reads as empty. */
+    public function unreadable(string $key): bool
+    {
+        $stored = $this->raw($key);
+
+        return Vault::isSealed($stored) && Vault::openValue($this, $stored) === null;
+    }
+
     public function set(string $key, string $value): void
     {
+        if (in_array($key, Vault::SETTINGS, true)) {
+            $value = Vault::sealValue($this, $value);
+        }
         $this->db->upsert('settings', ['name' => $key, 'value' => $value], ['name']);
         if ($this->values !== null) {
             $this->values[$key] = $value;

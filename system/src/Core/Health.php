@@ -60,7 +60,7 @@ final class Health
         }
         $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'warning', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
-        [$keyState, $keyInfo] = Connectors::keyStatus($siteSettings);
+        [$keyState, $keyInfo] = Vault::status($siteSettings);
         $add(t('Security'), t('Encryption key'), $keyState, $keyInfo);
         if (Auth::passkeyOnlyOff()) {
             $add(t('Security'), t('Passkey-only sign-in'), 'warning', t('TALEA_PASSKEY_ONLY_OFF is set: passkey-only sign-in is off, and administrators without an app or backup codes sign in with the password alone. Remove it once you are back in.'));

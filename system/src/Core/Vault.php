@@ -45,4 +45,120 @@ final class Vault
 
         return $plain === false ? null : $plain;
     }
+
+    /** What a sealed setting or seed starts with: a plain value from before is told from a sealed one by it. */
+    public const string PREFIX = 'sealed:';
+
+    /**
+     * The settings that hold a password or key of an outside service: sealed while the key comes from TALEA_SECRET_KEY (Settings::get opens
+     * them, Settings::set seals them). Not a password of the site's own (tasks_token and the like are addresses): they stay plain.
+     */
+    public const array SETTINGS = ['smtp_password', 'backup_password', 'captcha_secret', 'ai_key', 'webhook_secret', 'newsletter_key'];
+
+    /**
+     * The key for settings and seeds: only the one derived from TALEA_SECRET_KEY. With the key in the database, sealing would protect nothing
+     * (a dump holds both), so the values stay plain and System status says to set the variable. null = no install key.
+     */
+    public static function installKey(Settings $settings): ?string
+    {
+        $secret = Antispam::environmentSecret($settings);
+
+        return $secret === null ? null : self::derive($secret);
+    }
+
+    public static function isSealed(string $stored): bool
+    {
+        return str_starts_with($stored, self::PREFIX);
+    }
+
+    /** The value as it is stored: sealed when there is an install key; '' and a value sealed already stay as they are. */
+    public static function sealValue(Settings $settings, string $plain): string
+    {
+        if ($plain === '' || self::isSealed($plain) || ($key = self::installKey($settings)) === null) {
+            return $plain;
+        }
+
+        return self::PREFIX . self::seal($key, $plain);
+    }
+
+    /** The plain value of a stored one: a value that was never sealed as it is; null when it is sealed and cannot be opened (no install key, another key). */
+    public static function openValue(Settings $settings, string $stored): ?string
+    {
+        if (!self::isSealed($stored)) {
+            return $stored;
+        }
+        $key = self::installKey($settings);
+
+        return $key === null ? null : self::open($key, substr($stored, strlen(self::PREFIX)));
+    }
+
+    /**
+     * Seals what is still stored in plain text on this site: the secret settings. Only with an install key. Idempotent.
+     *
+     * @return int how many values were sealed
+     */
+    public static function sealStored(Db $db, ?Settings $settings = null): int
+    {
+        $settings ??= new Settings($db);
+        if (self::installKey($settings) === null) {
+            return 0;
+        }
+        $sealed = 0;
+        foreach ($db->pairs('SELECT name, value FROM {settings} WHERE name IN (' . implode(', ', array_fill(0, count(self::SETTINGS), '?')) . ')', self::SETTINGS) as $name => $value) {
+            if ((string) $value !== '' && !self::isSealed((string) $value)) {
+                $settings->set((string) $name, (string) $value); // set() seals it
+                $sealed++;
+            }
+        }
+
+        return $sealed;
+    }
+
+    /** sealStored for every site of the install (multisite) or the one site; the daily security job. @return int how many values were sealed */
+    public static function sealAll(Db $db): int
+    {
+        if (!Sites::enabled()) {
+            return self::sealStored($db);
+        }
+        $sealed = 0;
+        foreach (Sites::prefixes($db) as $prefix) {
+            $site = $db->forSite($prefix);
+            $sealed += $site->tableExists('settings') ? self::sealStored($site) : 0;
+        }
+
+        return $sealed;
+    }
+
+    /**
+     * Where the key is and whether what it protects can be read, for System status (Encryption key): [ok | warning | error, the text].
+     * An error when a stored secret – a connector credential, a sealed setting – cannot be read with the key in use (a database restored
+     * without its TALEA_SECRET_KEY, or the variable changed).
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function status(Settings $settings): array
+    {
+        $db = $settings->db();
+        $unreadable = 0;
+        foreach ($db->all('SELECT ' . implode(', ', Connectors::SEALED) . ' FROM {connectors}') as $row) {
+            foreach ($row as $sealed) {
+                $unreadable += (int) ($sealed !== null && $sealed !== '' && Connectors::decrypt($settings, (string) $sealed) === null);
+            }
+        }
+        $plain = 0;
+        foreach (self::SETTINGS as $name) {
+            $unreadable += (int) $settings->unreadable($name);
+            $plain += (int) (($stored = (string) $settings->raw($name)) !== '' && !self::isSealed($stored));
+        }
+        $variable = Config::env('SECRET_KEY');
+
+        return match (true) {
+            $unreadable > 0 => ['error', t('%d stored secret(s) cannot be read with the current key – a database restored without its TALEA_SECRET_KEY, or the variable changed. Set the variable they were stored with, or enter the passwords and keys again and connect the services again.', $unreadable)],
+            $variable !== '' && strlen($variable) < Antispam::SECRET_MIN_LENGTH => ['error', t('TALEA_SECRET_KEY is shorter than %d characters and is not used – the key stays in the database', Antispam::SECRET_MIN_LENGTH)],
+            $variable === '' => ['warning', t('kept in the database – a database dump or backup alone decrypts the connector credentials, and the passwords and keys in the settings are stored readable; set TALEA_SECRET_KEY (docs/DEPLOYMENT.md)')],
+            self::installKey($settings) === null => ['warning', t('TALEA_SECRET_KEY is set, but the stored credentials could not be moved to it yet – see the error log')],
+            $plain > 0 => ['warning', t('%d stored password(s) or key(s) are not encrypted yet – they are on the next admin page or by the daily security job.', $plain)],
+            default => ['ok', t('from TALEA_SECRET_KEY – stored passwords, keys and connector credentials are encrypted, the database holds no key')],
+        };
+    }
 }
