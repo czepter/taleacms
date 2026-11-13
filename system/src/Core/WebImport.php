@@ -42,10 +42,13 @@ final class WebImport
     private const array CONTENT = ['main', 'article', '[role="main"]', '#content', '#main', '.entry-content', '.post-content', '.page-content', '.content'];
 
     /** Parts of a page that are never content. */
-    private const string NOISE = 'script, style, noscript, template, iframe, form, nav, header, footer, aside, svg, button, dialog, [role="navigation"], [role="banner"], [role="contentinfo"], [aria-hidden="true"]';
+    private const string NOISE = 'script, style, noscript, template, nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"]';
+
+    /** Parts that are never content either, removed after the widgets (forms, frames, hidden panels of an accordion) were taken out of the page. */
+    private const string NOISE_AFTER_WIDGETS = 'iframe, form, svg, button, dialog, [aria-hidden="true"]';
 
     /** Classes and ids of cookie bars, pop-ups, sharing and comment blocks. */
-    private const string NOISE_NAMES = '/cookie|consent|gdpr|popup|modal|newsletter|share|sharing|social|breadcrumb|comment|related|sidebar|widget|skip-link|screen-reader/i';
+    private const string NOISE_NAMES = '/cookie|consent|gdpr|popup|modal|newsletter|share|sharing|social|breadcrumb|comment|related|sidebar|(?<![\w-])widget|skip-link|screen-reader/i';
 
     private float $end = 0.0;
 
@@ -72,6 +75,7 @@ final class WebImport
                 'keep_starters' => null], // ids of the installer's starter pages that stay when an imported page wants their address; null = untouched ones are replaced (Core\StarterPages)
             'starters' => ['replaced' => [], 'kept' => [], 'renamed' => []],
             'result' => ['pages' => 0, 'articles' => 0, 'images' => 0, 'redirects' => 0, 'skipped' => 0, 'failed' => 0, 'parents' => 0],
+            'kept' => [], 'attention' => [], // what arrived as elements, by type; what needs the owner: [kind, old path, host] (Core\WebImportWidgets)
             'paths' => [], // old path => id of the page this run made for it (the parent of a nested address)
             'moved' => [], 'parents' => [], // the redirects written, and the empty parent pages made for nested addresses (listed in the result, at most MAX_LISTED each)
             'errors' => [], 'created' => date('Y-m-d H:i:s'),
@@ -294,16 +298,22 @@ final class WebImport
         $source = 'web:' . mb_substr((string) $state['domain'], 0, 36);
         $key = sha1($url);
         $page = self::extract($html, $url);
-        if (trim(strip_tags($page['content'], '<img>')) === '') {
+        if (trim(strip_tags($page['content'], '<img><talea-widget>')) === '') {
             throw new \RuntimeException('The page has no content to import.');
         }
+        $language = Language::column($this->settings, (string) $state['options']['language']);
+        $old = self::path($url);
+        // widgets: placeholders for what cannot be brought over, images of the answers and panels in Media
+        $page['widgets'] = WebImportWidgets::prepare($page['widgets'], $page['content'], $language !== '' ? $language : Language::defaults($this->settings), Extensions::isEnabled($this->settings, 'enquiries'), '/' . $old, $state);
         if ($state['options']['images']) {
             $page['content'] = $this->images($page['content'], $state);
+            foreach ($page['widgets'] as $i => $widget) {
+                $page['widgets'][$i]['html'] = $widget['html'] === '' ? '' : $this->images($widget['html'], $state);
+            }
         }
         $page['content'] = self::safeContent($page['content']); // sanitized once more as the very last step before it is stored
-        $language = Language::column($this->settings, (string) $state['options']['language']);
+        $page['text'] = self::safeContent(WebImportWidgets::text($page['content'], $page['widgets']));
         $article = $state['options']['news'] && $page['article'] && Extensions::isEnabled($this->settings, 'news');
-        $old = self::path($url);
         if ($article) {
             $idc = $this->createArticle($page, $language);
             $this->map($source, 'news', $key, $idc);
@@ -314,7 +324,7 @@ final class WebImport
             $parent = $this->parentOf($old, $language, $state);
             $wanted = self::addressBelow($planned, $parent);
             $held = StarterPages::makeRoom($this->db, $this->settings, $wanted, $language, $state['options']['keep_starters'] ?? null, $state['starters'], '/' . $old);
-            $ids = $this->createPage($page, $wanted, $language, $url, $parent, $parent === null);
+            $ids = $this->createPage($page, $wanted, $language, $url, $parent, $parent === null, $state, '/' . $old);
             $this->map($source, 'page', $key, $ids);
             $state['paths'][implode('/', self::segments($old))] = $ids;
             $state['result']['pages']++;
@@ -451,16 +461,16 @@ final class WebImport
      * @param array{title: string, description: string, content: string, date: string, article: bool} $page
      * @param array{page_id: int, slug: string}|null $parent
      */
-    private function createPage(array $page, string $wanted, string $language, string $url, ?array $parent, bool $topLevel): int
+    private function createPage(array $page, string $wanted, string $language, string $url, ?array $parent, bool $topLevel, array &$state, string $old): int
     {
         $seo = WpImport::availableSlug(
             $wanted,
             fn (string $candidate): bool => $this->addressTaken($candidate, $language, $topLevel),
         );
-        $build = $this->build($page['title'], $page['content']);
+        $build = $this->build($page['title'], $page['content'], $page['widgets'], $state, $old);
 
         return $this->db->insert('pages', [
-            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 200), 'text' => $page['content'], 'build' => $build,
+            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 200), 'text' => $page['text'], 'build' => $build,
             'description' => mb_substr($page['description'], 0, 300),
             'visible' => 0, // hidden until the administrator checks it – nothing changes for visitors
             'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'language' => $language, 'parent_id' => $parent['page_id'] ?? null,
@@ -480,20 +490,20 @@ final class WebImport
         $now = date('Y-m-d H:i:s');
         $idc = $this->db->insert('news', [
             'slug' => $seo, 'title' => mb_substr($page['title'], 0, 255), 'intro' => $page['description'] !== '' ? '<p>' . e($page['description']) . '</p>' : '',
-            'text' => $page['content'], 'category_id' => $category, 'language' => $language, 'author_id' => $this->author,
+            'text' => $page['text'], 'category_id' => $category, 'language' => $language, 'author_id' => $this->author,
             'published_at' => $page['date'] !== '' ? $page['date'] : $now, 'visible' => 0, 'edited_at' => $now, 'announced_at' => $now, // never announced (webhook, IndexNow)
         ]);
         Search::index($this->db, $idc);
-        Media::recordUsage($this->db, $idc, '', '', $page['content']);
+        Media::recordUsage($this->db, $idc, '', '', $page['text']);
 
         return $idc;
     }
 
     /** The page's HTML as a build, the same way as pages from WordPress: a heading and the content in a narrow section. */
-    private function build(string $title, string $html): ?string
+    private function build(string $title, string $html, array $widgets, array &$state, string $old): ?string
     {
         // the non-administrator converter: whatever site is imported never decides what goes into Custom HTML
-        $conversion = \Talea\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
+        $conversion = \Talea\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false, $widgets);
         $build = \Talea\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($this->db->all('SELECT name FROM {classes}'), 'name'));
         foreach ($build['children'] as &$section) {
             if ($section['type'] === 'section' && !isset($section['anchor'])) {
@@ -502,6 +512,13 @@ final class WebImport
         }
         unset($section);
         [$clean] = \Talea\Builder\Build::sanitize($build, false);
+        ['kept' => $kept, 'lostMaps' => $lostMaps] = WebImportWidgets::kept($clean, $widgets);
+        foreach ($kept as $type => $count) {
+            $state['kept'][$type] = (int) ($state['kept'][$type] ?? 0) + $count;
+        }
+        for ($i = 0; $i < $lostMaps && count($state['attention']) < 100; $i++) {
+            $state['attention'][] = ['kind' => 'map', 'path' => $old, 'host' => ''];
+        }
 
         return $clean['children'] === [] ? null : \Talea\Builder\Build::toJson($clean);
     }
@@ -700,7 +717,7 @@ final class WebImport
      * The content of a page: title, description, publication date, whether it is an article, and the main content as
      * clean HTML with absolute image addresses.
      *
-     * @return array{title: string, description: string, content: string, date: string, article: bool}
+     * @return array{title: string, description: string, content: string, date: string, article: bool, widgets: list<array{kind: string, html: string, host: string}>}
      */
     public static function extract(string $html, string $url): array
     {
@@ -728,21 +745,9 @@ final class WebImport
         }
         $root ??= $doc->body;
         if ($root === null) {
-            return ['title' => $title, 'description' => $description, 'content' => '', 'date' => '', 'article' => false];
+            return ['title' => $title, 'description' => $description, 'content' => '', 'date' => '', 'article' => false, 'widgets' => []];
         }
-        // an element inside one removed earlier is already gone with it
-        foreach (iterator_to_array($root->querySelectorAll(self::NOISE)) as $node) {
-            if ($root->contains($node)) {
-                $node->remove();
-            }
-        }
-        foreach (iterator_to_array($root->querySelectorAll('[class], [id]')) as $node) {
-            if ($root->contains($node) && preg_match(self::NOISE_NAMES, $node->getAttribute('class') . ' ' . $node->getAttribute('id'))) {
-                $node->remove();
-            }
-        }
-        // the title becomes the page heading; lazy-loaded images get their real address
-        $root->querySelector('h1')?->remove();
+        // lazy-loaded images get their real address and links their path first: the widgets are cut out of the page after that
         foreach (iterator_to_array($root->querySelectorAll('img')) as $img) {
             $src = $img->getAttribute('data-src') ?: $img->getAttribute('data-lazy-src') ?: $img->getAttribute('src') ?: '';
             if ($src === '' || str_starts_with($src, 'data:')) {
@@ -763,6 +768,25 @@ final class WebImport
                 $a->setAttribute('href', '/' . self::path($absolute));
             }
         }
+        // an element inside one removed earlier is already gone with it
+        foreach (iterator_to_array($root->querySelectorAll(self::NOISE)) as $node) {
+            if ($root->contains($node)) {
+                $node->remove();
+            }
+        }
+        foreach (iterator_to_array($root->querySelectorAll('[class], [id]')) as $node) {
+            if ($root->contains($node) && preg_match(self::NOISE_NAMES, $node->getAttribute('class') . ' ' . $node->getAttribute('id'))) {
+                $node->remove();
+            }
+        }
+        // forms, questions and answers, tabs, videos, maps and counters leave a marker; then the rest of the noise (frames, forms, buttons, hidden panels) goes
+        $widgets = \Talea\Builder\HtmlWidgets::extract($root);
+        foreach (iterator_to_array($root->querySelectorAll(self::NOISE_AFTER_WIDGETS)) as $node) {
+            if ($root->contains($node)) {
+                $node->remove();
+            }
+        }
+        $root->querySelector('h1')?->remove(); // the title becomes the page heading
         $content = trim((string) preg_replace('/\s+/u', ' ', $root->innerHTML));
         $article = ($timestamp !== false && $doc->querySelector('article') !== null) || preg_match(self::ARTICLE, (string) parse_url($url, PHP_URL_PATH)) === 1;
 
@@ -772,6 +796,7 @@ final class WebImport
             'content' => self::safeContent($content),
             'date' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
             'article' => $article,
+            'widgets' => $widgets,
         ];
     }
 }

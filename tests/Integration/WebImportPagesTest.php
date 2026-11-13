@@ -162,4 +162,46 @@ final class WebImportPagesTest extends DatabaseTestCase
         $this->assertSame([['from' => '/services/heating', 'to' => '/services-2/heating']], $state['moved']);
         $this->assertSame('services-2/heating', $this->db()->value("SELECT to_path FROM {redirects} WHERE from_path = 'services/heating'"));
     }
+
+    /** The inside of the <main> of a fixture of old widgets. */
+    private static function fixture(string $name): string
+    {
+        preg_match('#<main>(.*)</main>#s', (string) file_get_contents(dirname(__DIR__) . '/Fixtures/old-pages/' . $name), $m);
+
+        return $m[1];
+    }
+
+    public function testWidgetsBecomeElementsAndUnreadableOnesPlaceholders(): void
+    {
+        [$import, $state] = $this->importer();
+        $page = '<html><head><title>Widgets</title></head><body><main><h1>Widgets</h1><p>' . str_repeat('A page full of things that moved along. ', 4) . '</p>'
+            . self::fixture('aria-accordion.html') . self::fixture('aria-tabs.html') . self::fixture('counters.html') . self::fixture('frames.html') . self::fixture('forms.html') . '</main></body></html>';
+        $import->importHtml('https://old.example/widgets/', $page, $state);
+
+        $row = $this->db()->one("SELECT build, text FROM {pages} WHERE slug = 'widgets'");
+        $build = (string) $row['build'];
+        foreach (['"type":"faq"', '"type":"tabs"', '"type":"counter"', '"type":"map"', '"type":"video"', '"type":"embed"', '"type":"form"'] as $type) {
+            $this->assertStringContainsString($type, $build, $type);
+        }
+        $this->assertStringNotContainsString('talea-widget', $build . $row['text'], 'no marker is stored');
+        $this->assertStringContainsString('How long does it take?', (string) $row['text'], 'the text has the questions');
+        $this->assertStringContainsString('[Embedded content from widgets.example', $build, 'an unknown frame leaves a placeholder in the site language');
+        $this->assertStringContainsString('[Form from the old page: its fields could not be read.', $build);
+        ksort($state['kept']);
+        $this->assertSame(['counter' => 2, 'embed' => 1, 'faq' => 1, 'form' => 1, 'map' => 2, 'tabs' => 1, 'video' => 1], $state['kept']);
+        $kinds = array_column($state['attention'], 'kind');
+        sort($kinds);
+        $this->assertSame(['frame', 'map', 'unreadable_form'], $kinds, 'a frame, the map that says nothing and the script form need the owner');
+    }
+
+    public function testAFormWithEnquiriesOffIsAPlaceholder(): void
+    {
+        [$import, $state] = $this->importer();
+        $this->db()->run("UPDATE {settings} SET value = 'news' WHERE name = 'extensions'");
+        $import = new WebImport($this->db(), new Settings($this->db()), 0, new ImageDownloader('https://old.example', true));
+        $page = '<html><head><title>Contact</title></head><body><main><h1>Contact</h1><p>' . str_repeat('Write to us about anything at all. ', 4) . '</p><form><input name="email"><textarea name="m"></textarea></form></main></body></html>';
+        $import->importHtml('https://old.example/write/', $page, $state);
+        $this->assertStringContainsString('[A form was here: switch on Enquiries', (string) $this->db()->value("SELECT build FROM {pages} WHERE slug = 'write'"));
+        $this->assertSame(['form_off'], array_column($state['attention'], 'kind'));
+    }
 }

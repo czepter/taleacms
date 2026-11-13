@@ -347,9 +347,7 @@ final class MigrationReport
         $description = trim((string) $doc->querySelector('meta[name="description"]')?->getAttribute('content'));
         $form = false;
         foreach ($doc->querySelectorAll('form') as $f) {
-            $role = strtolower($f->getAttribute('role') ?? '');
-            $fields = $f->querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="search"]), textarea, select');
-            if ($role !== 'search' && $fields->length > 0 && !preg_match('/search|hledat|suche/i', ($f->getAttribute('class') ?? '') . ' ' . ($f->getAttribute('action') ?? ''))) {
+            if (!\Talea\Builder\HtmlWidgets::isSearchForm($f) && $f->querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="search"]), textarea, select')->length > 0) {
                 $form = true;
                 break;
             }

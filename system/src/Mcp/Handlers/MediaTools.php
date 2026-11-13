@@ -184,6 +184,9 @@ trait MediaTools
             'result' => ['new_pages' => $r['pages'], 'new_news' => $r['articles'], 'images' => $r['images'], 'redirects' => $r['redirects'], 'skipped' => $r['skipped'], 'failed' => $r['failed'], 'parents' => (int) ($r['parents'] ?? 0)],
             // the redirects written (old address → new) and the empty hidden parent pages made for nested addresses
             'redirects_written' => $state['moved'] ?? [], 'parents' => $state['parents'] ?? [],
+            // what arrived as elements (forms, faq, tabs, video, map, embed, counter) and what needs the user: a placeholder marks its place on the page
+            'kept' => $state['kept'] ?? new \stdClass(),
+            'attention' => array_map(fn (array $a): string => $a['path'] . ' – ' . sprintf(\Talea\Core\WebImportWidgets::ATTENTION[$a['kind']] ?? $a['kind'], $a['host']), $state['attention'] ?? []),
             'failures' => $state['errors'],
             'addresses' => $state['phase'] === 'preview' ? array_map(fn (string $u): string => '/' . \Talea\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
             // the installer's starter pages an imported page would take the address of (the preview), and what the import did with them
@@ -193,8 +196,8 @@ trait MediaTools
             'next' => match ($state['phase']) {
                 'finding', 'import' => 'Call again with the same import id.',
                 'preview' => 'Show the user what was found – and the starter_pages: an untouched starter page at an old address goes to the trash (30 days) and the imported page takes its address, the home page never; to keep one pass keep_starter_pages (old addresses) or replace_starter_pages false. On their instruction call again with confirm: true.',
-                default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction. starter_pages_result says which starter pages were replaced or kept.',
-            }] + \Talea\Mcp\Untrusted::mark(['addresses', 'failures', 'starter_pages', 'starter_pages_result', 'redirects_written', 'parents']);
+                default => 'Done: the pages are hidden – check them with list_pages, go through attention with the user (a placeholder in brackets marks each place), put the ones to keep in the menu and publish them on the user\'s instruction. starter_pages_result says which starter pages were replaced or kept.',
+            }] + \Talea\Mcp\Untrusted::mark(['addresses', 'failures', 'starter_pages', 'starter_pages_result', 'redirects_written', 'parents', 'attention']);
     }
 
     /** upload_file */

@@ -49,6 +49,20 @@ $urls = array_keys($state['urls']);
 <?php endif ?>
 	<div class="tiles-item"><strong><?= (int) $v['skipped'] ?></strong><span><?= e(t('Skipped (already imported earlier)')) ?></span></div>
 </div>
+<?php $kept = array_filter((array) ($state['kept'] ?? [])); ?>
+<?php if ($kept !== []): ?>
+<div class="tiles">
+<?php foreach (['form' => 'Forms', 'faq' => 'Questions and answers', 'tabs' => 'Tabs', 'video' => 'Videos', 'map' => 'Maps', 'embed' => 'Embedded pages', 'counter' => 'Counters'] as $type => $label): ?>
+<?php if (!empty($kept[$type])): ?>	<div class="tiles-item"><strong><?= (int) $kept[$type] ?></strong><span><?= e(t($label)) ?></span></div>
+<?php endif ?>
+<?php endforeach ?>
+</div>
+<?php endif ?>
+<?php if (!empty($state['attention'])): ?>
+<div class="notice notice-warning"><p><strong><?= e(t('Needs your attention')) ?></strong></p><ul>
+<?php foreach ($state['attention'] as $a): ?><li><?= e($a['path'] . ' – ' . t(Talea\Core\WebImportWidgets::ATTENTION[$a['kind']] ?? $a['kind'], $a['host'])) ?></li><?php endforeach ?>
+</ul></div>
+<?php endif ?>
 <?= $app->view->render('admin/transfer/starters', ['choices' => null, 'result' => $state['starters'] ?? null]) ?>
 <?php if (!empty($state['moved'])): ?>
 <details class="advanced"><summary><?= e(t('Redirects written (%s)', (int) $v['redirects'])) ?></summary><ul>

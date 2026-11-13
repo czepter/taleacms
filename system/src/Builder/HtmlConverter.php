@@ -390,7 +390,7 @@ final class HtmlConverter
     }
 
     /** A honeypot (hidden from people, tab order and autofill) or a captcha field: a person never fills it in, Talea's own protection replaces it. */
-    private static function isSpamTrap(Element $input, Element $form): bool
+    public static function isSpamTrap(Element $input, Element $form): bool
     {
         $name = strtolower((string) $input->getAttribute('name'));
         if (in_array($name, ['g-recaptcha-response', 'h-captcha-response', 'cf-turnstile-response'], true) || $input->closest('[data-sitekey]') !== null) {

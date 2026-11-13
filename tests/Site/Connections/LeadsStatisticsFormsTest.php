@@ -422,6 +422,9 @@ PHP);
             $text = $this->toolText('import_website', ['import_id' => $importId]);
         }
         $this->assertSame('done', $this->fieldOf($text, 'phase'), 'website import finished');
+        $attention = json_decode($text, true)['attention'] ?? [];
+        $this->assertCount(1, $attention, 'website import: the video file of the old page needs the owner');
+        $this->assertStringContainsString('A video file was not brought over', (string) ($attention[0] ?? ''), 'website import: and says so');
 
         $this->assertSame('About us:0|Our first post:0:2024-05-06', $site->value("SELECT CONCAT((SELECT CONCAT(title, ':', visible) FROM tl_pages WHERE slug = 'our-story'), '|', (SELECT CONCAT(title, ':', visible, ':', DATE(published_at)) FROM tl_news WHERE title = 'Our first post'))"),
             'website import: pages hidden, the post as a hidden news item');
