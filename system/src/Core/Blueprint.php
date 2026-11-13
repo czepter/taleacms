@@ -195,6 +195,29 @@ final class Blueprint
     }
 
     /**
+     * The instructions for Claude of every applied blueprint, by blueprint key (the notice about changed instructions watches
+     * them with the owner's text: Core\ClaudeInstructions::watched). Language-independent; empty when none brings any.
+     *
+     * @return array<string, string>
+     */
+    public static function claudeTexts(Db $db): array
+    {
+        try {
+            $applied = self::applied($db);
+        } catch (\Throwable) {
+            return []; // a site whose database update has not run yet
+        }
+        $out = [];
+        foreach ($applied as $key => $m) {
+            if ($m['claude'] !== '') {
+                $out[$key] = $m['claude'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Applies a blueprint: its ready-made collections (those the site does not have yet, each with its hidden list page)
      * and its facts (without values; a fact the site already has keeps its value). Applying it again updates the stored
      * manifest and adds what is new. Returns what was created.
@@ -205,6 +228,7 @@ final class Blueprint
     public static function apply(App $app, array $manifest): array
     {
         $db = $app->db();
+        $before = (string) (self::applied($db)[$manifest['key']]['claude'] ?? '');
         $created = ['collections' => [], 'facts' => []];
         $enabled = Extensions::enabled($app->settings());
         foreach ($manifest['presets'] as $preset) {
@@ -231,6 +255,11 @@ final class Blueprint
             $db->insert('blueprints', ['bkey' => $manifest['key'], 'name' => self::text($manifest['name']), 'manifest' => $json, 'applied_at' => date('Y-m-d H:i:s')]);
         }
         \Talea\Admin\ChangeLog::write($app, 'blueprints', 'apply', self::text($manifest['name']));
+        // its instructions for Claude reach every connection: the administrators check them like the owner's own text
+        // (no user = the installer: nothing to notify, pending() then marks the text as checked by itself)
+        if ($app->auth()->user() !== null) {
+            ClaudeInstructions::changed($app, $before, (string) $manifest['claude'], blueprint: self::text($manifest['name']));
+        }
 
         return $created;
     }
@@ -238,9 +267,14 @@ final class Blueprint
     /** Takes a blueprint off the site: its checks, questions and instructions; collections and facts stay. */
     public static function remove(App $app, string $key): bool
     {
+        $old = (string) (self::applied($app->db())[$key]['claude'] ?? '');
+        $name = self::text((string) (self::applied($app->db())[$key]['name'] ?? $key));
         $done = $app->db()->delete('blueprints', ['bkey' => $key]) > 0;
         if ($done) {
             \Talea\Admin\ChangeLog::write($app, 'blueprints', 'remove', $key);
+            if ($old !== '' && $app->auth()->user() !== null) {
+                ClaudeInstructions::changed($app, $old, '', blueprint: $name);
+            }
         }
 
         return $done;

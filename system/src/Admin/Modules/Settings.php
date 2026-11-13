@@ -754,7 +754,7 @@ class Settings extends Module
             return $this->back();
         }
 
-        return \Talea\Core\ClaudeInstructions::acknowledge($this->app->settings(), $this->request->post('instructions_seen'))
+        return \Talea\Core\ClaudeInstructions::acknowledge($this->app, $this->request->post('instructions_seen'))
             ? $this->back('Thank you. Home no longer points to the instructions until they change again.', '', ['tab' => 'ai'])
             : $this->back('The instructions changed again in the meantime – check them once more.', '', ['tab' => 'ai'], 'error');
     }

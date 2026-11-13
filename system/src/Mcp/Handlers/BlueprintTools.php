@@ -67,7 +67,8 @@ trait BlueprintTools
         $created = Blueprint::apply($this->app, $manifest);
 
         return ['applied' => $manifest['key'], 'created_collections' => $created['collections'], 'created_facts' => $created['facts'],
-            'next' => 'The new collections have hidden list pages. Ask the blueprint\'s questions (get_blueprint) and save the answers with save_fact.'];
+            'next' => 'The new collections have hidden list pages. Ask the blueprint\'s questions (get_blueprint) and save the answers with save_fact.']
+            + ($manifest['claude'] !== '' ? ['note' => 'Its instructions for Claude reach every connection; the administrators are asked to check them in Settings → AI.'] : []);
     }
 
     /** remove_blueprint */

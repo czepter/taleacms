@@ -5349,6 +5349,8 @@ return [
     'The instructions for the AI were changed by %s on %s.' => 'Die Anweisungen für die AI wurden von %s am %s geändert.',
     'The instructions for the AI were changed by %s through the connection %s on %s.' => 'Die Anweisungen für die AI wurden von %s über die Anbindung %s am %s geändert.',
     'The instructions handed out with each run of this schedule (in English for Claude):' => 'Die Anweisungen, die mit jedem Lauf dieses Zeitplans übergeben werden (auf Englisch, für Claude):',
+    'The instructions of the blueprint “%s” for the AI were changed by %s on %s.' => 'Die Anweisungen der Branchenvorlage „%s“ für die AI wurden von %s am %s geändert.',
+    'The instructions of the blueprint “%s” for the AI were changed by %s through the connection %s on %s.' => 'Die Anweisungen der Branchenvorlage „%s“ für die AI wurden von %s über die Anbindung %s am %s geändert.',
     'The intro is missing – the news list and social sharing need it.' => 'Die Einleitung fehlt – die News-Liste und das Teilen in sozialen Netzwerken benötigen sie.',
     'The invitation has been sent to %s.' => 'Die Einladung wurde an %s gesendet.',
     'The item does not exist.' => 'Der Eintrag existiert nicht.',
