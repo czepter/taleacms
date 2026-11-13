@@ -30,6 +30,8 @@ final class WebImport
     public const int MAX_PAGES = 300;
     private const float SECONDS = 15.0;
     private const int IMAGES_PER_PAGE = 40;
+    /** Seconds after the end of a step's batch in which a page may still start a download; the step stays well under the 60 s of the request. */
+    private const float DOWNLOAD_GRACE = 15.0;
     private const int MAX_SITEMAPS = 20;
 
     /** Addresses that are not content pages. */
@@ -260,6 +262,8 @@ final class WebImport
             $url = $urls[$state['position']];
             try {
                 $this->importPage($url, $state);
+            } catch (WebImportPaused) {
+                return; // the page continues in the next step (what it downloaded is remembered); the position stays
             } catch (\RuntimeException $e) {
                 $state['result']['failed']++;
                 $state['errors'] = array_slice([...$state['errors'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t($e->getMessage())], -15);
@@ -304,13 +308,21 @@ final class WebImport
         $language = Language::column($this->settings, (string) $state['options']['language']);
         $old = self::path($url);
         // widgets: placeholders for what cannot be brought over, images of the answers and panels in Media
+        $attention = $state['attention'] ?? [];
         $page['widgets'] = WebImportWidgets::prepare($page['widgets'], $page['content'], $language !== '' ? $language : Language::defaults($this->settings), Extensions::isEnabled($this->settings, 'enquiries'), '/' . $old, $state);
         $seo = ['seo_title' => $page['seo_title'] !== $page['title'] ? $page['seo_title'] : '', 'image' => ''];
         if ($state['options']['images']) {
-            $files = new WebImportFiles($this->db, $this->downloader, $this->author, $this->base);
-            $page['content'] = $files->bring($this->images($page['content'], $state), $state);
-            foreach ($page['widgets'] as $i => $widget) {
-                $page['widgets'][$i]['html'] = $widget['html'] === '' ? '' : $files->bring($this->images($widget['html'], $state), $state);
+            // one budget of documents and images for the page: its content and all its widgets share it
+            $files = new WebImportFiles($this->db, $this->downloader, $this->author, $this->base, $this->mayDownload(...));
+            $budget = ['left' => self::IMAGES_PER_PAGE, 'seen' => []];
+            try {
+                $page['content'] = $files->bring($this->images($page['content'], $state, $budget), $state);
+                foreach ($page['widgets'] as $i => $widget) {
+                    $page['widgets'][$i]['html'] = $widget['html'] === '' ? '' : $files->bring($this->images($widget['html'], $state, $budget), $state);
+                }
+            } catch (WebImportPaused $paused) {
+                $state['attention'] = $attention; // the page runs again from its start: its notes are made again then
+                throw $paused;
             }
             // the picture the old page showed in a share (og:image) is the page's own share image
             $shared = $page['share_image'] !== '' ? $this->image($page['share_image'], $page['title'], $state) : null;
@@ -538,20 +550,33 @@ final class WebImport
      * left out (a page must not keep loading images from the old site).
      *
      * @param array<string, mixed> $state
+     * @param array{left: int, seen: array<string, true>} $budget the images the page may still bring over, shared by its content and its widgets
+     * @throws WebImportPaused when this step has no time left for another download
      */
-    private function images(string $html, array &$state): string
+    private function images(string $html, array &$state, array &$budget): string
     {
-        $count = 0;
-
         // on the DOM, not with a regular expression over the markup: an attribute's text must never become a tag
-        return Html::rewriteImages($html, function (string $url, string $alt) use (&$count, &$state): array|false {
-            if (++$count > self::IMAGES_PER_PAGE || $url === '') {
+        return Html::rewriteImages($html, function (string $url, string $alt) use (&$budget, &$state): array|false {
+            if ($url === '') {
                 return false;
+            }
+            if (!isset($budget['seen'][$url])) {
+                if ($budget['left'] <= 0) {
+                    return false;
+                }
+                $budget['left']--;
+                $budget['seen'][$url] = true;
             }
             $image = $this->image($url, $alt, $state);
 
             return $image === null ? false : ['src' => $this->base . '/' . $image['image_path'], 'alt' => $alt, 'width' => (int) $image['image_width'], 'height' => (int) $image['image_height']];
         });
+    }
+
+    /** May this page still start a download in this step? (Without a step – a page imported on its own – always.) */
+    private function mayDownload(): bool
+    {
+        return $this->end === 0.0 || microtime(true) < $this->end + self::DOWNLOAD_GRACE;
     }
 
     /**
@@ -587,6 +612,9 @@ final class WebImport
         $mediaId = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'image' AND source_id = ?", [$source, $key]);
         if ($mediaId !== null) {
             return (int) $mediaId === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [(int) $mediaId]);
+        }
+        if (!$this->mayDownload()) {
+            throw new WebImportPaused();
         }
         $temporary = WpFile::folder() . '/web-image-' . bin2hex(random_bytes(6)) . '.tmp';
         try {

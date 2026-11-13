@@ -18,7 +18,14 @@ final class WebImportFiles
     /** What counts as a document (a subset of Core\Files::FILE_EXTENSIONS: no archives, audio, video or fonts). */
     private const array DOCUMENTS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'txt', 'csv'];
 
-    public function __construct(private readonly Db $db, private readonly ImageDownloader $downloader, private readonly int $author, private readonly string $base)
+    /** @var int documents this page may still bring over (one budget for its content and all its widgets: one instance is one page) */
+    private int $left = self::PER_PAGE;
+
+    /** @var array<string, string> address => the Media address, for the documents of this page already dealt with */
+    private array $moved = [];
+
+    /** @param (\Closure(): bool)|null $mayDownload false = this step has no time left: the page pauses (WebImportPaused) and continues in the next one */
+    public function __construct(private readonly Db $db, private readonly ImageDownloader $downloader, private readonly int $author, private readonly string $base, private readonly ?\Closure $mayDownload = null)
     {
     }
 
@@ -61,20 +68,30 @@ final class WebImportFiles
     }
 
     /**
-     * Brings the documents of one piece of HTML into Media and points the links at them (at most PER_PAGE here, PER_IMPORT in all).
+     * Brings the documents of one piece of HTML into Media and points the links at them (at most PER_PAGE for the whole page – call this
+     * for the content and every widget on the same instance – and PER_IMPORT in all).
      *
      * @param array<string, mixed> $state the import state: web (the old site's address), domain, result.files
+     * @throws WebImportPaused when this step has no time left for another download
      */
     public function bring(string $html, array &$state): string
     {
-        $documents = array_slice(self::documentLinks($html, (string) $state['web']), 0, self::PER_PAGE);
         $moved = [];
-        foreach ($documents as $address) {
-            if (($state['result']['files'] ?? 0) >= self::PER_IMPORT) {
-                break;
+        foreach (self::documentLinks($html, (string) $state['web']) as $address) {
+            if (array_key_exists($address, $this->moved)) {
+                if ($this->moved[$address] !== '') {
+                    $moved[$address] = $this->moved[$address];
+                }
+                continue;
             }
-            if (($path = $this->file($address, $state)) !== null) {
-                $moved[$address] = $this->base . '/' . $path;
+            if ($this->left <= 0 || ($state['result']['files'] ?? 0) >= self::PER_IMPORT) {
+                continue;
+            }
+            $this->left--;
+            $path = $this->file($address, $state);
+            $this->moved[$address] = $path === null ? '' : $this->base . '/' . $path;
+            if ($path !== null) {
+                $moved[$address] = $this->moved[$address];
             }
         }
         if ($moved === []) {
@@ -103,6 +120,9 @@ final class WebImportFiles
         $known = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'file' AND source_id = ?", [$source, $key]);
         if ($known !== null) {
             return (int) $known === 0 ? null : (string) $this->db->value('SELECT image_path FROM {media} WHERE media_id = ?', [(int) $known]);
+        }
+        if ($this->mayDownload !== null && !($this->mayDownload)()) {
+            throw new WebImportPaused();
         }
         $temporary = WpFile::folder() . '/web-file-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
