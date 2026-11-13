@@ -144,6 +144,37 @@ final class FleetTest extends SiteTestCase
         $this->assertStringNotContainsString('console_version', $this->mcpText('list_sites'), 'list_sites exists only on a console');
     }
 
+    /** #341: a typed domain date and a certificate date make the calendar, one reminder e-mail, events and an entry in the bell. */
+    public function testDomainDateCalendarAndReminders(): void
+    {
+        $console = $this->console();
+        $id = self::$fleetId;
+        $public = $console->publicId('fleet_sites', $id);
+        $in20 = trim($console->php('echo date("Y-m-d", strtotime("+20 days"));'));
+        $this->postAs($console, '/admin.php?module=fleet&action=domain', ['id' => $public, 'domain_expires' => 'junk'], '/admin.php?module=fleet&action=detail&id=' . $public);
+        $this->sameValue('1', $console->value('SELECT domain_expires IS NULL FROM tl_fleet_sites WHERE id = ?', [$id]), 'a date that is not a date is refused');
+        $this->postAs($console, '/admin.php?module=fleet&action=domain', ['id' => $public, 'domain_expires' => $in20], '/admin.php?module=fleet&action=detail&id=' . $public);
+        $this->sameValue($in20, (string) $console->value('SELECT domain_expires FROM tl_fleet_sites WHERE id = ?', [$id]), 'the domain registration date is saved');
+
+        $console->exec('UPDATE tl_fleet_sites SET cert_expires = NOW() + INTERVAL 10 DAY WHERE id = ?', [$id]);
+        $console->setting('alerts_enabled', '1');
+        $console->setting('alerts_email', 'ops@example.com');
+        $console->exec("UPDATE tl_jobs SET last_run = NULL WHERE name = 'fleet_expiry'");
+        $console->runTasks();
+        $this->sameValue('1|2', $console->value("SELECT CONCAT((SELECT COUNT(*) FROM tl_mail WHERE recipient = 'ops@example.com' AND subject LIKE '%expire soon%'), '|', (SELECT COUNT(*) FROM tl_events WHERE type = 'fleet.expiry_reminder'))"), 'one e-mail with both reminders, and an event for each');
+        $console->exec("UPDATE tl_jobs SET last_run = NULL WHERE name = 'fleet_expiry'");
+        $console->runTasks();
+        $this->sameValue('1', $console->value("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'ops@example.com' AND subject LIKE '%expire soon%'"), 'a reminder goes once per date and threshold');
+
+        $page = $console->admin()->get('/admin.php?module=fleet&action=calendar');
+        $this->assertStringContainsString((string) $console->value('SELECT name FROM tl_fleet_sites WHERE id = ?', [$id]), $page->body, 'the calendar lists the site');
+        $this->assertSame(200, $console->admin()->get('/admin.php?module=fleet&action=calendar&month=2026-01')->status, 'another month answers');
+        $this->assertStringContainsString('expire soon', $console->admin()->get('/admin.php?action=waiting')->body, 'the bell lists the dates that end soon');
+        $this->assertStringContainsString('"kind":"domain"', $this->consoleMcp('fleet_calendar'), 'MCP fleet_calendar lists the domain date');
+        $this->assertMatchesRegularExpression('/"site_id":"[0-9a-f-]{36}"/', $this->consoleMcp('fleet_calendar'), 'its site id is a public id');
+        $console->exec('UPDATE tl_fleet_sites SET cert_expires = NULL, domain_expires = NULL, reminders = NULL WHERE id = ?', [$id]);
+    }
+
     // ---- 2.16 shared design kit
 
     public function testConsoleOffersAndPublishesTheKit(): void

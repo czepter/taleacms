@@ -8,12 +8,13 @@ use Talea\Admin\ChangeLog;
 use Talea\Admin\Module;
 use Talea\Core\Response;
 use Talea\Fleet\Console;
+use Talea\Fleet\Expiry;
 use Talea\Fleet\Kit;
 
 /**
  * The fleet console (2.9, extension "fleet", Fleet\Console): every paired site on one screen, the ones that need attention
- * first; a site's last report and version; pairing keys. Since 2.16
- * also the shared design kit (Fleet\Kit) the sites receive as drafts.
+ * first; a site's last report and version; pairing keys; the calendar of certificates and domain registrations (Fleet\Expiry).
+ * Since 2.16 also the shared design kit (Fleet\Kit) the sites receive as drafts.
  */
 final class Fleet extends Module
 {
@@ -49,6 +50,41 @@ final class Fleet extends Module
         $events = $this->db->all("SELECT created_at, type, severity, message FROM {events} WHERE type LIKE 'fleet.%' AND " . $this->db->dialect()->jsonExtract('data', '$.site') . " = ? ORDER BY id DESC LIMIT 20", [(string) (int) $site['id']]);
 
         return $this->view('detail', (string) $site['name'], ['site' => $site, 'events' => $events]);
+    }
+
+    /** When the certificates and the domain registrations of the fleet end: a month view and the list of all dates. */
+    protected function actionCalendar(): Response
+    {
+        $dates = Expiry::dates(Console::sites($this->db), time());
+
+        return $this->view('calendar', 'Calendar', ['calendar' => Expiry::month($this->request->get('month'), $dates), 'dates' => $dates, 'now' => time(),
+            'counts' => $this->tabCounts()]);
+    }
+
+    /** The end of a site's domain registration, typed from the registrar's account (the console cannot know it). */
+    protected function actionDomain(): Response
+    {
+        $site = $this->site();
+        if (!$this->request->isPost() || $site === null) {
+            return $this->back($site === null ? 'The site is not in the console.' : '', '', [], 'error');
+        }
+        $date = trim($this->request->post('domain_expires'));
+        $valid = $date === '' || (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m) === 1 && checkdate((int) $m[2], (int) $m[3], (int) $m[1]));
+        if (!$valid) {
+            return $this->back('Enter the date as shown by the registrar, e.g. 2027-03-31.', 'detail', ['id' => $site['public_id']], 'error');
+        }
+        $this->db->update('fleet_sites', ['domain_expires' => $date !== '' ? $date : null], ['id' => (int) $site['id']]);
+        ChangeLog::write($this->app, 'fleet', 'domain', (string) $site['url'] . ' ' . ($date !== '' ? $date : '–'));
+
+        return $this->back('Saved.', 'detail', ['id' => $site['public_id']]);
+    }
+
+    /** @return array{needing: int, total: int} what the tabs show */
+    private function tabCounts(): array
+    {
+        $sites = Console::overview($this->db, time());
+
+        return ['needing' => count(array_filter($sites, fn (array $s): bool => $s['score'] >= Console::REASONS['warnings'])), 'total' => count($sites)];
     }
 
     protected function actionPairingKey(): Response

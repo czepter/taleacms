@@ -201,6 +201,7 @@ final class Catalog
         'propose_booking_times' => ['write', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
+        'fleet_calendar' => ['read', 'fleet'],
         // The owner's sites (multisite, only with TALEA_MULTISITE and for administrators): Handlers\SiteTools
         'list_owner_sites' => ['read', ''],
         'create_site' => ['write', ''],

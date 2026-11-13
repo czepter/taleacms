@@ -34,7 +34,7 @@ final class Console
 
     /** Reasons for attention => weight; the list on the console is sorted by the sum. */
     public const array REASONS = [
-        'down' => 100, 'not_reporting' => 80, 'errors' => 60, 'jobs_failing' => 40, 'no_backup' => 30,
+        'down' => 100, 'not_reporting' => 80, 'errors' => 60, 'certificate' => 50, 'domain' => 45, 'jobs_failing' => 40, 'no_backup' => 30,
         'no_heartbeat' => 20, 'warnings' => 10, 'no_cron' => 5, 'enquiries' => 5, 'audit' => 2,
     ];
 
@@ -177,6 +177,11 @@ final class Console
         }
         if ($beat !== [] && (empty($beat['cron_last_run']) || $now - (int) $beat['cron_last_run'] > 86400)) {
             $reasons[] = 'no_cron';
+        }
+        foreach (Expiry::KINDS as $kind => $column) {
+            if (($site[$column] ?? null) !== null && Expiry::severity($kind, (string) $site[$column], $now) !== null) {
+                $reasons[] = $kind; // the certificate or the domain registration ends soon (or has ended)
+            }
         }
         if ((int) ($beat['enquiries_unanswered'] ?? 0) > 0) {
             $reasons[] = 'enquiries';

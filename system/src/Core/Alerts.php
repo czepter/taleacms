@@ -79,7 +79,7 @@ final class Alerts
         if (time() - $s->int('alerts_last_sent') < $s->int('alerts_interval') * 60) {
             return 'waiting';
         }
-        $recipient = $s->get('alerts_email') !== '' ? $s->get('alerts_email') : $s->get('site_email');
+        $recipient = self::recipient($s);
         if ($recipient === '') {
             return 'no address';
         }
@@ -89,6 +89,12 @@ final class Alerts
         $s->set('alerts_last_sent', (string) time());
 
         return 'sent ' . count($events);
+    }
+
+    /** Where alert e-mails go: alerts_email, otherwise the site e-mail. */
+    public static function recipient(Settings $s): string
+    {
+        return $s->get('alerts_email') !== '' ? $s->get('alerts_email') : $s->get('site_email');
     }
 
     /**

@@ -31,10 +31,7 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 <?php endif ?></p>
 </form>
 <?php if ($total > 0): ?>
-<nav class="tabs" aria-label="<?= e(t('Which sites')) ?>">
-	<a href="<?= e($module->url('')) ?>"<?= $show === 'attention' ? ' class="active" aria-current="page"' : '' ?>><?= e(t('Need attention')) ?> (<?= $needing ?>)</a>
-	<a href="<?= e($module->url('', ['show' => 'all'])) ?>"<?= $show === 'all' ? ' class="active" aria-current="page"' : '' ?>><?= e(t('All sites')) ?> (<?= $total ?>)</a>
-</nav>
+<?= $app->view->render('admin/fleet/tabs', ['module' => $module, 'current' => $show, 'needing' => $needing, 'total' => $total]) ?>
 <form method="get" action="<?= e($app->url('admin.php')) ?>"><input type="hidden" name="module" value="fleet"><?php if ($show === 'all'): ?><input type="hidden" name="show" value="all"><?php endif ?>
 	<label><?= e(t('Name or address contains:')) ?> <input class="textfield" type="search" name="q" value="<?= e($query) ?>" size="24"></label> <input class="btn" type="submit" value="<?= e(t('Filter')) ?>"></form>
 <?php if ($sites === []): ?>

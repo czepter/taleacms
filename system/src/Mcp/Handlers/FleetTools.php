@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Mcp\Handlers;
 
 use Talea\Fleet\Console;
+use Talea\Fleet\Expiry;
 use Talea\Fleet\Kit;
 
 /**
@@ -29,6 +30,7 @@ trait FleetTools
         return [
             'sites' => array_map(fn (array $s): array => ['id' => (int) $s['id'], 'name' => (string) $s['name'], 'url' => (string) $s['url'], 'version' => (string) $s['version'],
                 'attention' => $s['reasons'], 'score' => $s['score'], 'last_report' => $s['last_seen'], 'up' => $s['up'] === null ? null : (int) $s['up'] === 1,
+                'certificate_expires' => $s['cert_expires'] ?? null, 'domain_expires' => $s['domain_expires'] ?? null,
                 'enquiries_waiting' => $s['beat']['enquiries_unanswered'] ?? null,
                 'kit_version' => $s['beat']['kit_version'] ?? null], $sites),
             'console_version' => TALEA_VERSION, // sites update by pulling a new image; a site behind this version has not been updated yet
@@ -53,6 +55,24 @@ trait FleetTools
 
         return ['id' => (int) $site['id'], 'name' => (string) $site['name'], 'url' => (string) $site['url'], 'attention' => $attention['reasons'], 'score' => $attention['score'],
             'up' => $site['up'] === null ? null : (int) $site['up'] === 1, 'up_checked' => $site['up_checked'], 'last_report' => $site['last_seen'], 'paired' => $site['paired_at'],
+            'certificate_expires' => $site['cert_expires'] ?? null, 'domain_expires' => $site['domain_expires'] ?? null,
             'kit_version' => is_array($beat) ? ($beat['kit_version'] ?? null) : null, 'report' => is_array($beat) ? $beat : null];
+    }
+
+    /** fleet_calendar */
+    private function toolFleetCalendar(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('The fleet console is for administrators.');
+        }
+        $days = max(1, min(730, (int) ($a['days'] ?? 365)));
+
+        return [
+            'dates' => array_values(array_map(fn (array $d): array => ['date' => $d['date'], 'kind' => $d['kind'], 'days_left' => $d['days'], 'site_id' => (int) $d['site']['id'],
+                'site_name' => (string) $d['site']['name'], 'url' => (string) $d['site']['url']],
+                array_filter(Expiry::dates(Console::sites($this->app->db()), time()), fn (array $d): bool => $d['days'] <= $days))),
+            'certificate_reminder_days' => Expiry::CERTIFICATE_DAYS,
+            'domain_reminder_days' => Expiry::DOMAIN_DAYS,
+        ];
     }
 }

@@ -142,7 +142,8 @@ final class ParityTest extends TestCase
                 'invite' => 'admin: an invitation e-mail is sent by a person who decides to', 'handoff' => 'admin: a one-time sign-in to another owner belongs to the operator opening it in the browser – it is never a tool'],
             'fleet' => ['list' => 'list_sites', 'detail' => 'get_site', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)',
                 'check' => 'admin: the console checks the sites every 5 minutes on its own', 'remove' => 'admin: removing a site from the console',
-                'kit' => $readOnly, 'kit_publish' => 'admin: publishing a design kit to a whole fleet is a person\'s decision (2.16); list_sites shows the versions'],
+                'kit' => $readOnly, 'kit_publish' => 'admin: publishing a design kit to a whole fleet is a person\'s decision (2.16); list_sites shows the versions',
+                'calendar' => 'fleet_calendar', 'domain' => 'admin: the registration date is typed from the registrar\'s account by a person; fleet_calendar reads it'],
         ];
         $missingParity = [];
         foreach (\Talea\Admin\Kernel::MODULES as $moduleClass) {

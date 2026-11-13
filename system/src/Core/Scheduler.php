@@ -48,6 +48,7 @@ final class Scheduler
         'notices' => [3600, 'any', 'Official notice board: postings and takedowns'],
         'heartbeat' => [3600, 'any', 'Report to the fleet console'],
         'fleet_uptime' => [300, 'any', 'Fleet console: are the sites up'],
+        'fleet_expiry' => [3600, 'any', 'Fleet console: reminders of certificates and domains that expire'],
         'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
         'cookie_scan' => [86400, 'cron', 'What cookies the site sets'],
         'agent_runs' => [3600, 'any', 'Scheduled Claude runs: noticing runs nobody picked up'],
@@ -132,6 +133,7 @@ final class Scheduler
             'notices' => fn (App $app): string => Notices::run($app),
             'heartbeat' => fn (App $app): string => \Talea\Fleet\Link::send($app),
             'fleet_uptime' => fn (App $app): string => \Talea\Fleet\Console::checkUptime($app),
+            'fleet_expiry' => fn (App $app): string => \Talea\Fleet\Expiry::remind($app),
             'report_archive' => fn (App $app): string => ReportArchive::runIfDue($app),
             'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),
             'cookie_scan' => function (App $app): string {
@@ -208,7 +210,7 @@ final class Scheduler
     {
         return match ($name) {
             'heartbeat' => \Talea\Fleet\Link::isPaired($s),
-            'fleet_uptime' => Extensions::isEnabled($s, 'fleet'),
+            'fleet_uptime', 'fleet_expiry' => Extensions::isEnabled($s, 'fleet'),
             default => true,
         };
     }

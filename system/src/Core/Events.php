@@ -45,6 +45,7 @@ final class Events
         'fleet.site_down' => 'Console: a site does not answer.',
         'fleet.site_up' => 'Console: a site answers again.',
         'fleet.site_silent' => 'Console: a site stopped sending its heartbeat.',
+        'fleet.expiry_reminder' => 'Console: a reminder that a site\'s certificate or domain registration ends soon was sent.',
         'fleet.site_updated' => 'Console: a site runs a new version.',
         'fleet.kit_published' => 'Console: a new version of the shared design kit was published for the fleet (Fleet\\Kit).',
         'fleet.kit_received' => 'A shared design kit from the fleet console arrived as drafts (the version and what it carried) – the look draft and component drafts wait for a person to publish them.',

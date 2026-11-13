@@ -136,4 +136,36 @@ final class FleetTest extends TestCase
         openssl_x509_export(openssl_csr_sign($csr, null, $key, 10), $pem);
         $this->assertEqualsWithDelta(time() + 10 * 86400, \Talea\Fleet\Http::certificateEnd([['Cert' => $pem, 'Expire date' => 'junk']]), 86400, 'the end of a real certificate is read from its PEM');
     }
+
+    /** #341: certificate and domain dates – days left, severity, attention, the reminders once per threshold, the calendar month */
+    public function testExpiry(): void
+    {
+        $now = strtotime('2026-11-13 12:00:00');
+        $this->assertSame([14, -1], [\Talea\Fleet\Expiry::daysLeft('2026-11-27', $now), \Talea\Fleet\Expiry::daysLeft('2026-11-12 08:00:00', $now)]);
+        $in = fn (int $days): string => date('Y-m-d', $now + $days * 86400);
+        $this->assertSame([null, 'warning', 'error', 'error', null, 'warning'], [
+            \Talea\Fleet\Expiry::severity('certificate', $in(15), $now), \Talea\Fleet\Expiry::severity('certificate', $in(14), $now), \Talea\Fleet\Expiry::severity('certificate', $in(7), $now),
+            \Talea\Fleet\Expiry::severity('certificate', $in(-2), $now), \Talea\Fleet\Expiry::severity('domain', $in(31), $now), \Talea\Fleet\Expiry::severity('domain', $in(30), $now)]);
+        $row = fn (array $more): array => $more + ['up' => 1, 'last_seen' => date('Y-m-d H:i:s', $now - 600), 'status' => 'ok', 'heartbeat' => (string) json_encode(['last_backup' => $now - 3600, 'cron_last_run' => $now - 300])];
+        $this->assertSame(['certificate', 'domain'], \Talea\Fleet\Console::attention($row(['cert_expires' => $in(10) . ' 12:00:00', 'domain_expires' => $in(20)]), $now)['reasons']);
+
+        $site = fn (string $date, array $sent = []): array => ['cert_expires' => $date . ' 12:00:00', 'domain_expires' => null, 'reminders' => json_encode($sent)];
+        $date13 = $in(13);
+        [$reminders, $keys] = \Talea\Fleet\Expiry::due($site($date13), $now);
+        $this->assertSame([[['kind' => 'certificate', 'date' => $date13, 'days' => 13]], ["certificate|$date13|14"]], [$reminders, $keys], 'the first threshold');
+        $date6 = $in(6);
+        [$reminders, $keys] = \Talea\Fleet\Expiry::due($site($date6, ["certificate|$date6|14"]), $now);
+        $this->assertSame([1, ["certificate|$date6|14", "certificate|$date6|7"]], [count($reminders), $keys], 'the next threshold of the same date');
+        $this->assertSame([[], ["certificate|$date6|14", "certificate|$date6|7"]], \Talea\Fleet\Expiry::due($site($date6, ["certificate|$date6|14", "certificate|$date6|7"]), $now), 'nothing twice');
+        $date60 = $in(60);
+        $this->assertSame([[], []], \Talea\Fleet\Expiry::due($site($date60, ["certificate|$date6|14", "certificate|$date6|7"]), $now), 'a renewed date: the old keys go and nothing is due');
+        $date5 = $in(5);
+        [$reminders, $keys] = \Talea\Fleet\Expiry::due($site($date5), $now);
+        $this->assertSame([1, ["certificate|$date5|14", "certificate|$date5|7"]], [count($reminders), $keys], 'first seen at 5 days: one mail, both thresholds count as sent');
+        $this->assertSame([[], []], \Talea\Fleet\Expiry::due($site($date5), $now, ['certificate']), 'an accepted kind is muted: no reminder, nothing marked as sent');
+
+        $november = \Talea\Fleet\Expiry::month('2026-11', []);
+        $this->assertSame([6, [null, null, null, null, null, null, '2026-11-01'], '2026-10', '2026-12'], [count($november['weeks']), array_column($november['weeks'][0], 'day'), $november['previous'], $november['next']]);
+        $this->assertSame(date('Y-m'), \Talea\Fleet\Expiry::month('junk', [])['year'] . '-' . sprintf('%02d', \Talea\Fleet\Expiry::month('junk', [])['month']));
+    }
 }
