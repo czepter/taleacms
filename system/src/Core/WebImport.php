@@ -313,7 +313,7 @@ final class WebImport
         $seo = ['seo_title' => $page['seo_title'] !== $page['title'] ? $page['seo_title'] : '', 'image' => ''];
         if ($state['options']['images']) {
             // one budget of documents and images for the page: its content and all its widgets share it
-            $files = new WebImportFiles($this->db, $this->downloader, $this->author, $this->base, $this->mayDownload(...));
+            $files = new WebImportFiles($this->db, $this->downloader, $this->author, $this->base, $this->mayDownload(...), '/' . $old);
             $budget = ['left' => self::IMAGES_PER_PAGE, 'seen' => []];
             try {
                 $page['content'] = $files->bring($this->images($page['content'], $state, $budget), $state);
@@ -801,9 +801,10 @@ final class WebImport
         foreach (iterator_to_array($root->querySelectorAll('a[href]')) as $a) {
             $href = $a->getAttribute('href') ?? '';
             $absolute = self::absolute($href, $url);
-            // links within the old site become paths; its pages are redirected to the new addresses after the import
+            // links within the old site become paths; its pages are redirected to the new addresses after the import. A document keeps its whole
+            // address (the encoded name, the query): the import fetches it by that address and points the link at Media – or leaves it as it was
             if ($absolute !== '' && ImageDownloader::domainFromUrl($absolute) === ImageDownloader::domainFromUrl($url)) {
-                $a->setAttribute('href', '/' . self::path($absolute));
+                $a->setAttribute('href', WebImportFiles::isDocument($absolute) ? $absolute : '/' . self::path($absolute));
             }
         }
         // an element inside one removed earlier is already gone with it

@@ -24,8 +24,11 @@ final class WebImportFiles
     /** @var array<string, string> address => the Media address, for the documents of this page already dealt with */
     private array $moved = [];
 
-    /** @param (\Closure(): bool)|null $mayDownload false = this step has no time left: the page pauses (WebImportPaused) and continues in the next one */
-    public function __construct(private readonly Db $db, private readonly ImageDownloader $downloader, private readonly int $author, private readonly string $base, private readonly ?\Closure $mayDownload = null)
+    /**
+     * @param (\Closure(): bool)|null $mayDownload false = this step has no time left: the page pauses (WebImportPaused) and continues in the next one
+     * @param string $oldPath the old address of the page, for the line under "attention" about a document that could not be brought over
+     */
+    public function __construct(private readonly Db $db, private readonly ImageDownloader $downloader, private readonly int $author, private readonly string $base, private readonly ?\Closure $mayDownload = null, private readonly string $oldPath = '')
     {
     }
 
@@ -40,12 +43,18 @@ final class WebImportFiles
         $found = [];
         foreach (self::links($html) as $href) {
             $absolute = WebImport::absolute($href, $origin . '/');
-            if ($absolute !== '' && ImageDownloader::domainFromUrl($absolute) === $domain && in_array(strtolower(pathinfo((string) parse_url($absolute, PHP_URL_PATH), PATHINFO_EXTENSION)), self::DOCUMENTS, true)) {
+            if ($absolute !== '' && ImageDownloader::domainFromUrl($absolute) === $domain && self::isDocument($absolute)) {
                 $found[$absolute] = true;
             }
         }
 
         return array_keys($found);
+    }
+
+    /** Does this absolute address name a document (by the extension of its path)? */
+    public static function isDocument(string $absolute): bool
+    {
+        return in_array(strtolower(pathinfo((string) parse_url($absolute, PHP_URL_PATH), PATHINFO_EXTENSION)), self::DOCUMENTS, true);
     }
 
     /** @return list<string> */
@@ -92,6 +101,9 @@ final class WebImportFiles
             $this->moved[$address] = $path === null ? '' : $this->base . '/' . $path;
             if ($path !== null) {
                 $moved[$address] = $this->moved[$address];
+            } elseif (count($state['attention'] ?? []) < 100) {
+                // the link keeps its old address; the owner is told, so a price list does not quietly stay on the old site
+                $state['attention'][] = ['kind' => 'document', 'path' => $this->oldPath, 'host' => mb_substr(rawurldecode(basename((string) parse_url($address, PHP_URL_PATH))), 0, 80)];
             }
         }
         if ($moved === []) {
@@ -127,7 +139,7 @@ final class WebImportFiles
         $temporary = WpFile::folder() . '/web-file-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             file_put_contents($temporary, $this->downloader->download($address, false));
-            $saved = Files::saveFile($temporary, basename((string) parse_url($address, PHP_URL_PATH)));
+            $saved = Files::saveFile($temporary, rawurldecode(basename((string) parse_url($address, PHP_URL_PATH))));
             $id = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'created_at' => date('Y-m-d H:i:s')]);
             $this->map($source, $key, $id);
             $state['result']['files'] = (int) ($state['result']['files'] ?? 0) + 1;

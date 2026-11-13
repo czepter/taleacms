@@ -128,4 +128,32 @@ final class WebImportFilesTest extends DatabaseTestCase
         $this->assertSame(1, $state['result']['files'], 'a document brought over before is reused');
         $this->assertSame(2, substr_count($again, '<a href='));
     }
+
+    public function testADocumentWithASpaceInItsNameIsBroughtOverAndItsLinkPointsAtMedia(): void
+    {
+        $state = $this->state();
+        $this->old->put('docs/Price List 2024.pdf', "%PDF-1.4\n1 0 obj<<>>endobj\n%%EOF");
+        $page = WebImport::extract('<html><body><main><h1>Prices</h1><p>' . str_repeat('Our prices are fair and we are happy to explain them. ', 3)
+            . '</p><p><a href="/docs/Price%20List%202024.pdf">Price list</a> <a href="/contact/">Contact</a></p></main></body></html>', $this->old->origin . '/prices/');
+        $this->assertStringContainsString('href="' . $this->old->origin . '/docs/Price%20List%202024.pdf"', $page['content'], 'the document keeps its encoded address, a page link becomes a path');
+        $this->assertStringContainsString('href="/contact"', $page['content']);
+        $html = $this->files()->bring($page['content'], $state);
+        $this->assertSame(1, $state['result']['files']);
+        $this->assertMatchesRegularExpression('#href="/media/\d{4}/\d{2}/price-list-2024-[0-9a-f]{6}\.pdf"#', $html, 'the link points at the Media file');
+    }
+
+    public function testTheQueryThatIdentifiesADocumentIsKept(): void
+    {
+        $this->assertSame([$this->old->origin . '/download.pdf?id=7'], WebImportFiles::documentLinks('<a href="/download.pdf?id=7">x</a>', $this->old->origin));
+    }
+
+    public function testADocumentThatCannotBeFetchedIsReportedAndItsLinkKeepsTheOldAddress(): void
+    {
+        $state = $this->state();
+        $address = $this->old->origin . '/docs/Missing%20List.pdf';
+        $html = '<a href="' . $address . '">list</a>';
+        $files = new WebImportFiles($this->db(), new ImageDownloader($this->old->origin), $this->author(), '', null, '/prices');
+        $this->assertSame($html, $files->bring($html, $state));
+        $this->assertSame([['kind' => 'document', 'path' => '/prices', 'host' => 'Missing List.pdf']], $state['attention']);
+    }
 }

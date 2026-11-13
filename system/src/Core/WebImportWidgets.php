@@ -23,6 +23,7 @@ final class WebImportWidgets
         'map' => 'A map could not be read: add a Map element with the address.',
         'frame' => 'An embedded page from %s was left out: a placeholder marks its place.',
         'video_file' => 'A video file was not brought over: upload it to Media and add a Video element.',
+        'document' => 'The document %s could not be brought over: its link keeps the old address.',
         'form_off' => 'A form was found, but Enquiries are switched off: a placeholder marks its place.',
     ];
 

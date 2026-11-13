@@ -5185,6 +5185,7 @@ return [
     'The device did not confirm that a user was present.' => 'Das Gerät hat nicht bestätigt, dass ein Benutzer anwesend war.',
     'The device offered an algorithm the system does not support.' => 'Das Gerät hat einen Algorithmus angeboten, den das System nicht unterstützt.',
     'The device\'s public key could not be read.' => 'Der öffentliche Schlüssel des Geräts konnte nicht gelesen werden.',
+    'The document %s could not be brought over: its link keeps the old address.' => 'Das Dokument %s konnte nicht übernommen werden: Sein Link behält die alte Adresse.',
     'The document is valid until %s – upload the new edition or move the date; the day after, it hides itself and its download address stops working.' => 'Das Dokument gilt bis %s – laden Sie die neue Ausgabe hoch oder verschieben Sie das Datum; am Tag danach blendet es sich selbst aus und seine Download-Adresse funktioniert nicht mehr.',
     'The domain %s expires in %d days – renew it with the registrar.' => 'Die Domain %s läuft in %d Tagen ab – verlängern Sie sie beim Registrar.',
     'The domain %s has expired – renew it with the registrar before someone else takes it.' => 'Die Domain %s ist abgelaufen – verlängern Sie sie beim Registrar, bevor sie jemand anderes übernimmt.',
