@@ -276,6 +276,7 @@ class Settings extends Module
         $given = [];
         $zoneBefore = $settings->get('time_zone');
         $twoFactorBefore = $settings->get('require_2fa');
+        $urlBefore = $settings->get('site_url');
         $instructionsBefore = $settings->get('claude_instructions'); // a change goes to the change log with both texts (#149)
         $override = []; // values saved instead of what the form sent
         if ($tab === 'analytics' && $this->request->postBool('disconnect')) {
@@ -310,6 +311,7 @@ class Settings extends Module
             }
             // "code" is not trimmed or modified in any other way - it is HTML/JS inserted by the administrator
             $value = $override[$key] ?? ($type === 'code' ? (string) ($_POST[$key] ?? '') : $this->request->post($key));
+            $value = $key === 'site_url' ? \Talea\Core\SiteUrl::normalize($value) : $value; // lower case, no trailing slash, dot or default port
             if (str_starts_with($type, 'list:')) {
                 $settings->set($key, implode(',', array_intersect($this->request->postList($key), explode('|', substr($type, 5)))));
                 continue;
@@ -343,6 +345,12 @@ class Settings extends Module
             $settings->set('require_2fa', $twoFactorBefore); // making two-factor sign-in optional for more people needs a fresh proof (#332)
 
             return $this->back(t('The other settings are saved, but two-factor sign-in was not weakened: %s', t($refusal)), '', $this->tabParams($tab), 'error');
+        }
+        if (($fallbacks = \Talea\Core\SiteUrl::passkeyFallbacks($this->db, $urlBefore, $settings->get('site_url'))) > 0 && !$this->request->postBool('site_url_confirm')) {
+            $settings->set('site_url', $urlBefore); // passkeys work only on the host they were registered for: confirm first
+            $this->app->session->set('settings_invalid', ['tab' => $tab, 'fields' => ['site_url'], 'values' => ['site_url' => $this->request->post('site_url')]]);
+
+            return $this->back(t('The new address has another host name. Passkeys work only on the host they were registered for: %d account(s) would sign in with the password and the second step until they add a passkey again. Tick “Change the host name anyway” and save again.', $fallbacks), '', $this->tabParams($tab), 'error');
         }
         \Talea\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'), typed: true);
         // a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;

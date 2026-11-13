@@ -9,6 +9,9 @@ if (Talea\Core\SiteUrl::locked($app->db())) {
 } else {
     $field('site_url', 'Site address', 'url', 'For example https://www.example.com, without a trailing slash. Links in e-mails, RSS, the sitemap and notifications are built from it. Change it after moving to another domain.', 'required placeholder="https://"');
 }
+if (in_array('site_url', $invalidFields, true) && !Talea\Core\SiteUrl::locked($app->db())) {
+    echo '<div class="row"><span class="caption"></span><div><label><input type="checkbox" name="site_url_confirm" value="1"> ', e(t('Change the host name anyway')), '</label></div></div>';
+}
 $field('site_description', 'Site description', 'lines', 'One or two sentences – a motto, a description for search engines and RSS.');
 $field('site_email', 'Site email', 'email', 'System notifications are sent to it.');
 ?>

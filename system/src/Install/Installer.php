@@ -445,7 +445,7 @@ final class Installer
 
     private function siteUrl(): string
     {
-        return rtrim(Config::env('SITE_URL'), '/') ?: $this->request->origin();
+        return \Talea\Core\SiteUrl::fromEnvironment() ?: $this->request->origin();
     }
 
     /** @param array<string, mixed> $data */

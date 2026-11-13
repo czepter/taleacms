@@ -108,11 +108,13 @@ trait SettingsTools
             if ($key === 'site_url') {
                 // the address password-reset and member sign-in links are built from: an administrator's connection with full
                 // access only, and never while the server sets it (TALEA_SITE_URL, Core\SiteUrl)
-                $url = is_string($value) ? rtrim(trim($value), '/') : '';
+                $url = is_string($value) ? \Talea\Core\SiteUrl::normalize($value) : '';
                 $refusal = match (true) {
                     \Talea\Core\SiteUrl::locked($this->app->db()) => 'The server sets the site address (TALEA_SITE_URL) and applies it when the site starts: change it in the hosting and restart the site.',
                     ($auth->connection()['access'] ?? 'full') !== 'full' => 'The site address can be changed only by a connection with full access.',
                     \Talea\Admin\Modules\Settings::verifyValue($key, $url) === null => 'An address like https://example.com – the scheme and the host, no path.',
+                    // passkeys work only on the host they were registered for: nobody is there to confirm that accounts fall back to password plus second step
+                    ($n = \Talea\Core\SiteUrl::passkeyFallbacks($this->app->db(), $siteSettings->get('site_url'), $url)) > 0 => 'The new address has another host name, and ' . $n . ' account(s) have passkeys for the current one that would stop working. A person changes it in Settings → General and confirms it there.',
                     default => null,
                 };
                 if ($refusal !== null) {
