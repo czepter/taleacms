@@ -33,7 +33,7 @@ final class Fleet extends Module
         $sites = Console::overview($this->db, time());
         $show = $this->request->get('show') === 'all' ? 'all' : 'today';
         $query = mb_strtolower(trim($this->request->get('q')));
-        $needing = count(array_filter($sites, fn (array $s): bool => $s['score'] >= Console::REASONS['warnings']));
+        $needing = Today::needing($sites);
         $matches = fn (array $s): bool => $query === '' || str_contains(mb_strtolower($s['name'] . ' ' . $s['url']), $query);
         $listed = array_values(array_filter($sites, fn (array $s): bool => $matches($s)));
         $rows = array_map(Inventory::row(...), $sites);
@@ -140,7 +140,7 @@ final class Fleet extends Module
     {
         $sites = Console::overview($this->db, time());
 
-        return ['needing' => count(array_filter($sites, fn (array $s): bool => $s['score'] >= Console::REASONS['warnings'])), 'total' => count($sites)];
+        return ['needing' => Today::needing($sites), 'total' => count($sites)];
     }
 
     protected function actionPairingKey(): Response

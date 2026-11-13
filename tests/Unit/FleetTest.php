@@ -230,6 +230,26 @@ final class FleetTest extends TestCase
         $this->assertSame(1, count(\Talea\Fleet\Expiry::due($site, $now)[0]), 'without the acceptance the reminder is due');
     }
 
+    /** #341: the number on the Today tab counts the sites that have an open item, the very ones Today lists – also a site with only enquiries waiting. */
+    public function testTheTodayCountAgreesWithTheItemsListed(): void
+    {
+        $now = strtotime('2026-11-13 12:00:00');
+        $until = date('Y-m-d', $now + 30 * 86400);
+        $row = fn (int $id, int $enquiries): array => ['id' => $id, 'public_id' => "s$id", 'name' => "Site $id", 'url' => "https://s$id.example", 'up' => 1, 'up_status' => 200, 'status' => 'ok', 'last_seen' => date('Y-m-d H:i:s', $now - 600),
+            'heartbeat' => (string) json_encode(['last_backup' => $now - 3600, 'cron_last_run' => $now - 300, 'enquiries_unanswered' => $enquiries])];
+        $withEnquiries = $row(1, 2);
+        $withEnquiries += \Talea\Fleet\Console::attention($withEnquiries, $now);
+        $this->assertLessThan(\Talea\Fleet\Console::REASONS['warnings'], $withEnquiries['score'], 'only enquiries: below the old threshold');
+        $fine = $row(2, 0);
+        $fine += \Talea\Fleet\Console::attention($fine, $now);
+        $this->assertSame(1, \Talea\Fleet\Today::needing([$withEnquiries, $fine]));
+        $this->assertSame(['enquiries'], array_column(\Talea\Fleet\Today::groups([$withEnquiries, $fine]), 'key'), 'Today lists that site');
+
+        $acceptedRow = $row(3, 2) + ['accepted' => json_encode(\Talea\Fleet\Today::accept([], ['key' => 'enquiries', 'state' => 'enquiries'], 'known', $until, 'admin', $now))];
+        $acceptedRow += \Talea\Fleet\Console::attention($acceptedRow, $now);
+        $this->assertSame(0, \Talea\Fleet\Today::needing([$acceptedRow, $fine]), 'an accepted item is not open');
+    }
+
     /** #341: the inventory – rows from the reports, values, filters, CSV */
     public function testInventory(): void
     {

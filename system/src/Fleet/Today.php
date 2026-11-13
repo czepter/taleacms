@@ -160,6 +160,16 @@ final class Today
     }
 
     /**
+     * How many sites have at least one open (not accepted) item: the number on the Today tab, so it agrees with what Today lists.
+     *
+     * @param list<array<string, mixed>> $overview Console::overview() rows (with items)
+     */
+    public static function needing(array $overview): int
+    {
+        return count(array_filter($overview, fn (array $site): bool => array_filter((array) ($site['items'] ?? []), fn (array $item): bool => $item['accepted'] === null) !== []));
+    }
+
+    /**
      * The Today screen: groups with an incident first, then the rest, then what a person accepted.
      *
      * @param list<array<string, mixed>> $overview Console::overview() rows (with items)
