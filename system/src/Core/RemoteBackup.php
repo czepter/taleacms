@@ -52,16 +52,18 @@ final class RemoteBackup
         return self::failureText($error, $s->get('backup_password'), $s->get('backup_user'));
     }
 
-    /** A stored status ("Y-m-d H:i|ok or error|…") with its failure text cleaned again: it may have been saved before the text was masked. */
+    /**
+     * A stored status with its failure text cleaned again: it may have been saved before the text was masked. The form is "date|ok or error"
+     * (backups) or "date|ok or error|files waiting" (media); an old error text may itself hold "|", so everything after the date is the
+     * text, except a trailing number written by Talea. Cleaning twice gives the same result.
+     */
     public static function cleanStatus(Settings $s, string $status): string
     {
-        $parts = explode('|', $status, 3);
-        if (!isset($parts[1]) || in_array($parts[1], ['', 'ok'], true)) {
+        if (!preg_match('/^([^|]*)\|(.*?)(\|\d+)?$/su', $status, $m) || in_array($m[2], ['', 'ok'], true)) {
             return $status;
         }
-        $parts[1] = self::clean($s, $parts[1]);
 
-        return implode('|', $parts);
+        return $m[1] . '|' . self::clean($s, $m[2]) . ($m[3] ?? '');
     }
 
     /** @return string|null error text, null = uploaded (or remote backup is turned off) */
