@@ -430,11 +430,7 @@ final class Backup
 
                 return;
             }
-            try {
-                RemoteBackup::upload($settings, (string) self::path($file)); // the result is shown by the system health page and the Backups tab
-            } catch (\Throwable $e) {
-                Events::record($db, 'backup.failed', 'error', mb_substr(t('The off-site copy of the backup failed: %s', $e->getMessage()), 0, 255), ['file' => $file]);
-            }
+            RemoteBackup::upload($settings, (string) self::path($file)); // records its own failure (backup.failed); the system health page and the Backups tab show it
         }
     }
 }

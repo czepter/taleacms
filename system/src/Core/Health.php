@@ -142,7 +142,7 @@ final class Health
         }
         $add(t('Operation'), t('Search engine indexing'), $siteSettings->bool('indexing') ? 'ok' : 'warning', $siteSettings->bool('indexing') ? t('allowed') : t('disabled on the SEO and GEO tab - the site will not appear in search results'));
         $add(t('Operation'), t('Media size'), 'ok', self::size(MediaFolder::bytes(MediaFolder::dir())));
-        $remote = explode('|', $app->settings()->get('remote_backup_status'), 2);
+        $remote = explode('|', RemoteBackup::cleanStatus($app->settings(), $app->settings()->get('remote_backup_status')), 2);
         if ($app->settings()->get('remote_backup') !== 'off') {
             $add(t('Operation'), t('Off-site backups'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'warning', ($remote[1] ?? '') === 'ok' ? t('last copy uploaded %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('last attempt %s failed: %s', $remote[0], $remote[1]) : t('no copy has been made yet')));
         } else {

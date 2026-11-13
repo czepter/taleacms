@@ -5465,6 +5465,7 @@ return [
     'The number of published news items.' => 'Die Anzahl der veröffentlichten Neuigkeiten.',
     'The number of visible items of a collection (by its address).' => 'Die Anzahl der sichtbaren Einträge einer Sammlung (nach ihrer Adresse).',
     'The off-site copy of the backup failed: %s' => 'Die Kopie des Backups außerhalb des Servers ist fehlgeschlagen: %s',
+    'The off-site copy of the media failed: %s' => 'Die Kopie der Medien außerhalb des Servers ist fehlgeschlagen: %s',
     'The official notice board preset for municipalities and other offices: notices with posting and takedown dates, a permanent archive and an append-only audit trail (the list_notice_log tool). Applying the Municipality blueprint turns it on. Switching it off hides it but never deletes notices or their log.' => 'Die Vorlage für amtliche Bekanntmachungen für Gemeinden und andere Ämter: Bekanntmachungen mit Aushang- und Abnahmedatum, ein dauerhaftes Archiv und ein nur ergänzbares Änderungsprotokoll (das Werkzeug list_notice_log). Das Muster Gemeinde schaltet sie ein. Beim Ausschalten wird sie ausgeblendet, Bekanntmachungen und ihr Protokoll werden aber nie gelöscht.',
     'The old page could not be read, so only the address was checked.' => 'Die alte Seite ließ sich nicht lesen, daher wurde nur die Adresse geprüft.',
     'The old page had a form, the new one has none.' => 'Die alte Seite hatte ein Formular, die neue hat keines.',

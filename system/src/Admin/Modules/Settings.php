@@ -13,6 +13,7 @@ use Talea\Core\Health;
 use Talea\Core\Messages;
 use Talea\Admin\ChangeLog;
 use Talea\Core\Backup;
+use Talea\Core\RemoteBackup;
 
 /**
  * Site settings (table tl_settings) split into tabs.
@@ -222,8 +223,8 @@ class Settings extends Module
             'invalidFields' => $invalid['fields'],
             'values' => $invalid['values'] + $values,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
-            'remoteStatus' => $settings->get('remote_backup_status'),
-            'mediaStatus' => $settings->get('remote_media_status'),
+            'remoteStatus' => RemoteBackup::cleanStatus($settings, $settings->get('remote_backup_status')),
+            'mediaStatus' => RemoteBackup::cleanStatus($settings, $settings->get('remote_media_status')),
             'tasksToken' => $settings->get('tasks_token'),
             'errorLog' => $tab === 'health' && \Talea\Core\Owners::isFirst($this->db) ? self::readFileTail(TALEA_ROOT . '/storage/log/errors.log', 40) : [],
             'mail' => $tab === 'mail' ? $this->db->all('SELECT recipient, subject, created_at, sent_at, attempts, next_attempt_at, error FROM {mail} ORDER BY mail_id DESC LIMIT 30') : [],
