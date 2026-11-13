@@ -48,5 +48,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <?php if ($members !== []): ?>
 <p class="small-text"><?= e(t('Saving also changes the permissions of these users:')) ?> <?= e(implode(', ', array_map(fn (array $u): string => $u['name'] !== '' ? $u['name'] : $u['username'], $members))) ?></p>
 <?php endif ?>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'role-confirm', 'error' => isset($errors['current_password']) ? t($errors['current_password']) : null,
+    'help' => t('Needed when a role gets every section – unless you signed in less than 10 minutes ago.')]) ?>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>

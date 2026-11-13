@@ -136,6 +136,15 @@ final class Users extends Module
             default => self::defaultModules((int) $data['admin']),
         };
 
+        // changes to another person that could take an account over or widen access need a fresh proof of the administrator (Auth::requireFresh)
+        if (!$isSelf) {
+            $modulesBefore = $id > 0 ? array_column($this->db->all('SELECT module FROM {user_permissions} WHERE user_id = ?', [$id]), 'module') : [];
+            if (self::sensitiveChanges($before, $data, $password !== '', $r->postBool('totp_reset'), array_values($modules), $modulesBefore) !== []
+                && ($refusal = $this->app->auth()->requireFresh($r)) !== null) {
+                return $this->form(['user_id' => $id] + $data, ['current_password' => $refusal]);
+            }
+        }
+
         // roles per site: the sites a person who is not an administrator may work on. Only a form that showed the choice changes it; "all
         // sites" is an explicit answer, and a limited person with nothing ticked has no site (Sites::limitedTo)
         $sitesShown = $r->postBool('sites_shown');
@@ -183,6 +192,45 @@ final class Users extends Module
         }
 
         return $this->back('User saved.');
+    }
+
+    /**
+     * What a save changes that needs a fresh proof of the administrator (#332): another person's password, two-factor reset or e-mail,
+     * a new administrator, and every section for someone who is not one (it is the publishing role). Pure: the saved row, the form
+     * and the sections before and after decide.
+     *
+     * @param array<string, mixed>|null $before the stored row, null for a new person
+     * @param array<string, mixed> $data the new values (admin, email)
+     * @param list<string> $modules sections after the save
+     * @param list<string> $modulesBefore sections before it
+     * @return list<string> reasons: password | two_factor | email | administrator | every_section
+     */
+    public static function sensitiveChanges(?array $before, array $data, bool $passwordSet, bool $totpReset, array $modules, array $modulesBefore = []): array
+    {
+        $reasons = [];
+        if ($before !== null && $passwordSet) {
+            $reasons[] = 'password';
+        }
+        if ($before !== null && $totpReset) {
+            $reasons[] = 'two_factor';
+        }
+        if ($before !== null && strcasecmp((string) $before['email'], (string) $data['email']) !== 0) {
+            $reasons[] = 'email';
+        }
+        if ((int) $data['admin'] === Auth::ADMIN && ($before === null || (int) $before['admin'] !== Auth::ADMIN)) {
+            $reasons[] = 'administrator';
+        }
+        if ((int) $data['admin'] !== Auth::ADMIN && self::everySection($modules) && ($before === null || (int) $before['admin'] === Auth::ADMIN || !self::everySection($modulesBefore))) {
+            $reasons[] = 'every_section';
+        }
+
+        return $reasons;
+    }
+
+    /** Every section that can be given out one by one (Roles::configurable) is in $modules. @param list<string> $modules */
+    public static function everySection(array $modules): bool
+    {
+        return array_diff(array_keys(Roles::configurable()), $modules) === [];
     }
 
     /**

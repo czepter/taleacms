@@ -3052,6 +3052,8 @@ return [
     'Need attention' => 'Brauchen Aufmerksamkeit',
     'Needed score' => 'Nötiger Wert',
     'Needed to add or remove a passkey.' => 'Nötig, um einen Passkey hinzuzufügen oder zu entfernen.',
+    'Needed when a role gets every section – unless you signed in less than 10 minutes ago.' => 'Nötig, wenn eine Rolle alle Bereiche erhält – es sei denn, Sie haben sich vor weniger als 10 Minuten angemeldet.',
+    'Needed when you set a password, change the e-mail, reset two-factor sign-in, make someone an administrator or give every section – unless you signed in less than 10 minutes ago.' => 'Nötig, wenn Sie ein Passwort setzen, die E-Mail-Adresse ändern, die Zwei-Faktor-Anmeldung zurücksetzen, jemanden zum Administrator machen oder alle Bereiche freigeben – es sei denn, Sie haben sich vor weniger als 10 Minuten angemeldet.',
     'Needs attention:' => 'Braucht Aufmerksamkeit:',
     'Needs more data: the result is not trustworthy yet.' => 'Mehr Daten nötig: Dem Ergebnis ist noch nicht zu trauen.',
     'Needs work' => 'Ausbaufähig',

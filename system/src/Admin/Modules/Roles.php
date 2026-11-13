@@ -90,6 +90,11 @@ final class Roles extends Module
         if ($errors !== []) {
             return $this->form(['role_id' => $id] + $data, $errors);
         }
+        // a role with every section is the publishing role: giving it out needs a fresh proof of the administrator (Auth::requireFresh)
+        $was = $id > 0 && Users::everySection(array_filter(explode(',', (string) $this->db->value('SELECT modules FROM {role} WHERE role_id = ?', [$id]))));
+        if (Users::everySection(explode(',', $data['modules'])) && !$was && ($refusal = $this->app->auth()->requireFresh($r)) !== null) {
+            return $this->form(['role_id' => $id] + $data, ['current_password' => $refusal]);
+        }
         $this->db->transaction(function (Db $db) use (&$id, $data): void {
             if ($id > 0) {
                 $db->update('role', $data, ['role_id' => $id]);

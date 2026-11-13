@@ -133,6 +133,10 @@ $role = [
 </div>
 <?php endif ?>
 </details>
+<?php if (!$isSelf): ?>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'user-confirm', 'error' => isset($errors['current_password']) ? t($errors['current_password']) : null,
+    'help' => t('Needed when you set a password, change the e-mail, reset two-factor sign-in, make someone an administrator or give every section – unless you signed in less than 10 minutes ago.')]) ?>
+<?php endif ?>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t($author['user_id'] ? 'Save' : 'Add user')) ?>"></p>
 </form>
 <?php if ($author['user_id'] && ($connections ?? []) !== []): ?>
