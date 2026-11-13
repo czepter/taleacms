@@ -1918,6 +1918,7 @@ return [
     'Empty the menu' => 'Menü leeren',
     'Empty this site' => 'Website leeren',
     'Empty this site? An export is made first, the content is deleted.' => 'Diese Website leeren? Zuerst wird ein Export erstellt, danach werden die Inhalte gelöscht.',
+    'Emptying the trash: what was deleted more than 30 days ago' => 'Papierkorb leeren: was vor mehr als 30 Tagen gelöscht wurde',
     'Encryption key' => 'Verschlüsselungsschlüssel',
     'End' => 'Ende',
     'End date field (key, optional)' => 'Feld mit dem Ende (Schlüssel, optional)',

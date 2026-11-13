@@ -1027,7 +1027,7 @@ final class Pages extends Module
         return $this->back('The page has been permanently deleted.', '', ['status' => 'trash']);
     }
 
-    /** Pages in the trash longer than TRASH_DAYS are deleted permanently (called by Admin\Kernel). */
+    /** Pages in the trash longer than TRASH_DAYS are deleted permanently (job trash of Core\Scheduler). */
     public static function emptyTrash(\Talea\Core\Db $db): int
     {
         return $db->run('DELETE FROM {pages} WHERE deleted_at < NOW() - INTERVAL ' . self::TRASH_DAYS . ' DAY')->rowCount();

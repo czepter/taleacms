@@ -121,12 +121,14 @@ final class OffSiteCopiesTest extends SiteTestCase
         $age();
         $before = $this->autoBackups();
         $site->admin()->get('/admin.php');
-        $this->assertSame($before + 1, $this->autoBackups(), 'a change since the last backup (older than a day) makes a new automatic one');
+        $this->assertSame($before, $this->autoBackups(), 'an admin page view makes no backup (#337)');
+        $site->runTasks();
+        $this->assertSame($before + 1, $this->autoBackups(), 'a change since the last backup (older than a day) makes a new automatic one in the background job');
 
         $age();
         $site->exec('UPDATE tl_change_log SET created_at = NOW() - INTERVAL 3 DAY WHERE created_at > NOW() - INTERVAL 3 DAY');
         $site->exec('UPDATE tl_enquiries SET created_at = NOW() - INTERVAL 3 DAY WHERE created_at > NOW() - INTERVAL 3 DAY');
-        $site->admin()->get('/admin.php');
+        $site->runTasks();
         $this->assertSame($before + 1, $this->autoBackups(), 'without a change no new backup before the week is over');
     }
 

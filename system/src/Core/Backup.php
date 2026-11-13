@@ -83,10 +83,13 @@ final class Backup
         if (!is_dir($folder) && !mkdir($folder, 0775, true)) {
             throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }
+        @set_time_limit(300); // a background run on a visit has the web server's limit otherwise
         $gz = function_exists('gzopen');
         $file = 'talea-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $reason) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');
         $path = $folder . '/' . $file;
-        $f = $gz ? gzopen($path, 'wb6') : fopen($path, 'wb');
+        // written under a hidden name and renamed when complete: a run that is killed never leaves a half file that counts as the newest backup
+        $part = $folder . '/.' . $file . '.part';
+        $f = $gz ? gzopen($part, 'wb6') : fopen($part, 'wb');
         $write = fn (string $s) => $gz ? gzwrite($f, $s) : fwrite($f, $s);
 
         $pdo = $connections[0]->pdo();
@@ -104,40 +107,47 @@ final class Backup
         if ($sites === []) {
             // no table found (a session that reads the table list differently): a file with a header and nothing else must never replace a good backup
             $gz ? gzclose($f) : fclose($f);
-            @unlink($path);
+            @unlink($part);
             throw new \RuntimeException('The backup would be empty – no tables of this site were found in the database.');
         }
-        $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n-- prefixes: " . implode(',', $prefixes) . "\n" . $dialect->dumpPrologue(array_keys($sites)));
-        foreach ($sites as $table => $site) {
-            $name = substr($table, strlen($site->prefix));
-            // temporary data is not backed up
-            $structureOnly = in_array($name, ['stats_visitors', 'ip_checks'], true);
-            $write($dialect->dumpStructure($pdo, $table));
-            if ($structureOnly) {
-                continue;
-            }
-            $columns = $site->columns($name);
-            $booleans = array_keys(array_intersect($columns, $dialect->dumpBooleanColumns($pdo, $table)));
-            $head = $dialect->dumpInsert($table, $columns);
-            $rows = $pdo->query('SELECT ' . implode(', ', array_map($dialect->quote(...), $columns)) . ' FROM ' . $dialect->quote($table), \PDO::FETCH_NUM);
-            $batch = [];
-            foreach ($rows as $row) {
-                foreach ($booleans as $i) {
-                    $row[$i] = $row[$i] === null ? null : (bool) $row[$i];
+        try {
+            $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n-- prefixes: " . implode(',', $prefixes) . "\n" . $dialect->dumpPrologue(array_keys($sites)));
+            foreach ($sites as $table => $site) {
+                $name = substr($table, strlen($site->prefix));
+                // temporary data is not backed up
+                $structureOnly = in_array($name, ['stats_visitors', 'ip_checks'], true);
+                $write($dialect->dumpStructure($pdo, $table));
+                if ($structureOnly) {
+                    continue;
                 }
-                $batch[] = '(' . implode(',', array_map(fn ($h): string => $h === null ? 'NULL' : (is_bool($h) ? ($h ? 'TRUE' : 'FALSE') : (is_int($h) || is_float($h) ? (string) $h : $dialect->dumpLiteral($pdo, (string) $h))), $row)) . ')';
-                if (count($batch) >= 200) {
+                $columns = $site->columns($name);
+                $booleans = array_keys(array_intersect($columns, $dialect->dumpBooleanColumns($pdo, $table)));
+                $head = $dialect->dumpInsert($table, $columns);
+                $rows = $pdo->query('SELECT ' . implode(', ', array_map($dialect->quote(...), $columns)) . ' FROM ' . $dialect->quote($table), \PDO::FETCH_NUM);
+                $batch = [];
+                foreach ($rows as $row) {
+                    foreach ($booleans as $i) {
+                        $row[$i] = $row[$i] === null ? null : (bool) $row[$i];
+                    }
+                    $batch[] = '(' . implode(',', array_map(fn ($h): string => $h === null ? 'NULL' : (is_bool($h) ? ($h ? 'TRUE' : 'FALSE') : (is_int($h) || is_float($h) ? (string) $h : $dialect->dumpLiteral($pdo, (string) $h))), $row)) . ')';
+                    if (count($batch) >= 200) {
+                        $write($head . implode(",\n", $batch) . ";\n");
+                        $batch = [];
+                    }
+                }
+                if ($batch !== []) {
                     $write($head . implode(",\n", $batch) . ";\n");
-                    $batch = [];
                 }
+                $write("\n");
             }
-            if ($batch !== []) {
-                $write($head . implode(",\n", $batch) . ";\n");
-            }
-            $write("\n");
+            $write($dialect->dumpEpilogue());
+        } catch (\Throwable $e) {
+            $gz ? gzclose($f) : fclose($f);
+            @unlink($part);
+            throw $e;
         }
-        $write($dialect->dumpEpilogue());
         $gz ? gzclose($f) : fclose($f);
+        rename($part, $path);
 
         self::prune($folder, $keep);
 
@@ -408,12 +418,12 @@ final class Backup
     }
 
     /**
-     * Automatic backup – called when an administrator works in the administration and from cron. Since 1.8 every day
+     * Automatic backup – called by the background job backup (cron, or a visit after the page was sent). Since 1.8 every day
      * something changed on the site (the change log, a new enquiry), otherwise once a week.
      */
     public static function createAutomatic(Db $db, Settings $settings): void
     {
-        if (!$settings->bool('auto_backups') || Owners::sharedFilesRefusal($db) !== null) {
+        if (!$settings->bool('auto_backups') || self::refusedInDemo() || Owners::sharedFilesRefusal($db) !== null) {
             return;
         }
         $last = self::listAll()[0]['time'] ?? 0;

@@ -677,7 +677,7 @@ final class News extends Module
         return $this->back(t('News items permanently deleted: %d.', $deleted), '', ['status' => 'trash'], $deleted > 0 ? 'ok' : 'error');
     }
 
-    /** The trash empties itself: news items older than 30 days are deleted permanently (called by Admin\Kernel on entering the admin). */
+    /** The trash empties itself: news items older than 30 days are deleted permanently (job trash of Core\Scheduler). */
     public static function emptyTrash(\Talea\Core\Db $db): int
     {
         return $db->run('DELETE FROM {news} WHERE deleted_at < NOW() - INTERVAL 30 DAY')->rowCount();

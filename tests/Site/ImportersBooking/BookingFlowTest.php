@@ -117,7 +117,7 @@ final class BookingFlowTest extends SiteTestCase
         $this->assertSame('0|1', $this->q("SELECT CONCAT((SELECT COUNT(*) FROM tl_bookings WHERE email = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM tl_bookings WHERE name = 'Phone Customer'))"), "booking: erased on request, the other person's booking stays");
         $site->exec("UPDATE tl_bookings SET ends_at = NOW() - INTERVAL 30 MONTH, starts_at = NOW() - INTERVAL 30 MONTH WHERE name = 'Phone Customer'");
         $site->setting('enquiries_expiry', 'anonymise');
-        $site->admin()->get('/admin.php?module=bookings');
+        $site->runTasks(); // the retention is a background job (#337)
         $phone = (int) $this->q("SELECT id FROM tl_bookings WHERE source = 'admin' LIMIT 1");
         $this->assertSame('1|1|1', $this->q("SELECT CONCAT(COUNT(*), '|', MAX(name = ''), '|', MAX(anonymised_at IS NOT NULL)) FROM tl_bookings WHERE id = $phone"), 'booking: past the enquiry retention the booking is anonymised, the row stays');
     }

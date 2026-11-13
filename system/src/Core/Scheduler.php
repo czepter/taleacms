@@ -28,13 +28,14 @@ final class Scheduler
         'newsletter_sync' => [0, 'any', 'Subscribers to the mailing service'],
         'newsletter_mailing' => [0, 'cron', 'Sending newsletters'],
         'media_sync' => [0, 'any', 'Off-site copy of the media'],
-        'backup' => [0, 'cron', 'Automatic backups'],
+        'backup' => [0, 'any', 'Automatic backups'],
         'links' => [0, 'any', 'Checking links'],
         'redirects' => [86400, 'any', 'Redirects for addresses visitors could not find'],
         // #161: the previous month's report is stored once the month has turned – before the clean-up deletes its oldest sources,
         // and before the monthly e-mail, which is written from it
         'report_archive' => [3600, 'any', 'Monthly report archive: the previous month stored, 24 months kept'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
+        'trash' => [86400, 'any', 'Emptying the trash: what was deleted more than 30 days ago'],
         'alerts' => [300, 'any', 'Alert e-mails'],
         'security' => [86400, 'any', 'Suspending unused accounts and connections, encrypting stored secrets'],
         'validity' => [3600, 'any', 'Content that expires or asks for review'],
@@ -114,6 +115,8 @@ final class Scheduler
 
                 return 'ok';
             },
+            'trash' => fn (App $app): string => 'news ' . \Talea\Admin\Modules\News::emptyTrash($app->db()) . ', pages ' . \Talea\Admin\Modules\Pages::emptyTrash($app->db())
+                . ', items ' . \Talea\Admin\Modules\Collections::emptyTrash($app->db()) . ', enquiries ' . \Talea\Admin\Modules\Enquiries::emptyTrash($app->db()),
             'alerts' => fn (App $app): string => Alerts::run($app),
             'security' => function (App $app): string {
                 $done = SecurityHygiene::run($app);

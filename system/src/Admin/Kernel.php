@@ -359,18 +359,10 @@ final class Kernel
             $app->session->flash('error', t('The database is behind the code: run "php bin/migrate" on the server.'));
         }
 
-        if ($app->auth()->isAdmin() && !\Talea\Core\Demo::active()) {
-            if (!$request->isPost()) {
-                \Talea\Core\Vault::sealStored($app->db(), $app->settings()); // passwords and keys kept in plain text before TALEA_SECRET_KEY was set (#335)
-            }
-            \Talea\Core\Backup::createAutomatic($app->db(), $app->settings());
+        if ($app->auth()->isAdmin() && !\Talea\Core\Demo::active() && !$request->isPost()) {
+            \Talea\Core\Vault::sealStored($app->db(), $app->settings()); // passwords and keys kept in plain text before TALEA_SECRET_KEY was set (#335)
         }
-        if ($app->auth()->user() !== null) {
-            Modules\News::emptyTrash($app->db()); // the trash keeps news and pages for 30 days
-            Modules\Pages::emptyTrash($app->db());
-            Modules\Collections::emptyTrash($app->db());
-            Modules\Enquiries::emptyTrash($app->db());
-        }
+        // Backups (job backup) and the trash (job trash) are background jobs (Core\Scheduler), never the work of an admin page view.
 
         $ident = $request->get('module');
         \Talea\Core\ErrorReport::tag('module', $ident !== '' ? $ident : 'dashboard');

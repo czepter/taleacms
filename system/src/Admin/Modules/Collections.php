@@ -795,10 +795,10 @@ final class Collections extends Module
         return $db->run('UPDATE {collection_items} SET deleted_at = NULL WHERE item_id = ? AND collection_id = ? AND deleted_at IS NOT NULL', [$idp, $idk])->rowCount() > 0;
     }
 
-    /** Items longer than 30 days in the trash are deleted permanently (with pages and news, on an admin visit). */
-    public static function emptyTrash(\Talea\Core\Db $db): void
+    /** Items longer than 30 days in the trash are deleted permanently (job trash, with pages, news and enquiries). */
+    public static function emptyTrash(\Talea\Core\Db $db): int
     {
-        $db->run('DELETE FROM {collection_items} WHERE deleted_at < NOW() - INTERVAL 30 DAY');
+        return $db->run('DELETE FROM {collection_items} WHERE deleted_at < NOW() - INTERVAL 30 DAY')->rowCount();
     }
 
     /* ---------- item template in the builder (administrator) ---------- */

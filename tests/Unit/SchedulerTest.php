@@ -14,4 +14,12 @@ final class SchedulerTest extends TestCase
         $this->assertSame([true, true, false, true, false], [\Talea\Core\Scheduler::isDue(null, 300, 1000), \Talea\Core\Scheduler::isDue(900, 0, 1000), \Talea\Core\Scheduler::isDue(800, 300, 1000),
             \Talea\Core\Scheduler::isDue(700, 300, 1000), \Talea\Core\Scheduler::isDue(1000 - 86400 + 60, 86400, 1000)], '2.8: Scheduler::isDue');
     }
+
+    public function testTheTrashAndBackupsAreBackgroundJobs(): void
+    {
+        $this->assertSame(86400, \Talea\Core\Scheduler::JOBS['trash'][0]);
+        $this->assertSame('any', \Talea\Core\Scheduler::JOBS['trash'][1]);
+        $this->assertSame('any', \Talea\Core\Scheduler::JOBS['backup'][1], 'without cron a visit still makes the automatic backup');
+        $this->assertArrayHasKey('trash', \Talea\Core\Scheduler::jobs());
+    }
 }
