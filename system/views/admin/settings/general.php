@@ -24,7 +24,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	</select><span class="help"><?= e(t('Anyone who must have it and has not turned it on yet can only reach My account after signing in until they set it up.')) ?></span></div>
 </div>
 <?php $field('passkey_only', 'Passkey-only sign-in', 'flag', 'Every account that has a passkey for this site signs in only with it, or with the password and a backup code. It applies to an account only once it has a passkey for this site, so nobody is locked out.'); ?>
-<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'weaken-confirm', 'help' => t('Needed to make two-factor sign-in optional for more people – unless you signed in less than 10 minutes ago.')]) ?>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'weaken-confirm', 'help' => t('Needed to make two-factor or passkey-only sign-in weaker – unless you signed in less than 10 minutes ago.')]) ?>
 <?php $autoSuspend = explode(',', $values['auto_suspend'] ?? ''); ?>
 <div class="row">
 	<span class="caption"><?= e(t('Suspend automatically')) ?></span>

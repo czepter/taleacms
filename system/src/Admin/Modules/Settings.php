@@ -276,6 +276,7 @@ class Settings extends Module
         $given = [];
         $zoneBefore = $settings->get('time_zone');
         $twoFactorBefore = $settings->get('require_2fa');
+        $passkeyOnlyBefore = $settings->bool('passkey_only');
         $urlBefore = $settings->get('site_url');
         $instructionsBefore = $settings->get('claude_instructions'); // a change goes to the change log with both texts (#149)
         $override = []; // values saved instead of what the form sent
@@ -341,10 +342,13 @@ class Settings extends Module
             }
             $settings->set($key, $clean);
         }
-        if ($tab === 'general' && self::weakensTwoFactor($twoFactorBefore, $settings->get('require_2fa')) && ($refusal = $this->app->auth()->requireFresh($this->request)) !== null) {
-            $settings->set('require_2fa', $twoFactorBefore); // making two-factor sign-in optional for more people needs a fresh proof (#332)
+        if ($tab === 'general' && (self::weakensTwoFactor($twoFactorBefore, $settings->get('require_2fa')) || ($passkeyOnlyBefore && !$settings->bool('passkey_only')))
+            && ($refusal = $this->app->auth()->requireFresh($this->request)) !== null) {
+            // making two-factor sign-in optional for more people, or turning passkey-only off for the site, needs a fresh proof (#332, #333)
+            $settings->set('require_2fa', $twoFactorBefore);
+            $settings->set('passkey_only', $passkeyOnlyBefore ? '1' : '0');
 
-            return $this->back(t('The other settings are saved, but two-factor sign-in was not weakened: %s', t($refusal)), '', $this->tabParams($tab), 'error');
+            return $this->back(t('The other settings are saved, but sign-in was not weakened: %s', t($refusal)), '', $this->tabParams($tab), 'error');
         }
         if (($fallbacks = \Talea\Core\SiteUrl::passkeyFallbacks($this->db, $urlBefore, $settings->get('site_url'))) > 0 && !$this->request->postBool('site_url_confirm')) {
             $settings->set('site_url', $urlBefore); // passkeys work only on the host they were registered for: confirm first

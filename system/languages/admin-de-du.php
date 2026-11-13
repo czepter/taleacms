@@ -452,7 +452,7 @@ return [
     'Named text styles you pick for an element in the builder (Style → Typography). A change here applies everywhere the style is used.' => 'Benannte Textstile, die du im Builder bei einem Element auswählst (Stil → Typografie). Eine Änderung hier wirkt sich überall aus, wo der Stil verwendet wird.',
     'Nearly ready: check the warnings below.' => 'Fast fertig: Prüfe die Hinweise unten.',
     'Need advice? Give us a call.' => 'Brauchst du Rat? Ruf uns an.',
-    'Needed to make two-factor sign-in optional for more people – unless you signed in less than 10 minutes ago.' => 'Nötig, um die Zwei-Faktor-Anmeldung für mehr Personen optional zu machen – es sei denn, du hast dich vor weniger als 10 Minuten angemeldet.',
+    'Needed to make two-factor or passkey-only sign-in weaker – unless you signed in less than 10 minutes ago.' => 'Nötig, um die Zwei-Faktor-Anmeldung oder die Anmeldung nur mit Passkey abzuschwächen – es sei denn, du hast dich vor weniger als 10 Minuten angemeldet.',
     'Needed when a role gets every section – unless you signed in less than 10 minutes ago.' => 'Nötig, wenn eine Rolle alle Bereiche erhält – es sei denn, du hast dich vor weniger als 10 Minuten angemeldet.',
     'Needed when you set a password, change the e-mail, reset two-factor sign-in, make someone an administrator or give every section – unless you signed in less than 10 minutes ago.' => 'Nötig, wenn du ein Passwort setzt, die E-Mail-Adresse änderst, die Zwei-Faktor-Anmeldung zurücksetzt, jemanden zum Administrator machst oder alle Bereiche freigibst – es sei denn, du hast dich vor weniger als 10 Minuten angemeldet.',
     'Needs your decision' => 'Braucht deine Entscheidung',

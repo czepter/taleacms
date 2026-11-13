@@ -183,4 +183,18 @@ final class UsersRulesTest extends SiteTestCase
         $this->assertSame('0', (string) $site->value("SELECT blocked FROM tl_users WHERE username = 'listed'"));
         $this->assertSame(0, $this->tokens('listed'), 'reactivating from the list revokes too');
     }
+
+    public function testTurningOffPasskeyOnlyNeedsAFreshProof(): void
+    {
+        $site = $this->site();
+        $site->setting('passkey_only', '1');
+        $stale = $this->staleAdmin();
+        $this->saveGeneral($stale, []);
+        $this->assertSame('1', $site->settingValue('passkey_only'), 'unticking without proof is not saved');
+        $this->saveGeneral($stale, ['current_password' => $site->password]);
+        $this->assertSame('0', $site->settingValue('passkey_only'), 'with the password it is');
+        $this->saveGeneral($stale, ['passkey_only' => '1']);
+        $this->assertSame('1', $site->settingValue('passkey_only'), 'turning it on needs no proof');
+        $site->setting('passkey_only', '0');
+    }
 }
