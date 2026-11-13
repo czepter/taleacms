@@ -570,6 +570,10 @@ say where they lead (“click here”), images in text without a description, em
 frames without a title, and a missing accessibility statement. Claude runs the same audit with `site_audit` and can fix
 what it finds.
 
+**System status** (Settings → System status) lists what is wrong first: the groups with a warning or an error come first and are
+open, the groups that are fine are folded with a tick. It also shows when the personal-data clean-up last ran (a warning after
+two days without a run), the errors of the last 24 hours and, apart, PHP notices about outdated functions, which never stop a page.
+
 **Encryption key.** System status shows where the site's key is. With `TALEA_SECRET_KEY` set, the stored passwords and keys
 (mail, backups, captcha, AI, newsletter, webhook signing secret) and the authenticator-app secrets are encrypted in the
 database and in backups; without it System status warns that they are readable. A restored database needs the same variable.
@@ -591,7 +595,9 @@ ones, so no connection breaks.
 [DEPLOYMENT.md](DEPLOYMENT.md)) – every day something changed on the
 site, otherwise once a week; the last 10 are kept. **Off-site copies** upload each backup to an FTPS server or S3 storage
 (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2) and copy the `media/` folder to the same place – only new and changed
-files, in the background, so even a large media library gets there bit by bit. The tab shows whether the copy is complete.
+files, in the background, so even a large media library gets there bit by bit. The tab shows whether the copy is complete. A copy
+that fails (the database or the media) is an alert (`backup.failed`) like a failed backup, and System status shows the reason without
+passwords or paths. Restoring a backup keeps the file it restores, even when it is the oldest.
 
 To **restore a site after losing the hosting**: install Talea on the new hosting with the same table prefix, upload the
 latest database backup over FTP into `storage/backups/`, copy the `media/` folder back from the FTPS or S3 copy, then click

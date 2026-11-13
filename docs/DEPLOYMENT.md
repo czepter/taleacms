@@ -136,7 +136,8 @@ the signed-in person and the browser's name and version. What is never sent: IP 
 addresses, the values of query parameters other than `module`, `action`, `tab`, `page` and the like; messages are scrubbed of e-mail
 addresses, tokens and the values in database errors. The same fault is sent once a minute at most; reports the tracker did not take
 wait in `storage/log/outbox/` and are retried by the background jobs for a day. `storage/log/errors.log` keeps every uncaught error
-with its trace and the event id, with or without a tracker. When the DSN is set, the record of processing names the tracker's host.
+with the request, a short trace and the event id, with or without a tracker (1 MB, one older `.1` file); PHP deprecations are logged once a
+day and never stop a page. When the DSN is set, the record of processing names the tracker's host.
 
 ## Several sites
 

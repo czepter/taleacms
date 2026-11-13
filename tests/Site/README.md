@@ -4,6 +4,8 @@ End-to-end tests of whole installed sites over HTTP. They replace the shell walk
 site (a copy of the code in a temp folder, its own database, its own PHP server, the web installer, a signed-in administrator, an MCP
 token), so classes share nothing and run in parallel.
 
+The harness starts the site with `TALEA_STRICT_DEPRECATIONS=1`: a PHP deprecation stays an exception there (a real site only logs it once a day).
+
 ```bash
 vendor/bin/phpunit --testsuite site                       # all, one after another
 vendor/bin/paratest --testsuite site --processes 6        # all, six classes at a time
