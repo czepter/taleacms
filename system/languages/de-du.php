@@ -282,6 +282,7 @@ Der Link gilt %d Tage.
     'Your seat is held. We will confirm it by e-mail.' => 'Dein Platz ist reserviert. Wir bestätigen ihn per E-Mail.',
     'Your sign-in link for %s' => 'Dein Anmelde-Link für %s',
     'Your words' => 'Deine Worte',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[Hier kommt die Startseite der umgezogenen Website hin: Veröffentliche die importierte Startseite und lege sie als Startseite fest.]',
     '[Your quick check]' => '[Dein Schnellcheck]',
     'a seat in {course} is free for you: {seats} from {dates}, {schedule}, {place}.' => 'für dich ist ein Platz in {course} frei: {seats} ab {dates}, {schedule}, {place}.',
     'the administrator of %s has sent you a link to set a new password for the account %s.' => 'Der Administrator von %s hat dir einen Link zum Festlegen eines neuen Passworts für das Konto %s gesendet.',

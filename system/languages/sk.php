@@ -1122,6 +1122,7 @@ Odkaz platí %d dní.
     '[Role, company]' => '[Funkcia, firma]',
     '[Role]' => '[Funkcia]',
     '[Street and number]' => '[Ulica a číslo]',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[Tu bude úvodná stránka prenesenej webovej stránky: zverejnite importovanú úvodnú stránku a nastavte ju ako úvodnú.]',
     '[Your quick check]' => '[Váš rýchly test]',
     '[number]' => '[číslo]',
     '[number]-year guarantee' => 'záruka [počet] rokov',

@@ -2903,6 +2903,7 @@ Odkaz platí %d dní.
     '[Role]' => '[Funkce]',
     '[Short message, e.g. dates still free this year]' => '[Krátká zpráva, např. letos máme ještě volné termíny]',
     '[Street and number]' => '[Ulice a číslo]',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[Zde bude úvodní stránka přeneseného webu: zveřejněte importovanou úvodní stránku a nastavte ji jako úvodní.]',
     '[Your quick check]' => '[Váš rychlý test]',
     '[number]' => '[číslo]',
     '[number]-year guarantee' => 'záruka [počet] let',

@@ -1142,6 +1142,7 @@ Link jest ważny %d dni.
     '[Role, company]' => '[Stanowisko, firma]',
     '[Role]' => '[Stanowisko]',
     '[Street and number]' => '[Ulica i numer]',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[Tu trafi strona główna przeniesionej witryny: opublikuj zaimportowaną stronę główną i ustaw ją jako stronę główną.]',
     '[Your quick check]' => '[Twój szybki test]',
     '[number]' => '[liczba]',
     '[number]-year guarantee' => '[liczba] lat gwarancji',

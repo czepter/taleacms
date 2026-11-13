@@ -1140,6 +1140,7 @@ Le lien est valable %d jours.
     '[Role, company]' => '[Fonction, entreprise]',
     '[Role]' => '[Fonction]',
     '[Street and number]' => '[Rue et numéro]',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[La page d’accueil du site déplacé viendra ici : publiez la page d’accueil importée et définissez-la comme page d’accueil.]',
     '[Your quick check]' => '[Votre test rapide]',
     '[number]' => '[nombre]',
     '[number]-year guarantee' => 'garantie de [nombre] ans',

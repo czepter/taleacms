@@ -1199,6 +1199,7 @@ Der Link gilt %d Tage.
     '[Role, company]' => '[Funktion, Firma]',
     '[Role]' => '[Funktion]',
     '[Street and number]' => '[Straße und Hausnummer]',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[Hier kommt die Startseite der umgezogenen Website hin: Veröffentlichen Sie die importierte Startseite und legen Sie sie als Startseite fest.]',
     '[Your quick check]' => '[Ihr Schnellcheck]',
     '[number]' => '[Zahl]',
     '[number]-year guarantee' => '[Anzahl] Jahre Garantie',
