@@ -4,9 +4,10 @@
  *
  * @var Talea\Admin\Modules\Fleet $module
  * @var list<array<string, mixed>> $sites
+ * @var list<array<string, mixed>> $groups the groups of Today (Fleet\Today::groups); empty on the list of all sites
  * @var int $total
  * @var int $needing
- * @var string $show attention | all
+ * @var string $show today | all
  * @var string $query
  * @var string $latest the version this console runs
  * @var string $pairingKey a pairing key made just now (shown once)
@@ -34,7 +35,12 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 <?= $app->view->render('admin/fleet/tabs', ['module' => $module, 'current' => $show, 'needing' => $needing, 'total' => $total]) ?>
 <form method="get" action="<?= e($app->url('admin.php')) ?>"><input type="hidden" name="module" value="fleet"><?php if ($show === 'all'): ?><input type="hidden" name="show" value="all"><?php endif ?>
 	<label><?= e(t('Name or address contains:')) ?> <input class="textfield" type="search" name="q" value="<?= e($query) ?>" size="24"></label> <input class="btn" type="submit" value="<?= e(t('Filter')) ?>"></form>
-<?php if ($sites === []): ?>
+<?php if ($show === 'today'): ?>
+<?php if ($groups === [] || $groups[0]['key'] === 'accepted'): ?>
+<p><?= e(t('Nothing needs attention.')) ?></p>
+<?php endif ?>
+<?= $app->view->render('admin/fleet/today', ['module' => $module, 'groups' => $groups, 'reasonLabels' => $reasonLabels, 'csrf' => $csrf, 'app' => $app]) ?>
+<?php elseif ($sites === []): ?>
 <p><?= e(t('Nothing needs attention.')) ?></p>
 <?php else: ?>
 <div class="tab-wrap"><table class="listing">

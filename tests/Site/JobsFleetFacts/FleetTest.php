@@ -144,6 +144,32 @@ final class FleetTest extends SiteTestCase
         $this->assertStringNotContainsString('console_version', $this->mcpText('list_sites'), 'list_sites exists only on a console');
     }
 
+    /** #341: Today groups the checks; a known state is accepted with a note and a day, shown to Claude and taken back. */
+    public function testTodayGroupsAndAcceptingAState(): void
+    {
+        $console = $this->console();
+        $id = self::$fleetId;
+        $public = $console->publicId('fleet_sites', $id);
+        $this->assertStringContainsString('Backups', $console->admin()->get('/admin.php?module=fleet')->body, 'Today has a group of backup checks (the paired site reports no off-site backup)');
+        $until = trim($console->php('echo date("Y-m-d", strtotime("+30 days"));'));
+
+        $this->postAs($console, '/admin.php?module=fleet&action=accept', ['id' => $public, 'check' => 'check:Off-site backups', 'note' => '', 'until' => $until], '/admin.php?module=fleet');
+        $this->sameValue('1', $console->value('SELECT accepted IS NULL FROM tl_fleet_sites WHERE id = ?', [$id]), 'an acceptance without a note is refused');
+        $this->postAs($console, '/admin.php?module=fleet&action=accept', ['id' => $public, 'check' => 'check:Off-site backups', 'note' => 'New site, backups start tonight', 'until' => $until], '/admin.php?module=fleet');
+        $this->sameValue('1', $console->value("SELECT accepted LIKE '%Off-site backups%' FROM tl_fleet_sites WHERE id = ?", [$id]), 'the state is accepted');
+        $today = $console->admin()->get('/admin.php?module=fleet')->body;
+        $this->assertStringContainsString('Accepted', $today, 'Today lists it under Accepted');
+        $this->assertStringContainsString('New site, backups start tonight', $today);
+
+        $site = $this->consoleMcp('get_site', ['id' => $public]);
+        $this->assertStringContainsString('"check":"check:Off-site backups"', $site, 'MCP get_site lists the check');
+        $this->assertStringContainsString('"note":"New site, backups start tonight"', $site, '... with the accepted note');
+        $this->assertStringContainsString('"check":"check:Off-site backups"', $this->consoleMcp('list_sites'), 'MCP list_sites shows the accepted state');
+
+        $this->postAs($console, '/admin.php?module=fleet&action=withdraw', ['id' => $public, 'check' => 'check:Off-site backups'], '/admin.php?module=fleet');
+        $this->sameValue('1', $console->value('SELECT accepted IS NULL FROM tl_fleet_sites WHERE id = ?', [$id]), 'withdrawn');
+    }
+
     /** #341: a typed domain date and a certificate date make the calendar, one reminder e-mail, events and an entry in the bell. */
     public function testDomainDateCalendarAndReminders(): void
     {

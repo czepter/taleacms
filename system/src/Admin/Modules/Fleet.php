@@ -10,6 +10,7 @@ use Talea\Core\Response;
 use Talea\Fleet\Console;
 use Talea\Fleet\Expiry;
 use Talea\Fleet\Kit;
+use Talea\Fleet\Today;
 
 /**
  * The fleet console (2.9, extension "fleet", Fleet\Console): every paired site on one screen, the ones that need attention
@@ -29,15 +30,15 @@ final class Fleet extends Module
     protected function actionList(): Response
     {
         $sites = Console::overview($this->db, time());
-        $show = $this->request->get('show') === 'all' ? 'all' : 'attention';
+        $show = $this->request->get('show') === 'all' ? 'all' : 'today';
         $query = mb_strtolower(trim($this->request->get('q')));
         $needing = count(array_filter($sites, fn (array $s): bool => $s['score'] >= Console::REASONS['warnings']));
-        $listed = array_values(array_filter($sites, fn (array $s): bool => ($show === 'all' || $s['score'] >= Console::REASONS['warnings'] || $query !== '')
-            && ($query === '' || str_contains(mb_strtolower($s['name'] . ' ' . $s['url']), $query))));
+        $matches = fn (array $s): bool => $query === '' || str_contains(mb_strtolower($s['name'] . ' ' . $s['url']), $query);
+        $listed = array_values(array_filter($sites, fn (array $s): bool => $matches($s)));
         $key = $this->app->session->get('fleet_pairing_key');
         $this->app->session->set('fleet_pairing_key', null); // shown once
 
-        return $this->view('list', 'Fleet', ['sites' => $listed, 'total' => count($sites), 'needing' => $needing, 'show' => $show, 'query' => $query,
+        return $this->view('list', 'Fleet', ['sites' => $listed, 'groups' => $show === 'today' ? Today::groups($listed) : [], 'total' => count($sites), 'needing' => $needing, 'show' => $show, 'query' => $query,
             'latest' => TALEA_VERSION, 'pairingKey' => is_string($key) ? $key : '']);
     }
 
@@ -50,6 +51,48 @@ final class Fleet extends Module
         $events = $this->db->all("SELECT created_at, type, severity, message FROM {events} WHERE type LIKE 'fleet.%' AND " . $this->db->dialect()->jsonExtract('data', '$.site') . " = ? ORDER BY id DESC LIMIT 20", [(string) (int) $site['id']]);
 
         return $this->view('detail', (string) $site['name'], ['site' => $site, 'events' => $events]);
+    }
+
+    /** Accepts a known state of one check of one site until a day: it leaves the open reasons until then or until the state changes (Fleet\Today). */
+    protected function actionAccept(): Response
+    {
+        $site = $this->site();
+        if (!$this->request->isPost() || $site === null) {
+            return $this->back('', '');
+        }
+        $to = $this->request->post('back') === 'detail' ? ['detail', ['id' => $site['public_id']]] : ['', []];
+        $key = $this->request->post('check');
+        $item = array_values(array_filter($site['items'], fn (array $i): bool => $i['key'] === $key))[0] ?? null;
+        if ($item === null) {
+            return $this->back('This state has changed in the meantime – look at it again.', $to[0], $to[1], 'error');
+        }
+        $until = $this->request->post('until');
+        try {
+            $accepted = Today::accept(Today::decode($site), $item, $this->request->post('note'), $until, (string) (($this->app->auth()->user()['name'] ?? '') ?: ($this->app->auth()->user()['username'] ?? '')), time());
+        } catch (\DomainException $e) {
+            return $this->back($e->getMessage(), $to[0], $to[1], 'error');
+        }
+        $this->db->update('fleet_sites', ['accepted' => json_encode($accepted, JSON_UNESCAPED_UNICODE)], ['id' => (int) $site['id']]);
+        ChangeLog::write($this->app, 'fleet', 'accept', (string) $site['url'] . ': ' . $key);
+
+        return $this->back(t('Accepted until %s. It comes back earlier if the state changes.', format_date($until)), $to[0], $to[1]);
+    }
+
+    /** Takes an acceptance back: the state needs attention again. */
+    protected function actionWithdraw(): Response
+    {
+        $site = $this->site();
+        if (!$this->request->isPost() || $site === null) {
+            return $this->back('', '');
+        }
+        $to = $this->request->post('back') === 'detail' ? ['detail', ['id' => $site['public_id']]] : ['', []];
+        $key = $this->request->post('check');
+        $accepted = Today::decode($site);
+        unset($accepted[$key]);
+        $this->db->update('fleet_sites', ['accepted' => $accepted === [] ? null : json_encode($accepted, JSON_UNESCAPED_UNICODE)], ['id' => (int) $site['id']]);
+        ChangeLog::write($this->app, 'fleet', 'withdraw', (string) $site['url'] . ': ' . $key);
+
+        return $this->back('The state needs attention again.', $to[0], $to[1]);
     }
 
     /** When the certificates and the domain registrations of the fleet end: a month view and the list of all dates. */

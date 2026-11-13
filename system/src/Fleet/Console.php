@@ -144,10 +144,12 @@ final class Console
     }
 
     /**
-     * Why a site needs attention, by weight (REASONS). Pure.
+     * Why a site needs attention, by weight (REASONS), and the items behind it (Fleet\Today). What a person accepted
+     * (fleet_sites.accepted, still in force) is not an open reason and not in the score: a reason leaves the open ones when all its
+     * items are accepted, and is listed under "accepted". Pure.
      *
      * @param array<string, mixed> $site a row of tl_fleet_sites
-     * @return array{score: int, reasons: list<string>}
+     * @return array{score: int, reasons: list<string>, accepted: list<string>, items: list<array<string, mixed>>} items carry "accepted" (the acceptance or null)
      */
     public static function attention(array $site, int $now): array
     {
@@ -190,7 +192,24 @@ final class Console
             $reasons[] = 'audit';
         }
 
-        return ['score' => array_sum(array_map(fn (string $r): int => self::REASONS[$r], $reasons)), 'reasons' => $reasons];
+        $items = Today::items($site, $reasons, $beat, $now);
+        $acceptances = Today::decode($site);
+        foreach ($items as &$item) {
+            $item['accepted'] = Today::holds($acceptances[$item['key']] ?? null, $item, $now) ? $acceptances[$item['key']] : null;
+        }
+        unset($item);
+        $open = [];
+        $accepted = [];
+        foreach ($reasons as $reason) {
+            $of = array_filter($items, fn (array $i): bool => $i['reason'] === $reason);
+            if ($of !== [] && array_filter($of, fn (array $i): bool => $i['accepted'] === null) === []) {
+                $accepted[] = $reason;
+            } else {
+                $open[] = $reason;
+            }
+        }
+
+        return ['score' => array_sum(array_map(fn (string $r): int => self::REASONS[$r], $open)), 'reasons' => $open, 'accepted' => $accepted, 'items' => $items];
     }
 
     /**
@@ -244,6 +263,12 @@ final class Console
             if ((int) $site['silent_reported'] === 0 && time() - $lastSeen > self::SILENT_AFTER) {
                 $update['silent_reported'] = 1;
                 Events::record($db, 'fleet.site_silent', 'warning', t('%s has not sent its heartbeat for more than a day.', (string) $site['url']), ['site' => (int) $site['id']]);
+            }
+            // a state that changed or whose last day passed is dropped: it must not come back when the old state returns
+            $accepted = Today::decode($site);
+            $pruned = Today::prune($accepted, self::attention($update + $site, time())['items'], time());
+            if ($pruned !== $accepted) {
+                $update['accepted'] = $pruned === [] ? null : json_encode($pruned, JSON_UNESCAPED_UNICODE);
             }
             $db->update('fleet_sites', $update, ['id' => (int) $site['id']]);
         }

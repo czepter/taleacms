@@ -27,9 +27,12 @@ trait FleetTools
             $sites = array_values(array_filter($sites, fn (array $s): bool => $s['score'] >= Console::REASONS['warnings']));
         }
 
+        $accepted = fn (array $items): array => array_values(array_map(fn (array $i): array => ['check' => $i['key'], 'note' => $i['accepted']['note'], 'until' => $i['accepted']['until']],
+            array_filter($items, fn (array $i): bool => $i['accepted'] !== null)));
+
         return [
             'sites' => array_map(fn (array $s): array => ['id' => (int) $s['id'], 'name' => (string) $s['name'], 'url' => (string) $s['url'], 'version' => (string) $s['version'],
-                'attention' => $s['reasons'], 'score' => $s['score'], 'last_report' => $s['last_seen'], 'up' => $s['up'] === null ? null : (int) $s['up'] === 1,
+                'attention' => $s['reasons'], 'accepted' => $accepted($s['items']), 'score' => $s['score'], 'last_report' => $s['last_seen'], 'up' => $s['up'] === null ? null : (int) $s['up'] === 1,
                 'certificate_expires' => $s['cert_expires'] ?? null, 'domain_expires' => $s['domain_expires'] ?? null,
                 'enquiries_waiting' => $s['beat']['enquiries_unanswered'] ?? null,
                 'kit_version' => $s['beat']['kit_version'] ?? null], $sites),
@@ -54,6 +57,9 @@ trait FleetTools
         $beat = json_decode((string) ($site['heartbeat'] ?? ''), true);
 
         return ['id' => (int) $site['id'], 'name' => (string) $site['name'], 'url' => (string) $site['url'], 'attention' => $attention['reasons'], 'score' => $attention['score'],
+            'checks' => array_map(fn (array $i): array => ['check' => $i['key'], 'group' => $i['group'], 'severity' => $i['severity'], 'title' => $i['title'], 'detail' => $i['detail'],
+                'accepted' => $i['accepted'] === null ? null : ['note' => $i['accepted']['note'], 'until' => $i['accepted']['until'], 'by' => $i['accepted']['by'] ?? '', 'at' => $i['accepted']['at'] ?? '']], $attention['items']),
+            'accepted' => array_values(array_map(fn (array $i): array => ['check' => $i['key'], 'note' => $i['accepted']['note'], 'until' => $i['accepted']['until']], array_filter($attention['items'], fn (array $i): bool => $i['accepted'] !== null))),
             'up' => $site['up'] === null ? null : (int) $site['up'] === 1, 'up_checked' => $site['up_checked'], 'last_report' => $site['last_seen'], 'paired' => $site['paired_at'],
             'certificate_expires' => $site['cert_expires'] ?? null, 'domain_expires' => $site['domain_expires'] ?? null,
             'kit_version' => is_array($beat) ? ($beat['kit_version'] ?? null) : null, 'report' => is_array($beat) ? $beat : null];

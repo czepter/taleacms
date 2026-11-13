@@ -28,7 +28,7 @@ final class FleetTest extends TestCase
             \Talea\Fleet\Link::parseKey(\Talea\Fleet\Link::makeKey('http://console.example.com', str_repeat('ab', 16), $fleetPub, 'x'))], '2.9: Fleet\Link – the pairing key carries the console address, the one-time code and the console key');
         $fleetNow = 1_800_000_000;
         $fleetRow = fn (array $more, array $beat = []): array => $more + ['up' => 1, 'last_seen' => date('Y-m-d H:i:s', $fleetNow - 600), 'status' => 'ok', 'heartbeat' => (string) json_encode($beat + ['last_backup' => $fleetNow - 3600, 'cron_last_run' => $fleetNow - 300])];
-        $this->assertSame([['score' => 0, 'reasons' => []], ['down', 'errors'], ['not_reporting'], ['no_heartbeat'], ['jobs_failing', 'no_backup', 'enquiries']], [
+        $this->assertSame([['score' => 0, 'reasons' => [], 'accepted' => [], 'items' => []], ['down', 'errors'], ['not_reporting'], ['no_heartbeat'], ['jobs_failing', 'no_backup', 'enquiries']], [
             \Talea\Fleet\Console::attention($fleetRow([]), $fleetNow),
             \Talea\Fleet\Console::attention($fleetRow(['up' => 0, 'status' => 'error']), $fleetNow)['reasons'],
             \Talea\Fleet\Console::attention($fleetRow(['last_seen' => date('Y-m-d H:i:s', $fleetNow - 30 * 3600)]), $fleetNow)['reasons'],
@@ -167,5 +167,66 @@ final class FleetTest extends TestCase
         $november = \Talea\Fleet\Expiry::month('2026-11', []);
         $this->assertSame([6, [null, null, null, null, null, null, '2026-11-01'], '2026-10', '2026-12'], [count($november['weeks']), array_column($november['weeks'][0], 'day'), $november['previous'], $november['next']]);
         $this->assertSame(date('Y-m'), \Talea\Fleet\Expiry::month('junk', [])['year'] . '-' . sprintf('%02d', \Talea\Fleet\Expiry::month('junk', [])['month']));
+    }
+
+    /** #341: Today – items sorted into groups, accepted states hold until their day or until the state changes */
+    public function testTodayGroupsAndAcceptedStates(): void
+    {
+        $now = strtotime('2026-11-13 12:00:00');
+        $today = date('Y-m-d', $now);
+        $plus = fn (int $days): string => date('Y-m-d', $now + $days * 86400);
+        $problems = [['group' => 'Security', 'check' => 'Debug mode', 'status' => 'warning'], ['group' => 'Operation', 'check' => 'Off-site backups', 'status' => 'warning'], ['group' => 'Server', 'check' => 'Free disk space', 'status' => 'warning']];
+        $row = fn (array $more = [], array $beat = []): array => $more + ['id' => 1, 'public_id' => 'a', 'name' => 'Aria', 'url' => 'https://a.example', 'up' => 0, 'up_status' => 503, 'status' => 'warning', 'last_seen' => date('Y-m-d H:i:s', $now - 600),
+            'heartbeat' => (string) json_encode($beat + ['last_backup' => $now - 3600, 'cron_last_run' => $now - 300, 'enquiries_unanswered' => 2, 'problems' => $problems])];
+        $attention = \Talea\Fleet\Console::attention($row(), $now);
+        $this->assertSame(['down/uptime/error', 'enquiries/enquiries/warning', 'check:Debug mode/security/warning', 'check:Off-site backups/backups/warning', 'check:Free disk space/errors/warning'],
+            array_map(fn (array $i): string => $i['key'] . '/' . $i['group'] . '/' . $i['severity'], $attention['items']));
+        $this->assertSame(['down', 'warnings', 'enquiries'], $attention['reasons']);
+
+        $groups = \Talea\Fleet\Today::groups([$row() + $attention]);
+        $this->assertSame(['uptime', true, true], [$groups[0]['key'], $groups[0]['incident'], $groups[0]['open']], 'the group with an incident comes first and stays open');
+        $many = [];
+        foreach (range(1, 6) as $n) {
+            $many[] = ['id' => $n, 'name' => "Site $n", 'score' => 10, 'items' => [['key' => 'enquiries', 'group' => 'enquiries', 'severity' => 'warning', 'accepted' => null]]];
+        }
+        $folded = \Talea\Fleet\Today::groups($many);
+        $this->assertSame([false, false], [$folded[0]['incident'], $folded[0]['open']], 'six warnings fold');
+
+        $item = ['key' => 'check:Debug mode', 'state' => 'warning'];
+        foreach ([['', $plus(5)], ['why', $today], ['why', $plus(366)], ['why', 'junk']] as [$note, $until]) {
+            try {
+                \Talea\Fleet\Today::accept([], $item, $note, $until, 'admin', $now);
+                $this->fail("$note/$until should be refused");
+            } catch (\DomainException $e) {
+                $this->assertNotSame('', $e->getMessage());
+            }
+        }
+        $stored = \Talea\Fleet\Today::accept([], $item, ' Known ', $plus(30), 'admin', $now);
+        $this->assertSame(['state' => 'warning', 'note' => 'Known', 'until' => $plus(30), 'by' => 'admin', 'at' => '2026-11-13 12:00:00'], $stored['check:Debug mode']);
+
+        $held = \Talea\Fleet\Console::attention($row(['accepted' => json_encode($stored)]), $now);
+        $this->assertContains('warnings', $held['reasons'], 'the other warning items stay open');
+        $this->assertSame($attention['score'], $held['score']);
+        $all = [];
+        foreach (['check:Debug mode', 'check:Off-site backups', 'check:Free disk space'] as $key) {
+            $all = \Talea\Fleet\Today::accept($all, ['key' => $key, 'state' => 'warning'], 'ok', $plus(30), 'admin', $now);
+        }
+        $none = \Talea\Fleet\Console::attention($row(['accepted' => json_encode($all)]), $now);
+        $this->assertSame([['down', 'enquiries'], ['warnings'], $attention['score'] - 10], [$none['reasons'], $none['accepted'], $none['score']], 'all warning items accepted: the reason moves to accepted and the score drops');
+
+        $worse = \Talea\Fleet\Console::attention($row(['accepted' => json_encode($all), 'status' => 'error'], ['problems' => [['group' => 'Security', 'check' => 'Debug mode', 'status' => 'error'], $problems[1], $problems[2]]]), $now);
+        $this->assertSame('check:Debug mode', array_values(array_filter($worse['items'], fn (array $i): bool => $i['accepted'] === null && $i['severity'] === 'error' && str_starts_with($i['key'], 'check:')))[0]['key'], 'a worse state is not held');
+
+        $cert = ['key' => 'certificate', 'state' => $plus(12) . '|warning'];
+        $this->assertFalse(\Talea\Fleet\Today::holds(['state' => $plus(12) . '|warning', 'until' => $plus(30)], ['key' => 'certificate', 'state' => $plus(12) . '|error'] + $cert, $now), 'a certificate accepted at warning is not held at error');
+        $this->assertFalse(\Talea\Fleet\Today::holds(['state' => 'warning', 'until' => $plus(-1)], $item, $now), 'a past last day does not hold');
+        $kept = \Talea\Fleet\Today::prune(['check:Debug mode' => ['state' => 'warning', 'until' => $plus(5)], 'check:Free disk space' => ['state' => 'error', 'until' => $plus(5)], 'check:Gone' => ['state' => 'warning', 'until' => $plus(5)],
+            'enquiries' => ['state' => 'enquiries', 'until' => $plus(-1)]], $attention['items'], $now);
+        $this->assertSame(['check:Debug mode'], array_keys($kept), 'changed, gone and expired acceptances are dropped');
+
+        $site = $row(['cert_expires' => $plus(12) . ' 12:00:00', 'accepted' => json_encode(['certificate' => ['state' => $plus(12) . '|warning', 'note' => 'n', 'until' => $plus(30)]])]);
+        $site += \Talea\Fleet\Console::attention($site, $now);
+        $this->assertSame([[], []], [\Talea\Fleet\Expiry::due($site, $now, ['certificate'])[0], \Talea\Fleet\Expiry::soon([$site], $now)], 'an accepted certificate has no reminder and is not in the bell');
+        $this->assertSame(1, count(\Talea\Fleet\Expiry::due($site, $now)[0]), 'without the acceptance the reminder is due');
     }
 }

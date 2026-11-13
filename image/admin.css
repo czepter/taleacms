@@ -2922,3 +2922,5 @@ form:not(:has(input[name=from][value=""]:checked)) .site-design { display: none;
 .fleet-month td { height: 5.5em; vertical-align: top; }
 .fleet-month .badge { display: block; margin-top: 4px; white-space: normal; }
 .fleet-month .fleet-day { font-size: 12px; color: var(--text-weak); }
+.fleet-group > summary .badge { margin-inline-start: auto; }
+.fleet-group table { margin-block: 8px 16px; }

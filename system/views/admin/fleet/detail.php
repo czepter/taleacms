@@ -38,6 +38,16 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 <p class="small-text"><?= e(t('The site reports its problems in English; fix them in its administration.')) ?></p>
 <?php endif ?>
 <?php if (($beat['jobs_failing'] ?? []) !== []): ?><p class="notice notice-error"><?= e(t('Background jobs that fail: %s', implode(', ', $beat['jobs_failing']))) ?></p><?php endif ?>
+<?php $acceptedItems = array_values(array_filter($site['items'], fn (array $i): bool => $i['accepted'] !== null)); ?>
+<?php if ($acceptedItems !== []): ?>
+<h2><?= e(t('Accepted states')) ?></h2>
+<div class="tab-wrap"><table class="listing"><tbody>
+<?php foreach ($acceptedItems as $i): ?>
+	<tr><td><strong><?= e($reasonLabels[$i['key']] ?? $i['title']) ?></strong></td><td><?= e((string) $i['accepted']['note']) ?><br><span class="small-text"><?= e(t('until %s', format_date((string) $i['accepted']['until']))) ?> · <?= e(t('by %s', (string) ($i['accepted']['by'] ?? ''))) ?></span></td>
+	<td><form class="form" method="post" action="<?= e($module->url('withdraw')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($site['public_id']) ?>"><input type="hidden" name="check" value="<?= e($i['key']) ?>"><input type="hidden" name="back" value="detail"><button class="navigation" type="submit"><?= e(t('Withdraw')) ?></button></form></td></tr>
+<?php endforeach ?>
+</tbody></table></div>
+<?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('check')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= e($site['public_id']) ?>">
