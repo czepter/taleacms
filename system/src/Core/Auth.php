@@ -680,7 +680,7 @@ final class Auth
     }
 
     /**
-     * The escape for a lockout (TALEA_PASSKEY_ONLY_OFF, as an environment variable or define() in config.php): passkey-only sign-in is off and
+     * The escape for a lockout (TALEA_PASSKEY_ONLY_OFF, as an environment variable or define() in config.php, guarded with defined() as the file is read more than once): passkey-only sign-in is off and
      * an administrator who has neither the app nor backup codes any more signs in with the password alone (escapeSignIn).
      */
     public static function passkeyOnlyOff(): bool

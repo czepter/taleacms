@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use Talea\Admin\Modules\Settings;
 use Talea\Core\Auth;
@@ -44,5 +45,28 @@ final class FreshProofTest extends TestCase
             putenv('TALEA_PASSKEY_ONLY_OFF');
         }
         $this->assertFalse(Auth::passkeyOnlyOff());
+    }
+
+    /** The documented form of the escape in config.php can be read again and again without a warning. */
+    #[RunInSeparateProcess]
+    public function testTheGuardedDefineSurvivesBeingReadTwice(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'cfg');
+        file_put_contents($file, "<?php\ndefined('TALEA_PASSKEY_ONLY_OFF') || define('TALEA_PASSKEY_ONLY_OFF', true);\nreturn [];\n");
+        $warnings = [];
+        set_error_handler(static function (int $no, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+
+            return true;
+        });
+        try {
+            require $file;
+            require $file;
+        } finally {
+            restore_error_handler();
+            unlink($file);
+        }
+        $this->assertSame([], $warnings);
+        $this->assertTrue(Auth::passkeyOnlyOff(), 'and the constant switches passkey-only off');
     }
 }

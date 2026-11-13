@@ -59,8 +59,8 @@ database was used with, or connect the services again in Integrations.
 ### Locked out by passkey-only sign-in
 
 An account (or, with the site setting, every account) that signs in only with a passkey cannot use the app code, and has no password for
-confirmations. If every passkey and backup code is lost, set `TALEA_PASSKEY_ONLY_OFF=1` in the container (or `define('TALEA_PASSKEY_ONLY_OFF', true);`
-above `return` in `config.php`) and restart: passkey-only sign-in is off, and an administrator with neither an app nor backup codes signs in
+confirmations. If every passkey and backup code is lost, set `TALEA_PASSKEY_ONLY_OFF=1` in the container (or `defined('TALEA_PASSKEY_ONLY_OFF') || define('TALEA_PASSKEY_ONLY_OFF', true);`
+above `return` in `config.php`; the file is read more than once per run, so a plain `define()` would warn) and restart: passkey-only sign-in is off, and an administrator with neither an app nor backup codes signs in
 with the password alone. System status warns while it is set. Sign in, add a passkey and new backup codes, and remove the setting.
 
 ## Update

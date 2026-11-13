@@ -4,7 +4,7 @@
  * by hand, just copy this sample and fill in the database details.
  */
 
-// define('TALEA_PASSKEY_ONLY_OFF', true); // only to get back in after losing every passkey (System status warns while it is set)
+// defined('TALEA_PASSKEY_ONLY_OFF') || define('TALEA_PASSKEY_ONLY_OFF', true); // (this file is read more than once per run) only to get back in after losing every passkey (System status warns while it is set)
 
 return [
     'db' => [
