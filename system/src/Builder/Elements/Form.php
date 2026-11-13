@@ -110,7 +110,7 @@ final class Form extends Element
             'destination' => ['type' => 'choice', 'label' => 'Where the answers go', 'default' => 'enquiry', 'options' => ['enquiry' => 'Enquiries', 'collection' => 'a collection (as a hidden draft item)']],
             'collection' => ['type' => 'text', 'label' => 'Collection (its ID from list_collections)', 'default' => '', 'max' => 110, 'when' => ['destination' => 'collection']],
             'item_name' => ['type' => 'text', 'label' => 'Name of the item; {Field label} puts in an answer', 'default' => '', 'max' => 200, 'when' => ['destination' => 'collection']],
-            'mapping' => ['type' => 'items', 'label' => 'Fields of the item: per collection field a text with {Field label} for an answer. Fields a visitor can fill: text, lines, number, date, datetime, radio, link; an image or file field takes only {label of an attachment field}.', 'max' => 30, 'summary' => ['target', 'template'], 'when' => ['destination' => 'collection'], 'fields' => [
+            'mapping' => ['type' => 'items', 'label' => 'Fields of the item: per collection field a text with {Field label} for an answer. Fields a visitor can fill: text, lines, html (formatted text: the answer becomes paragraphs), number, date, datetime, radio, link; an image or file field takes only {label of an attachment field}; a gallery or an item field cannot be filled (the check before publishing and try_form say so).', 'max' => 30, 'summary' => ['target', 'template'], 'when' => ['destination' => 'collection'], 'fields' => [
                 'target' => ['type' => 'text', 'label' => 'Collection field (its key)', 'default' => '', 'max' => 40],
                 'template' => ['type' => 'text', 'label' => 'Content, e.g. {Your name}, {Your role}', 'default' => '', 'max' => 500],
             ], 'default' => []],
@@ -620,10 +620,13 @@ final class Form extends Element
             return ''; // the value is the form's own (Front\Forms), the visitor neither sees nor sends it
         }
         if ($field['type'] === 'timerange') {
-            $time = fn (string $name): string => '<label><span>' . e($name) . '</span><input type="time" name="' . $displayName . '[]"' . $required . $marking . '></label>';
+            // a personal link fills it in as "HH:MM-HH:MM" (Core\FormLinks::cleanPrefill)
+            $range = explode('-', (string) ($given[0] ?? ''), 2);
+            $time = fn (string $name, string $value): string => '<label><span>' . e($name) . '</span><input type="time" name="' . $displayName . '[]"'
+                . ($value !== '' ? ' value="' . e($value) . '"' : '') . $required . $marking . '></label>';
 
             return '<div class="tl-field tl-timerange"><fieldset' . ($field['required'] ? ' aria-required="true"' : '') . '><legend>' . $labelText . $star . '</legend><div class="tl-timerange-inputs">'
-                . $time(t('From')) . $time(t('To')) . '</div></fieldset>' . $message . '</div>';
+                . $time(t('From'), $range[0]) . $time(t('To'), $range[1] ?? '') . '</div></fieldset>' . $message . '</div>';
         }
         if ($field['type'] === 'checkboxes' || $field['type'] === 'radio') {
             $multiple = $field['type'] === 'checkboxes';

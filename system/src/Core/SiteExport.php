@@ -34,7 +34,24 @@ final class SiteExport
         'cookies_policy_url', 'cookies_text', 'schema_org', 'robots_extra', 'llms_txt', 'maintenance_text', 'share_buttons', 'article_outline', 'related_news_auto',
         'screen_mode', 'screen_seconds', 'screen_collections', 'screen_news', 'screen_hours', 'screen_clock',
         'seo_separator', 'seo_title_home', 'seo_title_page', 'seo_title_news', 'seo_title_item', 'seo_title_category', 'seo_title_tag', 'seo_description_page', 'seo_description_news', 'seo_description_item',
-        'seo_capitalize', 'seo_robots', 'seo_hide_empty_terms', 'seo_card']; // the screen mode without its secret (2.11)
+        'seo_capitalize', 'seo_robots', 'seo_hide_empty_terms', 'seo_card', // the screen mode without its secret (2.11)
+        // how the site speaks and behaves for visitors, and the rules of the booking set-up and the member login whose rows travel too
+        'german_register', 'url_slash', 'markdown_versions', 'accessibility_toolbar', 'ai_crawlers', 'member_signup',
+        'booking_lead_hours', 'booking_horizon_days', 'booking_cancel_hours', 'booking_reminder_hours', 'booking_hold_hours'];
+
+    /**
+     * Is this setting in the archive? The allow-list SETTINGS, a language variant of a per-language setting (site_name_de) and the
+     * site's own visitor texts of Settings → Messages (message_<id>_<part>[_<language>], Core\Messages). The import asks the same.
+     */
+    public static function exportsSetting(string $key): bool
+    {
+        $base = (string) preg_replace('/_' . Language::TAG . '$/D', '', $key);
+
+        return in_array($key, self::SETTINGS, true) || (in_array($base, Settings::PER_LANGUAGE, true) && $base !== $key) || Messages::parseKey($key) !== null;
+    }
+
+    /** What a member group restricts (content_groups.content_type) => the table of that content. */
+    public const array GATED = ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items'];
 
     /** News item columns that are only operational (search index, link check…) and do not belong in the export. */
     private const array EXCLUDED_ARTICLE_COLUMNS = ['search_text', 'links_checked_at', 'announced_at', 'author_id', 'author_name'];
@@ -150,13 +167,13 @@ final class SiteExport
         self::fields($f, 'forms', $all('forms', 'SELECT form_id, public_id, name, build, build_draft FROM {forms} ORDER BY form_id', [], $builds));
         self::fields($f, 'sections', $all('sections', 'SELECT section_id, public_id, name, element, kit_key FROM {sections} ORDER BY section_id', [], ['element' => 'element']));
         // the site's own page templates (Builder\PageTemplates)
-        self::fields($f, 'page_templates', $all('page_templates', 'SELECT page_template_id, public_id, name, build, created_at FROM {page_templates} ORDER BY page_template_id', [], ['build' => 'build']));
+        self::fields($f, 'page_templates', $all('page_templates', 'SELECT page_template_id, public_id, name, build, created_at, updated_at FROM {page_templates} ORDER BY page_template_id', [], ['build' => 'build']));
         self::fields($f, 'menus', $all('menus', 'SELECT location, language, items FROM {menus} ORDER BY location, language', [], ['items' => 'menu']));
         self::fields($f, 'collections', $all('collections', 'SELECT collection_id, public_id, name, slug, fields, detail, admin_menu, hidden_redirect, preset, schema_org, build, build_draft FROM {collections} ORDER BY collection_id', [], $builds));
         self::fields($f, 'collection_templates', $all('collection_templates', 'SELECT collection_id, language, build, build_draft FROM {collection_templates} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY collection_id, language', ['collection_id' => 'collections'], $builds));
         // popups with rules and the published build; not the counters (they are only this site's statistics)
         self::fields($f, 'popups', $all('popups', 'SELECT popup_id, public_id, name, slug, type, trigger_type, value, rules, frequency, days, active, sort_order, valid_until, review_by, build, build_draft FROM {popups} ORDER BY popup_id', [], ['rules' => 'rules'] + $builds));
-        self::fields($f, 'collection_items', $one('collection_items', 'SELECT item_id, public_id, collection_id, name, slug, data, seo_title, description, image, noindex, focus_keywords, key_page, robots, canonical_url, breadcrumb_title, share_title, share_description, sort_order, visible, publish_at, valid_until, review_by, language, created_at FROM {collection_items} WHERE item_id > ? AND deleted_at IS NULL ORDER BY item_id LIMIT 500', 'item_id', ['collection_id' => 'collections']));
+        self::fields($f, 'collection_items', $one('collection_items', 'SELECT item_id, public_id, collection_id, name, slug, data, seo_title, description, image, noindex, focus_keywords, key_page, robots, canonical_url, breadcrumb_title, share_title, share_description, sort_order, visible, publish_at, valid_until, review_by, language, created_at, submitted_via FROM {collection_items} WHERE item_id > ? AND deleted_at IS NULL ORDER BY item_id LIMIT 500', 'item_id', ['collection_id' => 'collections', 'submitted_via' => 'forms']));
         // short links (Core\ShortLinks): a content target is the public id of the row; the counters are only this site's statistics
         $targets = ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items'];
         self::fields($f, 'short_links', (function () use ($db, $targets): \Generator {
@@ -170,7 +187,7 @@ final class SiteExport
         self::fields($f, 'document_versions', $one('document_versions', 'SELECT id, item_id, file, version, replaced_at, replaced_by FROM {document_versions} WHERE id > ? ORDER BY id LIMIT 1000', 'id', ['item_id' => 'collection_items']));
         self::fields($f, 'media_folders', $all('media_folders', 'SELECT folder_id, public_id, name, parent_id FROM {media_folders} ORDER BY folder_id', ['parent_id' => 'media_folders']));
         // a file waiting for approval (Core\MediaStaging) is not part of the site yet
-        self::fields($f, 'media', $one('media', 'SELECT media_id, public_id, folder_id, name, description, author, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, created_at FROM {media} WHERE media_id > ? AND staged_at IS NULL ORDER BY media_id LIMIT 500', 'media_id', ['folder_id' => 'media_folders']));
+        self::fields($f, 'media', $one('media', 'SELECT media_id, public_id, folder_id, name, description, author, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, created_at, source_sha1 FROM {media} WHERE media_id > ? AND staged_at IS NULL ORDER BY media_id LIMIT 500', 'media_id', ['folder_id' => 'media_folders']));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
         $facts = []; // what this site shows: its own row of a key and language, else the shared one
         foreach ($db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} WHERE ' . Sites::visible($db) . ' ORDER BY fact_key, language, site_id IS NULL') as $fact) {
@@ -185,6 +202,18 @@ final class SiteExport
         self::fields($f, 'booking_hours', $all('booking_hours', 'SELECT staff_id, service_id, weekday, time_from, time_to FROM {booking_hours} ORDER BY staff_id, service_id IS NOT NULL, service_id, weekday, time_from', ['staff_id' => 'booking_staff', 'service_id' => 'booking_services']));
         self::fields($f, 'booking_off', $all('booking_off', 'SELECT staff_id, off_from, off_to, note FROM {booking_off} WHERE off_to >= NOW() ORDER BY off_from', ['staff_id' => 'booking_staff']));
         self::fields($f, 'blueprints', $db->all('SELECT bkey, name, manifest FROM {blueprints} ORDER BY applied_at'));
+        // member login (Core\Members): the groups and which pages, items and news they restrict – without them restricted content would
+        // become public on the new site; the members themselves are personal data and are invited again
+        self::fields($f, 'member_groups', $all('member_groups', 'SELECT group_id, public_id, name FROM {member_groups} ORDER BY group_id'));
+        self::fields($f, 'content_groups', (function () use ($db): \Generator {
+            foreach ($db->all('SELECT content_type, content_id, group_id FROM {content_groups} ORDER BY content_type, content_id, group_id') as $row) {
+                $table = self::GATED[$row['content_type']] ?? null;
+                $content = $table === null ? '' : $db->publicId($table, (int) $row['content_id']);
+                if ($content !== '') {
+                    yield ['content_type' => $row['content_type'], 'content_id' => $content, 'group_id' => $db->publicId('member_groups', (int) $row['group_id'])];
+                }
+            }
+        })());
         // the agent notebook (2.15, Core\Notebook): what the next person working on the site should know moves with it
         self::fields($f, 'notebook', $db->all('SELECT id, topic, title, text, pinned, author, created_at, updated_at FROM {notebook} ORDER BY id'));
         // the audit trail of official notice boards (2.11, Core\Notices) moves with the notices it belongs to
@@ -344,9 +373,7 @@ final class SiteExport
         $all = $db->pairs('SELECT name, value FROM {settings}');
         $selection = [];
         foreach ($all as $key => $value) {
-            // the site name and description may have a variant for another language (site_name_en)
-            $base = (string) preg_replace('/_' . Language::TAG . '$/D', '', (string) $key);
-            if (in_array($key, self::SETTINGS, true) || (in_array($base, Settings::PER_LANGUAGE, true) && $base !== $key)) {
+            if (self::exportsSetting((string) $key)) {
                 $selection[(string) $key] = (string) $value;
             }
         }
@@ -416,13 +443,16 @@ final class SiteExport
             . "\ncontent.json (format version " . self::FORMAT_VERSION . ")\n------------------------------\n"
             . "format, format_version, talea, created_at   header (format \"talea-export\", format version, Talea version, created)\n"
             . "settings         site name and description, identity (logo, colours, fonts, networks), time zone, languages, home page,\n"
-            . "                 the features switched on (extensions) and off (extensions_off)\n"
+            . "                 the features switched on (extensions) and off (extensions_off), the visitor texts of Settings -> Messages (message_*),\n"
+            . "                 and the rules of the booking set-up and the member login\n"
             . "Public ids: every row of pages, categories, tags, news, redirects, short_links, components, sections, collections, collection_items, popups, media,\n"
-            . "                 media_folders, booking_services and booking_staff has a public_id (UUID v4). The integer keys of the database are not in the file;\n"
-            . "                 every reference between rows (parent_id, translation_of, category_id, folder_id, collection_id, item_id, tags, staff_id, service_id,\n"
+            . "                 media_folders, forms, page_templates, member_groups, booking_services and booking_staff has a public_id (UUID v4). The integer keys of\n"
+            . "                 the database are not in the file; every reference between rows (parent_id, translation_of, category_id, folder_id, collection_id, item_id,\n"
+            . "                 tags, staff_id, service_id, submitted_via (the form an item was sent through), the content and group of content_groups,\n"
             . "                 the home_page setting, menu pages, pop-up pages, the pages of a site part, the component and booking elements inside builds)\n"
             . "                 is the public_id of the row it points to. An import keeps the public ids, so the same site exported again has the same ids.\n"
-            . "pages            pages: public_id, slug, title, description, text (HTML), build and build_draft (builder JSON), language, translation_of, parent_id\n"
+            . "pages            pages: public_id, slug, title, description, text (HTML), build and build_draft (builder JSON), language, translation_of, parent_id,\n"
+            . "                 password_hash (a page behind a password keeps it; a hash, never the password)\n"
             . "categories       news categories: public_id, name, slug, description, language, translation_of\n"
             . "tags             tags: public_id, name, slug, description, image\n"
             . "news             news: public_id, title, intro and text (HTML), published_at, visible (1 = published), category_id (public id of the category), language,\n"
@@ -445,6 +475,8 @@ final class SiteExport
             . "booking_staff    people who take bookings: public_id, name, email, active, sort_order; booking_staff_services links them (staff_id, service_id: public ids)\n"
             . "booking_hours    weekly hours of a person: staff_id (public id), service_id (public id; null = the general hours, else only for that service), weekday (1–7), time_from, time_to; booking_off days off still to come (staff_id or null = everyone, off_from, off_to, note). The bookings themselves never travel – personal data.\n"            . "blueprints       industry blueprints applied: bkey, nazev, manifest (JSON: presets, facts, questions, audit, claude)\n"
             . "notebook         agent notebook (2.15): notes for whoever works on the site next – topic, title, text, pinned, author\n"
+            . "member_groups    member login: the groups (public_id, name); content_groups names what they restrict – content_type (page, news or item),\n"
+            . "                 content_id (public id of the page, news item or collection item), group_id (public id of the group). Members themselves are personal data and stay.\n"
             . "notice_log       audit trail of official notice boards (2.11): item_id (public id of the collection item), action, at, by, fields (JSON) – append-only\n"
             . "\nAddresses on the site: page /<seo_link>; other language versions have the prefix /<language>/.\n"
             . "\nNot in the export on purpose: user accounts and passwords, keys and tokens, mail and backup settings, enquiries,\n"

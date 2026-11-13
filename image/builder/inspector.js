@@ -243,7 +243,7 @@ function contentPanel(panel, p, s) {
 /* ---------- a form that adds to a collection (Core\CollectionSubmission) ---------- */
 
 /** Collection field types a visitor fills with an answer, and those filled with an upload (CollectionSubmission::FILLABLE, UPLOADS). */
-const FILLABLE = ['text', 'lines', 'number', 'date', 'datetime', 'radio', 'link'];
+const FILLABLE = ['text', 'lines', 'html', 'number', 'date', 'datetime', 'radio', 'link'];
 const UPLOADS = ['image', 'file'];
 
 /** The collection a form names, by its public id or by its address (slug). */
@@ -278,8 +278,9 @@ function formCollectionField(def, p) {
 
 /**
  * The fields of the chosen collection, each switched on or off: on, it gets a text with {Field label} placeholders – picked from the
- * form's fields or typed. An image or file field takes one upload field of the form; formatted text, galleries and links to other
- * items are not for visitors and stay off. A mapping row of a field the collection no longer has is listed so it can be removed.
+ * form's fields or typed. An image or file field takes one upload field of the form; formatted text gets the answer as paragraphs;
+ * galleries and links to other items are not for visitors and stay off – a row stored for one anyway (MCP) is flagged and can be
+ * switched off, since its answer would be lost. A mapping row of a field the collection no longer has is listed so it can be removed.
  */
 function formMappingField(def, p) {
 	const wrapper = el('div', { class: 'bd-field bd-form-mapping' }, el('span', {}, T('Fields of the item')));
@@ -302,7 +303,7 @@ function formMappingField(def, p) {
 			if (r && e.target.value) { r.template = upload ? '{' + e.target.value + '}' : (r.template ? r.template + ' ' : '') + '{' + e.target.value + '}'; template.value = r.template; write(); }
 			e.target.value = '';
 		} }, [el('option', { value: '' }, T('Insert a form field…'))].concat(offered.map((x) => el('option', { value: x.label }, x.label))));
-		const toggle = el('input', { type: 'checkbox', checked: !!row, disabled: !usable, onchange: (e) => {
+		const toggle = el('input', { type: 'checkbox', checked: !!row, disabled: !usable && !row, onchange: (e) => {
 			if (e.target.checked) {
 				const same = offered.find((x) => String(x.label).trim().toLowerCase() === String(f.label || '').trim().toLowerCase());
 				mapping.push({ target: f.key, template: same ? '{' + same.label + '}' : '' });
@@ -314,6 +315,7 @@ function formMappingField(def, p) {
 		} });
 		wrapper.append(el('div', { class: 'bd-mapping-row' + (row ? ' is-on' : '') },
 			el('label', { class: 'bd-tick' }, toggle, el('span', {}, f.label || f.key), el('small', { class: 'bd-field-note' }, usable ? f.type : T('not for visitors'))),
+			row && !usable ? el('p', { class: 'bd-mapping-lost', role: 'alert' }, T('A form cannot fill this field – what a visitor writes for it is lost. Switch it off.')) : null,
 			row ? template : null, row ? pick : null));
 	});
 	mapping.filter((m) => !(collection.fields || []).some((f) => f.key === m.target)).forEach((m) => {

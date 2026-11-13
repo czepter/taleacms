@@ -54,6 +54,17 @@ final class Booking
     /** The settings with their defaults (Settings::DEFAULTS has the same). */
     public const array SETTINGS = ['booking_lead_hours' => 2, 'booking_horizon_days' => 60, 'booking_cancel_hours' => 24, 'booking_reminder_hours' => 24, 'booking_hold_hours' => 48];
 
+    /** The range each setting may take (the Bookings settings form and the import of an archive keep a value inside it). */
+    public const array SETTING_RANGES = ['booking_lead_hours' => [0, 720], 'booking_horizon_days' => [1, 365], 'booking_cancel_hours' => [0, 720], 'booking_reminder_hours' => [0, 168], 'booking_hold_hours' => [1, 720]];
+
+    /** A value of one of the SETTINGS, kept inside its range. */
+    public static function settingValue(string $key, int $value): string
+    {
+        [$min, $max] = self::SETTING_RANGES[$key];
+
+        return (string) max($min, min($max, $value));
+    }
+
     public const string SLOT_PATTERN = '/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/';
 
     public const int MAX_DURATION = 480;
@@ -924,11 +935,16 @@ final class Booking
         return $token;
     }
 
-    /** Whether another booking occupies the person at that time (a pending one only while its hold lasts). */
-    private static function occupied(Db $db, int $staffId, string $start, string $end, int $exclude): bool
+    /**
+     * Whether another booking occupies the person at that time (a pending one only while its hold lasts), with the service's
+     * buffer kept free on both sides – the rule free() applies when a visitor books, so accepting never squeezes out the buffer.
+     */
+    private static function occupied(Db $db, int $staffId, string $start, string $end, int $bufferMin, int $exclude): bool
     {
+        $buffer = max(0, $bufferMin);
+
         return (int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND id <> ? AND (status IN ('confirmed', 'done') OR (status = 'pending' AND hold_until > NOW())) AND starts_at < ? AND ends_at > ?",
-            [$staffId, $exclude, $end, $start]) > 0;
+            [$staffId, $exclude, date('Y-m-d H:i:s', strtotime($end . ' +' . $buffer . ' minutes')), date('Y-m-d H:i:s', strtotime($start . ' -' . $buffer . ' minutes'))]) > 0;
     }
 
     /**
@@ -941,7 +957,8 @@ final class Booking
         if ($booking['status'] !== 'pending') {
             return 'Only a booking waiting for confirmation can be accepted.';
         }
-        if (self::occupied($db, (int) $booking['staff_id'], (string) $booking['starts_at'], (string) $booking['ends_at'], (int) $booking['id'])) {
+        $buffer = (int) (self::service($db, (int) $booking['service_id'])['buffer_min'] ?? 0);
+        if (self::occupied($db, (int) $booking['staff_id'], (string) $booking['starts_at'], (string) $booking['ends_at'], $buffer, (int) $booking['id'])) {
             return 'This time has been taken meanwhile – propose other times or decline the request.';
         }
         if ($db->run("UPDATE {bookings} SET status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [(int) $booking['id']])->rowCount() === 0) {

@@ -113,7 +113,7 @@ final class PublicIds
             'findings.*.target.component' => 'components', 'findings.*.target.popup' => 'popups'],
         'get_stats' => ['news.*.id' => 'news'],
         'list_bookings' => ['bookings.*.id' => 'bookings'],
-        'booking_availability' => ['services.*.id' => 'booking_services', 'services.*.staff.*' => 'booking_staff', 'staff.*.id' => 'booking_staff', 'staff.*.services.*' => 'booking_services', 'staff.*.service_hours.*.service' => 'booking_services'],
+        'booking_availability' => ['free_staff_at.*.*' => 'booking_staff', 'services.*.id' => 'booking_services', 'services.*.staff.*' => 'booking_staff', 'staff.*.id' => 'booking_staff', 'staff.*.services.*' => 'booking_services', 'staff.*.service_hours.*.service' => 'booking_services'],
         'save_booking_service' => ['service.id' => 'booking_services', 'service.staff.*' => 'booking_staff'],
         'save_booking_staff' => ['staff.id' => 'booking_staff', 'staff.services.*' => 'booking_services', 'staff.service_hours.*.service' => 'booking_services', 'staff.user_id' => 'users'],
         'cancel_booking' => ['cancelled' => 'bookings'], 'confirm_booking' => ['confirmed' => 'bookings'], 'decline_booking' => ['declined' => 'bookings'],

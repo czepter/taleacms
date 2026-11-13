@@ -620,7 +620,8 @@ final class Registrations
         $hash = hash('sha256', $token);
         $row = $db->one('SELECT * FROM {enquiries} WHERE offer_token_hash = ?', [$hash]);
         $offered = $row !== null ? self::load($db, (int) $row['item_id']) : null; // also for a dead link: the page leads to the course list
-        $live = $row !== null && $row['offer_until'] !== null && (string) $row['offer_until'] > date('Y-m-d H:i:s');
+        // a registration the holder trashed or marked as spam offers nothing (restored, its link works again until it expires)
+        $live = $row !== null && $row['deleted_at'] === null && $row['category'] !== 'spam' && $row['offer_until'] !== null && (string) $row['offer_until'] > date('Y-m-d H:i:s');
         $gone = function () use ($app, $offered): array {
             $list = $offered !== null ? $app->url((string) $offered[0]['slug']) : $app->url('');
 
@@ -662,20 +663,32 @@ final class Registrations
             $values = self::mailValues($collection, $item, $name, $seats);
             $claimed = $db->transaction(function (Db $db) use ($hash, $verdict, $row, $collection, $item, $seats, $language, $app, &$state, &$mails, $name, $element): bool {
                 // the first press wins, and it kills the links for every other offered course (the hash stays: a dead link still finds its course list)
-                if ($db->run('UPDATE {enquiries} SET offer_until = NULL WHERE offer_token_hash = ? AND offer_until > NOW()', [$hash])->rowCount() !== 1) {
+                if ($db->run("UPDATE {enquiries} SET offer_until = NULL WHERE offer_token_hash = ? AND offer_until > NOW() AND deleted_at IS NULL AND category <> 'spam'", [$hash])->rowCount() !== 1) {
                     return false;
                 }
                 if ($verdict === 'already') {
                     return true;
                 }
-                $id = $db->insert('enquiries', ['created_at' => date('Y-m-d H:i:s'), 'form' => (string) $row['form'], 'source' => (string) $row['source'], 'element' => (string) $row['element'], 'page' => self::pathOf($collection, $item),
-                    'email' => (string) $row['email'], 'data' => (string) $row['data'], 'status' => 0, 'item_id' => (int) $item['item_id'], 'seats' => $seats, 'language' => $language]);
+                // an enquiry like one the form on the course page sends: its form record, the address and what it is about (Front\EnquiryTopic)
+                $page = self::pathOf($collection, $item, $language);
+                $about = \Talea\Front\EnquiryTopic::compose((string) $collection['name'], (string) $item['name']);
+                $id = $db->insert('enquiries', ['created_at' => date('Y-m-d H:i:s'), 'form' => (string) $row['form'], 'form_id' => $row['form_id'] !== null ? (int) $row['form_id'] : null, 'source' => (string) $row['source'],
+                    'element' => (string) $row['element'], 'page' => $page, 'topic' => $about, 'email' => (string) $row['email'], 'data' => (string) $row['data'], 'status' => 0, 'item_id' => (int) $item['item_id'], 'seats' => $seats, 'language' => $language]);
                 $state = self::place($app, $collection, $item, $id, $seats, (string) $row['email']);
                 $mails[] = fn () => self::welcome($app, $collection, $item, $state, (string) $row['email'], $language, $name, $seats);
-                if ($element !== null) { // the holder hears of it as of any registration; a request says so
-                    $mails[] = fn () => Language::runWith(Language::defaults($app->settings()), fn () => Forms::notifyHolder($app, $id, $element, (array) json_decode((string) $row['data'], true), (string) $row['email'], '', '', [],
+                $data = (array) json_decode((string) $row['data'], true);
+                $types = self::answerTypes($element, $data);
+                if ($element !== null) { // the holder hears of it as of any registration (which course, and a request says so)
+                    $mails[] = fn () => Language::runWith(Language::defaults($app->settings()), fn () => Forms::notifyHolder($app, $id, $element, $data, (string) $row['email'], '', $about, $types,
                         $state === 'waiting' ? t('Request:') . ' ' : ''));
                 }
+                // the webhook and the connectors (a sheet, a CRM) hear of it as of any registration; both only queue
+                $mails[] = function () use ($app, $id, $row, $data, $page, $about, $types): void {
+                    Events::record($app->db(), 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $row['form'], 0, 80), mb_substr($page, 0, 120)),
+                        ['enquiry' => $id, 'form' => (string) $row['element'], 'source' => (string) $row['source']]);
+                    Webhook::enquiryReceived($app, $id, (string) $row['form'], $data, (string) $row['email'], $page, '', '', '', (string) $row['element'], $about);
+                    EnquiryDelivery::enquiryReceived($app, $id, (string) $row['source'], (string) $row['form'], $about, (string) $row['email'], $page, EnquiryDelivery::fields($data, $types));
+                };
 
                 return true;
             });
@@ -708,10 +721,27 @@ final class Registrations
         return $course !== null && (bool) $item['visible'] && $item['deleted_at'] === null && (int) $item['item_id'] !== $cancelledItemId && !self::closed($course, date('Y-m-d H:i'));
     }
 
-    /** The public path of a course item, as the registration form stores it in `page`. */
-    private static function pathOf(array $collection, array $item): string
+    /** The public path of a course item in a language version, as the registration form on that page stores it in `page`. */
+    private static function pathOf(array $collection, array $item, string $language = ''): string
     {
-        return mb_substr('/' . $collection['slug'] . '/' . $item['slug'], 0, 255);
+        return mb_substr('/' . Slug::redirectPath($collection['slug'] . '/' . $item['slug'], $language), 0, 255);
+    }
+
+    /**
+     * The field type of every stored answer (as Front\Forms passes them on: a CRM maps the e-mail, phone and name by type), found
+     * by label in the form; 'info' for an answer the form no longer has.
+     *
+     * @param array<mixed> $data the stored answers ([label, value] pairs; decoded JSON, so not trusted to be one)
+     * @return list<string>
+     */
+    private static function answerTypes(?array $element, array $data): array
+    {
+        $byLabel = [];
+        foreach ((array) ($element['content']['fields'] ?? []) as $field) {
+            $byLabel[(string) ($field['label'] ?? '')] ??= (string) ($field['type'] ?? 'text');
+        }
+
+        return array_map(fn (mixed $d): string => $byLabel[(string) (((array) $d)[0] ?? '')] ?? 'info', array_values($data));
     }
 
     /** The collection and item (data decoded) of an item id; null when either is gone. @return array{0: array, 1: array}|null */

@@ -710,6 +710,7 @@ return [
     'The fact {{fact.%s}} does not exist – visitors see nothing in its place. Create it in Facts, or fix the key.' => 'Der Fakt {{fact.%s}} existiert nicht – Besucher sehen an seiner Stelle nichts. Lege ihn unter Fakten an oder korrigiere den Schlüssel.',
     'The failed transfers were tried again – see the result in the Service column.' => 'Die fehlgeschlagenen Übertragungen wurden erneut versucht – das Ergebnis siehst du in der Spalte „Dienst“.',
     'The fetch from the site did not finish. Start it again.' => 'Der Abruf von der Website ist nicht fertig geworden. Starte ihn erneut.',
+    'The field “%s” of the collection cannot be filled by a form – what a visitor writes for it is lost. Remove it from the mapping.' => 'Das Feld „%s“ der Sammlung lässt sich nicht per Formular füllen – was Besucher dafür schreiben, geht verloren. Entferne es aus der Zuordnung.',
     'The fields and recipients are the published form’s. Change them in the form.' => 'Felder und Empfänger stammen aus dem veröffentlichten Formular. Ändere sie im Formular.',
     'The fields and recipients come from the published page. Change them in the builder.' => 'Felder und Empfänger stammen aus der veröffentlichten Seite. Ändere sie im Builder.',
     'The file could not be moved to the media folder – check the write permissions of media/.' => 'Die Datei konnte nicht in den Medienordner verschoben werden – prüfe die Schreibrechte von media/.',

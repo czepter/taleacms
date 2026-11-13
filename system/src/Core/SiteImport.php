@@ -30,13 +30,13 @@ final class SiteImport
     /** Tables in the order of import (a folder before media, a collection before its items). */
     public const array TABLES = ['categories', 'tags', 'popups', 'pages', 'news', 'redirects', 'classes', 'site_parts', 'components', 'forms', 'sections', 'page_templates', 'menus',
         'collections', 'collection_templates', 'collection_items', 'short_links', 'document_versions', 'media_folders', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook',
-        'booking_services', 'booking_staff', 'booking_staff_services', 'booking_hours', 'booking_off'];
+        'booking_services', 'booking_staff', 'booking_staff_services', 'booking_hours', 'booking_off', 'member_groups', 'content_groups'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['news_tags', 'news_revisions', 'news_drafts', 'page_revisions', 'build_revisions', 'media_usage', 'broken_links',
         'short_links', 'collection_items', 'collection_templates', 'collections', 'news', 'categories', 'tags', 'pages', 'redirects', 'classes', 'site_parts', 'components', 'forms', 'sections', 'page_templates',
         'menus', 'popups', 'media', 'media_folders', 'import_map', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads', 'notice_log', 'blueprints', 'notebook', 'draft_comments',
-        'booking_staff_services', 'booking_hours', 'booking_off', 'booking_staff', 'booking_services']; // the bookings themselves stay: personal data of this site's customers
+        'booking_staff_services', 'booking_hours', 'booking_off', 'booking_staff', 'booking_services', 'content_groups', 'member_group_links', 'member_groups']; // the bookings themselves stay: personal data of this site's customers
 
     /** The rows a site import ADDS to the owner's shared tables (never empties them): ids are new, public ids that are taken get a new one. */
     private const array OWNER_ROWS = ['media_folders', 'media', 'components', 'facts'];
@@ -582,6 +582,8 @@ final class SiteImport
             'blueprints' => self::blueprint($r),
             'notice_log' => $this->noticeLogRow($r),
             'notebook' => self::note($r),
+            'member_groups' => self::memberGroup($r),
+            'content_groups' => $this->contentGroup($r),
         };
         if ($clean === null) {
             return false;
@@ -681,8 +683,7 @@ final class SiteImport
         $values = json_decode((string) @file_get_contents(self::workFolder($file, $this->folder) . '/settings.json'), true);
         foreach (is_array($values) ? $values : [] as $key => $value) {
             $key = (string) $key;
-            $base = (string) preg_replace('/_' . Language::TAG . '$/D', '', $key);
-            if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, SiteExport::SETTINGS, true) && !(in_array($base, Settings::PER_LANGUAGE, true) && $base !== $key))) {
+            if (!is_scalar($value) || $key === 'site_url' || !SiteExport::exportsSetting($key)) {
                 continue;
             }
             $value = (string) $value;
@@ -697,6 +698,8 @@ final class SiteImport
                 'site_language' => isset(Language::AVAILABLE[$value]) && Language::forSite($value, [Language::defaults($this->settings)]) === $value ? $value : null,
                 'additional_languages' => implode(',', array_filter(explode(',', $value), fn (string $c): bool => isset(Language::AVAILABLE[$c]))),
                 'extensions' => $value === '-' ? '-' : implode(',', Extensions::imported($value, $values['extensions_off'] ?? null)),
+                'member_signup' => in_array($value, ['invited', 'open'], true) ? $value : null,
+                'booking_lead_hours', 'booking_horizon_days', 'booking_cancel_hours', 'booking_reminder_hours', 'booking_hold_hours' => is_numeric($value) ? Booking::settingValue($key, (int) $value) : null,
                 // a field of the admin form is validated like the form and MCP do (3.3.3, N55): company_map or social_*
                 // "javascript:…" from a crafted archive is dropped and the setting keeps its value
                 default => \Talea\Admin\Modules\Settings::checkable($key) ? \Talea\Admin\Modules\Settings::verifyValue($key, $value) : mb_substr($value, 0, 20_000),

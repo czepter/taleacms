@@ -348,6 +348,20 @@ final class Members
         }
     }
 
+    /**
+     * A new language version takes the groups of its original: it starts as a copy of the original's text, and a public copy would put
+     * members-only text on the open web. A form that carries the groups (gating.php, ticked from the original) decides itself; Claude, the
+     * assistant and a form without the fieldset (the feature switched off – the restriction still holds) get the original's groups.
+     *
+     * @param array<string, mixed>|null $form the posted fields of the form that made the translation, null = no form
+     */
+    public static function inheritFromOriginal(Db $db, string $type, int $id, ?int $original, ?array $form = null): void
+    {
+        if ($original !== null && $original > 0 && $id > 0 && ($form['member_groups_present'] ?? '') !== '1') {
+            self::copyGroups($db, $type, $original, $id);
+        }
+    }
+
     /** Saves the groups chosen in a content form (the fieldset of views/admin/members/gating.php); a form without it changes nothing. */
     public static function saveFromForm(App $app, string $type, int $id): void
     {

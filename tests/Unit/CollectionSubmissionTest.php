@@ -23,6 +23,28 @@ final class CollectionSubmissionTest extends TestCase
         );
     }
 
+    /** A visitor's text becomes escaped paragraphs in formatted text, and formatted text comes back as the plain text a form shows. */
+    public function testFormattedTextGoesToPlainTextAndBack(): void
+    {
+        $this->assertSame("<p>A &amp; <b></p>", str_replace('&lt;b&gt;', '<b>', CollectionSubmission::htmlFromText("A & <b>")), 'markup a visitor types is escaped');
+        $this->assertSame("<p>One<br>\ntwo</p>\n<p>Three</p>", CollectionSubmission::htmlFromText("One\r\ntwo\n\n\nThree\n"), 'an empty line starts a paragraph, a line break stays');
+        $this->assertSame('', CollectionSubmission::htmlFromText("  \n "), 'nothing written gives nothing');
+        $this->assertSame("We loved it.\n\nLine\nbreak &\n\nOne\nTwo", CollectionSubmission::textFromHtml("<p>We <strong>loved</strong> it.</p>\n<p>Line<br>break &amp;</p><ul><li>One</li><li>Two</li></ul>"));
+        $text = "First\nsecond\n\nThird & <i>fourth</i>";
+        $this->assertSame($text, CollectionSubmission::textFromHtml(CollectionSubmission::htmlFromText($text)), 'the way there and back keeps the text');
+    }
+
+    /** A template's value is read back into the answers it was made of: what a personal link shows when it reviews an item. */
+    public function testATemplateIsReadBackIntoItsAnswers(): void
+    {
+        $this->assertSame(['Name' => 'Eva Novak', 'Role' => 'director, ACME'], FormLinks::readTemplate('{Name}, {Role}', 'Eva Novak, director, ACME'));
+        $this->assertSame(['Name' => 'Eva'], FormLinks::readTemplate('{Name}, {Role}', 'Eva'), 'an empty later part leaves its separator out');
+        $this->assertSame(['Words' => "Two\nlines"], FormLinks::readTemplate('{Words}', "Two\nlines"));
+        $this->assertSame(['From' => 'Jena'], FormLinks::readTemplate('From: {From}', 'From: Jena'));
+        $this->assertSame([], FormLinks::readTemplate('From: {From}', 'Jena'), 'a value without the template\'s shape gives nothing');
+        $this->assertSame([], FormLinks::readTemplate('media/logo.webp', 'media/logo.webp'), 'a constant has no answers');
+    }
+
     public function testLinksAndTheSystemFormAreRecognised(): void
     {
         $this->assertSame([30, 'references', true, false], [FormLinks::DAYS, Testimonials::PRESET, Testimonials::isSystem(['origin' => Testimonials::ORIGIN]), Testimonials::isSystem(['origin' => 'page:3|abc'])]);

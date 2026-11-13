@@ -364,11 +364,9 @@ final class Bookings extends Module
         }
         if ($this->request->isPost()) {
             $s = $this->app->settings();
-            $s->set('booking_lead_hours', (string) max(0, min(720, $this->request->postInt('lead'))));
-            $s->set('booking_horizon_days', (string) max(1, min(365, $this->request->postInt('horizon'))));
-            $s->set('booking_cancel_hours', (string) max(0, min(720, $this->request->postInt('cancel'))));
-            $s->set('booking_reminder_hours', (string) max(0, min(168, $this->request->postInt('reminder'))));
-            $s->set('booking_hold_hours', (string) max(1, min(720, $this->request->postInt('hold'))));
+            foreach (['booking_lead_hours' => 'lead', 'booking_horizon_days' => 'horizon', 'booking_cancel_hours' => 'cancel', 'booking_reminder_hours' => 'reminder', 'booking_hold_hours' => 'hold'] as $key => $field) {
+                $s->set($key, Booking::settingValue($key, $this->request->postInt($field)));
+            }
             \Talea\Admin\ChangeLog::write($this->app, 'bookings', 'settings', '');
         }
 

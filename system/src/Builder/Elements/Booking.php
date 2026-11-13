@@ -108,6 +108,19 @@ final class Booking extends Element
         };
     }
 
+    /**
+     * The service and the person the element fixes – only while they are switched on; one switched off later is not fixed any more
+     * (the form offers the others). The form (render) and the booking (Front\Booking::process) both ask here, so they never disagree.
+     *
+     * @param array<string, mixed> $content
+     * @return array{0: array<string, mixed>|null, 1: array<string, mixed>|null}
+     */
+    public static function fixed(\Talea\Core\Db $db, array $content): array
+    {
+        return [(int) ($content['service'] ?? 0) > 0 ? Bookings::service($db, (int) $content['service'], true) : null,
+            (int) ($content['staff_member'] ?? 0) > 0 ? Bookings::member($db, (int) $content['staff_member'], true) : null];
+    }
+
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['content'];
@@ -123,7 +136,7 @@ final class Booking extends Element
         }
         $services = Bookings::services($db);
         $staff = Bookings::staff($db);
-        $fixedService = (int) $o['service'] > 0 ? Bookings::service($db, (int) $o['service'], true) : null;
+        [$fixedService, $fixedStaff] = self::fixed($db, $o);
         if ($fixedService !== null) {
             $services = [$fixedService];
         }
@@ -142,7 +155,6 @@ final class Booking extends Element
                 $chosenService = $s;
             }
         }
-        $fixedStaff = (int) $o['staff_member'] > 0 ? Bookings::member($db, (int) $o['staff_member'], true) : null;
         if (!$k->editor) {
             $k->withoutCache = true; // the free times change with every booking
         }
