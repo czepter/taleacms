@@ -145,8 +145,8 @@ final class RegionalLanguagesTest extends TestCase
         $codes = array_keys(Language::AVAILABLE);
         $this->assertSame('pt-br', WpLanguages::urlLanguage('https://old.example/pt-br/sobre/', $codes));
         $this->assertSame('en-gb', WpLanguages::urlLanguage('https://old.example/?lang=en-gb', $codes));
-        $this->assertSame('en', WpImport::itemLanguage(['link' => 'https://old.example/en-gb/about/', 'language_wp' => '', 'language_plugin' => 'wpml'], ['languages' => ['plugin' => 'wpml', 'codes' => [], 'site' => ['en']]])[0]);
-        $this->assertSame('en-gb', WpImport::itemLanguage(['link' => 'https://old.example/en-gb/about/', 'language_wp' => '', 'language_plugin' => 'wpml'], ['languages' => ['plugin' => 'wpml', 'codes' => [], 'site' => ['de']]])[0]);
+        $this->assertSame('en', WpLanguages::itemLanguage(['link' => 'https://old.example/en-gb/about/', 'language_wp' => '', 'language_plugin' => 'wpml'], ['languages' => ['plugin' => 'wpml', 'codes' => [], 'site' => ['en']]])[0]);
+        $this->assertSame('en-gb', WpLanguages::itemLanguage(['link' => 'https://old.example/en-gb/about/', 'language_wp' => '', 'language_plugin' => 'wpml'], ['languages' => ['plugin' => 'wpml', 'codes' => [], 'site' => ['de']]])[0]);
     }
 
     public function testTranslationGroupsKeepRegionalKeys(): void

@@ -7,6 +7,7 @@ namespace Talea\Tests\Integration;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Talea\Core\ImageDownloader;
 use Talea\Core\Settings;
+use Talea\Core\StarterPages;
 use Talea\Core\WebImport;
 use Talea\Tests\Support\DatabaseTestCase;
 
@@ -36,5 +37,129 @@ final class WebImportPagesTest extends DatabaseTestCase
         $this->assertSame('https://old.example/about-us/', $row['import_source']);
         $this->assertSame(1, (int) $row['layout_pending']);
         $this->assertSame(1, $state['result']['pages']);
+    }
+
+    /** @return array<string, int> the four recorded starter pages by slug; the first is the home page */
+    private function starterPages(): array
+    {
+        $db = $this->db();
+        $ids = [];
+        foreach (['home' => 'Home', 'about-us' => 'About us', 'services' => 'Services', 'contact' => 'Contact'] as $slug => $title) {
+            $ids[$slug] = $db->insert('pages', ['slug' => $slug, 'title' => $title, 'text' => '<p>' . $title . '</p>']);
+        }
+        $db->insert('settings', ['name' => 'home_page', 'value' => (string) $ids['home']]);
+        $db->insert('settings', ['name' => StarterPages::SETTING, 'value' => StarterPages::record($db, array_values($ids))]);
+
+        return $ids;
+    }
+
+    public function testAnImportedPageTakesTheAddressOfAnUntouchedStarterPage(): void
+    {
+        $ids = $this->starterPages();
+        [$import, $state] = $this->importer();
+        $import->importHtml('https://old.example/contact/', self::PAGE, $state);
+
+        $this->assertSame('contact', $this->db()->value('SELECT slug FROM {pages} WHERE import_source = ?', ['https://old.example/contact/']));
+        $row = $this->db()->one('SELECT slug, deleted_at FROM {pages} WHERE page_id = ?', [$ids['contact']]);
+        $this->assertSame('contact-starter', $row['slug']);
+        $this->assertNotNull($row['deleted_at']);
+        $this->assertSame('/contact', $state['starters']['replaced'][0]['address']);
+        $this->assertSame([], $state['starters']['renamed']);
+        $this->assertSame(0, $state['result']['redirects'], 'the address did not change: no redirect');
+    }
+
+    public function testAKeptStarterPageLeavesTheImportANumber(): void
+    {
+        $ids = $this->starterPages();
+        [$import, $state] = $this->importer();
+        WebImport::confirm($state, [$ids['contact']]);
+        $import->importHtml('https://old.example/contact/', self::PAGE, $state);
+
+        $this->assertSame((int) $ids['contact'], (int) $this->db()->value("SELECT page_id FROM {pages} WHERE slug = 'contact'"));
+        $this->assertSame('contact-2', $this->db()->value('SELECT slug FROM {pages} WHERE import_source = ?', ['https://old.example/contact/']));
+        $this->assertSame([['old' => '/contact', 'new' => '/contact-2']], $state['starters']['renamed']);
+        $this->assertSame('kept', $state['starters']['kept'][0]['why']);
+        $this->assertSame(0, $state['result']['redirects'], 'the starter page still answers at the old address: no redirect over a live page');
+    }
+
+    public function testTheHomePageIsNeverReplaced(): void
+    {
+        $ids = $this->starterPages();
+        [$import, $state] = $this->importer();
+        $import->importHtml('https://old.example/', self::PAGE, $state);
+
+        $this->assertSame((string) $ids['home'], (new Settings($this->db()))->get('home_page'));
+        $this->assertNull($this->db()->value('SELECT deleted_at FROM {pages} WHERE page_id = ?', [$ids['home']]));
+        $this->assertSame('home-2', $this->db()->value('SELECT slug FROM {pages} WHERE import_source = ?', ['https://old.example/']));
+        $this->assertSame('home', $state['starters']['kept'][0]['why']);
+    }
+
+    public function testThePreviewOffersTheChoices(): void
+    {
+        $this->starterPages();
+        [, $state] = $this->importer();
+        $state['urls'] = ['https://old.example/' => 1, 'https://old.example/contact/' => 1, 'https://old.example/team/' => 1];
+        $choices = WebImport::starterChoices($this->db(), new Settings($this->db()), $state);
+        $this->assertSame(['/' => 'home', '/contact' => 'replace'], array_column($choices, 'action', 'old'));
+    }
+
+    public function testPlannedSlugKeepsTheWholePath(): void
+    {
+        $this->assertSame('home', WebImport::plannedSlug('', ''));
+        $this->assertSame('contact', WebImport::plannedSlug('contact', ''));
+        $this->assertSame('services/heating/boilers', WebImport::plannedSlug('services/heating/boilers.html', ''));
+        $this->assertSame('leistungen/heizung', WebImport::plannedSlug('de/Leistungen/Heizung', ''), 'a language prefix of the old site is not a parent');
+        $this->assertSame('home', WebImport::plannedSlug('de', ''));
+    }
+
+    public function testNestedAddressesBecomeParentPages(): void
+    {
+        [$import, $state] = $this->importer();
+        $import->importHtml('https://old.example/services/heating/boilers/', self::PAGE, $state);
+
+        $rows = array_column($this->db()->all('SELECT page_id, slug, visible, layout_pending, parent_id, import_source FROM {pages} ORDER BY page_id'), null, 'slug');
+        $this->assertSame(['services', 'services/heating', 'services/heating/boilers'], array_keys($rows));
+        $this->assertNull($rows['services']['parent_id']);
+        $this->assertSame((int) $rows['services']['page_id'], (int) $rows['services/heating']['parent_id']);
+        $this->assertSame((int) $rows['services/heating']['page_id'], (int) $rows['services/heating/boilers']['parent_id']);
+        foreach ($rows as $row) {
+            $this->assertSame([0, 1], [(int) $row['visible'], (int) $row['layout_pending']], 'imported and placeholder pages are hidden and wait for their layout');
+        }
+        $this->assertSame(0, (int) $this->db()->value("SELECT COUNT(*) FROM {redirects} WHERE from_path = 'services/heating/boilers'"), 'the address is the same: no redirect');
+        $this->assertSame([['old' => '/services', 'new' => '/services'], ['old' => '/services/heating', 'new' => '/services/heating']], $state['parents']);
+        $this->assertSame(2, $state['result']['parents']);
+    }
+
+    public function testAParentImportedFirstIsReusedNotDuplicated(): void
+    {
+        [$import, $state] = $this->importer();
+        $state['urls'] = ['https://old.example/services/heating/' => 1, 'https://old.example/services/' => 1];
+        WebImport::confirm($state, null);
+        $this->assertSame(['https://old.example/services/', 'https://old.example/services/heating/'], array_keys($state['urls']), 'shallow addresses first');
+        foreach (array_keys($state['urls']) as $url) {
+            $import->importHtml($url, self::PAGE, $state);
+        }
+        $services = (int) $this->db()->value("SELECT page_id FROM {pages} WHERE slug = 'services'");
+        $this->assertSame($services, (int) $this->db()->value("SELECT parent_id FROM {pages} WHERE slug = 'services/heating'"));
+        $this->assertSame(2, (int) $this->db()->value('SELECT COUNT(*) FROM {pages}'), 'no placeholder next to the real parent');
+        $this->assertSame([], $state['parents']);
+    }
+
+    public function testALanguagePrefixOfTheOldSiteIsNotAParent(): void
+    {
+        [$import, $state] = $this->importer();
+        $import->importHtml('https://old.example/de/leistungen/', self::PAGE, $state);
+        $this->assertSame(['leistungen'], array_column($this->db()->all('SELECT slug FROM {pages}'), 'slug'));
+    }
+
+    public function testATakenParentAddressRedirects(): void
+    {
+        $this->db()->insert('pages', ['slug' => 'services', 'title' => 'Our services', 'text' => '<p>Mine</p>', 'updated_at' => date('Y-m-d H:i:s')]);
+        [$import, $state] = $this->importer();
+        $import->importHtml('https://old.example/services/heating/', self::PAGE, $state);
+
+        $this->assertNotNull($this->db()->value("SELECT page_id FROM {pages} WHERE slug = 'services-2/heating'"));
+        $this->assertSame([['from' => '/services/heating', 'to' => '/services-2/heating']], $state['moved']);
+        $this->assertSame('services-2/heating', $this->db()->value("SELECT to_path FROM {redirects} WHERE from_path = 'services/heating'"));
     }
 }

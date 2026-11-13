@@ -1207,6 +1207,7 @@ The link works for %d days.
     '[Role, company]' => '[المنصب، الشركة]',
     '[Role]' => '[المنصب]',
     '[Street and number]' => '[الشارع والرقم]',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[هنا ستوضع الصفحة الرئيسية للموقع المنقول: انشر الصفحة الرئيسية المستوردة واجعلها الصفحة الرئيسية.]',
     '[Your quick check]' => '[اختبارك السريع]',
     '[number]' => '[الرقم]',
     '[number]-year guarantee' => 'ضمان [الرقم] سنوات',

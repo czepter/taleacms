@@ -85,4 +85,29 @@ final class StarterPagesTest extends DatabaseTestCase
         $this->assertSame([], StarterPages::untouched($db, $settings));
         $this->assertSame(0, StarterPages::trashAll($db, $settings));
     }
+
+    public function testChoicesAndMakeRoom(): void
+    {
+        $db = $this->db();
+        $settings = $this->install();
+        $db->run('UPDATE {pages} SET updated_at = NOW() WHERE page_id = ?', [$this->ids['about-us']]);
+        $targets = [
+            ['old' => '/', 'slug' => 'home', 'language' => ''], ['old' => '/about-us', 'slug' => 'about-us', 'language' => ''],
+            ['old' => '/services', 'slug' => 'services', 'language' => ''], ['old' => '/contact', 'slug' => 'contact', 'language' => ''],
+            ['old' => '/team', 'slug' => 'team', 'language' => ''], ['old' => '/de/contact', 'slug' => 'contact', 'language' => 'de'],
+        ];
+        $actions = array_column(StarterPages::choices($db, $settings, $targets, [$this->ids['services']]), 'action', 'old');
+        $this->assertSame(['/' => 'home', '/about-us' => 'edited', '/services' => 'keep', '/contact' => 'replace'], $actions);
+
+        $log = ['replaced' => [], 'kept' => [], 'renamed' => []];
+        $this->assertFalse(StarterPages::makeRoom($db, $settings, 'contact', '', [$this->ids['services']], $log, '/contact'), 'the address is free after the starter page went');
+        $this->assertTrue(StarterPages::makeRoom($db, $settings, 'services', '', [$this->ids['services']], $log, '/services'));
+        $this->assertTrue(StarterPages::makeRoom($db, $settings, 'home', '', null, $log, '/'));
+        $this->assertTrue(StarterPages::makeRoom($db, $settings, 'about-us', '', null, $log, '/about-us'));
+        $this->assertFalse(StarterPages::makeRoom($db, $settings, 'team', '', null, $log, '/team'));
+        $this->assertSame([['old' => '/contact', 'title' => 'Contact', 'address' => '/contact']], $log['replaced']);
+        $this->assertSame(['kept', 'home', 'edited'], array_column($log['kept'], 'why'));
+        $this->assertNotNull($db->value('SELECT deleted_at FROM {pages} WHERE page_id = ?', [$this->ids['contact']]));
+        $this->assertNull($db->value('SELECT deleted_at FROM {pages} WHERE page_id = ?', [$this->ids['services']]));
+    }
 }

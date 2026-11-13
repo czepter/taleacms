@@ -10,6 +10,7 @@
  * @var list<array{category_id:int, name:string, language:string}> $categories  news categories
  * @var bool $redirectsEnabled
  * @var list<string> $missingLanguages  language versions of a multilingual export that the site does not have yet
+ * @var list<array<string, mixed>> $starters  the starter pages the export's pages would meet (Core\StarterPages::choices)
  */
 $p = $state['overview'];
 $options = $state['options'];
@@ -44,7 +45,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php if ($t['left_out'] !== []): ?> <?= e(t('Left out (repeaters, galleries or relationships – Claude can move them by hand): %s.', implode(', ', array_keys($t['left_out'])))) ?><?php endif ?></p>
 <?php endif ?>
 <?php endforeach ?>
-<?php if (Talea\Core\WpImport::isMultilingual($state)): // Polylang or WPML ?>
+<?php if (Talea\Core\WpLanguages::isMultilingual($state)): // Polylang or WPML ?>
 <?php $found = (array) $state['languages']['found']; $languageName = fn (string $code): string => Talea\Core\Language::AVAILABLE[$code][0] ?? $code; ?>
 <p><?= e(t('Multilingual site (%s): %s.', $state['languages']['plugin'] === 'wpml' ? 'WPML' : ($state['languages']['plugin'] === 'polylang' ? 'Polylang' : t('languages in the addresses')),
     $found === [] ? t('no language named') : implode(', ', array_map(fn (string $code, int $count): string => $languageName($code) . ' ' . $count, array_map('strval', array_keys($found)), array_map('intval', $found))))) ?>
@@ -111,6 +112,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php endforeach ?>
 </select></div></div>
 </fieldset>
+<?= $app->view->render('admin/transfer/starters', ['choices' => $starters, 'result' => null, 'hidden' => false]) ?>
 <p class="help"><?= e(t('Imported news is not announced: no webhook or IndexNow. Before a larger import, create a database backup in Settings → Backups.')) ?></p>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Start import')) ?>"> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
 </form>

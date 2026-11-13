@@ -1207,6 +1207,7 @@ O link é válido durante %d dias.
     '[Role, company]' => '[Função, empresa]',
     '[Role]' => '[Função]',
     '[Street and number]' => '[Rua e número]',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[Aqui ficará a página inicial do site migrado: publique a página inicial importada e defina-a como página inicial.]',
     '[Your quick check]' => '[O seu teste rápido]',
     '[number]' => '[número]',
     '[number]-year guarantee' => 'Garantia de [número] anos',

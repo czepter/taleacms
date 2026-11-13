@@ -500,6 +500,53 @@ PHP);
         return $text;
     }
 
+    /** #340: an import takes the address of an untouched starter page, never the home page's; the preview offers the choice. */
+    public function testWebsiteImportReplacesUntouchedStarterPages(): void
+    {
+        $site = $this->site();
+        $old = $site->workDir('oldsite-starters');
+        foreach (['contact', 'services/heating'] as $dir) {
+            @mkdir($old . '/' . $dir, 0775, true);
+        }
+        file_put_contents($old . '/router.php', '<?php return false;');
+        $port = $site->freePort();
+        $origin = 'http://127.0.0.1:' . $port;
+        file_put_contents($old . '/robots.txt', "User-agent: *\nSitemap: $origin/sitemap.xml\n");
+        file_put_contents($old . '/sitemap.xml', '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . implode('', array_map(static fn ($p) => "<url><loc>$origin$p</loc></url>", ['/', '/contact/', '/services/heating/'])) . '</urlset>');
+        file_put_contents($old . '/index.html', $this->oldPage('Welcome', 'The old home page', '<p>Old Oak makes furniture by hand in our workshop near the river, since many years, for homes and offices alike.</p>'));
+        file_put_contents($old . '/contact/index.html', $this->oldPage('Contact', 'Write to us', '<p>Write to us about a table, a chair or a whole kitchen and we answer within two working days, promised.</p>'));
+        file_put_contents($old . '/services/heating/index.html', $this->oldPage('Heating', 'Our heating', '<p>We build wooden benches that hide your radiators and keep the room warm and quiet for all the winter.</p>'));
+        $site->startPhp($old, 'router.php', [], $port);
+
+        $starters = array_column($site->rows("SELECT slug FROM tl_pages WHERE deleted_at IS NULL AND slug IN ('home', 'contact') ORDER BY slug"), 'slug');
+        $this->assertContains('contact', $starters, 'the installer made a Contact page');
+        $this->assertNotSame('', (string) $site->settingValue('starter_pages'), 'the installer recorded its starter pages');
+
+        $text = $this->pump('import_website', ['url' => $origin], 'import_id', 'finding');
+        $this->assertSame('preview', $this->fieldOf($text, 'phase'));
+        $offered = array_column(json_decode($text, true)['starter_pages'] ?? [], 'action', 'old_address');
+        $this->assertSame('replace', $offered['/contact'] ?? null, 'the preview offers to replace the starter Contact page');
+        $this->assertSame('home', $offered['/'] ?? null, 'the home page is never replaced');
+        $importId = $this->fieldOf($text, 'import_id');
+        $this->toolText('import_website', ['import_id' => $importId, 'confirm' => true]);
+        $text = $this->toolText('import_website', ['import_id' => $importId]);
+        for ($i = 0; $i < 20 && $this->fieldOf($text, 'phase') === 'importing'; $i++) {
+            $text = $this->toolText('import_website', ['import_id' => $importId]);
+        }
+        $this->assertSame('done', $this->fieldOf($text, 'phase'));
+
+        $this->assertSame('0', (string) $site->value("SELECT visible FROM tl_pages WHERE slug = 'contact' AND deleted_at IS NULL"), 'the imported page has the address, hidden');
+        $this->assertNotNull($site->value("SELECT deleted_at FROM tl_pages WHERE slug = 'contact-starter'"), 'the starter Contact page is in the trash');
+        $this->assertSame('home-2', (string) $site->value("SELECT slug FROM tl_pages WHERE import_source = ?", [$origin . '/']), 'the old home page is a hidden page beside the starter Home');
+        $this->assertNull($site->value("SELECT deleted_at FROM tl_pages WHERE slug = 'home'"));
+        $result = json_decode($text, true)['starter_pages_result'] ?? [];
+        $this->assertSame('/contact', $result['replaced'][0]['address'] ?? null, 'the result lists what was replaced');
+        $this->assertSame('home', $result['kept'][0]['why'] ?? null, 'and what was kept');
+
+        // nested addresses keep their structure: services/heating below a hidden empty parent
+        $this->assertSame('services', (string) $site->value("SELECT p.slug FROM tl_pages c JOIN tl_pages p ON p.page_id = c.parent_id WHERE c.slug = 'services/heating'"), 'the nested address is a child page');
+    }
+
     public function testSignInThroughTheConsentPageAndDisconnectingAnApp(): void
     {
         $site = $this->site();

@@ -1207,6 +1207,7 @@ A link %d napig érvényes.
     '[Role, company]' => '[Beosztás, cég]',
     '[Role]' => '[Beosztás]',
     '[Street and number]' => '[Utca és házszám]',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[Ide kerül az áthelyezett weboldal főoldala: tegye közzé az importált főoldalt, és állítsa be kezdőoldalnak.]',
     '[Your quick check]' => '[Az Ön gyorstesztje]',
     '[number]' => '[szám]',
     '[number]-year guarantee' => '[szám] év garancia',

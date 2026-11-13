@@ -198,7 +198,7 @@ final class StarterPages
             return false;
         }
         if (count($log['kept'] ?? []) < WpImport::MAX_LISTED) {
-            $log['kept'][] = $entry + ['why' => $action === 'replace' ? 'kept' : $action];
+            $log['kept'][] = $entry + ['why' => in_array($action, ['keep', 'replace'], true) ? 'kept' : $action];
         }
 
         return true;

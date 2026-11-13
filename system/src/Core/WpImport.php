@@ -39,7 +39,7 @@ final class WpImport
     public const int SECONDS = 8;
 
     /** Default import options (the Preview step). */
-    public const array DEFAULT_OPTIONS = ['language' => '', 'drafts' => true, 'pages' => true, 'builder' => true, 'redirects' => true, 'category' => 0, 'collections' => true, 'add_languages' => false];
+    public const array DEFAULT_OPTIONS = ['language' => '', 'drafts' => true, 'pages' => true, 'builder' => true, 'redirects' => true, 'category' => 0, 'collections' => true, 'add_languages' => false, 'keep_starters' => null];
 
     /** At most this many slug clashes are listed in the report (the count is always exact). */
     public const int MAX_LISTED = 50;
@@ -80,7 +80,7 @@ final class WpImport
     {
         return [
             'file' => $file, 'phase' => 'analysis', 'position' => 0, 'total' => 0, 'web' => ['name' => '', 'url' => ''],
-            'overview' => ['articles' => [], 'pages' => [], 'categories' => 0, 'tags' => 0, 'authors' => 0, 'attachments' => 0, 'images' => 0, 'other' => [], 'shortcodes' => [], 'seo' => [], 'types' => []],
+            'overview' => ['articles' => [], 'pages' => [], 'page_slugs' => [], 'categories' => 0, 'tags' => 0, 'authors' => 0, 'attachments' => 0, 'images' => 0, 'other' => [], 'shortcodes' => [], 'seo' => [], 'types' => []],
             'attachments' => [], 'options' => self::DEFAULT_OPTIONS, 'previews' => [],
             // the languages of a multilingual export (Polylang, WPML): the plugin, the site's own languages when the import began (a
             // regional language of the export folds into the version the site has), Polylang slug => our code ('' = a language this
@@ -88,9 +88,24 @@ final class WpImport
             // item's [code, type, slug], the translation groups (group => WordPress ids) and the versions the import added
             'languages' => ['plugin' => '', 'site' => $siteLanguages, 'codes' => [], 'found' => [], 'unsupported' => [], 'left_out' => [], 'items' => [], 'groups' => [], 'added' => []],
             'result' => ['articles' => 0, 'pages' => 0, 'categories' => 0, 'redirects' => 0, 'skipped' => 0, 'seo' => 0, 'items' => 0, 'translations' => 0, 'clashes' => 0],
+            'starters' => ['replaced' => [], 'kept' => [], 'renamed' => []], // starter pages an imported page took the address of, or left alone (Core\StarterPages)
             'clashes' => [], // slugs another language version already has – [address it would have, address it got, the other one]
             'images' => ['type' => 'news', 'id' => 0, 'done' => 0, 'total' => 0, 'downloaded' => 0, 'failed' => 0, 'errors' => []],
         ];
+    }
+
+    /**
+     * The starter pages of this site that the pages of the export would meet (Core\StarterPages::choices).
+     *
+     * @param array<string, mixed> $state
+     * @return list<array{old: string, page_id: int, public_id: string, title: string, address: string, published: bool, action: string}>
+     */
+    public static function starterChoices(Db $db, Settings $settings, array $state): array
+    {
+        $language = Language::column($settings, (string) ($state['options']['language'] ?? ''));
+        $targets = array_map(fn (array $p): array => ['old' => (string) $p['old'], 'slug' => (string) $p['slug'], 'language' => $language], (array) ($state['overview']['page_slugs'] ?? []));
+
+        return StarterPages::choices($db, $settings, $targets, $state['options']['keep_starters'] ?? null);
     }
 
     /** @return array<string, mixed>|null */
@@ -174,6 +189,10 @@ final class WpImport
             $overview[$destination][$p['status']] = ($overview[$destination][$p['status']] ?? 0) + 1;
             $overview['images'] += substr_count(strtolower($p['content']), '<img');
             self::tallyLanguage($state, $p);
+            if ($p['type'] === 'page' && self::articleStatus($p['status']) !== null && WpLanguages::itemLanguage($p, $state)[0] === '' && count($overview['page_slugs']) < 1000) {
+                // the addresses the pages will get, for the preview of the starter pages (a page in a language version of its own is not asked about)
+                $overview['page_slugs'][] = ['slug' => slugify(rawurldecode($p['url']) !== '' ? rawurldecode($p['url']) : $p['title'], 110), 'old' => '/' . self::oldPath($p['link'])];
+            }
             foreach (WpContent::unknownShortcodes($p['content']) as $shortcode) {
                 $overview['shortcodes'][$shortcode] = ($overview['shortcodes'][$shortcode] ?? 0) + 1;
             }
@@ -231,7 +250,7 @@ final class WpImport
         if ($state['languages']['plugin'] === '' && $p['language_plugin'] !== '') {
             $state['languages']['plugin'] = (string) $p['language_plugin'];
         }
-        [$code, $unavailable] = self::itemLanguage($p, $state);
+        [$code, $unavailable] = WpLanguages::itemLanguage($p, $state);
         $imported = self::articleStatus((string) $p['status']) !== null;
         if ($unavailable !== '') {
             if ($imported) {
@@ -249,58 +268,6 @@ final class WpImport
         if ($p['group'] !== '' && count($state['languages']['groups'][$p['group']] ?? []) < 50 && count($state['languages']['groups']) < WpFile::MAX_TERMS) {
             $state['languages']['groups'][(string) $p['group']][] = (int) $p['id'];
         }
-    }
-
-    /**
-     * The language of a post: our code by the plugin's own name of it (a Polylang slug through its locale, a WPML code), else –
-     * in an export of a multilingual site – by its address (/en/…, ?lang=en); '' = not known (the site's default language, or
-     * the language chosen in the options). The second value is the plugin's name of a language this site cannot offer at all –
-     * such a post is left out and reported.
-     *
-     * @param array<string, mixed> $p a post from WpFile::item()
-     * @param array<string, mixed> $state
-     * @return array{0: string, 1: string}
-     */
-    public static function itemLanguage(array $p, array $state): array
-    {
-        $raw = (string) ($p['language_wp'] ?? '');
-        $codes = (array) ($state['languages']['codes'] ?? []);
-        if ($raw !== '') {
-            $code = array_key_exists($raw, $codes) ? (string) $codes[$raw] : (WpLanguages::code($raw, '', (array) ($state['languages']['site'] ?? [])) ?? '');
-
-            return $code === '' ? ['', $raw] : [$code, ''];
-        }
-        if (($state['languages']['plugin'] ?? '') !== '' || ($p['language_plugin'] ?? '') !== '') {
-            return [Language::forSite(WpLanguages::urlLanguage((string) ($p['link'] ?? ''), array_keys(Language::AVAILABLE)), (array) ($state['languages']['site'] ?? [])), ''];
-        }
-
-        return ['', ''];
-    }
-
-    /**
-     * Is the export from a multilingual site (Polylang or WPML, or posts with a language)?
-     *
-     * @param array<string, mixed> $state
-     */
-    public static function isMultilingual(array $state): bool
-    {
-        $languages = (array) ($state['languages'] ?? []);
-
-        return ($languages['plugin'] ?? '') !== '' || ($languages['found'] ?? []) !== [] || ($languages['unsupported'] ?? []) !== [];
-    }
-
-    /**
-     * The languages of the export that the site does not have yet (neither the default nor an additional language), in the
-     * order they were found – what the option add_languages would add.
-     *
-     * @param array<string, mixed> $state
-     * @return list<string>
-     */
-    public static function missingLanguages(array $state, Settings $settings): array
-    {
-        $have = [Language::defaults($settings), ...Language::additional($settings)];
-
-        return array_values(array_diff(array_map('strval', array_keys((array) ($state['languages']['found'] ?? []))), $have));
     }
 
     /* ---------- pure conversions (covered by tests/Unit/Import/WordPressTest.php) ---------- */
@@ -508,7 +475,9 @@ final class WpImport
         }
         $title = mb_substr($p['title'] !== '' ? $p['title'] : t('(untitled)'), 0, 200);
         // a page has its slug directly under the site root, so it must not take a slug the system uses
-        $seo = $this->freeSlug('pages', slugify(rawurldecode($p['url']) !== '' ? rawurldecode($p['url']) : $title, 110), $language, '', $state, 110);
+        $wanted = slugify(rawurldecode($p['url']) !== '' ? rawurldecode($p['url']) : $title, 110);
+        $held = StarterPages::makeRoom($this->db, $this->settings, $wanted, $language, $state['options']['keep_starters'] ?? null, $state['starters'], '/' . self::oldPath((string) $p['link']));
+        $seo = $this->freeSlug('pages', $wanted, $language, '', $state, 110);
         $text = WpContent::sanitize($p['content'], $state['attachments']);
         $plugin = $this->seo($p, '', 200, 300, $state);
         $pageId = $this->db->insert('pages', [
@@ -523,6 +492,9 @@ final class WpImport
             'import_source' => mb_substr((string) ($p['link'] ?? ''), 0, 500) ?: null, 'layout_pending' => 1,
         ]);
         $seo = Slug::fromId($this->db, 'pages', $pageId); // a title with nothing to transliterate: page-<id>, not n-a
+        if ($held && $seo !== $wanted && count($state['starters']['renamed']) < self::MAX_LISTED) {
+            $state['starters']['renamed'][] = ['old' => '/' . self::oldPath((string) $p['link']), 'new' => '/' . $seo];
+        }
         $this->writeMap('page', (string) $p['id'], $pageId);
         $state['result']['pages']++;
         if ($state['options']['redirects']) {
@@ -832,7 +804,7 @@ final class WpImport
      */
     private function itemColumn(array $p, array &$state): ?string
     {
-        [$code, $unavailable] = self::itemLanguage($p, $state);
+        [$code, $unavailable] = WpLanguages::itemLanguage($p, $state);
         if ($unavailable !== '') {
             return null; // already counted in the preview as unsupported
         }
@@ -860,7 +832,7 @@ final class WpImport
      */
     private function ensureLanguages(array &$state): void
     {
-        $missing = self::missingLanguages($state, $this->settings);
+        $missing = WpLanguages::missingLanguages($state, $this->settings);
         if ($missing === []) {
             return;
         }

@@ -1029,9 +1029,11 @@
             "confirm": "boolean",
             "images": "boolean",
             "import_id": "string",
+            "keep_starter_pages": "array",
             "language": "string",
             "news": "boolean",
             "redirects": "boolean",
+            "replace_starter_pages": "boolean",
             "url": "string"
         },
         "required": [],

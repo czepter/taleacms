@@ -104,7 +104,7 @@ final class ParityTest extends TestCase
             'redirects' => ['list' => $readOnly, 'save' => 'save_redirect', 'delete' => 'save_redirect', 'toggle' => 'save_redirect', 'duplicate' => 'save_redirect', 'test' => $readOnly,
                 'settings' => 'update_settings'],
             'missing_pages' => ['list' => $readOnly, 'redirect' => 'save_redirect', 'clear' => 'admin: clearing the list of 404 addresses', 'ignore' => 'ignore_not_found', 'ignore_all' => 'ignore_not_found'],
-            'transfer' => ['list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'purge_files' => 'admin: removes import and export files from the server', 'select' => 'admin: WordPress import',
+            'transfer' => ['starter_trash' => 'admin: one step of a move in Import and export – Claude trashes single pages with trash_page', 'list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'purge_files' => 'admin: removes import and export files from the server', 'select' => 'admin: WordPress import',
                 'run' => 'admin: WordPress import', 'progress' => 'admin: WordPress import', 'images' => 'admin: WordPress import', 'delete_file' => 'admin: WordPress import', 'delete_export' => 'admin: site export',
                 'talea' => 'admin: moving a whole site into a new installation', 'talea_select' => 'admin: moving a whole site into a new installation',
                 'talea_run' => 'admin: moving a whole site into a new installation', 'talea_delete' => 'admin: moving a whole site into a new installation',

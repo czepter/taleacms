@@ -71,7 +71,9 @@ final class WebImport
                 'redirects' => (bool) ($options['redirects'] ?? true), 'news' => (bool) ($options['news'] ?? true),
                 'keep_starters' => null], // ids of the installer's starter pages that stay when an imported page wants their address; null = untouched ones are replaced (Core\StarterPages)
             'starters' => ['replaced' => [], 'kept' => [], 'renamed' => []],
-            'result' => ['pages' => 0, 'articles' => 0, 'images' => 0, 'redirects' => 0, 'skipped' => 0, 'failed' => 0],
+            'result' => ['pages' => 0, 'articles' => 0, 'images' => 0, 'redirects' => 0, 'skipped' => 0, 'failed' => 0, 'parents' => 0],
+            'paths' => [], // old path => id of the page this run made for it (the parent of a nested address)
+            'moved' => [], 'parents' => [], // the redirects written, and the empty parent pages made for nested addresses (listed in the result, at most MAX_LISTED each)
             'errors' => [], 'created' => date('Y-m-d H:i:s'),
         ];
     }
@@ -100,7 +102,14 @@ final class WebImport
             if ($asNews && preg_match(self::ARTICLE, (string) parse_url($url, PHP_URL_PATH)) === 1) {
                 continue;
             }
-            $targets[] = ['old' => '/' . $path, 'slug' => self::plannedSlug($path, ''), 'language' => $language];
+            $slug = self::plannedSlug($path, '');
+            $targets[] = ['old' => '/' . $path, 'slug' => $slug, 'language' => $language];
+            // the parents of a nested address are made too – a starter page at one of them (Services) is met as well
+            $parts = explode('/', $slug);
+            while (count($parts) > 1) {
+                array_pop($parts);
+                $targets[] = ['old' => '/' . implode('/', $parts), 'slug' => implode('/', $parts), 'language' => $language];
+            }
         }
 
         return $targets;
@@ -126,6 +135,8 @@ final class WebImport
     public static function confirm(array &$state, ?array $keepStarters): void
     {
         $state['options']['keep_starters'] = $keepStarters === null ? null : array_values(array_map('intval', $keepStarters));
+        // shallow addresses first: the parent of a nested address is a real page of the old site when the sitemap has it
+        uksort($state['urls'], fn (string $a, string $b): int => substr_count(self::path($a), '/') <=> substr_count(self::path($b), '/'));
         $state['phase'] = 'import';
         $state['position'] = 0;
     }
@@ -300,12 +311,15 @@ final class WebImport
             $new = ($language !== '' ? $language . '/' : '') . 'news/' . (string) $this->db->value('SELECT slug FROM {news} WHERE news_id = ?', [$idc]);
         } else {
             $planned = self::plannedSlug($old, $page['title']);
-            $held = StarterPages::makeRoom($this->db, $this->settings, $planned, $language, $state['options']['keep_starters'] ?? null, $state['starters'], '/' . $old);
-            $ids = $this->createPage($page, $planned, $language, $url);
+            $parent = $this->parentOf($old, $language, $state);
+            $wanted = self::addressBelow($planned, $parent);
+            $held = StarterPages::makeRoom($this->db, $this->settings, $wanted, $language, $state['options']['keep_starters'] ?? null, $state['starters'], '/' . $old);
+            $ids = $this->createPage($page, $wanted, $language, $url, $parent, $parent === null);
             $this->map($source, 'page', $key, $ids);
+            $state['paths'][implode('/', self::segments($old))] = $ids;
             $state['result']['pages']++;
             $final = (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$ids]);
-            if ($held && $final !== $planned && count($state['starters']['renamed']) < WpImport::MAX_LISTED) {
+            if ($held && $final !== $wanted && count($state['starters']['renamed']) < WpImport::MAX_LISTED) {
                 $state['starters']['renamed'][] = ['old' => '/' . $old, 'new' => '/' . $final];
             }
             $new = ($language !== '' ? $language . '/' : '') . $final;
@@ -313,27 +327,135 @@ final class WebImport
         if ($state['options']['redirects'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'redirects')) {
             if (Redirects::addImported($this->db, $old, $new)) {
                 $state['result']['redirects']++;
+                if (count($state['moved'] ?? []) < WpImport::MAX_LISTED) {
+                    $state['moved'][] = ['from' => '/' . $old, 'to' => '/' . $new];
+                }
             }
         }
     }
 
     /**
-     * The slug an old address would get here: the last part of the path (an extension cut off), or the title.
+     * The parts of an old path that make its address here: a leading language code of the old site (/de/…) is not one.
+     *
+     * @return list<string>
+     */
+    private static function segments(string $oldPath): array
+    {
+        $segments = $oldPath === '' ? [] : explode('/', $oldPath);
+        if ($segments !== [] && isset(Language::AVAILABLE[$segments[0]]) && preg_match('/^' . Language::TAG . '$/D', $segments[0]) === 1) {
+            array_shift($segments);
+        }
+
+        return $segments;
+    }
+
+    /**
+     * The slug an old address would get here: the whole path, so /services/heating/boilers stays below its parents (an extension of
+     * the last part is cut off); the title when the last part has nothing to make a slug of; an empty path is the home page.
      */
     public static function plannedSlug(string $oldPath, string $title): string
     {
-        $base = $oldPath !== '' ? basename($oldPath) : 'home';
+        $segments = self::segments($oldPath);
+        $last = count($segments) - 1;
+        $slugs = [];
+        foreach ($segments as $i => $segment) {
+            $slug = slugify($i === $last ? (string) preg_replace('/\.(html?|php|aspx?)$/i', '', $segment) : $segment, 110);
+            if ($slug === 'n-a' && $i === $last && $title !== '') {
+                $slug = slugify($title, 110);
+            }
+            $slugs[] = $slug;
+        }
 
-        return slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $title, 110);
+        return $slugs === [] ? 'home' : mb_substr(implode('/', $slugs), 0, 118);
     }
 
-    /** @param array{title: string, description: string, content: string, date: string, article: bool} $page */
-    private function createPage(array $page, string $planned, string $language, string $url): int
+    /**
+     * The address of a page below its parent: the parent's address and the last part of its own.
+     *
+     * @param array{slug: string}|null $parent
+     */
+    private static function addressBelow(string $planned, ?array $parent): string
+    {
+        return $parent === null ? $planned : mb_substr($parent['slug'] . '/' . (string) preg_replace('#^.*/#', '', $planned), 0, 120);
+    }
+
+    /**
+     * The page a nested address lives below. This run's own page for that path, or a page of an earlier run; otherwise an empty
+     * hidden placeholder (its title from the address, no content), made on the spot with its own parents, so the address
+     * has a place in the tree – a page slug is the whole path (Admin\Modules\Pages::placement).
+     *
+     * @param array<string, mixed> $state
+     * @return array{page_id: int, slug: string}|null
+     */
+    private function parentOf(string $oldPath, string $language, array &$state): ?array
+    {
+        $segments = self::segments($oldPath);
+        array_pop($segments);
+        if ($segments === []) {
+            return null;
+        }
+        $path = implode('/', $segments);
+        $known = fn (int $id): ?array => $id > 0 ? $this->db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id]) : null;
+        if (($page = $known((int) ($state['paths'][$path] ?? 0))) !== null) {
+            return $page;
+        }
+        $source = 'web:' . mb_substr((string) $state['domain'], 0, 36);
+        foreach ([$state['web'] . '/' . $path . '/', $state['web'] . '/' . $path] as $address) {
+            $mapped = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type IN ('page', 'page_parent') AND source_id = ?", [$source, sha1($address)]);
+            if ($mapped !== null && ($page = $known((int) $mapped)) !== null) {
+                return $page;
+            }
+        }
+        $grandparent = $this->parentOf($path, $language, $state);
+        $planned = self::plannedSlug($path, '');
+        $slug = $this->freeAddress(self::addressBelow($planned, $grandparent), $language, $grandparent === null, $state, '/' . $path);
+        $id = $this->db->insert('pages', [
+            'slug' => $slug, 'title' => mb_substr(mb_convert_case(str_replace(['-', '_'], ' ', rawurldecode((string) end($segments))), MB_CASE_TITLE), 0, 200), 'text' => '', 'build' => null,
+            'visible' => 0, 'in_menu' => 0, 'parent_id' => $grandparent['page_id'] ?? null, 'language' => $language,
+            'import_source' => mb_substr($state['web'] . '/' . $path . '/', 0, 500), 'layout_pending' => 1, 'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+        $this->map($source, 'page_parent', sha1($state['web'] . '/' . $path . '/'), $id);
+        $state['paths'][$path] = $id;
+        $state['result']['parents'] = (int) ($state['result']['parents'] ?? 0) + 1;
+        if (count($state['parents']) < WpImport::MAX_LISTED) {
+            $state['parents'][] = ['old' => '/' . $path, 'new' => '/' . $slug];
+        }
+
+        return ['page_id' => $id, 'slug' => $slug];
+    }
+
+    /** Is the address no longer free for a new page: taken by a page or a short link in the language version, or – at the top level – reserved by the system? */
+    private function addressTaken(string $candidate, string $language, bool $topLevel): bool
+    {
+        return ($topLevel && (in_array($candidate, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$candidate])))
+            || Slug::taken($this->db, 'pages', $candidate, $language);
+    }
+
+    /**
+     * A free address for a new page: the wanted one unless a starter page of the installation that stays, a page, a short link or – at the top
+     * level – a reserved address already has it (the first free number then). Untouched starter pages at the address go to the trash first.
+     *
+     * @param array<string, mixed> $state
+     */
+    private function freeAddress(string $wanted, string $language, bool $topLevel, array &$state, string $old): string
+    {
+        StarterPages::makeRoom($this->db, $this->settings, $wanted, $language, $state['options']['keep_starters'] ?? null, $state['starters'], $old);
+
+        return WpImport::availableSlug(
+            $wanted,
+            fn (string $candidate): bool => $this->addressTaken($candidate, $language, $topLevel),
+        );
+    }
+
+    /**
+     * @param array{title: string, description: string, content: string, date: string, article: bool} $page
+     * @param array{page_id: int, slug: string}|null $parent
+     */
+    private function createPage(array $page, string $wanted, string $language, string $url, ?array $parent, bool $topLevel): int
     {
         $seo = WpImport::availableSlug(
-            $planned,
-            fn (string $candidate): bool => in_array($candidate, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$candidate])
-                || Slug::taken($this->db, 'pages', $candidate, $language),
+            $wanted,
+            fn (string $candidate): bool => $this->addressTaken($candidate, $language, $topLevel),
         );
         $build = $this->build($page['title'], $page['content']);
 
@@ -341,7 +463,7 @@ final class WebImport
             'slug' => $seo, 'title' => mb_substr($page['title'], 0, 200), 'text' => $page['content'], 'build' => $build,
             'description' => mb_substr($page['description'], 0, 300),
             'visible' => 0, // hidden until the administrator checks it – nothing changes for visitors
-            'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
+            'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'language' => $language, 'parent_id' => $parent['page_id'] ?? null,
             'import_source' => mb_substr($url, 0, 500), 'layout_pending' => 1,
         ]);
     }

@@ -513,6 +513,7 @@ O link é válido por %d dias.
     '[ADDRESS]' => '[ENDEREÇO]',
     '[ID]' => '[CNPJ]',
     '[Postcode and city]' => '[CEP e cidade]',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[A página inicial do site migrado vai aqui: publique a página inicial importada e defina-a como página inicial.]',
     'after scrolling half the page' => 'depois de rolar meia página',
     'attachment (file)' => 'anexo (arquivo)',
     'awaiting confirmation' => 'aguardando confirmação',

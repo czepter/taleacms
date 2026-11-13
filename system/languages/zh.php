@@ -1207,6 +1207,7 @@ The link works for %d days.
     '[Role, company]' => '[职位，公司]',
     '[Role]' => '[职位]',
     '[Street and number]' => '[街道和门牌号]',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[迁移后网站的首页将放在这里：发布导入的首页，并将其设为首页。]',
     '[Your quick check]' => '[您的快速自测]',
     '[number]' => '[数字]',
     '[number]-year guarantee' => '[数字] 年质保',

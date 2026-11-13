@@ -78,7 +78,7 @@ final class Pages extends Module
         }
         unset($s);
 
-        $pages = $status !== '' || $search !== '' || $score !== '' ? $pages : self::sortAsTree($pages);
+        $pages = $status !== '' || $search !== '' || $score !== '' ? $pages : \Talea\Core\PageTree::sorted($pages);
         // "Edit titles in the list" works on one page of rows at a time, so its form stays under max_input_vars
         $seoEdit = !$trash && $this->request->get('seo_edit') === '1';
         $pageCount = $seoEdit ? max(1, (int) ceil(count($pages) / self::LIST_EDIT_ROWS)) : 1;
@@ -250,7 +250,7 @@ final class Pages extends Module
         $home = $this->app->settings()->int('home_page');
         $pages = $this->db->all("SELECT page_id, public_id, title, slug, language, visible, in_menu, parent_id, seo_score, COALESCE(focus_keywords, '') <> '' AS has_keyword, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title");
         $groups = ['menu' => [], 'other' => []];
-        foreach (self::sortAsTree($pages) as $page) {
+        foreach (\Talea\Core\PageTree::sorted($pages) as $page) {
             $inMenu = \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], '', (string) $page['slug']) ?? (bool) $page['in_menu'];
             $groups[$inMenu ? 'menu' : 'other'][] = $page + ['home' => (int) $page['page_id'] === $home];
         }
@@ -441,35 +441,6 @@ final class Pages extends Module
         \Talea\Admin\ChangeLog::write($this->app, 'pages', 'structured data added', mb_substr($page['title'], 0, 80) . ' (' . $type . ')');
 
         return \Talea\Core\Response::redirect($this->url('builder', ['id' => (string) $page['public_id'], 'select' => $element['id']]));
-    }
-
-    private static function sortAsTree(array $pages): array
-    {
-        $byParent = [];
-        foreach ($pages as $s) {
-            $byParent[(int) ($s['parent_id'] ?? 0)][] = $s;
-        }
-        $ids = array_column($pages, 'page_id');
-        $result = [];
-        $add = function (int $parent, int $level) use (&$add, &$result, $byParent): void {
-            foreach ($byParent[$parent] ?? [] as $s) {
-                $result[] = $s + ['level' => $level];
-                if ($level < 4) {
-                    $add((int) $s['page_id'], $level + 1);
-                }
-            }
-        };
-        $add(0, 0);
-        // pages whose parent is in the trash or does not exist are shown at the top level
-        foreach ($byParent as $parent => $children) {
-            if ($parent !== 0 && !in_array($parent, array_map('intval', $ids), true)) {
-                foreach ($children as $s) {
-                    $result[] = $s + ['level' => 0];
-                }
-            }
-        }
-
-        return $result;
     }
 
     protected function actionNew(): Response
