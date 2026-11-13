@@ -265,7 +265,7 @@ final class TwoFactorLoginTest extends SiteTestCase
         $this->assertNotSame('', (string) $site->value("SELECT totp_backup_codes FROM tl_users WHERE username = 'author'"), 'it turned two-factor sign-in on: backup codes exist');
 
         $page = $browser->get('/admin.php?action=account&tab=sign-in');
-        $this->assertSame(1, preg_match_all('/<p class="backup-codes">[0-9a-f]{5}-[0-9a-f]{5}/', $page->body), 'the backup codes are shown once');
+        $this->assertSame(1, preg_match_all('/<p class="backup-codes">[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}/', $page->body), 'the backup codes are shown once');
         $this->assertSame(0, preg_match_all('/<p class="backup-codes">/', $browser->get('/admin.php?action=account&tab=sign-in')->body), '... and not again');
 
         // the last passkey goes: two-factor sign-in is off, the backup codes with it

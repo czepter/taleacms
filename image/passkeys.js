@@ -73,13 +73,14 @@
 	document.querySelectorAll('form[data-passkey]').forEach(function (formEl) {
 		var address = formEl.getAttribute('data-passkey');
 		var error = formEl.querySelector('[data-passkey-error]');
-		var button = formEl.querySelector('[data-passkey-add], [data-passkey-signin]');
-		if (!button) { return; }
+		// "Add a passkey" and, per older passkey, "Register again" (data-passkey-replace: the key it replaces); or the sign-in button
+		var buttons = formEl.querySelectorAll('[data-passkey-add], [data-passkey-signin]');
+		if (!buttons.length) { return; }
 
 		if (!supported) {
 			// on the first sign-in step the passkey is only an extra: without support the form is not shown at all
 			if (formEl.hasAttribute('data-passkey-optional')) { formEl.hidden = true; return; }
-			button.disabled = true;
+			buttons.forEach(function (b) { b.disabled = true; });
 			var unsupported = formEl.querySelector('[data-passkey-unsupported]');
 			if (unsupported) { unsupported.hidden = false; }
 			return;
@@ -87,20 +88,21 @@
 
 		function showError(text) {
 			if (error) { error.textContent = text; error.hidden = !text; }
-			button.disabled = false;
+			buttons.forEach(function (b) { b.disabled = false; });
 		}
 
 		function deliver(field) { return post(formEl, address, field); }
 
-		button.addEventListener('click', function () {
+		buttons.forEach(function (button) { button.addEventListener('click', function () {
 			var register = button.hasAttribute('data-passkey-add');
-			button.disabled = true;
+			var replace = button.getAttribute('data-passkey-replace') || '';
+			buttons.forEach(function (b) { b.disabled = true; });
 			showError('');
-			button.disabled = true;
+			buttons.forEach(function (b) { b.disabled = true; });
 
 			// adding a passkey needs the current password (3.3.3), or for a passkey-only account a backup code: the server issues the challenge only with it
 			var password = formEl.querySelector('[data-passkey-password]'), backup = formEl.querySelector('[data-passkey-backup]');
-			deliver(register ? { op: 'passkey_options', current_password: password ? password.value : '', backup_code: backup ? backup.value : '' } : { step: 'passkey_options' }).then(function (m) {
+			deliver(register ? { op: 'passkey_options', current_password: password ? password.value : '', backup_code: backup ? backup.value : '', replace: replace } : { step: 'passkey_options' }).then(function (m) {
 				m.challenge = toBytes(m.challenge);
 				if (register) {
 					m.user.id = toBytes(m.user.id);
@@ -116,7 +118,10 @@
 					response.authenticatorData = toText(o.getAuthenticatorData());
 					response.publicKey = toText(o.getPublicKey());
 					response.publicKeyAlgorithm = o.getPublicKeyAlgorithm();
-					return deliver({ op: 'passkey_save', answer: JSON.stringify(response), name: formEl.querySelector('[name="name"]').value });
+					// credProps: did the device keep the key (a discoverable credential), so that it signs in alone? '' = it does not say
+					var props = k.getClientExtensionResults ? (k.getClientExtensionResults().credProps || {}) : {};
+					return deliver({ op: 'passkey_save', answer: JSON.stringify(response), name: formEl.querySelector('[name="name"]').value, replace: replace,
+						discoverable: props.rk === true ? '1' : (props.rk === false ? '0' : '') });
 				}
 				response.authenticatorData = toText(o.authenticatorData);
 				response.signature = toText(o.signature);
@@ -129,6 +134,6 @@
 				// the user cancelling the dialog is not an error worth reporting
 				showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
 			});
-		});
+		}); });
 	});
 })();

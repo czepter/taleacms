@@ -148,7 +148,15 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 	<td><?= e($k['name']) ?></td>
 	<td class="number"><?= e(format_date((string) $k['created_at'])) ?></td>
 	<td class="number"><?= $k['used_at'] !== null ? e(format_date((string) $k['used_at'])) : '–' ?></td>
-	<td class="actions"><button class="navigation danger" type="submit" name="passkey_id" value="<?= e($k['public_id']) ?>" data-confirm="<?= e($username['totp_secret'] !== '' ? t('Remove this passkey? You can still sign in with the code from the app.') : t('Remove this passkey? Without another passkey or the code from the app, two-factor sign-in turns off.')) ?>"><?= e(t('Delete')) ?></button></td>
+	<td class="actions">
+<?php if ($k['rp_id'] !== '' && $k['rp_id'] !== Talea\Core\Passkey::rpId($app->settings()->get('site_url'))): ?>
+		<span class="help"><?= e(t('For %s – it works only there.', (string) $k['rp_id'])) ?></span>
+<?php endif ?>
+<?php if ((int) ($k['discoverable'] ?? 0) !== 1): ?>
+		<button class="navigation" type="button" data-passkey-add data-passkey-replace="<?= e($k['public_id']) ?>"><?= e(t('Register again')) ?></button>
+		<span class="help"><?= e(t('It may work only after the password. Register it again to sign in with it alone.')) ?></span>
+<?php endif ?>
+		<button class="navigation danger" type="submit" name="passkey_id" value="<?= e($k['public_id']) ?>" data-confirm="<?= e($username['totp_secret'] !== '' ? t('Remove this passkey? You can still sign in with the code from the app.') : t('Remove this passkey? Without another passkey or the code from the app, two-factor sign-in turns off.')) ?>"><?= e(t('Delete')) ?></button></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -178,6 +186,16 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <?php endif ?>
 <?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'only']) ?>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save')) ?>"></p>
+</fieldset>
+</form>
+<?php endif ?>
+<?php if ($username['totp_secret'] !== '' || $keys !== []): ?>
+<form class="form" method="post" action="<?= $action ?>" autocomplete="off">
+<?= $csrf ?><input type="hidden" name="op" value="backup_codes_new">
+<fieldset><legend><?= e(t('Backup codes')) ?></legend>
+<p><?= e(t('Backup codes left: %d.', $codesLeft)) ?><?php if ($codesLeft <= 3): ?> <strong><?= e(t('They are running low. Create new ones – the old ones stop working.')) ?></strong><?php endif ?></p>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'codes']) ?>
+<p class="buttons"><button class="navigation" type="submit" data-confirm="<?= e(t('Create new backup codes? The ones you have stop working.')) ?>"><?= e(t('New backup codes')) ?></button></p>
 </fieldset>
 </form>
 <?php endif ?>

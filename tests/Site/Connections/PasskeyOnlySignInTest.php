@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Tests\Site\Connections;
 
 use PHPUnit\Framework\Attributes\Group;
+use Talea\Core\Passkey;
 use Talea\Tests\Site\Support\Http;
 use Talea\Tests\Site\Support\Response;
 use Talea\Tests\Site\Support\SiteTestCase;
@@ -242,5 +243,44 @@ final class PasskeyOnlySignInTest extends SiteTestCase
         $set($stale, ['passkey_only' => '', 'backup_code' => self::BACKUP]);
         $this->assertSame('0', $flag(), 'a backup code turns it off');
         $this->assertStringContainsString('Passkey-only sign-in', $stale->get(self::ACCOUNT . '&tab=sign-in')->body);
+    }
+
+    public function testNewBackupCodes(): void
+    {
+        [$key, $id] = $this->author(['app', 'key', 'backup']);
+        $site = $this->site();
+        $stale = $this->staleSession($key, $id);
+        $csrf = fn (): string => (string) ($stale->get('/admin.php?action=token')->json()['csrf'] ?? '');
+        $stale->post(self::ACCOUNT, ['_csrf' => $csrf(), 'op' => 'backup_codes_new']);
+        $this->assertSame(3, $this->backupCodesLeft(), 'nothing changes without a confirmation');
+        $page = $stale->post(self::ACCOUNT, ['_csrf' => $csrf(), 'op' => 'backup_codes_new', 'current_password' => $site->password]);
+        $this->assertSame(1, preg_match('/<p class="backup-codes">([0-9a-f]{4}(?:-[0-9a-f]{4}){3})/', $page->body, $new), 'eight new codes are shown');
+        $this->assertSame(8, $this->backupCodesLeft());
+        $this->assertSame([401, false], array_slice($this->passwordAndCode(self::BACKUP), 0, 2), 'the old code stops working');
+        $this->assertSame([302, true], array_slice($this->passwordAndCode($new[1]), 0, 2), 'a new one signs in');
+    }
+
+    public function testRegisterAgainReplacesTheKey(): void
+    {
+        [$key, $id] = $this->author(['app', 'key', 'backup']);
+        $site = $this->site();
+        $site->exec('UPDATE tl_user_passkeys SET discoverable = NULL');
+        $stale = $this->staleSession($key, $id); // the sign-in with the key alone makes it discoverable
+        $this->assertSame('1', (string) $site->value('SELECT discoverable FROM tl_user_passkeys'), 'a key that signed in alone is kept on its device');
+        $site->exec('UPDATE tl_user_passkeys SET discoverable = NULL');
+        $page = $stale->get(self::ACCOUNT . '&tab=sign-in');
+        $keyId = (string) $site->value('SELECT public_id FROM tl_user_passkeys');
+        $this->assertStringContainsString('data-passkey-replace="' . $keyId . '"', $page->body, 'a key not known to be kept offers "Register again"');
+
+        $csrf = (string) ($stale->get('/admin.php?action=token')->json()['csrf'] ?? '');
+        $options = $stale->post(self::ACCOUNT, ['_csrf' => $csrf, 'op' => 'passkey_options', 'current_password' => $site->password, 'replace' => $keyId])->json();
+        $this->assertSame([], $options['excludeCredentials'] ?? null, 'the key to replace is not excluded');
+        $this->assertSame(['credProps' => true], $options['extensions'] ?? null);
+        $registration = $this->registrationAnswer($options);
+        $saved = $stale->post(self::ACCOUNT, ['_csrf' => $csrf, 'op' => 'passkey_save', 'name' => 'Again', 'replace' => $keyId, 'discoverable' => '1', 'answer' => $registration['answer']]);
+        $this->assertTrue($saved->json()['ok'] ?? false, $saved->body);
+        $this->assertSame(['Again|1|' . Passkey::rpId($site->base)], array_map(static fn (array $r): string => $r['name'] . '|' . $r['discoverable'] . '|' . $r['rp_id'], $site->rows('SELECT name, discoverable, rp_id FROM tl_user_passkeys')), 'the old key is gone and the new one is kept on its device');
+        $this->assertSame(3, $this->backupCodesLeft(), 'no new backup codes: the account had two-factor sign-in already');
+        $this->assertSame(200, $this->signInWithKey($this->site()->client('author'), $registration['key'], $registration['id'])->status, 'the new key signs in');
     }
 }

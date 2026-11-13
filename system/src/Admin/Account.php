@@ -24,7 +24,7 @@ final class Account
     private const array OP_TABS = [
         'profile' => 'details', 'password' => 'password', 'remember_end' => 'password',
         'token_new' => 'claude', 'token_delete' => 'claude', 'tool_set' => 'claude', 'app_disconnect' => 'claude',
-        'totp_start' => 'sign-in', 'totp_confirm' => 'sign-in', 'totp_off' => 'sign-in', 'passkey_delete' => 'sign-in', 'passkey_only' => 'sign-in',
+        'totp_start' => 'sign-in', 'totp_confirm' => 'sign-in', 'totp_off' => 'sign-in', 'passkey_delete' => 'sign-in', 'passkey_only' => 'sign-in', 'backup_codes_new' => 'sign-in',
     ];
 
     public function __construct(private readonly Kernel $kernel)
@@ -190,6 +190,20 @@ final class Account
                         $message = ['ok', 'The passkey has been removed. Two-factor sign-in is turned off.'];
                     }
                     break;
+                case 'backup_codes_new':
+                    // new codes in place of the ones left (a phone lost, the codes running low): the old ones stop working
+                    if (!$app->auth()->hasTwoStep($user)) {
+                        break;
+                    }
+                    if (($refusal = $app->auth()->confirmOwn($r)) !== null) {
+                        $message = ['error', $refusal];
+                        break;
+                    }
+                    [$codes, $json] = Totp::backupCodes();
+                    $db->update('users', ['totp_backup_codes' => $json], ['user_id' => $user['user_id']]);
+                    ChangeLog::write($app, 'account', 'backup_codes_new');
+                    // the codes are shown only now - hence no redirect
+                    return $this->page($tab, ['backupCodes' => $codes] + $data);
                 case 'passkey_only':
                     // the account signs in only with a passkey (or password plus passkey / backup code) once it has one for this site
                     if (($refusal = $app->auth()->confirmOwn($r)) !== null) {
@@ -264,12 +278,13 @@ final class Account
             }
             $challenge = Passkey::challenge();
             $app->session->set('passkey_registration', $challenge);
+            $replace = $this->replacedKey($user); // "Register again": the key that is made anew is not excluded, or the device would refuse
 
             return Response::json(Passkey::registrationOptions(
                 $challenge, Passkey::rpId($url), $app->settings()->get('site_name'),
                 Passkey::b64(substr(hash('sha256', 'talea-passkey|' . $url . '|' . $user['user_id'], true), 0, 16)),
                 (string) $user['username'], (string) $user['name'],
-                array_map(static fn (array $k): string => (string) $k['credential_id'], $app->auth()->accountKeys((int) $user['user_id'])),
+                array_map(static fn (array $k): string => (string) $k['credential_id'], array_filter($app->auth()->accountKeys((int) $user['user_id']), static fn (array $k): bool => $replace === null || $k['passkey_id'] !== $replace['passkey_id'])),
             ));
         }
         $challenge = (string) $app->session->get('passkey_registration', '');
@@ -285,10 +300,20 @@ final class Account
         }
         $name = mb_substr(trim($app->request->post('name')), 0, 80);
         $first = !$app->auth()->hasTwoStep($user);
+        $replace = $this->replacedKey($user);
         $app->db()->insert('user_passkeys', [
             'user_id' => $user['user_id'], 'name' => $name !== '' ? $name : t('Passkey'), 'credential_hash' => $hash, 'credential_id' => $new['id'],
             'public_key' => $new['key'], 'alg' => $new['alg'], 'rp_id' => Passkey::rpId($url), 'sign_count' => $new['counter'], 'created_at' => date('Y-m-d H:i:s'),
+            // whether the device kept the key (credProps): only a kept key signs in alone; unknown stays NULL
+            'discoverable' => match ($app->request->post('discoverable')) { '1' => 1, '0' => 0, default => null },
         ]);
+        if ($replace !== null) {
+            $app->db()->delete('user_passkeys', ['passkey_id' => $replace['passkey_id'], 'user_id' => $user['user_id']]);
+            ChangeLog::write($app, 'account', 'passkey_renewed', $name);
+            $app->session->flash('ok', 'The passkey is registered again. It can now sign you in on its own.');
+
+            return Response::json(['ok' => true]);
+        }
         ChangeLog::write($app, 'account', 'passkey_added', $name);
         if ($first) {
             [$codes, $json] = Totp::backupCodes();
@@ -300,6 +325,14 @@ final class Account
         $app->session->flash('ok', 'The passkey has been added. Next time you can sign in with it alone, or with your password and the passkey.');
 
         return Response::json(['ok' => true]);
+    }
+
+    /** The passkey of this account that "Register again" replaces (its public id in the request), or null. @param array<string, mixed> $user @return array<string, mixed>|null */
+    private function replacedKey(array $user): ?array
+    {
+        $id = $this->kernel->app->request->post('replace');
+
+        return $id === '' ? null : $this->kernel->app->db()->one('SELECT * FROM {user_passkeys} WHERE public_id = ? AND user_id = ?', [$id, $user['user_id']]);
     }
 
     /**

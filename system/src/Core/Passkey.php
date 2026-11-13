@@ -75,6 +75,7 @@ final class Passkey
             'attestation' => 'none',
             'authenticatorSelection' => ['residentKey' => 'preferred', 'userVerification' => 'preferred'], // kept on the device: it can sign in without a name
             'excludeCredentials' => array_map(static fn (string $id): array => ['type' => 'public-key', 'id' => $id], $existing),
+            'extensions' => ['credProps' => true], // the device says whether it kept the key (a discoverable credential): users.discoverable
         ];
     }
 
