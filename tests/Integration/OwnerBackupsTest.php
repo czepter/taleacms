@@ -144,6 +144,35 @@ final class OwnerBackupsTest extends DatabaseTestCase
         $gamma->run("DELETE FROM {settings} WHERE name = 'owner_note'");
     }
 
+    public function testRestoringTheOldestOfTenOwnerBackupsKeepsItsFile(): void
+    {
+        $db = $this->db();
+        $beta = $db->forOwner('tlb_');
+        $db->pdo()->rollBack(); // a restore runs its own statements, outside the test's transaction
+        $folder = OwnerFiles::folder($beta);
+        foreach (Backup::listForOwner($beta) as $old) {
+            @unlink($folder . '/' . $old['file']);
+        }
+        $made = [];
+        for ($i = 0; $i < 10; $i++) {
+            $made[] = Backup::createForOwner($beta);
+            self::$files[] = $folder . '/' . end($made);
+            touch($folder . '/' . end($made), time() - (20 - $i) * 60); // the first is the oldest
+        }
+        $oldest = $made[0];
+        self::$files[] = $folder . '/' . $oldest;
+
+        $safety = Backup::createForOwner($beta, 'before_restore', $oldest);
+        self::$files[] = $folder . '/' . $safety;
+        $this->assertFileExists($folder . '/' . $oldest, 'the safety backup does not rotate the file about to be restored');
+        try {
+            $this->assertGreaterThan(0, Backup::restoreForOwner($beta, $oldest));
+        } finally {
+            set_time_limit(0);
+        }
+        $this->assertCount(11, Backup::listForOwner($beta), 'the folder holds one over the limit until the next backup prunes it');
+    }
+
     public function testAFileNamingAnotherOwnersPrefixesIsRefused(): void
     {
         $db = $this->db();

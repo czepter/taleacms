@@ -509,9 +509,11 @@ class Settings extends Module
         if (!$this->request->isPost()) {
             return $this->back('', '', ['tab' => 'backups']);
         }
+        $file = $this->request->post('file');
         try {
-            $safetyBackup = Backup::create($this->db, 'before_restore');
-            $statementCount = Backup::restore($this->db, $this->request->post('file'));
+            // the safety backup must not rotate away the file it is about to restore
+            $safetyBackup = Backup::create($this->db, 'before_restore', $file);
+            $statementCount = Backup::restore($this->db, $file);
         } catch (\Throwable $e) {
             $reverted = false;
             if (isset($safetyBackup)) {
@@ -528,7 +530,7 @@ class Settings extends Module
             return $this->back(t('Restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'error');
         }
         \Talea\Front\Cache::clear();
-        ChangeLog::backup($this->app, 'settings', 'backup_restore', $this->request->post('file'));
+        ChangeLog::backup($this->app, 'settings', 'backup_restore', $file);
 
         return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
     }

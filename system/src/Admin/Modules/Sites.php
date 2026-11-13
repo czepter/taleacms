@@ -407,9 +407,11 @@ final class Sites extends Module
         if (($refused = $this->ownFiles()) !== null || !$this->request->isPost()) {
             return $refused ?? $this->back('', 'files');
         }
+        $file = $this->request->post('file');
         try {
-            $safety = Backup::createForOwner($this->db, 'before_restore');
-            $count = Backup::restoreForOwner($this->db, $this->request->post('file'));
+            // the safety backup must not rotate away the file it is about to restore
+            $safety = Backup::createForOwner($this->db, 'before_restore', $file);
+            $count = Backup::restoreForOwner($this->db, $file);
         } catch (\Throwable $e) {
             $reverted = false;
             if (isset($safety)) {
@@ -425,7 +427,7 @@ final class Sites extends Module
             return $this->back(t('Restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safety) ? t('The state before the restore is in backup %s – please restore it.', $safety) : '')), 'files', [], 'error');
         }
         \Talea\Front\Cache::clearAll();
-        ChangeLog::backup($this->app, 'sites', 'backup_restore', $this->request->post('file'));
+        ChangeLog::backup($this->app, 'sites', 'backup_restore', $file);
 
         return $this->back(t('The sites have been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $count, $safety), 'files');
     }

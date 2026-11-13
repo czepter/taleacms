@@ -34,8 +34,11 @@ final class Backup
         return Demo::active() && PHP_SAPI !== 'cli';
     }
 
-    /** @return string name of the created file */
-    public static function create(Db $db, string $reason = 'manual'): string
+    /**
+     * @param string|null $keep the backup a restore is about to read: the rotation of this new file never deletes it
+     * @return string name of the created file
+     */
+    public static function create(Db $db, string $reason = 'manual', ?string $keep = null): string
     {
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
@@ -44,15 +47,16 @@ final class Backup
             throw new \RuntimeException($refusal); // the file holds every owner's data
         }
 
-        return self::write(Owners::connections($db), self::FOLDER, $reason);
+        return self::write(Owners::connections($db), self::FOLDER, $reason, [], $keep);
     }
 
     /**
      * A backup of ONE further owner: its owner prefix and its sites' tables, nothing of the install or of another owner. The folder is the owner's own.
      *
+     * @param string|null $keep the backup a restore is about to read: the rotation of this new file never deletes it
      * @return string name of the created file
      */
-    public static function createForOwner(Db $db, string $reason = 'manual'): string
+    public static function createForOwner(Db $db, string $reason = 'manual', ?string $keep = null): string
     {
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
@@ -60,15 +64,16 @@ final class Backup
         $folder = OwnerFiles::folder($db);
         $owner = $db->forOwner($db->ownerPrefix);
 
-        return self::write(array_map(fn (string $prefix): Db => $owner->forSite($prefix), Sites::prefixes($owner)), $folder, $reason, self::OWNER_KEPT);
+        return self::write(array_map(fn (string $prefix): Db => $owner->forSite($prefix), Sites::prefixes($owner)), $folder, $reason, self::OWNER_KEPT, $keep);
     }
 
     /**
      * @param list<Db> $connections the sites to dump, each on its own tables
      * @param list<string> $skip tables (without prefix) that stay out of the file
+     * @param string|null $keep a file name the rotation must not delete (see prune())
      * @return string name of the created file
      */
-    private static function write(array $connections, string $folder, string $reason, array $skip = []): string
+    private static function write(array $connections, string $folder, string $reason, array $skip = [], ?string $keep = null): string
     {
         foreach ($connections as $site) {
             if ($site->tableExists('settings')) {
@@ -134,11 +139,20 @@ final class Backup
         $write($dialect->dumpEpilogue());
         $gz ? gzclose($f) : fclose($f);
 
-        foreach (array_slice(self::listIn($folder), self::KEEP) as $old) {
-            @unlink($folder . '/' . $old['file']);
-        }
+        self::prune($folder, $keep);
 
         return $file;
+    }
+
+    /**
+     * Keeps the KEEP newest backups of a folder; $keep (a file name) is never deleted and does not count – the file a restore is about to read.
+     */
+    public static function prune(string $folder, ?string $keep = null): void
+    {
+        $others = array_values(array_filter(self::listIn($folder), fn (array $b): bool => $b['file'] !== $keep));
+        foreach (array_slice($others, self::KEEP) as $old) {
+            @unlink($folder . '/' . $old['file']);
+        }
     }
 
     /**
@@ -381,7 +395,8 @@ final class Backup
         foreach (glob($folder . '/talea-*.sql*') ?: [] as $path) {
             $backups[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
         }
-        usort($backups, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
+        // the name starts with the second the file was made, so on a tie the later name is the later file
+        usort($backups, fn (array $a, array $b): int => $b['time'] <=> $a['time'] ?: strcmp($b['file'], $a['file']));
 
         return $backups;
     }
