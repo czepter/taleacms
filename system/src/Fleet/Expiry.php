@@ -25,6 +25,9 @@ final class Expiry
     /** kind => the column of tl_fleet_sites */
     public const array KINDS = ['certificate' => 'cert_expires', 'domain' => 'domain_expires'];
 
+    /** How long a sent reminder is remembered after its date: a site behind several servers may show the dates of two certificates in turn, and each is reminded once. */
+    public const int REMEMBER_DAYS = 30;
+
     /** Whole days from the day of $now to the day of $date (negative = past). DST-safe: calendar days, not seconds. */
     public static function daysLeft(string $date, int $now): int
     {
@@ -76,7 +79,7 @@ final class Expiry
     }
 
     /**
-     * The reminders of one site that are due now, and the keys of the reminders sent so far (pruned to the dates the site has now).
+     * The reminders of one site that are due now, and the keys of the reminders sent so far (forgotten 30 days after their date).
      * A threshold crossed counts as sent: a date first seen at 5 days gets one mail, not one per threshold.
      *
      * @param array<string, mixed> $site a row of tl_fleet_sites
@@ -107,10 +110,11 @@ final class Expiry
                 }
             }
         }
-        $keys = array_values(array_unique(array_filter($sent, function (string $key) use ($current): bool {
+        $oldest = date('Y-m-d', $now - self::REMEMBER_DAYS * 86400);
+        $keys = array_values(array_unique(array_filter($sent, function (string $key) use ($current, $oldest): bool {
             [$kind, $date] = explode('|', $key) + ['', ''];
 
-            return ($current[$kind] ?? null) === $date;
+            return ($current[$kind] ?? null) === $date || $date >= $oldest;
         })));
 
         return [$reminders, $keys];

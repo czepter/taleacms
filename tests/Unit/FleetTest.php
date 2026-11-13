@@ -161,7 +161,17 @@ final class FleetTest extends TestCase
         $this->assertSame([1, ["certificate|$date6|14", "certificate|$date6|7"]], [count($reminders), $keys], 'the next threshold of the same date');
         $this->assertSame([[], ["certificate|$date6|14", "certificate|$date6|7"]], \Talea\Fleet\Expiry::due($site($date6, ["certificate|$date6|14", "certificate|$date6|7"]), $now), 'nothing twice');
         $date60 = $in(60);
-        $this->assertSame([[], []], \Talea\Fleet\Expiry::due($site($date60, ["certificate|$date6|14", "certificate|$date6|7"]), $now), 'a renewed date: the old keys go and nothing is due');
+        $this->assertSame([[], ["certificate|$date6|14", "certificate|$date6|7"]], \Talea\Fleet\Expiry::due($site($date60, ["certificate|$date6|14", "certificate|$date6|7"]), $now), 'a renewed date: nothing is due, the sent keys stay for a while');
+        $this->assertSame([[], []], \Talea\Fleet\Expiry::due($site($date60, ['certificate|' . $in(-31) . '|14', 'certificate|' . $in(-31) . '|7']), $now), 'a month after its date a sent key is forgotten');
+        // a site behind two servers shows the dates of two certificates in turn: each is reminded once
+        $date10 = $in(10);
+        $sent = [];
+        $mails = 0;
+        foreach ([$date10, $date13, $date10, $date13, $date10] as $seen) {
+            [$reminders, $sent] = \Talea\Fleet\Expiry::due($site($seen, $sent), $now);
+            $mails += count($reminders);
+        }
+        $this->assertSame(2, $mails, 'two dates, two mails – not one per flip');
         $date5 = $in(5);
         [$reminders, $keys] = \Talea\Fleet\Expiry::due($site($date5), $now);
         $this->assertSame([1, ["certificate|$date5|14", "certificate|$date5|7"]], [count($reminders), $keys], 'first seen at 5 days: one mail, both thresholds count as sent');
@@ -220,17 +230,26 @@ final class FleetTest extends TestCase
         $worse = \Talea\Fleet\Console::attention($row(['accepted' => json_encode($all), 'status' => 'error'], ['problems' => [['group' => 'Security', 'check' => 'Debug mode', 'status' => 'error'], $problems[1], $problems[2]]]), $now);
         $this->assertSame('check:Debug mode', array_values(array_filter($worse['items'], fn (array $i): bool => $i['accepted'] === null && $i['severity'] === 'error' && str_starts_with($i['key'], 'check:')))[0]['key'], 'a worse state is not held');
 
-        $cert = ['key' => 'certificate', 'state' => $plus(12) . '|warning'];
-        $this->assertFalse(\Talea\Fleet\Today::holds(['state' => $plus(12) . '|warning', 'until' => $plus(30)], ['key' => 'certificate', 'state' => $plus(12) . '|error'] + $cert, $now), 'a certificate accepted at warning is not held at error');
+        $cert = ['key' => 'certificate', 'state' => 'warning'];
+        $this->assertFalse(\Talea\Fleet\Today::holds(['state' => 'warning', 'until' => $plus(30)], ['key' => 'certificate', 'state' => 'error'] + $cert, $now), 'a certificate accepted at warning is not held at error');
         $this->assertFalse(\Talea\Fleet\Today::holds(['state' => 'warning', 'until' => $plus(-1)], $item, $now), 'a past last day does not hold');
         $kept = \Talea\Fleet\Today::prune(['check:Debug mode' => ['state' => 'warning', 'until' => $plus(5)], 'check:Free disk space' => ['state' => 'error', 'until' => $plus(5)], 'check:Gone' => ['state' => 'warning', 'until' => $plus(5)],
             'enquiries' => ['state' => 'enquiries', 'until' => $plus(-1)]], $attention['items'], $now);
         $this->assertSame(['check:Debug mode'], array_keys($kept), 'changed, gone and expired acceptances are dropped');
 
-        $site = $row(['cert_expires' => $plus(12) . ' 12:00:00', 'accepted' => json_encode(['certificate' => ['state' => $plus(12) . '|warning', 'note' => 'n', 'until' => $plus(30)]])]);
+        $site = $row(['cert_expires' => $plus(12) . ' 12:00:00', 'accepted' => json_encode(['certificate' => ['state' => 'warning', 'note' => 'n', 'until' => $plus(30)]])]);
         $site += \Talea\Fleet\Console::attention($site, $now);
         $this->assertSame([[], []], [\Talea\Fleet\Expiry::due($site, $now, ['certificate'])[0], \Talea\Fleet\Expiry::soon([$site], $now)], 'an accepted certificate has no reminder and is not in the bell');
         $this->assertSame(1, count(\Talea\Fleet\Expiry::due($site, $now)[0]), 'without the acceptance the reminder is due');
+
+        // the date of a certificate alternates between two servers of one site: the acceptance holds and is not pruned, while a worse severity brings the item back
+        foreach ([$plus(12), $plus(13), $plus(12)] as $flip) {
+            $flipped = ['cert_expires' => $flip . ' 12:00:00'] + $site;
+            $flipped = \Talea\Fleet\Console::attention($flipped, $now);
+            $this->assertSame(['certificate'], array_keys(\Talea\Fleet\Today::prune(\Talea\Fleet\Today::decode($site), $flipped['items'], $now)), "the acceptance survives the date $flip");
+        }
+        $worse = \Talea\Fleet\Console::attention(['cert_expires' => $plus(5) . ' 12:00:00'] + $site, $now);
+        $this->assertSame([], \Talea\Fleet\Today::prune(\Talea\Fleet\Today::decode($site), $worse['items'], $now), 'a certificate that is now at error is not held');
     }
 
     /** #341: the number on the Today tab counts the sites that have an open item, the very ones Today lists – also a site with only enquiries waiting. */

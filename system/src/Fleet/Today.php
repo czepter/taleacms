@@ -12,7 +12,7 @@ namespace Talea\Fleet;
  *
  * A person can ACCEPT an item: the state is known and fine for now. The acceptance is kept on the console only
  * (fleet_sites.accepted, item key => {state, note, until, by, at}); it holds until its last day and as long as the item's state
- * is the stored one – the state carries the severity (and the date of a certificate), so a worse or otherwise changed state brings the
+ * is the stored one – the state carries the severity (and the date of a domain registration), so a worse or otherwise changed state brings the
  * item back at once. What an accepted item no longer does: it is not an open reason, not in the score, its expiry reminders are muted,
  * and the bell leaves it out. Pure.
  */
@@ -86,7 +86,7 @@ final class Today
                 case 'domain':
                     $date = substr((string) ($site[Expiry::KINDS[$reason]] ?? ''), 0, 10);
                     $severity = Expiry::severity($reason, $date, $now) ?? 'warning';
-                    $add($reason, $reason, 'certificates', $severity, $reason === 'certificate' ? 'certificate expires soon' : 'domain registration expires soon', $date, $date . '|' . $severity);
+                    $add($reason, $reason, 'certificates', $severity, $reason === 'certificate' ? 'certificate expires soon' : 'domain registration expires soon', $date, $reason === 'certificate' ? $severity : $date . '|' . $severity); // a certificate's date may alternate between servers of one site: its state is the severity
                     break;
                 // the audit has no group among the six: it stays a reason on the list of all sites and on the site's page
             }
