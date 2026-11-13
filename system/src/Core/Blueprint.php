@@ -267,8 +267,9 @@ final class Blueprint
     /** Takes a blueprint off the site: its checks, questions and instructions; collections and facts stay. */
     public static function remove(App $app, string $key): bool
     {
-        $old = (string) (self::applied($app->db())[$key]['claude'] ?? '');
-        $name = self::text((string) (self::applied($app->db())[$key]['name'] ?? $key));
+        $manifest = self::applied($app->db())[$key] ?? null;
+        $old = (string) ($manifest['claude'] ?? '');
+        $name = $manifest !== null ? self::text($manifest['name']) : $key;
         $done = $app->db()->delete('blueprints', ['bkey' => $key]) > 0;
         if ($done) {
             \Talea\Admin\ChangeLog::write($app, 'blueprints', 'remove', $key);
