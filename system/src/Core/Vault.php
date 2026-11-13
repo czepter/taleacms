@@ -94,7 +94,8 @@ final class Vault
 
     /**
      * Seals what is still stored in plain text on this site: the secret settings, and the seeds of the authenticator app of the owner's
-     * accounts. Only with an install key. Idempotent.
+     * accounts. Only with an install key. Idempotent. It runs under a lock, and every write only replaces the plain value it read: a
+     * password saved at the same moment (or a seed enrolled) is not overwritten with the old one.
      *
      * @return int how many values were sealed
      */
@@ -104,16 +105,25 @@ final class Vault
         if (self::installKey($settings) === null) {
             return 0;
         }
-        $sealed = 0;
-        foreach ($db->pairs('SELECT name, value FROM {settings} WHERE name IN (' . implode(', ', array_fill(0, count(self::SETTINGS), '?')) . ')', self::SETTINGS) as $name => $value) {
-            if ((string) $value !== '' && !self::isSealed((string) $value)) {
-                $settings->set((string) $name, (string) $value); // set() seals it
-                $sealed++;
-            }
+        $lock = 'vault-seal-' . $db->prefix;
+        if (!$db->lock($lock)) {
+            return 0; // another process is sealing: it does the same
         }
-        foreach ($db->all("SELECT user_id, totp_secret FROM {users} WHERE totp_secret <> '' AND totp_secret NOT LIKE 'sealed:%'") as $user) {
-            $db->update('users', ['totp_secret' => self::sealValue($settings, (string) $user['totp_secret'])], ['user_id' => $user['user_id']]);
-            $sealed++;
+        try {
+            $sealed = 0;
+            foreach ($db->pairs('SELECT name, value FROM {settings} WHERE name IN (' . implode(', ', array_fill(0, count(self::SETTINGS), '?')) . ')', self::SETTINGS) as $name => $value) {
+                if ((string) $value !== '' && !self::isSealed((string) $value)) {
+                    $sealed += $db->update('settings', ['value' => self::sealValue($settings, (string) $value)], ['name' => (string) $name, 'value' => (string) $value]);
+                }
+            }
+            foreach ($db->all("SELECT user_id, totp_secret FROM {users} WHERE totp_secret <> '' AND totp_secret NOT LIKE 'sealed:%'") as $user) {
+                $sealed += $db->update('users', ['totp_secret' => self::sealValue($settings, (string) $user['totp_secret'])], ['user_id' => $user['user_id'], 'totp_secret' => $user['totp_secret']]);
+            }
+        } finally {
+            $db->unlock($lock);
+        }
+        if ($sealed > 0) {
+            $settings->reload(); // what this object holds is the plain text of before
         }
 
         return $sealed;

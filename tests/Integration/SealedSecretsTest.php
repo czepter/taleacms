@@ -92,6 +92,18 @@ final class SealedSecretsTest extends DatabaseTestCase
         $this->assertSame('ok', Vault::status($this->settings())[0]);
     }
 
+    public function testTheSealingPassWaitsForAPassThatIsRunning(): void
+    {
+        $this->db()->insert('settings', ['name' => 'backup_password', 'value' => 'old']);
+        putenv('TALEA_SECRET_KEY=' . self::SECRET);
+        $other = \Talea\Core\Db::fromConfig($this->dbConfig());
+        $this->assertTrue($other->lock('vault-seal-' . $this->db()->prefix, 0), 'another process is sealing');
+        $this->assertSame(0, Vault::sealStored($this->db()), 'this pass leaves it to that one');
+        $this->assertSame('old', $this->raw('backup_password'), 'nothing was touched');
+        $other->unlock('vault-seal-' . $this->db()->prefix);
+        $this->assertSame(1, Vault::sealStored($this->db()));
+    }
+
     public function testTheWrongKeyReadsEmptyAndIsFlagged(): void
     {
         putenv('TALEA_SECRET_KEY=' . self::SECRET);

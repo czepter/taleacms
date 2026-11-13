@@ -294,6 +294,12 @@ final class Settings
         return Vault::isSealed($stored) && Vault::openValue($this, $stored) === null;
     }
 
+    /** Forgets what was read: the next get() reads the table again (a value was changed behind this object, Core\Vault). */
+    public function reload(): void
+    {
+        $this->values = null;
+    }
+
     public function set(string $key, string $value): void
     {
         if (in_array($key, Vault::SETTINGS, true)) {
