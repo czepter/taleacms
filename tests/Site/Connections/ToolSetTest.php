@@ -124,7 +124,7 @@ final class ToolSetTest extends SiteTestCase
         $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'tool_set_switch' => 'essentials:token:' . $id]);
         $this->assertSame('essentials', $site->value("SELECT tool_set FROM tl_api_tokens WHERE name = 'Default set'"), 'My account switches a personal token to the essentials');
 
-        $this->assertStringContainsString('Change the tool set', $admin->get('/admin.php?action=account')->body, 'My account offers the tool sets');
+        $this->assertStringContainsString('Change the tool set', $admin->get('/admin.php?action=account&tab=claude')->body, 'My account offers the tool sets');
         $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'tool_set_switch' => 'migration:token:' . $id]);
         $this->assertSame('migration', $site->value("SELECT tool_set FROM tl_api_tokens WHERE name = 'Default set'"), 'My account switches a personal token to the Migration set');
         $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'tool_set_switch' => 'fleet:token:' . $id]);
