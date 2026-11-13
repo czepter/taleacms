@@ -163,6 +163,7 @@ return [
     '%s published pages have not appeared in search yet.' => '%s veröffentlichte Seiten sind in der Suche noch nicht aufgetaucht.',
     '%s runs version %s.' => '%s läuft mit Version %s.',
     '%s sorted this enquiry as spam.' => '%s hat diese Anfrage als Spam eingeordnet.',
+    '%s to %s: %s page views and %s visits in all; the most page views on %s (%s).' => '%s bis %s: insgesamt %s Seitenaufrufe und %s Besuche; die meisten Seitenaufrufe am %s (%s).',
     '%s unread' => '%s ungelesen',
     '%s upcoming' => '%s anstehend',
     '%s visits' => '%s Besuche',
