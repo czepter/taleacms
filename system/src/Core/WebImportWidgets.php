@@ -6,6 +6,7 @@ namespace Talea\Core;
 
 use Talea\Builder\Build;
 use Talea\Builder\HtmlConverter;
+use Talea\Builder\HtmlWidgets;
 
 /**
  * What the website import (Core\WebImport) does with the widgets Builder\HtmlWidgets took out of an old page: the ones the builder cannot
@@ -46,17 +47,64 @@ final class WebImportWidgets
                 $widgets[$i]['kind'] = '';
                 continue;
             }
+            if (in_array($w['kind'], ['accordion', 'tabs'], true)) {
+                // a form or frame inside an answer or a panel is met like one on the page itself
+                [$widgets[$i]['html'], $replaced] = self::nested($widgets[$i]['html'], $enquiries, $language);
+                foreach ($replaced as $found) {
+                    self::note($state, $found['reason'], $oldPath, $found['host']);
+                }
+                continue;
+            }
             $reason = $w['kind'] === 'form' && !$enquiries ? 'form_off' : (self::PLACEHOLDER[$w['kind']] ?? null);
             if ($reason === null) {
                 continue;
             }
             $widgets[$i]['html'] = '<p>' . e(self::placeholder($reason, $w['host'], $language)) . '</p>';
-            if (count($state['attention'] ?? []) < 100) {
-                $state['attention'][] = ['kind' => $reason, 'path' => $oldPath, 'host' => $w['host']];
-            }
+            self::note($state, $reason, $oldPath, $w['host']);
         }
 
         return $widgets;
+    }
+
+    /** @param array<string, mixed> $state */
+    private static function note(array &$state, string $reason, string $oldPath, string $host): void
+    {
+        if (count($state['attention'] ?? []) < 100) {
+            $state['attention'][] = ['kind' => $reason, 'path' => $oldPath, 'host' => $host];
+        }
+    }
+
+    /**
+     * The forms and frames inside the HTML of an accordion or tabs widget that cannot be brought over, each replaced by its placeholder.
+     *
+     * @return array{0: string, 1: list<array{reason: string, host: string}>} the HTML, and what was replaced
+     */
+    private static function nested(string $html, bool $enquiries, string $language): array
+    {
+        if (preg_match('/<(form|iframe|video)\b/i', $html) !== 1) {
+            return [$html, []];
+        }
+        $found = [];
+        $result = Html::transform($html, function (\Dom\HTMLElement $body, \Dom\HTMLDocument $doc) use (&$found, $enquiries, $language): void {
+            foreach (iterator_to_array($body->querySelectorAll('form, iframe, video')) as $el) {
+                if (!$body->contains($el)) {
+                    continue;
+                }
+                $kind = HtmlWidgets::kind($el);
+                $reason = $kind === 'form' && !$enquiries ? 'form_off' : ($kind !== null ? (self::PLACEHOLDER[$kind] ?? null) : null);
+                if ($reason === null) {
+                    continue;
+                }
+                $src = trim((string) ($el->getAttribute('src') ?: $el->getAttribute('data-src') ?: $el->getAttribute('data-lazy-src')));
+                $host = (string) preg_replace('/[^a-z0-9.-]/', '', strtolower((string) parse_url($src, PHP_URL_HOST)));
+                $placeholder = $doc->createElement('p');
+                $placeholder->textContent = self::placeholder($reason, $host, $language);
+                $el->replaceWith($placeholder);
+                $found[] = ['reason' => $reason, 'host' => $host];
+            }
+        });
+
+        return [$found === [] ? $html : $result, $found];
     }
 
     /** The bracketed text that marks the place of a widget that could not be brought over, in the language of the site. */
