@@ -12,6 +12,7 @@ return [
     '%d - blocked by an administrator; you can unblock them in Users' => '%d – von einem Administrator gesperrt; unter Benutzer können Sie sie entsperren',
     '%d - details in storage/log/errors.log' => '%d – Details in storage/log/errors.log',
     '%d / %d views' => '%d / %d Aufrufe',
+    '%d PHP deprecation notice(s) – the site keeps working; an update of Talea removes them' => '%d PHP-Hinweis(e) auf veraltete Funktionen – die Website läuft weiter; ein Update von Talea beseitigt sie',
     '%d account(s) unused for %d days – block them in Users, or switch on the automatic suspension in Settings → General' => '%d Konto/Konten seit %d Tagen unbenutzt – sperren Sie sie unter Benutzer oder schalten Sie die automatische Aussetzung unter Einstellungen → Allgemein ein',
     '%d account(s) unused for %d days – the automatic suspension blocks them on its next daily run' => '%d Konto/Konten seit %d Tagen unbenutzt – die automatische Aussetzung sperrt sie beim nächsten täglichen Lauf',
     '%d addresses ignored. A new address that visitors cannot find will show up again.' => '%d Adressen ignoriert. Eine neue Adresse, die Besucher nicht finden, erscheint wieder.',

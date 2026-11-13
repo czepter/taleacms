@@ -122,4 +122,33 @@ final class ErrorLogTest extends TestCase
         $this->assertSame([], ErrorReport::entries(40, $this->dir . '/none.log'));
         $this->assertSame(['errors' => 0, 'deprecations' => 0], ErrorReport::counts(0, $this->dir . '/none.log'));
     }
+
+    public function testADeprecationIsLoggedOncePerDayAndPlace(): void
+    {
+        $file = $this->dir . '/errors.log';
+        ErrorReport::deprecation('Function x() is deprecated', TALEA_ROOT . '/system/src/a.php', 10, $file);
+        ErrorReport::reset(); // another request: only the memo file remembers
+        ErrorReport::deprecation('Function x() is deprecated', TALEA_ROOT . '/system/src/a.php', 10, $file);
+        $this->assertCount(1, ErrorReport::entries(40, $file), 'the same message at the same place is written once');
+        $this->assertStringContainsString('] Deprecated: Function x() is deprecated in system/src/a.php:10', ErrorReport::entries(1, $file)[0]);
+
+        ErrorReport::deprecation('Function x() is deprecated', TALEA_ROOT . '/system/src/a.php', 11, $file);
+        $this->assertCount(2, ErrorReport::entries(40, $file), 'another line is another place');
+
+        ErrorReport::reset();
+        $memo = $this->dir . '/deprecations.json';
+        $yesterday = array_map(fn ($day): string => date('Y-m-d', time() - 86400), (array) json_decode((string) file_get_contents($memo), true));
+        file_put_contents($memo, json_encode($yesterday));
+        ErrorReport::deprecation('Function x() is deprecated', TALEA_ROOT . '/system/src/a.php', 10, $file);
+        $this->assertCount(3, ErrorReport::entries(40, $file), 'a new day logs it again');
+    }
+
+    public function testCountsSeparateDeprecations(): void
+    {
+        $file = $this->dir . '/errors.log';
+        ErrorReport::append(ErrorReport::entry($this->thrown()), $file);
+        ErrorReport::deprecation('old thing', TALEA_ROOT . '/system/src/b.php', 3, $file);
+        $this->assertSame(['errors' => 1, 'deprecations' => 1], ErrorReport::counts(time() - 3600, $file));
+        $this->assertSame(['errors' => 0, 'deprecations' => 0], ErrorReport::counts(time() + 3600, $file));
+    }
 }

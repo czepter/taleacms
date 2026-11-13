@@ -50,6 +50,7 @@ trait ServerActions
                 file_put_contents(\Talea\Core\ErrorReport::LOG, '');
             }
             @unlink(\Talea\Core\ErrorReport::LOG . '.1');
+            @unlink(dirname(\Talea\Core\ErrorReport::LOG) . '/deprecations.json');
         }
 
         return $this->back('The error log is empty.', '', ['tab' => 'health']);

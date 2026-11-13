@@ -62,6 +62,8 @@ final class ErrorReport
     private static string $floodScope = '';
     /** The public id of the signed-in person of this request (the local log only). */
     private static string $user = '';
+    /** @var array<string, true> deprecations already handled by this process */
+    private static array $deprecations = [];
 
     /**
      * Reads the configuration: the environment wins over config.php. A malformed DSN leaves reporting off and says so once in
@@ -477,6 +479,46 @@ final class ErrorReport
         return $entry;
     }
 
+    /**
+     * A PHP deprecation (a host's newer PHP, an add-on) is no reason to stop a page: it is written to the log once a day for each
+     * message and place (the memo file deprecations.json next to the log) and never sent to the tracker. Never throws.
+     */
+    public static function deprecation(string $message, string $file, int $line, string $log = self::LOG): void
+    {
+        try {
+            $key = sha1($message . '|' . $file . ':' . $line);
+            if (isset(self::$deprecations[$log . $key])) {
+                return;
+            }
+            self::$deprecations[$log . $key] = true;
+            $memo = dirname($log) . '/deprecations.json';
+            if (!is_dir(dirname($log))) {
+                @mkdir(dirname($log), 0775, true);
+            }
+            $f = @fopen($memo, 'c+');
+            if ($f === false || !flock($f, LOCK_EX)) {
+                return;
+            }
+            $today = date('Y-m-d');
+            $seen = json_decode((string) stream_get_contents($f), true);
+            $seen = is_array($seen) ? array_filter($seen, fn ($day): bool => $day === $today) : [];
+            $new = !isset($seen[$key]);
+            if ($new && count($seen) < 500) {
+                $seen[$key] = $today;
+                ftruncate($f, 0);
+                rewind($f);
+                fwrite($f, (string) json_encode($seen));
+            }
+            flock($f, LOCK_UN);
+            fclose($f);
+            if ($new) {
+                self::append(sprintf("[%s] Deprecated: %s in %s:%d\n  %s\n", date('c'), mb_substr(trim((string) preg_replace('/\s+/u', ' ', self::scrub($message))), 0, self::LOG_MESSAGE), self::relative($file), $line, self::context()), $log);
+            }
+        } catch (\Throwable) {
+            // the error handler must never fail
+        }
+    }
+
     /** The request, the signed-in person and the version, for the second line of an entry. */
     private static function context(): string
     {
@@ -709,6 +751,7 @@ final class ErrorReport
         self::$sources = [];
         self::$floodScope = bin2hex(random_bytes(4));
         self::$user = '';
+        self::$deprecations = [];
     }
 
     /**

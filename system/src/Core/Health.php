@@ -122,7 +122,8 @@ final class Health
             $counts = ErrorReport::counts(time() - 86400);
         }
         $errorCount = $counts['errors'];
-        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', $errorCount === 0 ? t('none') : t('%d - details in storage/log/errors.log', $errorCount));
+        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', ($errorCount === 0 ? t('none') : t('%d - details in storage/log/errors.log', $errorCount))
+            . ($counts['deprecations'] > 0 ? '; ' . t('%d PHP deprecation notice(s) – the site keeps working; an update of Talea removes them', $counts['deprecations']) : '')); // a deprecation never changes the state
         // error tracking (Core\ErrorReport): set by the operator with TALEA_ERROR_DSN; a failed send since the last good one warns
         $tracking = ErrorReport::status();
         $add(t('Operation'), t('Error tracking'), !$tracking['enabled'] || $tracking['failed_at'] === 0 ? 'ok' : 'warning', !$tracking['enabled']

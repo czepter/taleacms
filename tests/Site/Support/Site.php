@@ -73,6 +73,7 @@ final class Site
         $this->port = $this->startPhp($this->root, 'system/dev-router.php', [
             'TALEA_CAPTCHA_VERIFY' => 'http://127.0.0.1:' . $this->ports['captcha'] . '/', 'TALEA_CONNECTORS_FAKE' => 'http://127.0.0.1:' . $fake,
             'TALEA_AI_URL' => 'http://127.0.0.1:' . $fake . '/ai/v1/messages', 'TALEA_ANTISPAM_MIN' => '1', 'TALEA_IMPORT_LOCAL' => '1', 'TALEA_FIREWALL_LOCAL' => '1', 'TALEA_LINKS_LOCAL' => '1', 'TALEA_FLEET_LOCAL' => '1',
+            'TALEA_STRICT_DEPRECATIONS' => '1', // the tests fail on a deprecation; a site only logs it
         ] + ($this->options['env'] ?? []));
         $this->base = 'http://127.0.0.1:' . $this->port;
 
