@@ -30,7 +30,7 @@ trait AgentRunTools
     {
         $this->needSchedules();
         $connection = $this->app->auth()->connection();
-        $handed = AgentSchedules::handOut($this->app, (string) ($connection['name'] ?? ''));
+        $handed = AgentSchedules::handOut($this->app, (string) ($connection['name'] ?? ''), \Talea\Core\ClaudeConnection::keyOf((array) $this->app->auth()->user()), (array) $this->app->auth()->user());
         $access = (string) ($connection['access'] ?? 'full');
 
         return [

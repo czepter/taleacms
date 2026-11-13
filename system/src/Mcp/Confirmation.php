@@ -146,14 +146,16 @@ final class Confirmation
     }
 
     /**
-     * What a call gets while a scheduled run is open on its connection: no code at all.
+     * What a call gets from a connection that was handed a scheduled run: no code at all. $run is the open run, 0 when the run
+     * is already reported (or lives on another site).
      *
      * @return array<string, mixed>
      */
     public static function withheld(string $tool, int $run): array
     {
-        return ['confirmation_required' => true, 'done' => false, 'scheduled_run' => $run,
-            'next' => 'This connection has a scheduled run open (id ' . $run . '): a call that e-mails people or erases for good is never confirmed in a run. It waits for a person and is noted in the run – finish with report_agent_run (status partial) and name ' . $tool . ' in the summary.'];
+        return ['confirmation_required' => true, 'done' => false, 'scheduled_run' => $run > 0 ? $run : true,
+            'next' => 'This connection was handed a scheduled run' . ($run > 0 ? ' (id ' . $run . ')' : ' in the last hours') . ': a call that e-mails people or erases for good is never confirmed in a run. It waits for a person'
+                . ($run > 0 ? ' and is noted in the run – finish with report_agent_run (status partial) and name ' . $tool . ' in the summary.' : ' – name ' . $tool . ' in what you report.')];
     }
 
     /**

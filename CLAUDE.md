@@ -188,8 +188,9 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   a `url`, `Catalog::FETCH_ARGUMENTS`) and only full-access connections may (`Catalog::fetchRefusal`; `Catalog::allows` hides
   the always-fetching ones). Tools that e-mail people or erase for good are in `Mcp\Confirmation::TOOLS`: `Mcp\Server` answers
   the first acting call with `confirmation_required` and a code (HMAC of the site key over tool, user, connection, the canonical
-  arguments and 10 minutes), the same call with `confirmation` acts once (`ip_checks` type `mcp_confirm`); a connection with a
-  running scheduled run never gets one (`AgentSchedules::withhold`, the run becomes partial). A notebook note from a drafts-only
+  arguments and 10 minutes), the same call with `confirmation` acts once (`ip_checks` type `mcp_confirm`); a connection that was handed a
+  scheduled run never gets one for `HANDOUT_HOURS`, also after it reported and with `site` (`AgentSchedules::withhold`; the marker
+  `api_tokens.routine_until` is keyed by user and token or OAuth client, not by name; an open run becomes partial). A notebook note from a drafts-only
   connection is a proposal (`notebook.proposal`) until a person saves it in the admin. The instructions notice watches
   `ClaudeInstructions::watched()` – the owner's text and the applied blueprints' instructions.
 - **Files waiting for approval** (`Core\MediaStaging`): what a drafts-only Claude connection uploads waits outside the web root in

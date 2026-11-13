@@ -205,4 +205,48 @@ final class ClaudeConnection
 
         return $last === null ? null : (string) $last;
     }
+
+    /**
+     * Which connection a call comes through: user and the OAuth client (its access token changes every hour) or the personal
+     * token. The identity of a confirmation code and of a scheduled run; connection names are not unique.
+     *
+     * @param array<string, mixed> $user the row Mcp\Server::user() found (token_id, connection_client, user_id)
+     */
+    public static function keyOf(array $user): string
+    {
+        $client = $user['connection_client'] ?? null;
+
+        return (int) ($user['user_id'] ?? 0) . '|' . ($client !== null && $client !== '' ? 'client:' . $client : 'token:' . (int) ($user['token_id'] ?? 0));
+    }
+
+    /** The where clause and values of the rows that belong to a connection (api_tokens). @param array<string, mixed> $user @return array{0: string, 1: list<mixed>} */
+    private static function rowsOf(array $user): array
+    {
+        $client = $user['connection_client'] ?? null;
+
+        return $client !== null && $client !== '' ? ['user_id = ? AND client_id = ?', [(int) $user['user_id'], (string) $client]] : ['token_id = ?', [(int) ($user['token_id'] ?? 0)]];
+    }
+
+    /** A scheduled run was handed to this connection: until $hours from now it never confirms a two-step call (AgentSchedules::withhold). @param array<string, mixed> $user */
+    public static function markRoutine(Db $db, array $user, int $hours): void
+    {
+        [$where, $values] = self::rowsOf($user);
+        $db->run('UPDATE {api_tokens} SET routine_until = ? WHERE ' . $where, [date('Y-m-d H:i:s', time() + $hours * 3600), ...$values]);
+    }
+
+    /** Is this connection inside the window of a scheduled run? The owner table, so the answer is the same on every site. @param array<string, mixed> $user */
+    public static function inRoutine(Db $db, array $user): bool
+    {
+        [$where, $values] = self::rowsOf($user);
+
+        return $db->value('SELECT 1 FROM {api_tokens} WHERE ' . $where . ' AND routine_until > ? LIMIT 1', [...$values, date('Y-m-d H:i:s')]) !== null;
+    }
+
+    /** The end of the window of an OAuth connection (every row of the client), which a refresh carries over; null = none. */
+    public static function routineUntil(Db $db, int $userId, string $client): ?string
+    {
+        $until = $db->value('SELECT MAX(routine_until) FROM {api_tokens} WHERE user_id = ? AND client_id = ?', [$userId, $client]);
+
+        return $until === null ? null : (string) $until;
+    }
 }

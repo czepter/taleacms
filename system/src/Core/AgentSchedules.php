@@ -209,11 +209,12 @@ final class AgentSchedules
     /**
      * Hands out the runs that are due: for every active schedule with next_due ≤ now, the open run (handed out within
      * HANDOUT_HOURS) or a new one. An open run older than that is written off as failed first. Returns the runs with the
-     * schedule rows.
+     * schedule rows. $user is the connection's row (ClaudeConnection::keyOf): it is marked as a routine for HANDOUT_HOURS.
      *
+     * @param array<string, mixed> $user
      * @return list<array{run: array<string, mixed>, schedule: array<string, mixed>}>
      */
-    public static function handOut(App $app, string $connection): array
+    public static function handOut(App $app, string $connection, string $connectionKey = '', array $user = []): array
     {
         $db = $app->db();
         $now = date('Y-m-d H:i:s');
@@ -225,32 +226,39 @@ final class AgentSchedules
                 $open = null;
             }
             if ($open === null) {
-                $id = $db->insert('agent_runs', ['schedule_id' => (int) $schedule['id'], 'due_at' => (string) $schedule['next_due'], 'started_at' => $now, 'status' => 'running', 'connection' => mb_substr($connection, 0, 100)]);
+                $id = $db->insert('agent_runs', ['schedule_id' => (int) $schedule['id'], 'due_at' => (string) $schedule['next_due'], 'started_at' => $now, 'status' => 'running', 'connection' => mb_substr($connection, 0, 100), 'connection_key' => mb_substr($connectionKey, 0, 100)]);
                 $open = $db->one('SELECT * FROM {agent_runs} WHERE id = ?', [$id]) ?? [];
             }
             $out[] = ['run' => $open, 'schedule' => $schedule];
+        }
+        if ($out !== [] && $user !== []) {
+            ClaudeConnection::markRoutine($db, $user, self::HANDOUT_HOURS); // the window of withhold(), on every site (owner table)
         }
 
         return $out;
     }
 
     /**
-     * A call that e-mails people or erases for good (Mcp\Confirmation) while this connection has a run open: it is never confirmed
-     * in a run. It is noted in the run (the summary collects these lines while the run is running; report() keeps them and stores
-     * the run as partial). Returns the run id, or null when the connection has no open run.
+     * A call that e-mails people or erases for good (Mcp\Confirmation) from a connection that was handed a scheduled run in the
+     * last HANDOUT_HOURS: it is never confirmed in a run, whether the run is still open or already reported, and on whichever
+     * site of the owner it lands (the marker is in the owner table api_tokens, keyed by user and token or OAuth client – not by
+     * the connection's name). If this site holds the connection's open run, the call is noted in it (the summary collects these
+     * lines while the run is running; report() keeps them and stores the run as partial). Returns the open run's id, 0 when the
+     * connection is in the window without an open run on this site, or null when it is not in a run.
      *
+     * @param array<string, mixed> $user the connection's row (ClaudeConnection::keyOf)
      * @param array<string, mixed> $arguments
      */
-    public static function withhold(App $app, string $connection, string $tool, array $arguments): ?int
+    public static function withhold(App $app, array $user, string $tool, array $arguments): ?int
     {
-        if ($connection === '') {
+        $db = $app->db();
+        if (!ClaudeConnection::inRoutine($db, $user)) {
             return null;
         }
-        $db = $app->db();
-        $run = $db->one("SELECT id, summary FROM {agent_runs} WHERE status = 'running' AND connection = ? AND started_at >= ? ORDER BY id DESC LIMIT 1",
-            [mb_substr($connection, 0, 100), date('Y-m-d H:i:s', time() - self::HANDOUT_HOURS * 3600)]);
+        $run = $db->one("SELECT id, summary FROM {agent_runs} WHERE status = 'running' AND connection_key = ? AND started_at >= ? ORDER BY id DESC LIMIT 1",
+            [mb_substr(ClaudeConnection::keyOf($user), 0, 100), date('Y-m-d H:i:s', time() - self::HANDOUT_HOURS * 3600)]);
         if ($run === null) {
-            return null;
+            return 0;
         }
         $what = $tool . (is_scalar($arguments['id'] ?? null) ? ' ' . mb_substr((string) $arguments['id'], 0, 40) : ''); // never an e-mail address
         $db->update('agent_runs', ['summary' => mb_substr(trim((string) $run['summary'] . "\n" . t('Waits for a person: %s', $what)), 0, self::MAX_SUMMARY)], ['id' => (int) $run['id']]);

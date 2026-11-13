@@ -147,6 +147,12 @@ final class McpSafetyTest extends SiteTestCase
         $this->assertSame($run, $answer['scheduled_run'] ?? null);
         $this->assertArrayNotHasKey('confirmation', $answer, 'a run never gets a code');
 
+        // another connection of the same user with the same name is a different connection: it gets a code and writes nothing into the run
+        $other = $this->tokenOf('admin', 'Routine', 'e');
+        $this->assertArrayHasKey('confirmation', $this->mcpData('erase_personal_data', $erase, $other), 'a connection that only shares the name is not in the run');
+        $summary = (string) $this->sq('SELECT summary FROM tl_agent_runs WHERE id = ?', [$run]);
+        $this->assertSame(1, substr_count($summary, 'Waits for a person:'), 'only the routine\'s own call is noted');
+
         $report = $this->mcpData('report_agent_run', ['id' => $run, 'status' => 'ok', 'summary' => 'Looked around.'], $token);
         $this->assertSame('partial', $report['status'] ?? null);
         $this->assertArrayHasKey('note', $report);
@@ -155,7 +161,13 @@ final class McpSafetyTest extends SiteTestCase
         $this->assertStringContainsString('Looked around.', (string) $row['summary']);
         $this->assertStringContainsString('Waits for a person: erase_personal_data', (string) $row['summary']);
 
-        // the run is over: the same call gets a normal code
+        // reporting does not end it: injected text could report first and then repeat the call – the window lasts
+        $after = $this->mcpData('erase_personal_data', $erase, $token);
+        $this->assertTrue($after['scheduled_run'] ?? false, 'still a routine after the report');
+        $this->assertArrayNotHasKey('confirmation', $after);
+
+        // the window is over: the same connection gets a normal code
+        $this->site()->exec('UPDATE tl_api_tokens SET routine_until = NOW() - INTERVAL 1 MINUTE');
         $this->assertArrayHasKey('confirmation', $this->mcpData('erase_personal_data', $erase, $token));
     }
 }
