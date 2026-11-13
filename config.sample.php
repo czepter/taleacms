@@ -4,6 +4,8 @@
  * by hand, just copy this sample and fill in the database details.
  */
 
+// define('TALEA_PASSKEY_ONLY_OFF', true); // only to get back in after losing every passkey (System status warns while it is set)
+
 return [
     'db' => [
         'host' => 'localhost',

@@ -37,7 +37,8 @@ skips trusted proxies and takes the first other address. Sign-in, reset and form
 ## The site's secret
 
 Set `TALEA_SECRET_KEY` (or `TALEA_SECRET_KEY_FILE`) to a random value of at least 32 characters, e.g. `openssl rand -hex 32`
-(`docker-compose.coolify.yaml` generates one). It encrypts the stored connector credentials (OAuth secrets and tokens, API tokens) and
+(`docker-compose.coolify.yaml` generates one). It encrypts the stored connector credentials (OAuth secrets and tokens, API tokens), the passwords and keys in the settings (mail,
+backup, captcha, AI, newsletter and webhook secret) and the secrets of the authenticator apps, and
 signs forms, preview and download links and the builder clipboard, each with a key derived from it. Without it the key is the setting
 `secret_key` in the database, so a database dump or backup alone decrypts every credential; System status warns about it.
 
@@ -47,9 +48,20 @@ request tries again). Because the signing key changes with it, things signed bef
 reloaded, preview and document links must be created again, visitors re-enter page passwords, a builder clipboard copied before is
 pasted without its Custom HTML, and visitors of that day are counted again in the statistics.
 
+The passwords, keys and app secrets are sealed only while the variable is set: plain values from before are sealed on an administrator's
+next admin page, by the daily security job and before every backup; backups then hold only sealed values. System status (Encryption key)
+says what is left.
+
 **Keep the secret with your backups.** A database restored on another server, or after the variable was changed or removed, cannot
 read the stored credentials without the same `TALEA_SECRET_KEY`: System status then reports them as unreadable. Set the variable the
 database was used with, or connect the services again in Integrations.
+
+### Locked out by passkey-only sign-in
+
+An account (or, with the site setting, every account) that signs in only with a passkey cannot use the app code, and has no password for
+confirmations. If every passkey and backup code is lost, set `TALEA_PASSKEY_ONLY_OFF=1` in the container (or `define('TALEA_PASSKEY_ONLY_OFF', true);`
+above `return` in `config.php`) and restart: passkey-only sign-in is off, and an administrator with neither an app nor backup codes signs in
+with the password alone. System status warns while it is set. Sign in, add a passkey and new backup codes, and remove the setting.
 
 ## Update
 

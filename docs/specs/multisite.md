@@ -57,7 +57,10 @@ so a migration file is written once, as before. Raw SQL in a migration that touc
   through `Antispam::key()`. With `TALEA_SECRET_KEY` set it derives a key per site (`talea-signing|<secret>|<prefix>`; site 1 keeps
   the plain one), so no payload carries a site id and a link of one site is void on another by construction. Without the
   environment secret every site already has its own `secret_key` setting. Connector credentials keep using the environment secret
-  directly: they are the owner's, not the site's.
+  directly: they are the owner's, not the site's. The same key seals the passwords and keys in the settings and the authenticator seeds
+  (`Core\Vault`, only with the variable set): one key per install, the sealed value per site prefix (settings) and per owner (users).
+  A passkey belongs to one host, so to one site: `user_passkeys.rp_id` records it (an owner table), and passkey-only sign-in counts
+  only the keys of the site's own host.
 
 ## Shared components and facts, the inbox (phase 1, stage 3)
 

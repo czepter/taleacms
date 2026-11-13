@@ -45,6 +45,16 @@ handing over, **Site audit → Before handing over** lists what is still missing
 off-site backup copy, company details, indexing, the site icon, tracking without a cookie bar, the security contact,
 administrators without two-step sign-in or a passkey, the client's own account, your contact and background tasks.
 
+**Signing in safely.** In **My account → Two-factor sign-in** you can add an authenticator app and passkeys, create new
+backup codes when they run low, and choose **Sign in with a passkey only**: then the password alone or with the app code no
+longer signs you in, only a passkey, or the password with a passkey or a backup code – and the same holds for confirming
+changes. An older passkey that only works after the password offers **Register again**. Sensitive changes to other people –
+a password, e-mail address or two-factor reset, a new administrator, giving someone every section, weakening the two-factor
+or passkey-only setting – ask the administrator to confirm: no confirmation is needed within 10 minutes of signing in, otherwise
+type your password or press **Confirm with your passkey**. An administrator's own row in Users has no password or e-mail field:
+those are changed in My account. If everyone with a passkey is locked out, see "Locked out by passkey-only sign-in" in
+docs/DEPLOYMENT.md.
+
 ## 2. Page builder
 
 Open the builder from **Pages → Builder** (or the “Edit here” link on the site). The middle is the **canvas – the real
@@ -559,6 +569,10 @@ European Accessibility Act (WCAG 2.2 AA): colour contrast of the design system, 
 say where they lead (“click here”), images in text without a description, empty links, tables without header cells,
 frames without a title, and a missing accessibility statement. Claude runs the same audit with `site_audit` and can fix
 what it finds.
+
+**Encryption key.** System status shows where the site's key is. With `TALEA_SECRET_KEY` set, the stored passwords and keys
+(mail, backups, captcha, AI, newsletter, webhook signing secret) and the authenticator-app secrets are encrypted in the
+database and in backups; without it System status warns that they are readable. A restored database needs the same variable.
 
 **Addresses not found.** When visitors repeatedly land on an address that does not exist, the start screen says so and
 **Review the addresses** opens the list in Redirects. For each one choose **Redirect** (the form is filled in, add the
