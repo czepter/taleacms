@@ -16,8 +16,13 @@ final class Sqlite extends Dialect
     /** The file of a site whose configuration names none, relative to the installation. */
     public const string DEFAULT_FILE = 'storage/database/talea.sqlite';
 
-    /** @var array<string, resource> connection and lock name => open lock file (flock is released when the file is closed) */
-    private static array $locks = [];
+    /**
+     * Connection => lock name => open lock file. flock is released when the file is closed, and a WeakMap drops the files of a connection
+     * that is gone, so as on MySQL a lock never outlives its connection.
+     *
+     * @var \WeakMap<PDO, array<string, resource>>|null
+     */
+    private static ?\WeakMap $locks = null;
 
     public function name(): string
     {
@@ -279,8 +284,8 @@ final class Sqlite extends Dialect
      */
     public function lock(PDO $pdo, string $name, int $timeout): bool
     {
-        $key = spl_object_id($pdo) . '|' . $name;
-        if (isset(self::$locks[$key])) {
+        self::$locks ??= new \WeakMap();
+        if (isset(self::$locks[$pdo][$name])) {
             return false;
         }
         $file = self::lockFile($pdo, $name);
@@ -291,7 +296,7 @@ final class Sqlite extends Dialect
         $until = microtime(true) + $timeout;
         do {
             if (flock($handle, LOCK_EX | LOCK_NB)) {
-                self::$locks[$key] = $handle;
+                self::$locks[$pdo] = [$name => $handle] + (self::$locks[$pdo] ?? []);
 
                 return true;
             }
@@ -304,11 +309,16 @@ final class Sqlite extends Dialect
 
     public function unlock(PDO $pdo, string $name): void
     {
-        $key = spl_object_id($pdo) . '|' . $name;
-        if (isset(self::$locks[$key])) {
-            flock(self::$locks[$key], LOCK_UN);
-            fclose(self::$locks[$key]);
-            unset(self::$locks[$key]);
+        $held = self::$locks[$pdo] ?? [];
+        if (isset($held[$name])) {
+            flock($held[$name], LOCK_UN);
+            fclose($held[$name]);
+            unset($held[$name]);
+            if ($held === []) {
+                unset(self::$locks[$pdo]);
+            } else {
+                self::$locks[$pdo] = $held;
+            }
         }
     }
 
