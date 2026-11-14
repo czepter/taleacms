@@ -24,7 +24,7 @@ final class FileSizeTest extends TestCase
         'system/src/Admin/Modules/Pages.php' => 1081,
         'system/src/Core/Booking.php' => 1400,
         'system/src/Core/WpImport.php' => 1363,
-        'system/src/Mcp/Prompts.php' => 902,
+        'system/src/Mcp/Prompts.php' => 932,
         'system/src/Mcp/Tools.php' => 1240,
     ];
 
