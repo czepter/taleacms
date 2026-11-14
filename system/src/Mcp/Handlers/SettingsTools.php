@@ -312,7 +312,7 @@ trait SettingsTools
         }
         $counts = array_count_values(array_column($findings, 'kind'));
 
-        return ['score' => $audit['score'], 'previous_score' => $audit['previous'], 'passed' => $audit['passed'], 'total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
+        return ['score' => $audit['score'], 'previous_score' => $audit['previous'], 'passed' => $audit['passed'], 'total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings, 'move' => \Talea\Core\MoveStatus::of($this->app)];
     }
 
     /** get_stats (2.3): the same report as the Statistics screen */

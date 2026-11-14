@@ -172,7 +172,7 @@ final class Server
             'ping' => $ok([]),
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2); an essentials connection
             // lists the core tools, find_tools and the runners it needs (Mcp\Discovery)
-            'tools/list' => $ok(['tools' => $this->toolSet() === 'essentials' ? Discovery::essentials($this->available($tools), $this->access()) : $this->available($tools)]),
+            'tools/list' => $ok(['tools' => ($listed = Catalog::listed($this->toolSet())) !== null ? Discovery::essentials($this->available($tools), $this->access(), $listed) : $this->available($tools)]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
@@ -219,9 +219,9 @@ final class Server
         // the meta tools: callable on any connection, they only find tools and run them through this same method
         if ($name === 'find_tools') {
             $available = $this->available($tools);
-            $essentials = $this->toolSet() === 'essentials';
+            $listed = Catalog::listed($this->toolSet());
             try {
-                $found = Discovery::find($available, $essentials ? Catalog::ESSENTIALS : array_column($available, 'name'), $arguments, $essentials ? Discovery::runners($available, $this->access()) : []);
+                $found = Discovery::find($available, $listed ?? array_column($available, 'name'), $arguments, $listed !== null ? Discovery::runners($available, $this->access(), $listed) : []);
             } catch (\InvalidArgumentException $e) {
                 return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
             }
@@ -503,7 +503,7 @@ final class Server
         return \Talea\Core\ClaudeConnection::keyOf((array) $this->user);
     }
 
-    /** The tool set of this connection: all | essentials. */
+    /** The tool set of this connection: all | essentials | migration | fleet (Catalog::TOOL_SETS). */
     private function toolSet(): string
     {
         return $this->app->auth()->connection()['tool_set'] ?? 'all';

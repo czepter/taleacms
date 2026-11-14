@@ -43,7 +43,7 @@ trait MigrationTools
         return ['report_id' => $state['id'], 'old_site' => $state['web'],
             'phase' => ['finding' => 'finding', 'check' => 'checking', 'done' => 'done'][$state['phase']] ?? $state['phase'],
             'summary' => ['addresses' => $s['urls'], 'checked' => $s['checked'], 'ok' => $s['ok'], 'redirected' => $s['redirected'],
-                'not_published' => $s['hidden'], 'missing' => $s['missing'], 'errors' => $s['failed'], 'warnings' => $s['warnings']],
+                'not_published' => $s['hidden'], 'missing' => $s['missing'], 'errors' => $s['failed'], 'warnings' => $s['warnings'], 'old_site_reachable' => !$s['unreachable']],
             'problems' => array_map(fn (array $row): array => ['old' => $row['old'], 'new' => $row['new'] ?: null, 'status' => $row['status'],
                 'problems' => array_map(fn (string $p): array => ['code' => $p, 'severity' => MigrationReport::PROBLEMS[$p] ?? 'info', 'message' => MigrationReport::describe($p)], $row['problems']),
                 'old_title' => $row['old_title'], 'new_title' => $row['new_title']], array_slice($rows, 0, 100)),
@@ -52,6 +52,72 @@ trait MigrationTools
             'next' => $state['phase'] !== 'done' ? 'Call again with the same report_id until the phase is done.'
                 : 'Fix what you can as drafts (save_redirect for missing addresses, descriptions, forms), list the rest for the user, and run a new report before the domain is switched.']
             + \Talea\Mcp\Untrusted::mark(['problems']);
+    }
+
+    /** read_old_page: one page of the old site in sections (Core\OldPage) */
+    private function toolReadOldPage(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('Old pages are read by an administrator.');
+        }
+        $url = trim((string) ($a['url'] ?? ''));
+        $url = preg_match('#^https?://#i', $url) ? $url : 'https://' . $url;
+        if (!\Talea\Core\WebImport::validUrl($url) || !ImageDownloader::isAvailable()) {
+            throw new \InvalidArgumentException('Give the address of the old page, e.g. https://www.example.com/services/.');
+        }
+        $section = isset($a['section']) ? filter_var($a['section'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => \Talea\Core\OldPage::MAX_SECTIONS - 1]]) : null;
+        if ($section === false) {
+            throw new \InvalidArgumentException('section: the index of a section, 0 to ' . (\Talea\Core\OldPage::MAX_SECTIONS - 1) . '.');
+        }
+        $format = (string) ($a['format'] ?? 'sections');
+        if (!in_array($format, ['sections', 'semantic'], true)) {
+            throw new \InvalidArgumentException('format: sections or semantic.');
+        }
+        try {
+            $page = (new \Talea\Core\OldPage(new ImageDownloader($url, true)))->read($url, $section, $format);
+        } catch (\RuntimeException $e) {
+            throw new \InvalidArgumentException('The old page could not be read: ' . $e->getMessage());
+        }
+
+        return ['old_page' => $page,
+            'next' => 'Rebuild it section by section as semantic HTML with one <style> block (rules of one class, tokens var(--tl-…)) and call build_from_html with the id of the imported page (list_layout_queue lists them); set colours and fonts once with update_design_system; tick the page off with layout_queue.']
+            + \Talea\Mcp\Untrusted::mark(['old_page']);
+    }
+
+    /** list_layout_queue */
+    private function toolListLayoutQueue(string $name, array $a): mixed
+    {
+        return $this->layoutQueue($a, 0);
+    }
+
+    /** layout_queue: the list, and with done the pages are ticked off first */
+    private function toolLayoutQueue(string $name, array $a): mixed
+    {
+        $ticked = \Talea\Core\LayoutQueue::done($this->app->db(), array_map('intval', array_values((array) ($a['done'] ?? []))));
+
+        return $this->layoutQueue($a, $ticked) + ['ticked_off' => $ticked];
+    }
+
+    /**
+     * The imported pages still waiting for their layout, 50 at a time.
+     *
+     * @return array<string, mixed>
+     */
+    private function layoutQueue(array $a, int $ticked): array
+    {
+        $auth = $this->app->auth();
+        if (!$auth->isAdmin() && !$auth->hasModule('pages')) {
+            throw new \DomainException('The layout queue is for people with the Pages section.');
+        }
+        $offset = max(0, (int) ($a['offset'] ?? 0));
+        $queue = \Talea\Core\LayoutQueue::page($this->app->db(), $offset);
+        $origin = $this->app->request->origin();
+
+        return ['pages' => array_map(fn (array $p): array => [
+            'id' => $p['page_id'], 'title' => $p['title'], 'old_address' => $p['old_address'], 'visible' => $p['visible'],
+            'url' => $origin . $this->app->url(($p['language'] !== '' ? $p['language'] . '/' : '') . $p['slug']),
+        ], $queue['pages']), 'total' => $queue['total'], 'more' => max(0, $queue['total'] - $offset - count($queue['pages']))]
+            + \Talea\Mcp\Untrusted::mark(['pages']);
     }
 
     /** import_enquiries */

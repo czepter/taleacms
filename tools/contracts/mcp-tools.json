@@ -1029,9 +1029,11 @@
             "confirm": "boolean",
             "images": "boolean",
             "import_id": "string",
+            "keep_starter_pages": "array",
             "language": "string",
             "news": "boolean",
             "redirects": "boolean",
+            "replace_starter_pages": "boolean",
             "url": "string"
         },
         "required": [],
@@ -1053,6 +1055,18 @@
             "saved_section": "string",
             "section": "string",
             "variant": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "layout_queue": {
+        "parameters": {
+            "done": "array",
+            "offset": "integer"
         },
         "required": [],
         "annotations": {
@@ -1309,6 +1323,17 @@
             "collection",
             "id"
         ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_layout_queue": {
+        "parameters": {
+            "offset": "integer"
+        },
+        "required": [],
         "annotations": {
             "readOnlyHint": true,
             "destructiveHint": false,
@@ -1703,6 +1728,21 @@
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false
+        }
+    },
+    "read_old_page": {
+        "parameters": {
+            "format": "string",
+            "section": "integer",
+            "url": "string"
+        },
+        "required": [
+            "url"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": true
         }
     },
     "remove_blueprint": {

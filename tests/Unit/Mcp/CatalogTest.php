@@ -74,6 +74,8 @@ final class CatalogTest extends TestCase
         $this->assertFalse($fetches('save_build', ['url' => 'https://x']));
 
         $this->assertTrue(\Talea\Mcp\Catalog::alwaysFetches('migration_report'));
+        $this->assertTrue(\Talea\Mcp\Catalog::alwaysFetches('read_old_page'));
+        $this->assertNotNull(\Talea\Mcp\Catalog::fetchRefusal('drafts', 'read_old_page', ['url' => 'https://old.example/']), 'read_old_page: refused on a drafts-only connection');
         $this->assertTrue(\Talea\Mcp\Catalog::alwaysFetches('import_website'));
         $this->assertTrue(\Talea\Mcp\Catalog::alwaysFetches('check_site_domain'));
         $this->assertFalse(\Talea\Mcp\Catalog::alwaysFetches('upload_file'));

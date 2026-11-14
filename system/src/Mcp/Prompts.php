@@ -73,7 +73,8 @@ final class Prompts
             <<<'MD'
                 Task: move the old site {old_url}{platform} to this Talea site. The goal: the old site's content, look and
                 addresses here, every page a draft or hidden, every old address still working, and a clean migration report.
-                The old site stays untouched. The user reviews and publishes.
+                The old site stays untouched. The user reviews and publishes. For a move connect with the Migration tool set
+                (My account → Change the tool set): it lists the tools of this job first.
 
                 MD . self::RULES . <<<'MD'
 
@@ -100,6 +101,10 @@ final class Prompts
                   preview. Regional versions (en-gb, de-at, pt-br) and right-to-left Arabic are supported.
                 - **The same address in every language.** A slug used in each language (/contact and /de/contact) is kept
                   as it is: a slug is unique only within its language version.
+                - **An empty site for a move.** The installer's choice "Move a site here from WordPress or another platform"
+                  makes a site with a placeholder home page, the hidden privacy policy and the look – no starter pages to
+                  get in the way. On an installed site the unchanged starter pages can be moved to the trash in Import and
+                  export (the home page stays).
 
                 ## 3. Bring the content over
 
@@ -122,7 +127,23 @@ final class Prompts
                 `import_id`. In the phase "preview", show the user what was found and send `confirm` true only on their
                 instruction. Keep calling until the phase is "done". Options: `images`, `redirects`, `news`, and `language`
                 for a language version – for a multilingual site, import each language from its own address once the version
-                exists. The header, footer, menus, cookie bars and forms of the old site are left out.
+                exists. The header, footer, menus, cookie bars and forms of the old site are left out. Nested addresses
+                (/services/heating/boilers) keep their structure: the pages are linked to their parents, and a parent
+                the old sitemap does not list becomes an empty hidden page (the result lists them under `parents`, and the redirects
+                written).
+
+                The preview shows `starter_pages`: the installer's starter pages that an old address would take over. By
+                default an untouched starter page at the same address goes to the trash for 30 days and the imported page
+                takes its address; the home page is never replaced (the old home page arrives hidden beside it) and an edited
+                starter page stays too. Keep one on the user's word with `keep_starter_pages` (old addresses, `["*"]` = all)
+                or `replace_starter_pages` false. After the import the result says which starter pages were replaced, kept
+                or renamed.
+
+                Forms, questions and answers, tabs, videos, maps, embedded pages (booking, forms, players) and counters of
+                the old pages arrive as their elements; what could not be read (a form a script draws, a video file, an
+                unknown frame, a map without an address) is a bracketed placeholder on the page and a line under `attention`
+                – go through those with the user. The documents an old page links (PDF and office files of the old site) come
+                into Media with the images, and an old page's title and share image become its SEO title and image.
 
                 **Another Talea site.** An administrator imports its export (the .zip archive of Export of the whole site) in
                 Import and export. It replaces all content of this site; accounts and secrets never come over.
@@ -137,16 +158,22 @@ final class Prompts
                 ## 5. Rebuild the pages
 
                 An export carries only the text of a page made with a page builder, and an imported page from another platform
-                takes this site's look. Rebuild each page, page by page (`list_pages` shows the imported ones):
+                takes this site's look. Rebuild each page, page by page (`list_pages` shows the imported ones, and
+                `list_layout_queue` lists the imported pages whose layout is not rebuilt yet, 50 at a time, with the old
+                address of each; tick a page off with `layout_queue` and `done` when its layout is rebuilt):
 
-                1. Look at the live old page – its rendered HTML, or the element tree through the old site's connection – and
-                   list its sections: hero, benefits, services, references, call to action, contact.
+                1. Read the live old page with `read_old_page` (an administrator): without `format` you get its sections with
+                   classes, inline styles, colours and fonts, with `format` "semantic" clean section HTML for `build_from_html`
+                   (ask for one long section alone with `section`); the old site's connection can add the element tree. List
+                   its sections: hero, benefits, services, references, call to action, contact.
                 2. Call `builder_schema` once and reuse the site's classes, components and saved sections.
                 3. Write semantic HTML (`section`, `h1`–`h3`, `p`, `ul`, `a`, `img`, `figure`, `blockquote`) and one `<style>`
                    block with rules of one class each and the tokens `var(--tl-…)`; breakpoints `@media (max-width: 1023px)`
                    and `@media (max-width: 767px)`. Keep the texts, images, buttons and links; leave out the builder's
                    wrappers, class names, scripts and shortcodes.
-                4. Call `build_from_html` with the `id` of the imported page, and fix single elements with `edit_build`.
+                4. Call `build_from_html` with the `id` of the imported page (tabs, counters, maps and embeds are read from
+                   the HTML as its definition describes), fix single elements with `edit_build` and tick the page off with
+                   `layout_queue` when it is done.
                 5. The header and the footer: start with `apply_part_template` (`part` header or footer, `language` for each
                    version), then `edit_build` or `save_build` with `part`. The menus: `save_menu` (`location` main or footer,
                    `language`).
@@ -175,8 +202,11 @@ final class Prompts
 
                 ## 9. Check the move
 
-                Call `migration_report` with the old `url`, then again with `report_id` until it is done. Fix what it finds as
-                drafts and run it again until no errors are left. Then run `site_audit` (sample content included), and
+                Call `migration_report` with the old `url`, then again with `report_id` until it is done. An old address that
+                lands on a starter page is an error: once the imported home page is published, set it with `update_settings`
+                (`home_page`), then the starter home page can go (`trash_page`). A form on every old page is reported once
+                for the site, and a summary that says the old site was not reachable means none of its pages could be read. Fix
+                what it finds as drafts and run it again until no errors are left. Then run `site_audit` (sample content included), and
                 `list_media_without_alt` with `update_media` for missing image descriptions.
 
                 ## 10. Hand over
@@ -841,8 +871,8 @@ final class Prompts
                     . 'tell the user what is ready to review (list_pending_review lists everything that waits for a person).',
                 default => '',
             };
-        if (($app->auth()->connection()['tool_set'] ?? 'all') === 'essentials') {
-            $text .= ' THIS CONNECTION LISTS THE ESSENTIAL TOOLS ONLY: every other tool it may use (news, redirects, settings, bookings, newsletters…) is found with find_tools and run by name with run_read_tool (reads), '
+        if (($set = Catalog::toolSet((string) ($app->auth()->connection()['tool_set'] ?? 'all'))) !== 'all') {
+            $text .= ' THIS CONNECTION LISTS ' . ['essentials' => 'THE ESSENTIAL TOOLS ONLY', 'migration' => 'THE TOOLS OF A SITE MOVE FIRST', 'fleet' => 'THE FLEET CONSOLE TOOLS FIRST'][$set] . ': every other tool it may use (news, redirects, settings, bookings, newsletters…) is found with find_tools and run by name with run_read_tool (reads), '
                 . 'run_tool (drafts and changes) or run_destructive_tool (removes, sends or reaches outside the site – confirm the exact action with the user first). The runners give exactly what a direct call gives.';
         }
         // the tools of a switched-off feature are not listed: without this Claude rebuilds the feature by hand (a blog as a collection)
@@ -883,7 +913,7 @@ final class Prompts
             . '(9) Translating into another language version (the admin switches languages on): create_page with language, translation_of and copy_build, then get_build with texts_only and edit_build “update” operations for the texts and links (internal links point to the translated pages); the header and footer with the part and language parameters (they start as a copy of the default language); save_menu with language; a collection item translation with the same slug and language; a collection item template with collection and language. '
             . '(10) Newsletters (Newsletter extension): draft_newsletter writes one e-mail styled by the design system – subject, introduction, the latest or chosen news items and a button; check the returned text, send_test_newsletter sends it to the user, and send_newsletter goes to all subscribers only when the user explicitly asks (it cannot be taken back). '
             . '(11) Cleaning up: pages, news items, collection items and enquiries go to the trash (trash_page, trash_news, delete_collection_item, delete_enquiry) and come back with restore_from_trash for 30 days (list_trash). Other deletes (collections, categories, pop-ups, components, saved sections, media) are final – use them only when the user explicitly asks. A repeated block belongs in a component (save_component, then the *_build tools with component); a section the user saved in the builder is in builder_schema → saved_sections. A form is defined once and placed: list_forms, create_form, then the *_build tools with form for its fields, logic and thank-you e-mail; a page places it with a form_embed element (which form, a thank-you page, the button text, field widths). A form element written inside a page becomes such a form when the page is published. ' . \Talea\Mcp\Confirmation::INSTRUCTION . ' '
-            . '(12) Moving a site from another platform (2.7): the prompt migrate_site describes the whole move; import_website or the WordPress import bring the content, import_enquiries the old form entries, and migration_report checks every old address and what got lost before the domain is switched. '
+            . '(12) Moving a site from another platform (2.7): the prompt migrate_site describes the whole move; import_website or the WordPress import bring the content, import_enquiries the old form entries, and migration_report checks every old address and what got lost before the domain is switched; read_old_page reads one old page in sections for rebuilding; list_layout_queue / layout_queue track the imported pages whose layout is still to rebuild. '
             . '(13) Looking after the site (2.8): get_health first when something seems wrong, list_events for what happened since you last looked (keep next_since_id). '
             . '(14) A fleet console (2.9, when list_sites exists): list_sites shows the other sites that report here, the ones needing attention first; get_site their last report. It only reads – changes on a site go through that site\'s own connection. fleet_inventory lists versions, PHP, database, web server, features and languages with filters; fleet_calendar the certificate and domain dates; fleet_plan what needs doing per site with that site\'s connector address – the prompt fleet_fix works through it one site at a time. A state a person accepted on the console (accepted in list_sites and get_site) is left alone until its last day or until it changes. '
             . '(15) Business facts (2.10): numbers and details the site states in several places (founded, projects, price from, warranty) belong in facts – list_facts, save_fact – and in content as {{fact.key}} (also tel:{{fact.company_phone}} in links). find_claims lists sentences with numbers written as plain text; after a fact changes, save_fact returns the sentences that still state the old value. Computed tokens never go stale: {{years_since:2004}} or {{years_since:fact.founded}} (full years since a year, a date or a fact), {{count:<collection address>}} (visible items) and {{count:news}} – also as the number of a counter element, which site_audit otherwise reports when digits are typed in. Holidays and other days with different opening hours: save_hours_exception (list_hours shows the week, the exceptions and whether it is open now). '

@@ -3,6 +3,7 @@
  * @var string $base
  * @var bool $alreadyInstalled
  * @var bool|null $deleted the installer deleted itself (null: a container, the file belongs to the image)
+ * @var bool $fromMove "Move a site here from WordPress or another platform": the next step is the import of the old site
  * @var bool $fromExport "Move a Talea site here": the next step is the import
  * @var string|null $mcp address of the Claude connection, when it is switched on (2.5: the next step after installing)
  */
@@ -46,6 +47,12 @@ $interactive = false;
 		<p><?= e(t('The site is empty. Sign in and drop the export of your Talea site on the Import and export page.')) ?></p>
 		<a class="btn" href="<?= e($base) ?>/admin/transfer"><?= e(t('Continue with the import')) ?></a>
 	</section>
+<?php elseif (!empty($fromMove)): ?>
+	<section class="next-item">
+		<h2><?= e(t('Import')) ?></h2>
+		<p><?= e(t('The site is ready for the move. Sign in and import the old site on the Import and export page – from a WordPress export or from its address.')) ?></p>
+		<a class="btn" href="<?= e($base) ?>/admin/transfer"><?= e(t('Continue with the import')) ?></a>
+	</section>
 <?php else: ?>
 	<section class="next-item">
 		<h2><?= e(t('Administration')) ?></h2>
@@ -55,7 +62,7 @@ $interactive = false;
 <?php endif ?>
 	<section class="next-item">
 		<h2><?= e(t('Your site')) ?></h2>
-<?php if (empty($fromExport)): ?>
+<?php if (empty($fromExport) && empty($fromMove)): ?>
 		<p><?= e(t('The starter pages are live with placeholder texts in square brackets.')) ?></p>
 <?php endif ?>
 		<a class="navigation" href="<?= e($base) ?>/"><?= e(t('View site')) ?></a>

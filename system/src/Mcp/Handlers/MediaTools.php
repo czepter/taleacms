@@ -160,11 +160,19 @@ trait MediaTools
             $state = \Talea\Core\WebImport::load($id) ?? throw new \InvalidArgumentException('The import does not exist; start a new one with the url.');
         }
         if (($a['confirm'] ?? false) === true && $state['phase'] === 'preview') {
-            $state['phase'] = 'import';
-            $state['position'] = 0;
+            // the starter pages that stay: all of them on replace_starter_pages false or "*", or those at the listed old addresses
+            $listed = array_map(fn (mixed $x): string => trim((string) $x, '/ '), (array) ($a['keep_starter_pages'] ?? []));
+            $keepAll = ($a['replace_starter_pages'] ?? true) === false || in_array('*', $listed, true);
+            $keep = [];
+            foreach (\Talea\Core\WebImport::starterChoices($this->app->db(), $this->app->settings(), $state) as $c) {
+                if (in_array($c['action'], ['replace', 'keep'], true) && ($keepAll || in_array(trim($c['old'], '/'), $listed, true))) {
+                    $keep[] = $c['page_id'];
+                }
+            }
+            \Talea\Core\WebImport::confirm($state, $keep);
         }
         if (in_array($state['phase'], ['finding', 'import'], true)) {
-            (new \Talea\Core\WebImport($this->app->db(), $this->app->settings(), $this->app->auth()->id(), new \Talea\Core\ImageDownloader($state['web'], true)))->step($state);
+            (new \Talea\Core\WebImport($this->app->db(), $this->app->settings(), $this->app->auth()->id(), new \Talea\Core\ImageDownloader($state['web'], true), $this->app->request->basePath()))->step($state);
         }
         \Talea\Core\WebImport::save($state);
         $urls = array_keys($state['urls']);
@@ -173,14 +181,23 @@ trait MediaTools
 
         return ['import_id' => $state['id'], 'site' => $state['web'], 'phase' => ['finding' => 'finding', 'preview' => 'preview', 'import' => 'importing', 'done' => 'done'][$state['phase']] ?? $state['phase'],
             'found' => count($urls), 'processed' => (int) $state['position'],
-            'result' => ['new_pages' => $r['pages'], 'new_news' => $r['articles'], 'images' => $r['images'], 'redirects' => $r['redirects'], 'skipped' => $r['skipped'], 'failed' => $r['failed']],
+            'result' => ['new_pages' => $r['pages'], 'new_news' => $r['articles'], 'images' => $r['images'], 'documents' => (int) ($r['files'] ?? 0), 'redirects' => $r['redirects'], 'skipped' => $r['skipped'], 'failed' => $r['failed'], 'parents' => (int) ($r['parents'] ?? 0)],
+            // the redirects written (old address → new) and the empty hidden parent pages made for nested addresses
+            'redirects_written' => $state['moved'] ?? [], 'parents' => $state['parents'] ?? [],
+            // what arrived as elements (forms, faq, tabs, video, map, embed, counter) and what needs the user: a placeholder marks its place on the page
+            'kept' => $state['kept'] ?? new \stdClass(),
+            'attention' => array_map(fn (array $a): string => $a['path'] . ' – ' . sprintf(\Talea\Core\WebImportWidgets::ATTENTION[$a['kind']] ?? $a['kind'], $a['host']), $state['attention'] ?? []),
             'failures' => $state['errors'],
             'addresses' => $state['phase'] === 'preview' ? array_map(fn (string $u): string => '/' . \Talea\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
+            // the installer's starter pages an imported page would take the address of (the preview), and what the import did with them
+            'starter_pages' => $state['phase'] === 'preview' ? array_map(fn (array $c): array => ['old_address' => $c['old'], 'page' => ['id' => $c['public_id'], 'title' => $c['title'], 'address' => $c['address']],
+                'published' => $c['published'], 'action' => $c['action']], \Talea\Core\WebImport::starterChoices($this->app->db(), $this->app->settings(), $state)) : [],
+            'starter_pages_result' => $state['phase'] === 'preview' ? null : $state['starters'],
             'next' => match ($state['phase']) {
                 'finding', 'import' => 'Call again with the same import id.',
-                'preview' => 'Show the user what was found; on their instruction call again with confirm: true.',
-                default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction.',
-            }] + \Talea\Mcp\Untrusted::mark(['addresses', 'failures']);
+                'preview' => 'Show the user what was found – and the starter_pages: an untouched starter page at an old address goes to the trash (30 days) and the imported page takes its address, the home page never; to keep one pass keep_starter_pages (old addresses) or replace_starter_pages false. On their instruction call again with confirm: true.',
+                default => 'Done: the pages are hidden – check them with list_pages, go through attention with the user (a placeholder in brackets marks each place), put the ones to keep in the menu and publish them on the user\'s instruction. starter_pages_result says which starter pages were replaced or kept.',
+            }] + \Talea\Mcp\Untrusted::mark(['addresses', 'failures', 'starter_pages', 'starter_pages_result', 'redirects_written', 'parents', 'attention']);
     }
 
     /** upload_file */

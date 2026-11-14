@@ -407,7 +407,13 @@ PHP);
         $sitemap = static fn (array $paths): string => '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . implode('', array_map(static fn ($p) => "<url><loc>$origin$p</loc></url>", $paths)) . '</urlset>';
         file_put_contents($old . '/sitemap.xml', $sitemap(['/', '/our-story/', '/blog/first-post/']));
         file_put_contents($old . '/index.html', $this->oldPage('Welcome', 'The old home page', '<p>Old Oak makes furniture by hand in our workshop near the river, since many years, for homes and offices alike.</p>'));
-        file_put_contents($old . '/our-story/index.html', $this->oldPage('About us', 'Who we are', '<p>We build oak furniture since 1990, for homes and offices across the region and beyond it, always by hand.</p><img src="/img/team.png" alt="Our team"><p><a href="/blog/first-post/">Read our story</a></p><div class="cookie-notice">We use cookies</div><p>Our tools id="</p><p title="><svg onload=alert(1)>">and</p><img src="/img/team.png" alt="q><svg onload=alert(2)>"><video src="/film.mp4" controls></video>'));
+        file_put_contents($old . '/our-story/index.html', $this->oldPage('About us', 'Who we are', '<p>We build oak furniture since 1990, for homes and offices across the region and beyond it, always by hand.</p><img src="/img/team.png" alt="Our team"><p><a href="/blog/first-post/">Read our story</a></p><div class="cookie-notice">We use cookies</div><p>Our tools id="</p><p title="><svg onload=alert(1)>">and</p><img src="/img/team.png" alt="q><svg onload=alert(2)>"><video src="/film.mp4" controls></video><p><a href="/files/price-list.pdf">Price list</a> <a href="/files/fake.pdf">Fake list</a></p>'));
+        // #339: the old page's share image and its documents (one real PDF; a page of HTML named .pdf must not become a file)
+        $about = file_get_contents($old . '/our-story/index.html');
+        file_put_contents($old . '/our-story/index.html', str_replace('</head>', '<meta property="og:image" content="/img/team.png"></head>', (string) $about));
+        @mkdir($old . '/files', 0775, true);
+        file_put_contents($old . '/files/price-list.pdf', "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
+        file_put_contents($old . '/files/fake.pdf', '<html><body>not a pdf</body></html>');
         file_put_contents($old . '/blog/first-post/index.html', '<!doctype html><html><head><title>Our first post | Old Oak</title><meta property="article:published_time" content="2024-05-06T09:00:00+02:00"></head><body><article><h1>Our first post</h1><p>Today we opened the new workshop for visitors, come and see how a table is made from a single oak.</p></article></body></html>');
         $site->startPhp($old, 'router.php', [], $port);
 
@@ -422,19 +428,29 @@ PHP);
             $text = $this->toolText('import_website', ['import_id' => $importId]);
         }
         $this->assertSame('done', $this->fieldOf($text, 'phase'), 'website import finished');
+        $attention = json_decode($text, true)['attention'] ?? [];
+        $this->assertCount(2, $attention, 'website import: the video file and the document that is no document need the owner');
+        $this->assertStringContainsString('A video file was not brought over', (string) ($attention[0] ?? ''), 'website import: and says so');
+        $this->assertStringContainsString('fake.pdf could not be brought over', (string) ($attention[1] ?? ''), 'website import: a document that could not be brought over is reported (#339)');
 
         $this->assertSame('About us:0|Our first post:0:2024-05-06', $site->value("SELECT CONCAT((SELECT CONCAT(title, ':', visible) FROM tl_pages WHERE slug = 'our-story'), '|', (SELECT CONCAT(title, ':', visible, ':', DATE(published_at)) FROM tl_news WHERE title = 'Our first post'))"),
             'website import: pages hidden, the post as a hidden news item');
         $about = (string) $site->value("SELECT CONCAT(text, ' ', IFNULL(build, '')) FROM tl_pages WHERE slug = 'our-story'");
         $this->assertStringContainsString('oak furniture', $about, 'website import: the content is imported');
         $this->assertStringContainsString('media/', $about, 'website import: the image is in Media');
-        $this->assertDoesNotMatchRegularExpression('#Old footer|Old home|We use cookies|127\.0\.0\.1#', $about, 'website import: no header, footer or cookie bar');
+        $this->assertDoesNotMatchRegularExpression('#Old footer|Old home|We use cookies|src="http://127\.0\.0\.1#', $about, 'website import: no header, footer or cookie bar, no image from the old site');
         $this->assertStringContainsString('"type":"heading"', $about, 'website import: the content is in the builder');
         // 3.3.2 (N23, N30): markup in attribute values of the old site stays text, and an imported page never gets Custom HTML
         $aboutText = (string) $site->value("SELECT text FROM tl_pages WHERE slug = 'our-story'");
         $this->assertStringNotContainsString('<svg', $aboutText, 'website import: attribute text never becomes markup');
         $this->assertStringContainsString('alt="q&gt;&lt;svg onload=alert(2)&gt;"', $aboutText, 'website import: attribute text stays escaped text');
         $this->assertStringNotContainsString('"type":"custom_html"', $about, 'website import: no Custom HTML from the old site');
+        // #339: documents of the old site go into Media, a fake one stays where it was; the old title and share image become SEO fields
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_media WHERE image_path LIKE 'media/%.pdf'"), 'website import: the real PDF is in Media, the fake one is not');
+        $this->assertMatchesRegularExpression('#href="/media/[^"]+\.pdf"#', $aboutText, 'website import: the link points at Media');
+        $this->assertStringContainsString('href="' . $origin . '/files/fake.pdf"', $aboutText, 'website import: the fake document keeps its old address (it still works there; the attention line names it)');
+        $this->assertSame('About us | Old Oak', (string) $site->value("SELECT seo_title FROM tl_pages WHERE slug = 'our-story'"), 'website import: the old <title> is the SEO title');
+        $this->assertStringStartsWith('media/', (string) $site->value("SELECT image FROM tl_pages WHERE slug = 'our-story'"), 'website import: the share image is in Media');
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_redirects WHERE from_path = 'blog/first-post' AND to_path LIKE 'news/%'"), 'website import: the old address of the post redirects');
 
         $text = $this->pump('import_website', ['url' => $origin], 'import_id', 'finding');
@@ -444,28 +460,33 @@ PHP);
         for ($i = 0; $i < 20 && $this->fieldOf($text, 'phase') === 'importing'; $i++) {
             $text = $this->toolText('import_website', ['import_id' => $importId]);
         }
-        $this->assertSame('{"new_pages":0,"new_news":0,"images":0,"redirects":0,"skipped":3,"failed":0}', $this->fieldOf($text, 'result'), 'website import: running it again skips what is already there');
+        $this->assertSame('{"new_pages":0,"new_news":0,"images":0,"documents":0,"redirects":0,"skipped":3,"failed":0,"parents":0}', $this->fieldOf($text, 'result'), 'website import: running it again skips what is already there');
 
         // 2.7: the migration report - a fourth old page with a form that nothing on the new site answers
         file_put_contents($old . '/visit-us/index.html', $this->oldPage('Contact', 'Write to us', '<p>Write to us about a table, a chair or a whole kitchen and we answer within two working days, promised.</p><form action="/send"><input name="email"><textarea name="message"></textarea></form>'));
         file_put_contents($old . '/sitemap.xml', $sitemap(['/', '/our-story/', '/blog/first-post/', '/visit-us/']));
         $report = $this->reportDone($origin);
-        $this->assertSame('{"addresses":4,"checked":4,"ok":1,"redirected":0,"not_published":2,"missing":1,"errors":1,"warnings":3}', $this->fieldOf($report, 'summary'),
+        // the old home lands on the starter Home: an error until the imported home is set (#340)
+        $this->assertSame('{"addresses":4,"checked":4,"ok":1,"redirected":0,"not_published":2,"missing":1,"errors":2,"warnings":3,"old_site_reachable":true}', $this->fieldOf($report, 'summary'),
             'migration report: four old addresses - the imported ones not published yet, the contact page missing');
         $this->assertStringContainsString('/visit-us', $report, 'migration report: the contact address is listed');
         $this->assertMatchesRegularExpression('#form_missing|missing#', $report, 'migration report: the missing page is flagged');
         $this->assertStringContainsString('site_checks', $report, 'migration report: the checks of the whole site');
+        $move = json_decode($this->toolText('site_audit', []), true)['move'] ?? null;
+        $this->assertGreaterThanOrEqual(2, $move['pages_imported'] ?? 0, 'site audit: the move status counts the imported pages');
+        $this->assertGreaterThanOrEqual(1, $move['layout_pending'] ?? 0, 'site audit: and the layouts still to rebuild');
+        $this->assertSame([true, false], [$move['report']['done'] ?? null, $move['report']['clean'] ?? null], 'site audit: and says the latest report is not clean');
 
         $site->mcp('save_redirect', ['from' => '/visit-us', 'to' => '/our-story']);
         $site->exec("UPDATE tl_pages SET visible = 1 WHERE slug = 'our-story'");
-        $this->assertSame('{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}', $this->fieldOf($this->reportDone($origin), 'summary'),
+        $this->assertSame('{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":2,"warnings":2,"old_site_reachable":true}', $this->fieldOf($this->reportDone($origin), 'summary'),
             'migration report: after a redirect and publishing, the contact address redirects (but the form is gone)');
         // the target page shows a form through a component: the form is there
         $component = $this->firstId($site->mcp('save_component', ['name' => 'Report form']));
         $build = $site->value("SELECT build FROM tl_pages WHERE slug = 'our-story'");
         $site->exec('UPDATE tl_components SET build = ? WHERE component_id = ?', ['{"v":1,"children":[{"id":"rf00001","type":"form","tag":"form","content":{}}]}', $component]);
         $site->exec("UPDATE tl_pages SET build = ? WHERE slug = 'our-story'", ['{"v":1,"children":[{"id":"rf00002","type":"component","tag":"div","content":{"component":"' . $component . '"}}]}']);
-        $this->assertSame(0, json_decode($this->fieldOf($this->reportDone($origin), 'summary'), true)['errors'] ?? null, 'migration report: a form inside a component of the target page counts');
+        $this->assertSame(1, json_decode($this->fieldOf($this->reportDone($origin), 'summary'), true)['errors'] ?? null, 'migration report: a form inside a component of the target page counts (the one error left is the old home on the starter Home)');
         $site->exec("UPDATE tl_pages SET build = ? WHERE slug = 'our-story'", [$build]);
         $site->exec('DELETE FROM tl_components WHERE component_id = ?', [$component]);
         $site->exec("UPDATE tl_pages SET visible = 0 WHERE slug = 'our-story'");
@@ -498,6 +519,53 @@ PHP);
         }
 
         return $text;
+    }
+
+    /** #340: an import takes the address of an untouched starter page, never the home page's; the preview offers the choice. */
+    public function testWebsiteImportReplacesUntouchedStarterPages(): void
+    {
+        $site = $this->site();
+        $old = $site->workDir('oldsite-starters');
+        foreach (['contact', 'services/heating'] as $dir) {
+            @mkdir($old . '/' . $dir, 0775, true);
+        }
+        file_put_contents($old . '/router.php', '<?php return false;');
+        $port = $site->freePort();
+        $origin = 'http://127.0.0.1:' . $port;
+        file_put_contents($old . '/robots.txt', "User-agent: *\nSitemap: $origin/sitemap.xml\n");
+        file_put_contents($old . '/sitemap.xml', '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . implode('', array_map(static fn ($p) => "<url><loc>$origin$p</loc></url>", ['/', '/contact/', '/services/heating/'])) . '</urlset>');
+        file_put_contents($old . '/index.html', $this->oldPage('Welcome', 'The old home page', '<p>Old Oak makes furniture by hand in our workshop near the river, since many years, for homes and offices alike.</p>'));
+        file_put_contents($old . '/contact/index.html', $this->oldPage('Contact', 'Write to us', '<p>Write to us about a table, a chair or a whole kitchen and we answer within two working days, promised.</p>'));
+        file_put_contents($old . '/services/heating/index.html', $this->oldPage('Heating', 'Our heating', '<p>We build wooden benches that hide your radiators and keep the room warm and quiet for all the winter.</p>'));
+        $site->startPhp($old, 'router.php', [], $port);
+
+        $starters = array_column($site->rows("SELECT slug FROM tl_pages WHERE deleted_at IS NULL AND slug IN ('home', 'contact') ORDER BY slug"), 'slug');
+        $this->assertContains('contact', $starters, 'the installer made a Contact page');
+        $this->assertNotSame('', (string) $site->settingValue('starter_pages'), 'the installer recorded its starter pages');
+
+        $text = $this->pump('import_website', ['url' => $origin], 'import_id', 'finding');
+        $this->assertSame('preview', $this->fieldOf($text, 'phase'));
+        $offered = array_column(json_decode($text, true)['starter_pages'] ?? [], 'action', 'old_address');
+        $this->assertSame('replace', $offered['/contact'] ?? null, 'the preview offers to replace the starter Contact page');
+        $this->assertSame('home', $offered['/'] ?? null, 'the home page is never replaced');
+        $importId = $this->fieldOf($text, 'import_id');
+        $this->toolText('import_website', ['import_id' => $importId, 'confirm' => true]);
+        $text = $this->toolText('import_website', ['import_id' => $importId]);
+        for ($i = 0; $i < 20 && $this->fieldOf($text, 'phase') === 'importing'; $i++) {
+            $text = $this->toolText('import_website', ['import_id' => $importId]);
+        }
+        $this->assertSame('done', $this->fieldOf($text, 'phase'));
+
+        $this->assertSame('0', (string) $site->value("SELECT visible FROM tl_pages WHERE slug = 'contact' AND deleted_at IS NULL"), 'the imported page has the address, hidden');
+        $this->assertNotNull($site->value("SELECT deleted_at FROM tl_pages WHERE slug = 'contact-starter'"), 'the starter Contact page is in the trash');
+        $this->assertMatchesRegularExpression('/^home-\d+$/', (string) $site->value('SELECT slug FROM tl_pages WHERE import_source = ?', [$origin . '/']), 'the old home page is a hidden page beside the starter Home');
+        $this->assertNull($site->value("SELECT deleted_at FROM tl_pages WHERE slug = 'home'"));
+        $result = json_decode($text, true)['starter_pages_result'] ?? [];
+        $this->assertSame('/contact', $result['replaced'][0]['address'] ?? null, 'the result lists what was replaced');
+        $this->assertSame('home', $result['kept'][0]['why'] ?? null, 'and what was kept');
+
+        // nested addresses keep their structure: services/heating below a hidden empty parent
+        $this->assertSame('services', (string) $site->value("SELECT p.slug FROM tl_pages c JOIN tl_pages p ON p.page_id = c.parent_id WHERE c.slug = 'services/heating'"), 'the nested address is a child page');
     }
 
     public function testSignInThroughTheConsentPageAndDisconnectingAnApp(): void

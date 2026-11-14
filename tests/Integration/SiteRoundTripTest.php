@@ -87,7 +87,7 @@ final class SiteRoundTripTest extends DatabaseTestCase
             'agency_enabled', 'agency_name', 'agency_url', 'agency_email', 'agency_phone', 'agency_logo', 'ai_provider', 'ai_model', 'ai_models', 'trusted_proxy', 'security_contact'],
         'this install and its people' => ['redirect_to_site_url', 'maintenance', 'require_2fa', 'passkey_only', 'auto_suspend', 'page_cache', 'stats', 'stats_counting_since', 'indexing', 'look_draft', 'alerts_enabled', 'alerts_email', 'alerts_kinds',
             'alerts_interval', 'alerts_cursor', 'alerts_last_sent', 'report_monthly', 'report_all_sites', 'report_recipients', 'report_last_month', 'claude_change_limit', 'claude_destructive', 'claude_protected_pages', 'claude_instructions',
-            'claude_instructions_seen', 'first_steps_hidden', 'first_steps_skipped', 'appearance_saved', 'tasks_last_run', 'notification_check', 'imported_recheck', 'seo_audit_score', 'seo_audit_previous', 'lead_attribution'],
+            'claude_instructions_seen', 'first_steps_hidden', 'first_steps_skipped', 'appearance_saved', 'tasks_last_run', 'notification_check', 'imported_recheck', 'seo_audit_score', 'seo_audit_previous', 'lead_attribution', 'starter_pages'],
         'about enquiries, subscribers and data kept (which never travel)' => ['enquiries_months', 'triage_assistant', 'spam_assistant', 'enquiry_kinds', 'job_applications_months', 'enquiries_expiry', 'newsletter_hourly_limit', 'data_cleanup',
             'link_check', 'link_check_time', 'redirect_auto', 'redirect_auto_threshold', 'social_networks'],
     ];

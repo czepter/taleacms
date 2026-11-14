@@ -20,6 +20,7 @@ foreach ($groups as $group):
 <div class="choices biz">
 	<label class="choice"><input type="radio" name="blueprint" value=""<?= $data['blueprint'] === '' ? ' checked' : '' ?>><strong><?= e(t('Something else')) ?></strong><small><?= e(t('A general business website: Home, About us, Services and Contact.')) ?></small><?= $check ?></label>
 	<label class="choice"><input type="radio" name="blueprint" value="export"<?= $data['blueprint'] === 'export' ? ' checked' : '' ?>><strong><?= e(t('Move a Talea site here')) ?></strong><small><?= e(t('An empty site; import its export right after installation.')) ?></small><?= $check ?></label>
+	<label class="choice"><input type="radio" name="blueprint" value="move"<?= $data['blueprint'] === 'move' ? ' checked' : '' ?>><strong><?= e(t('Move a site here from WordPress or another platform')) ?></strong><small><?= e(t('An empty site with a placeholder home page; import the old site right after installation.')) ?></small><?= $check ?></label>
 </div>
 <?= $error('blueprint') ?>
 </fieldset>
