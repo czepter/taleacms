@@ -25,7 +25,7 @@ $role = t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? '');
 	<form method="post" action="<?= e($app->url('admin.php?action=oauth')) ?>">
 		<?= $csrf ?>
 		<input type="hidden" name="request" value="<?= e($nonce) ?>">
-		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => 'drafts', 'recommended' => 'drafts', 'toolSet' => 'essentials']) ?>
+		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => 'drafts', 'recommended' => 'drafts', 'toolSet' => 'essentials', 'offered' => Talea\Mcp\Catalog::offered($app->settings())]) ?>
 		<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'consent']) ?>
 		<p class="help"><?= e(t('After allowing it you return to the application at %s. You can revoke the connection at any time in My account → Connected applications.', $url)) ?></p>
 		<div class="buttons">

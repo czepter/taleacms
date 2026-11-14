@@ -42,6 +42,8 @@ final class ToolSetTest extends SiteTestCase
             . '&code_challenge=' . $this->pkceChallenge() . '&code_challenge_method=S256&state=ask');
         $consent = $site->admin()->get('/admin.php?action=oauth')->body;
         $this->assertMatchesRegularExpression('/name="tool_set" value="essentials" checked/', $consent, 'Essentials is preselected on the consent screen');
+        $this->assertStringContainsString('name="tool_set" value="migration"', $consent, 'the Migration set is offered (#339)');
+        $this->assertStringNotContainsString('name="tool_set" value="fleet"', $consent, 'the Fleet set only on a fleet console');
 
         $all = $this->exchangeCode(self::$client, $this->authorizationCode($site->admin(), self::$client, 'nochoice', ['access' => 'full']));
         $this->assertSame('all', $site->value('SELECT tool_set FROM tl_api_tokens WHERE token_hash = SHA2(?, 256)', [$all['access_token'] ?? '']), 'a consent without a tool set (an old page) lists all tools');
@@ -121,6 +123,12 @@ final class ToolSetTest extends SiteTestCase
         $id = (string) $site->value("SELECT public_id FROM tl_api_tokens WHERE name = 'Default set'");
         $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'tool_set_switch' => 'essentials:token:' . $id]);
         $this->assertSame('essentials', $site->value("SELECT tool_set FROM tl_api_tokens WHERE name = 'Default set'"), 'My account switches a personal token to the essentials');
+
+        $this->assertStringContainsString('Change the tool set', $admin->get('/admin.php?action=account&tab=claude')->body, 'My account offers the tool sets');
+        $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'tool_set_switch' => 'migration:token:' . $id]);
+        $this->assertSame('migration', $site->value("SELECT tool_set FROM tl_api_tokens WHERE name = 'Default set'"), 'My account switches a personal token to the Migration set');
+        $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'tool_set_switch' => 'fleet:token:' . $id]);
+        $this->assertSame('all', $site->value("SELECT tool_set FROM tl_api_tokens WHERE name = 'Default set'"), 'a set the site does not offer becomes all tools');
 
         $client = self::$client;
         $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'tool_set_switch' => 'all:app:' . $client]);

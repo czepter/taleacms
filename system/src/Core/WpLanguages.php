@@ -197,4 +197,54 @@ final class WpLanguages
                 throw new \UnexpectedValueException('an object, a reference or an unknown type');
         }
     }
+
+    /**
+     * The language of a post: our code by the plugin's own name of it (a Polylang slug through its locale, a WPML code), else –
+     * in an export of a multilingual site – by its address (/en/…, ?lang=en); '' = not known (the site's default language, or
+     * the language chosen in the options). The second value is the plugin's name of a language this site cannot offer at all –
+     * such a post is left out and reported.
+     *
+     * @param array<string, mixed> $p a post from WpFile::item()
+     * @param array<string, mixed> $state
+     * @return array{0: string, 1: string}
+     */
+    public static function itemLanguage(array $p, array $state): array
+    {
+        $raw = (string) ($p['language_wp'] ?? '');
+        $codes = (array) ($state['languages']['codes'] ?? []);
+        if ($raw !== '') {
+            $code = array_key_exists($raw, $codes) ? (string) $codes[$raw] : (WpLanguages::code($raw, '', (array) ($state['languages']['site'] ?? [])) ?? '');
+
+            return $code === '' ? ['', $raw] : [$code, ''];
+        }
+        if (($state['languages']['plugin'] ?? '') !== '' || ($p['language_plugin'] ?? '') !== '') {
+            return [Language::forSite(WpLanguages::urlLanguage((string) ($p['link'] ?? ''), array_keys(Language::AVAILABLE)), (array) ($state['languages']['site'] ?? [])), ''];
+        }
+
+        return ['', ''];
+    }
+    /**
+     * Is the export from a multilingual site (Polylang or WPML, or posts with a language)?
+     *
+     * @param array<string, mixed> $state
+     */
+    public static function isMultilingual(array $state): bool
+    {
+        $languages = (array) ($state['languages'] ?? []);
+
+        return ($languages['plugin'] ?? '') !== '' || ($languages['found'] ?? []) !== [] || ($languages['unsupported'] ?? []) !== [];
+    }
+    /**
+     * The languages of the export that the site does not have yet (neither the default nor an additional language), in the
+     * order they were found – what the option add_languages would add.
+     *
+     * @param array<string, mixed> $state
+     * @return list<string>
+     */
+    public static function missingLanguages(array $state, Settings $settings): array
+    {
+        $have = [Language::defaults($settings), ...Language::additional($settings)];
+
+        return array_values(array_diff(array_map('strval', array_keys((array) ($state['languages']['found'] ?? []))), $have));
+    }
 }

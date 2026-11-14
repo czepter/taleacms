@@ -20,7 +20,7 @@
 <div class="notice notice-warning" id="instructions-change">
 	<p><?= e(Talea\Core\ClaudeInstructions::who($instructionsChange)) ?> <?= e(t('Before → after:')) ?></p>
 	<div class="compare"><?= Talea\Core\Diff::html(e($instructionsChange['before']), e($instructionsChange['after']))['html'] ?: '<p>–</p>' ?></div>
-	<p><button class="btn" type="submit" formaction="<?= e($module->url('acknowledge_instructions')) ?>" name="instructions_seen" value="<?= e(Talea\Core\ClaudeInstructions::fingerprint($instructionsChange['after'])) ?>"><?= e(t('I have checked the instructions')) ?></button></p>
+	<p><button class="btn" type="submit" formaction="<?= e($module->url('acknowledge_instructions')) ?>" name="instructions_seen" value="<?= e($instructionsChange['fingerprint']) ?>"><?= e(t('I have checked the instructions')) ?></button></p>
 </div>
 <?php endif ?>
 <div class="row">

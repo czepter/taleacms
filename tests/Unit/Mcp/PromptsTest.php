@@ -16,7 +16,7 @@ final class PromptsTest extends TestCase
     {
         // every snake_case word of a prompt is a tool, a parameter of a tool, a setting, a prompt or an argument – or one of
         // these words (a placeholder, a status, a field of a tool's answer); anything else is a tool that does not exist
-        $terms = ['cookie_table', 'in_progress', 'next_since_id', 'sending_problem', 'snake_case', 'talea_blueprint'];
+        $terms = ['confirmation_required', 'cookie_table', 'in_progress', 'next_since_id', 'sending_problem', 'snake_case', 'talea_blueprint'];
         $known = [...array_keys(Catalog::TOOLS), ...array_keys(Catalog::META), ...array_keys(\Talea\Core\Settings::DEFAULTS), ...$terms];
         foreach ([...\Talea\Mcp\Tools::definitions(), ...Discovery::definitions()] as $tool) {
             $known = [...$known, ...array_keys((array) $tool['inputSchema']['properties'])];

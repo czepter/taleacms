@@ -78,7 +78,7 @@ trait BookingFixture
     /** The whole raw JSON-RPC answer as one string (the old tests grepped the response file). @param array<string, mixed> $arguments */
     private function bookingRaw(string $tool, array $arguments): string
     {
-        return (string) json_encode($this->site()->mcp($tool, $arguments), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return (string) json_encode($this->site()->mcpConfirmed($tool, $arguments), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     private function bookingPage(): void

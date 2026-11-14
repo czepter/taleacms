@@ -59,6 +59,7 @@ final class SomethingTest extends SiteTestCase
 | `curl … -X POST … -d "_csrf=$TOKEN"` | `$this->adminPost('/admin.php?module=…&action=…', ['field' => 'v'], formPage: '/admin.php?module=…')` (fetches a fresh token from `formPage`) or `$http->post($path, ['_csrf' => $http->get($page)->csrf(), …])` |
 | `csrf` / `$TOKEN` | `$this->site()->csrf($client, '/page')` |
 | `mcp tool '{json}'` | `$this->site()->mcp('tool', [..])` (decoded JSON-RPC), `->mcpResult('tool', [..])` (the tool's text, decoded when JSON), `->mcp('tool', $args, token: $other)` |
+| a two-step tool (`Mcp\Confirmation`) | `$this->site()->mcpConfirmed('delete_media', [..])` makes the call, takes the code of `confirmation_required` and repeats it; `mcpConfirmedResult` / `mcpConfirmedText` as `mcpResult` / `mcpText` |
 | `sq "SELECT …"` (mysql client) | `->value($sql, $params)` (first column), `->rows($sql, $params)`, `->exec($sql, $params)` |
 | `REPLACE INTO tl_settings …` | `->setting('name', 'value')`, `->settingValue('name')` |
 | `rm -f $WORK/web/storage/cache/pages/*.html` | `->clearPageCache()` |

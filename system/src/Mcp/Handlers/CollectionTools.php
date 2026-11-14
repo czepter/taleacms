@@ -234,7 +234,8 @@ trait CollectionTools
 
         return ['total' => count($rows), 'page' => $pageNumber, 'pages' => max(1, (int) ceil(count($rows) / 50)), 'items' => array_map(fn (array $r): array => ['id' => (int) $r['item_id'], 'name' => $r['name'], 'slug' => $r['slug'], 'order' => (int) $r['sort_order'], 'visible' => (bool) $r['visible'],
             'language' => $r['language'], 'values' => json_decode((string) $r['data'], true) ?: new \stdClass()]
-            + array_filter(['seo_title' => $r['seo_title'], 'description' => $r['description'], 'image' => $r['image'], 'noindex' => (bool) $r['noindex'], 'publish_at' => $r['publish_at']]) + \Talea\Core\SeoFields::output($r) + self::validityOutput($r) + $registration($r) + $documentOutput($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
+            + array_filter(['seo_title' => $r['seo_title'], 'description' => $r['description'], 'image' => $r['image'], 'noindex' => (bool) $r['noindex'], 'publish_at' => $r['publish_at']]) + \Talea\Core\SeoFields::output($r) + self::validityOutput($r) + $registration($r) + $documentOutput($r)
+            + ($r['submitted_via'] !== null ? \Talea\Mcp\Untrusted::mark(['name', 'values']) : []), array_slice($rows, ($pageNumber - 1) * 50, 50))];
     }
 
     /** save_collection_item */

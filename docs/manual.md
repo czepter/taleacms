@@ -457,6 +457,13 @@ The **AI connection (MCP)** is switched on in new installations (under Features 
 claude mcp add --transport http talea https://your-site.com/mcp
 ```
 
+**Tool sets.** A connection lists all its tools, or a set that lists the tools of one job first: **Essentials** (pages, the
+builder, collections, media, the look and the audit), **Migration** (the import of an old site, reading old pages, the
+layout queue, redirects, media, forms and the migration report) or, on the console of your sites, **Fleet console**.
+Claude finds every other tool it may use when it needs it. Choose the set on the consent screen or change it in **My account →
+Change the tool set**. A tool set only decides which tools Claude sees first – what it may do still depends on your role and
+the access you chose.
+
 Claude then builds the whole site with your account permissions: it sets the look (colours, fonts, shared classes),
 uploads images and fonts to Media, assembles pages, the header, the footer and the item page of collections, fixes single elements by id, sets the site
 name, company details and redirects from old addresses, and writes news. It can also create header and footer **variants** for
@@ -474,7 +481,10 @@ be changed over the connection.
 **What a connection may do.** When you connect Claude (or create a token), you choose:
 
 - **Drafts only – you publish** (the default, recommended) – Claude builds pages, writes news drafts and prepares look
-  changes, and you publish them; it cannot change settings, redirects or anything else on the live site. Files it uploads wait
+  changes, and you publish them; it cannot change settings, redirects or anything else on the live site. It sends files
+  itself – downloading a file or a whole site from an address needs full access. Notes it writes in the notebook are
+  proposals: they are never pinned, **Waiting for you** lists them, and a note becomes yours when you save or pin it in the
+  administration (Claude treats a proposal as a suggestion until then). Files it uploads wait
   for your approval: you and your previews see them, visitors do not until you publish content that uses them or approve them
   in Media → Waiting for approval; files nobody approves are deleted after 30 days;
 - **Can also publish** – build, edit and publish, never beyond your role;
@@ -482,6 +492,14 @@ be changed over the connection.
 
 A form sent without a choice always gets drafts only. The consent screen stands on its own (no menu, no Publish bar).
 Existing connections keep the access they were given.
+
+**Two steps for e-mails and erasing.** Whatever sends an e-mail to people (booking answers, course registrations, a course
+cancellation, a newsletter, a form link sent by e-mail) or erases something for good (personal data, a file, a collection,
+an enquiry, an undone Claude session) takes two calls. The first answers with a short code and does nothing; Claude shows you
+exactly what would happen and asks. Only after your yes does it repeat the same call with the code, which works once, for ten
+minutes, on that connection and for exactly those arguments. A scheduled run never repeats such a call: it leaves it for you
+and reports the run as partly done. A routine should use a connection of its own: for two hours after each hand-out, the connection that ran it cannot confirm an e-mail or an erasure, so a chat connection shared with the routine would be blocked too. Text that visitors, colleagues or other sites wrote – enquiries, bookings, comments on
+drafts, the statistics' referrers – reaches Claude marked as such, so it is treated as data and never as an instruction.
 
 My account shows the access of every connected app and token. The **change log** marks every change Claude made with the
 name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).
@@ -497,7 +515,8 @@ over 48 hours with nothing to pick it up is marked in Ask AI, and System status 
 customers, words to use or avoid, house rules. Every connection gets them when it connects. A connection may change them
 too, so every change – in the admin or through Claude – goes to the change log with the whole text before and after, and
 **Home** tells the administrators until one of them has looked at the change in Settings → AI and pressed **I have checked
-the instructions**. Claude also offers ready-made
+the instructions**. The instructions of an applied industry blueprint reach every connection too, so applying or removing a
+blueprint that brings instructions raises the same notice. Claude also offers ready-made
 tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
 item, and a weekly review of the site. The longer ones are complete runbooks, from the first step to the hand-over:
 **launch a new site**, **move a site** here (WordPress, also a shop or a multilingual site, or any other platform),
@@ -518,6 +537,37 @@ shows what it found, and on confirmation turns each page into a hidden builder p
 become news, and old addresses redirect to the new ones. The header, footer, menus, cookie bars and forms of the old site
 are left out and the look comes from your design system. Claude does the same with `import_website` and can then match
 the look and tidy the texts.
+
+**An empty site for a move.** In the installer choose **Move a site here from WordPress or another platform**: the site
+starts with a placeholder home page, the hidden privacy policy and the look – nothing else – and you import the old site
+right away. On a site you have already installed, **Import and export → Starter pages of the installation** moves the
+starter pages nobody has changed to the trash in one step (the home page stays).
+
+**Starter pages.** The installer records its pages (Home, About us, Services, Contact). When an imported page wants the
+address of one that is still unchanged – the same text, never saved, no translation – the preview offers to **replace** it:
+the starter page goes to the trash for 30 days and the imported page takes its address; without the tick the imported page
+gets a number (/contact-2). An edited starter page and the home page are never replaced: the old home page arrives hidden
+(`home-2`) until you publish it and set it as the home page. The result lists what was replaced, kept and renamed.
+
+**Nested addresses** keep their structure: `/services/heating/boilers` becomes a page below `/services/heating`, below
+`/services`. A parent the old site's sitemap does not list becomes an empty hidden page (the result lists them), and
+the result lists the redirects written – only for an address that changed.
+
+**Layout not rebuilt.** Every imported page carries a marker until you tick it off: **Pages → Layout not rebuilt** lists
+them (with a count), **Layout done** in the row menu or as a bulk action clears the marker without changing the page.
+Claude lists them with `list_layout_queue` (50 at a time, with the old address of each) and ticks them off with
+`layout_queue`. **Site audit → Moving the site** shows where the move stands: pages imported, layouts still to rebuild,
+starter pages left, redirects, forms and whether the latest **Check the move** report was clean. That report marks an old
+address that lands on a starter page as an error, reports a form found on every old page once for the whole site, notes
+changed titles and says plainly when the old site could not be reached.
+
+**What comes over from an old page.** Besides text and images, forms, questions and answers, tabs, videos, maps, embedded
+booking pages, forms and players and counters become their builder elements; a form the old page draws with a script, a
+video file or a frame of an unknown service leaves a bracketed placeholder where it was, and **Needs your attention** lists
+them. PDF and office documents the page links to on the old site go into Media together with the images (at most 10 a
+page, 200 an import), the old page's `<title>` becomes its SEO title when it differs from the heading, and its share image
+the page's image. Claude reads an old page section by section with `read_old_page` (colours, fonts, HTML) to rebuild its
+layout.
 
 **Administration → Import and export → WordPress:** upload a WordPress export (Tools → Export, an XML file). The import
 turns posts into news, pages optionally **straight into the builder**, downloads images into Media and creates redirects

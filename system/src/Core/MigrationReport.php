@@ -8,6 +8,7 @@ use Talea\Builder\Build;
 use Talea\Builder\Collections;
 use Talea\Builder\Components;
 use Talea\Builder\Elements\Component;
+use Talea\Builder\FormRecords;
 
 /**
  * The migration parity report (2.7): before a moved site goes live, every address of the old site must still work on
@@ -32,6 +33,7 @@ final class MigrationReport
     public const array PROBLEMS = [
         'missing' => 'error', 'form_missing' => 'error', 'hidden' => 'warning', 'chain' => 'warning',
         'no_description' => 'warning', 'fewer_images' => 'warning', 'not_read' => 'info', 'redirect_out' => 'info',
+        'starter' => 'error', 'title_changed' => 'info',
     ];
 
     private float $end = 0.0;
@@ -113,6 +115,7 @@ final class MigrationReport
         if ($state['phase'] === 'check' && $state['position'] >= count($state['urls'])) {
             $state['phase'] = 'done';
             $state['completed'] = date('Y-m-d H:i:s');
+            $state['summary'] = $this->result($state)['summary']; // kept for Core\MoveStatus, which must not go to the network
         }
     }
 
@@ -129,6 +132,9 @@ final class MigrationReport
         $status = $target['status'];
         if (in_array($status, ['missing', 'hidden', 'chain', 'redirect_out'], true)) {
             $problems[] = $status;
+        }
+        if ($target['type'] === 'page' && isset($this->starters()[$target['page_id']])) {
+            $problems[] = 'starter'; // the old address lands on a starter page nobody has touched
         }
         $old = null;
         $html = $this->fetch($url);
@@ -147,21 +153,48 @@ final class MigrationReport
             if ($old['images'] >= 3 && $target['images'] * 2 < $old['images']) {
                 $problems[] = 'fewer_images';
             }
+            if (self::titleChanged($old['title'], $target['title'])) {
+                $problems[] = 'title_changed';
+            }
         }
 
         return ['old' => '/' . $path, 'new' => $target['url'], 'status' => $status, 'problems' => $problems,
-            'old_title' => $old['title'] ?? '', 'new_title' => $target['title']];
+            'old_title' => $old['title'] ?? '', 'new_title' => $target['title'], 'old_form' => (bool) ($old['form'] ?? false), 'read' => $old !== null];
+    }
+
+    /** @var array<int, array<string, mixed>>|null the untouched starter pages (one query per batch) */
+    private ?array $starterPages = null;
+
+    /** @return array<int, array<string, mixed>> */
+    private function starters(): array
+    {
+        return $this->starterPages ??= StarterPages::untouched($this->app->db(), $this->app->settings());
+    }
+
+    /**
+     * Did the page's title change in the move? The old <title> is often "Page | Site": it counts as unchanged when the page
+     * name before the separator, or the whole title, is the new one (the check is not case sensitive).
+     */
+    public static function titleChanged(string $oldTitle, string $newTitle): bool
+    {
+        $fold = fn (string $t): string => mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $t)));
+        $new = $fold($newTitle);
+        if ($new === '' || trim($oldTitle) === '') {
+            return false;
+        }
+
+        return $fold($oldTitle) !== $new && $fold((string) preg_split('/\s+[|–—-]\s+/u', $oldTitle)[0]) !== $new;
     }
 
     /**
      * Where a path leads on this site: ok (published content), redirect (one hop to published content), chain (more hops),
      * redirect_out (to another site), hidden (content that is not published) or missing.
      *
-     * @return array{status: string, url: string, type: string, title: string, description: string, form: bool, images: int}
+     * @return array{status: string, url: string, type: string, title: string, description: string, form: bool, images: int, page_id: int}
      */
     public function resolve(string $path, int $hops = 0): array
     {
-        $none = ['status' => 'missing', 'url' => '', 'type' => '', 'title' => '', 'description' => '', 'form' => false, 'images' => 0];
+        $none = ['status' => 'missing', 'url' => '', 'type' => '', 'title' => '', 'description' => '', 'form' => false, 'images' => 0, 'page_id' => 0];
         $path = trim(rawurldecode($path), '/');
         $db = $this->app->db();
         $content = $this->content($path);
@@ -202,7 +235,7 @@ final class MigrationReport
         $s = $internal === '/' ? [] : explode('/', ltrim((string) $internal, '/'));
         if ($s === []) {
             $home = (int) $settings->get('home_page');
-            $page = $home > 0 ? $db->one('SELECT title, seo_title, description, visible, build, build_draft, text FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$home]) : null;
+            $page = $home > 0 ? $db->one('SELECT page_id, title, seo_title, description, visible, build, build_draft, text FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$home]) : null;
 
             return $page !== null ? self::page($page, $db) : ['type' => 'home', 'title' => (string) $settings->get('site_name'), 'description' => (string) $settings->get('site_description'), 'form' => false, 'images' => 0, 'visible' => true];
         }
@@ -213,7 +246,7 @@ final class MigrationReport
                 'description' => trim((string) ($n['seo_description'] ?: strip_tags((string) $n['intro']))), 'form' => false,
                 'images' => substr_count(strtolower((string) $n['text']), '<img'), 'visible' => (bool) $n['visible']];
         }
-        $page = $db->one('SELECT title, seo_title, description, visible, build, build_draft, text FROM {pages} WHERE slug = ? AND deleted_at IS NULL', [implode('/', $s)]);
+        $page = $db->one('SELECT page_id, title, seo_title, description, visible, build, build_draft, text FROM {pages} WHERE slug = ? AND deleted_at IS NULL', [implode('/', $s)]);
         if ($page !== null) {
             return self::page($page, $db);
         }
@@ -234,7 +267,7 @@ final class MigrationReport
 
     /**
      * @param array<string, mixed> $p a row of tl_pages
-     * @return array{type: string, title: string, description: string, form: bool, images: int, visible: bool}
+     * @return array{type: string, title: string, description: string, form: bool, images: int, visible: bool, page_id: int}
      */
     private static function page(array $p, Db $db): array
     {
@@ -247,7 +280,7 @@ final class MigrationReport
         }
 
         return ['type' => 'page', 'title' => (string) ($p['seo_title'] ?: $p['title']), 'description' => trim((string) $p['description']),
-            'form' => $forms > 0, 'images' => $images, 'visible' => (bool) $p['visible']];
+            'form' => $forms > 0, 'images' => $images, 'visible' => (bool) $p['visible'], 'page_id' => (int) $p['page_id']];
     }
 
     /**
@@ -314,9 +347,7 @@ final class MigrationReport
         $description = trim((string) $doc->querySelector('meta[name="description"]')?->getAttribute('content'));
         $form = false;
         foreach ($doc->querySelectorAll('form') as $f) {
-            $role = strtolower($f->getAttribute('role') ?? '');
-            $fields = $f->querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="search"]), textarea, select');
-            if ($role !== 'search' && $fields->length > 0 && !preg_match('/search|hledat|suche/i', ($f->getAttribute('class') ?? '') . ' ' . ($f->getAttribute('action') ?? ''))) {
+            if (!\Talea\Builder\HtmlWidgets::isSearchForm($f) && $f->querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="search"]), textarea, select')->length > 0) {
                 $form = true;
                 break;
             }
@@ -330,15 +361,36 @@ final class MigrationReport
     /* ---------- the result ---------- */
 
     /**
-     * Counts, the rows with a problem first, and the checks of the whole site.
+     * A form on every page of the old site sits in its header, footer or sidebar: it is one thing to rebuild for the whole site, not
+     * one missing form per page. With at least three pages read and a form on each, the per-page problem goes.
      *
-     * @param array<string, mixed> $state
-     * @return array{summary: array<string, int>, rows: list<array<string, mixed>>, web: list<array{message: string, fix: string}>}
+     * @param list<array<string, mixed>> $rows
+     * @return array{rows: list<array<string, mixed>>, siteForm: bool}
      */
-    public function result(array $state): array
+    public static function siteWideForm(array $rows): array
     {
-        $summary = ['urls' => count($state['urls']), 'checked' => count($state['rows']), 'ok' => 0, 'redirected' => 0, 'hidden' => 0, 'missing' => 0, 'failed' => 0, 'warnings' => 0];
-        foreach ($state['rows'] as $r) {
+        $read = array_filter($rows, fn (array $r): bool => !empty($r['read']));
+        if (count($read) < 3 || count(array_filter($read, fn (array $r): bool => empty($r['old_form']))) > 0) {
+            return ['rows' => $rows, 'siteForm' => false];
+        }
+        foreach ($rows as &$r) {
+            $r['problems'] = array_values(array_diff($r['problems'], ['form_missing']));
+        }
+
+        return ['rows' => $rows, 'siteForm' => true];
+    }
+
+    /**
+     * The counts of a report; unreachable = not one old page could be read, only the addresses were checked.
+     *
+     * @param list<array<string, mixed>> $rows
+     * @return array<string, int|bool>
+     */
+    public static function summary(array $rows, int $urls): array
+    {
+        $summary = ['urls' => $urls, 'checked' => count($rows), 'ok' => 0, 'redirected' => 0, 'hidden' => 0, 'missing' => 0, 'failed' => 0, 'warnings' => 0,
+            'unreachable' => $rows !== [] && array_filter($rows, fn (array $r): bool => !empty($r['read'])) === []];
+        foreach ($rows as $r) {
             match ($r['status']) {
                 'ok' => $summary['ok']++,
                 'redirect', 'chain', 'redirect_out' => $summary['redirected']++,
@@ -353,11 +405,34 @@ final class MigrationReport
                 };
             }
         }
+
+        return $summary;
+    }
+
+    /**
+     * Counts, the rows with a problem first, and the checks of the whole site.
+     *
+     * @param array<string, mixed> $state
+     * @return array{summary: array<string, int|bool>, rows: list<array<string, mixed>>, web: list<array{message: string, fix: string}>}
+     */
+    public function result(array $state): array
+    {
+        ['rows' => $state['rows'], 'siteForm' => $siteForm] = self::siteWideForm($state['rows']);
+        $summary = self::summary($state['rows'], count($state['urls']));
         $rank = fn (array $r): int => min(array_map(fn (string $p): int => ['error' => 0, 'warning' => 1, 'info' => 2][self::PROBLEMS[$p] ?? 'info'], $r['problems'] ?: ['ok'])) + ($r['problems'] === [] ? 3 : 0);
         $rows = $state['rows'];
         usort($rows, fn (array $a, array $b): int => $rank($a) <=> $rank($b));
 
         $site = [];
+        if ($summary['unreachable']) {
+            $site[] = ['message' => t('The old site could not be reached from this server – none of its pages could be read, only the addresses were checked. Check the address, or whether the old site blocks this server.'), 'fix' => 'admin.php?module=transfer'];
+        }
+        if ($siteForm) {
+            $site[] = ['message' => t('The old site had a form on every page – probably in its header, footer or sidebar. Add it once (a site part or the contact page) instead of to every page.'), 'fix' => 'admin.php?module=forms'];
+            if (FormRecords::all($this->app->db()) === []) {
+                $summary['failed']++; // the site has no form at all
+            }
+        }
         if (!Extensions::isEnabled($this->app->settings(), 'redirects')) {
             $site[] = ['message' => t('The Redirects feature is off: no redirect from an old address works.'), 'fix' => 'admin.php?module=extensions'];
         }
@@ -382,6 +457,8 @@ final class MigrationReport
             'form_missing' => t('The old page had a form, the new one has none.'),
             'fewer_images' => t('The new page has less than half of the old page’s images.'),
             'not_read' => t('The old page could not be read, so only the address was checked.'),
+            'starter' => t('The old address lands on a starter page of the installation – import or rebuild the old page, or redirect the address.'),
+            'title_changed' => t('The page title changed (search results will show the new one).'),
             default => $code,
         };
     }

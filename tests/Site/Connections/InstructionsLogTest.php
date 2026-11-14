@@ -78,4 +78,36 @@ final class InstructionsLogTest extends SiteTestCase
         $this->assertSame(3, $this->lastChange()['count'], 'every change is recorded');
         $this->assertPage('/admin.php', 200, self::NOTICE, message: 'a change after the check shows on Home again');
     }
+
+    #[Depends('testAChangeInTheAdminIsLoggedAndALaterMcpChangeShowsAgain')]
+    public function testABlueprintThatBringsInstructionsRaisesTheNotice(): void
+    {
+        $site = $this->site();
+        $own = self::SECOND . ' ' . self::FIRST;
+        $this->adminPost('/admin.php?module=settings&action=acknowledge_instructions', ['instructions_seen' => hash('sha256', $own)]);
+        $this->assertPageLacks('/admin.php', self::NOTICE, message: 'the earlier change is checked');
+        $before = $this->lastChange()['count'];
+
+        $manifest = ['talea_blueprint' => 1, 'key' => 'test_bp', 'name' => 'Test blueprint', 'group' => 'other', 'presets' => [], 'facts' => [], 'questions' => [], 'audit' => [], 'claude' => 'Always mention the free visit.'];
+        $site->mcp('apply_blueprint', ['manifest' => $manifest]);
+        $change = $this->lastChange();
+        $this->assertSame($before + 1, $change['count'], 'applying a blueprint with instructions is a change');
+        $this->assertStringStartsWith('Test blueprint: ', $change['description']);
+        $this->assertSame(['', 'Always mention the free visit.'], [$change['before'], $change['after']]);
+
+        $this->assertPage('/admin.php', 200, ['The instructions of the blueprint “Test blueprint”', 'through the connection test'], message: 'Home names the blueprint');
+        $ai = $this->assertPage('/admin.php?module=settings&tab=ai', 200, '<ins>Always mention the free visit.</ins>', message: 'Settings → AI shows the blueprint\'s text');
+        $this->assertSame(1, preg_match('/name="instructions_seen" value="([a-f0-9]{64})"/', $ai->body, $m), 'the button carries the fingerprint of what is watched');
+        $this->adminPost('/admin.php?module=settings&action=acknowledge_instructions', ['instructions_seen' => $m[1]]);
+        $this->assertPageLacks('/admin.php', self::NOTICE, message: 'one click clears it');
+
+        $site->mcp('apply_blueprint', ['manifest' => $manifest]);
+        $this->assertSame($before + 1, $this->lastChange()['count'], 'the same text again is no change');
+        $this->assertPageLacks('/admin.php', self::NOTICE);
+
+        $site->mcp('remove_blueprint', ['key' => 'test_bp']);
+        $removed = $this->lastChange();
+        $this->assertSame([$before + 2, 'Always mention the free visit.', ''], [$removed['count'], $removed['before'], $removed['after']], 'taking it off is a change too');
+        $this->assertPage('/admin.php', 200, 'The instructions of the blueprint “Test blueprint”', message: 'and the notice shows again');
+    }
 }

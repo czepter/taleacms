@@ -12,6 +12,9 @@ use Talea\Core\Notebook;
 $isNew = $note === null;
 ?>
 <p><a href="<?= e($module->url('', $isNew ? [] : ['topic' => (string) $note['topic']])) ?>">← <?= e(t('All notes')) ?></a></p>
+<?php if (!empty($note['proposal'])): ?>
+<p class="notice notice-warning"><?= e(t('Proposed by %s through a drafts-only connection. Claude treats it as a suggestion until a person saves it here – saving or pinning it makes it your note.', (string) $note['author'])) ?></p>
+<?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= (int) ($note['id'] ?? 0) ?>">

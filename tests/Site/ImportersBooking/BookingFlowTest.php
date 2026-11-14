@@ -103,7 +103,7 @@ final class BookingFlowTest extends SiteTestCase
 
         $phone = (int) $this->q("SELECT id FROM tl_bookings WHERE name = 'Phone Customer'");
         $this->assertStringContainsString('confirm', $this->bookingRaw('cancel_booking', ['id' => $this->site()->publicId('bookings', $phone)]), 'booking: cancel_booking needs an explicit confirmation');
-        $site->mcp('cancel_booking', ['id' => $site->publicId('bookings', $phone), 'confirm' => true]);
+        $site->mcpConfirmed('cancel_booking', ['id' => $site->publicId('bookings', $phone), 'confirm' => true]);
         $this->assertSame('cancelled|claude|1', $this->q("SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM tl_change_log WHERE module = 'bookings' AND action = 'cancel' AND description = (SELECT CONCAT(s.name, ' ', LEFT(b.starts_at, 16)) FROM tl_bookings b JOIN tl_booking_services s ON s.id = b.service_id WHERE b.id = $phone))) FROM tl_bookings WHERE id = $phone"), 'booking: Claude cancels a booking, the change is logged');
     }
 
@@ -113,7 +113,7 @@ final class BookingFlowTest extends SiteTestCase
         $site = $this->site();
         $this->assertStringContainsString('"bookings":2', $this->bookingText('find_personal_data', ['email' => 'petr-bk@example.cz']), 'booking: a personal data request finds the bookings');
         $this->assertPage('/admin.php?module=enquiries&action=personal', 200, 'personal-email', message: "booking: the admin's personal data screen links the bookings");
-        $site->mcp('erase_personal_data', ['email' => 'petr-bk@example.cz', 'confirm' => true]);
+        $site->mcpConfirmed('erase_personal_data', ['email' => 'petr-bk@example.cz', 'confirm' => true]);
         $this->assertSame('0|1', $this->q("SELECT CONCAT((SELECT COUNT(*) FROM tl_bookings WHERE email = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM tl_bookings WHERE name = 'Phone Customer'))"), "booking: erased on request, the other person's booking stays");
         $site->exec("UPDATE tl_bookings SET ends_at = NOW() - INTERVAL 30 MONTH, starts_at = NOW() - INTERVAL 30 MONTH WHERE name = 'Phone Customer'");
         $site->setting('enquiries_expiry', 'anonymise');

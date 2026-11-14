@@ -215,7 +215,7 @@ final class SiteExport
             }
         })());
         // the agent notebook (2.15, Core\Notebook): what the next person working on the site should know moves with it
-        self::fields($f, 'notebook', $db->all('SELECT id, topic, title, text, pinned, author, created_at, updated_at FROM {notebook} ORDER BY id'));
+        self::fields($f, 'notebook', $db->all('SELECT id, topic, title, text, pinned, proposal, author, created_at, updated_at FROM {notebook} ORDER BY id'));
         // the audit trail of official notice boards (2.11, Core\Notices) moves with the notices it belongs to
         self::fields($f, 'notice_log', $one('notice_log', 'SELECT id, item_id, action, ' . $db->dialect()->quote('at') . ', ' . $db->dialect()->quote('by') . ', fields FROM {notice_log} WHERE id > ? ORDER BY id LIMIT 1000', 'id', ['item_id' => 'collection_items']));
         // deliberately not here: the requests to Claude (2.15, Core\Requests) – the team's work list, not content (their attachments are Media and go along);
@@ -474,7 +474,7 @@ final class SiteExport
             . "booking_services online booking (3.0): services – public_id, name, duration_min, buffer_min, price_text, description, active, requires_confirmation, sort_order\n"
             . "booking_staff    people who take bookings: public_id, name, email, active, sort_order; booking_staff_services links them (staff_id, service_id: public ids)\n"
             . "booking_hours    weekly hours of a person: staff_id (public id), service_id (public id; null = the general hours, else only for that service), weekday (1–7), time_from, time_to; booking_off days off still to come (staff_id or null = everyone, off_from, off_to, note). The bookings themselves never travel – personal data.\n"            . "blueprints       industry blueprints applied: bkey, nazev, manifest (JSON: presets, facts, questions, audit, claude)\n"
-            . "notebook         agent notebook (2.15): notes for whoever works on the site next – topic, title, text, pinned, author\n"
+            . "notebook         agent notebook (2.15): notes for whoever works on the site next – topic, title, text, pinned, proposal, author\n"
             . "member_groups    member login: the groups (public_id, name); content_groups names what they restrict – content_type (page, news or item),\n"
             . "                 content_id (public id of the page, news item or collection item), group_id (public id of the group). Members themselves are personal data and stay.\n"
             . "notice_log       audit trail of official notice boards (2.11): item_id (public id of the collection item), action, at, by, fields (JSON) – append-only\n"

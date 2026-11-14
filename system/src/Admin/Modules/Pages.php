@@ -32,7 +32,7 @@ final class Pages extends Module
     protected function actionList(): Response
     {
         $status = $this->request->get('status');
-        $status = in_array($status, ['published', 'hidden', 'changes', 'trash'], true) ? $status : '';
+        $status = in_array($status, ['published', 'hidden', 'changes', 'layout', 'trash'], true) ? $status : '';
         $trash = $status === 'trash';
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
@@ -44,11 +44,12 @@ final class Pages extends Module
         }
         // the status tabs count within the language filter, before the search (docs/specs/admin-lists.md)
         $counts = $this->db->one('SELECT COUNT(*) AS total, SUM(CASE WHEN visible = TRUE THEN 1 ELSE 0 END) AS published, SUM(CASE WHEN visible = FALSE THEN 1 ELSE 0 END) AS hidden,'
-            . ' SUM(CASE WHEN build_draft IS NOT NULL THEN 1 ELSE 0 END) AS changes FROM {pages} WHERE deleted_at IS NULL' . ($column !== null ? ' AND language = ?' : ''), $column !== null ? [$column] : []) ?? [];
+            . ' SUM(CASE WHEN build_draft IS NOT NULL THEN 1 ELSE 0 END) AS changes, SUM(CASE WHEN layout_pending = TRUE THEN 1 ELSE 0 END) AS layout FROM {pages} WHERE deleted_at IS NULL' . ($column !== null ? ' AND language = ?' : ''), $column !== null ? [$column] : []) ?? [];
         $where[] = match ($status) {
             'published' => 'visible = TRUE',
             'hidden' => 'visible = FALSE',
             'changes' => 'build_draft IS NOT NULL',
+            'layout' => 'layout_pending = TRUE',
             default => 'TRUE',
         };
         // the Page check columns and their filter (good from 80, mid from 50, low below; none = no focus keyword, hidden = noindex)
@@ -77,7 +78,7 @@ final class Pages extends Module
         }
         unset($s);
 
-        $pages = $status !== '' || $search !== '' || $score !== '' ? $pages : self::sortAsTree($pages);
+        $pages = $status !== '' || $search !== '' || $score !== '' ? $pages : \Talea\Core\PageTree::sorted($pages);
         // "Edit titles in the list" works on one page of rows at a time, so its form stays under max_input_vars
         $seoEdit = !$trash && $this->request->get('seo_edit') === '1';
         $pageCount = $seoEdit ? max(1, (int) ceil(count($pages) / self::LIST_EDIT_ROWS)) : 1;
@@ -94,7 +95,7 @@ final class Pages extends Module
             'seoEdit' => $seoEdit,
             'comments' => $trash ? [] : \Talea\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NOT NULL'),
-            'counts' => array_map('intval', $counts + ['total' => 0, 'published' => 0, 'hidden' => 0, 'changes' => 0]),
+            'counts' => array_map('intval', $counts + ['total' => 0, 'published' => 0, 'hidden' => 0, 'changes' => 0, 'layout' => 0]),
         ]);
     }
 
@@ -249,7 +250,7 @@ final class Pages extends Module
         $home = $this->app->settings()->int('home_page');
         $pages = $this->db->all("SELECT page_id, public_id, title, slug, language, visible, in_menu, parent_id, seo_score, COALESCE(focus_keywords, '') <> '' AS has_keyword, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title");
         $groups = ['menu' => [], 'other' => []];
-        foreach (self::sortAsTree($pages) as $page) {
+        foreach (\Talea\Core\PageTree::sorted($pages) as $page) {
             $inMenu = \Talea\Core\Menu::hasPage($this->db, (int) $page['page_id'], '', (string) $page['slug']) ?? (bool) $page['in_menu'];
             $groups[$inMenu ? 'menu' : 'other'][] = $page + ['home' => (int) $page['page_id'] === $home];
         }
@@ -442,35 +443,6 @@ final class Pages extends Module
         return \Talea\Core\Response::redirect($this->url('builder', ['id' => (string) $page['public_id'], 'select' => $element['id']]));
     }
 
-    private static function sortAsTree(array $pages): array
-    {
-        $byParent = [];
-        foreach ($pages as $s) {
-            $byParent[(int) ($s['parent_id'] ?? 0)][] = $s;
-        }
-        $ids = array_column($pages, 'page_id');
-        $result = [];
-        $add = function (int $parent, int $level) use (&$add, &$result, $byParent): void {
-            foreach ($byParent[$parent] ?? [] as $s) {
-                $result[] = $s + ['level' => $level];
-                if ($level < 4) {
-                    $add((int) $s['page_id'], $level + 1);
-                }
-            }
-        };
-        $add(0, 0);
-        // pages whose parent is in the trash or does not exist are shown at the top level
-        foreach ($byParent as $parent => $children) {
-            if ($parent !== 0 && !in_array($parent, array_map('intval', $ids), true)) {
-                foreach ($children as $s) {
-                    $result[] = $s + ['level' => 0];
-                }
-            }
-        }
-
-        return $result;
-    }
-
     protected function actionNew(): Response
     {
         // from the translation overview (2.14): the language version and the original are filled in
@@ -503,7 +475,7 @@ final class Pages extends Module
             return $this->back();
         }
         $action = $this->request->post('bulk');
-        if (!in_array($action, ['visible', 'hide', 'language', 'trash'], true)) {
+        if (!in_array($action, ['visible', 'hide', 'language', 'trash', 'layout_done'], true)) {
             return $this->back('Unknown action.', '', [], 'error');
         }
         $auth = $this->app->auth();
@@ -523,6 +495,12 @@ final class Pages extends Module
                 $clashes++;
                 continue;
             }
+            if ($action === 'layout_done') {
+                // ticking off changes nothing but the marker; an author may do it on a page they can see
+                $done += \Talea\Core\LayoutQueue::done($this->db, [$id]);
+                \Talea\Admin\ChangeLog::write($this->app, 'pages', 'layout done', mb_substr($page['title'], 0, 80));
+                continue;
+            }
             match ($action) {
                 'visible' => $this->db->update('pages', ['visible' => 1, 'publish_at' => null, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
                 'hide' => $this->db->update('pages', ['visible' => 0, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
@@ -537,11 +515,27 @@ final class Pages extends Module
         }
         $message = match ($action) {
             'visible' => t('Pages published: %d.', $done), 'hide' => t('Pages hidden: %d.', $done),
-            'language' => t('Pages moved to the language version: %d.', $done), default => t('Pages moved to the trash: %d.', $done),
+            'language' => t('Pages moved to the language version: %d.', $done), 'layout_done' => t('Pages ticked off as layout done: %d.', $done), default => t('Pages moved to the trash: %d.', $done),
         };
 
         return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission, or the home page).', $skipped) : '')
             . ($clashes > 0 ? ' ' . t('Skipped: %d (that language version already has the address).', $clashes) : ''), '', [], $done > 0 ? 'ok' : 'error');
+    }
+
+    /** "Layout done": the imported page's layout is rebuilt – the marker goes, the page itself stays as it is. */
+    protected function actionLayoutDone(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $page = $this->loadPage($this->idParam('page_id'));
+        if ($page === null) {
+            return $this->back('Page does not exist.', '', [], 'error');
+        }
+        \Talea\Core\LayoutQueue::done($this->db, [(int) $page['page_id']]);
+        \Talea\Admin\ChangeLog::write($this->app, 'pages', 'layout done', mb_substr((string) $page['title'], 0, 80));
+
+        return $this->back('The page is ticked off – its layout is done.');
     }
 
     /** A builder page's settings live in Website mode's sidebar; a text page keeps its form (the text is edited there). */
@@ -1040,7 +1034,7 @@ final class Pages extends Module
         if ($page === null) {
             return $this->back();
         }
-        $copy = array_diff_key($page, ['page_id' => 0, 'public_id' => 0, 'deleted_at' => 0]);
+        $copy = \Talea\Core\LayoutQueue::withoutImportTraces(array_diff_key($page, ['page_id' => 0, 'public_id' => 0, 'deleted_at' => 0]));
         $copy['title'] = mb_substr(t('%s (copy)', $page['title']), 0, 200);
         $copy['slug'] = $this->availableSlug(mb_substr($page['slug'] . '-copy', 0, 110), 0, (string) $page['language']);
         $copy['visible'] = 0;

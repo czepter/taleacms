@@ -81,7 +81,7 @@ final class WpLanguagesTest extends TestCase
         $this->assertSame('dup:305', $duplicate['group'], 'a WPML duplicate names its original');
         $address = array_values(array_filter($wpml, fn (array $p): bool => $p['id'] === 307))[0];
         $this->assertSame(['', 'wpml'], [$address['language_wp'], $address['language_plugin']], 'only the address shows the language, the plugin leaves a sign');
-        $this->assertSame(['en', ''], WpImport::itemLanguage($address, ['languages' => ['plugin' => 'wpml', 'codes' => []]]));
+        $this->assertSame(['en', ''], WpLanguages::itemLanguage($address, ['languages' => ['plugin' => 'wpml', 'codes' => []]]));
     }
 
     public function testThePreviewCountsLanguagesAndLeavesUnsupportedOnesOut(): void
@@ -90,7 +90,7 @@ final class WpLanguagesTest extends TestCase
         WpImport::analyze($state, 30, self::fixture('wordpress-polylang.xml'));
         $this->assertEquals(['cs' => 3, 'en' => 3], $state['languages']['found'], 'items per language (the export is en_GB, the site has English)');
         $this->assertSame(['he' => 1], $state['languages']['unsupported'], 'Hebrew cannot be offered');
-        $this->assertTrue(WpImport::isMultilingual($state));
+        $this->assertTrue(WpLanguages::isMultilingual($state));
     }
 
     public function testARegionalLanguageOfTheExportIsKeptWhenTheSiteLacksItsLanguage(): void

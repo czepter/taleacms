@@ -14,6 +14,10 @@ use Talea\Admin\ChangeLog;
  *
  * A note is plain text under a topic; pinned notes come first everywhere. The author is the signed-in user's name, or
  * the name of the Claude connection that wrote it – so the next reader knows who decided.
+ *
+ * Proposals (#334): a note written through a drafts-only connection is a proposal – never pinned, and such a connection changes
+ * only proposals. A full connection that edits a proposal keeps it one; a person who saves or pins it in the administration (no
+ * connection) accepts it, and it becomes a normal note. read_notebook tells Claude to treat a proposal as a suggestion.
  */
 final class Notebook
 {
@@ -34,7 +38,7 @@ final class Notebook
     /**
      * Notes, pinned first and then the most recently changed; by a topic and a searched text (title or text).
      *
-     * @return list<array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string}>
+     * @return list<array{id: int, topic: string, title: string, text: string, pinned: bool, proposal: bool, author: string, created_at: string, updated_at: string}>
      */
     public static function all(Db $db, string $topic = '', string $search = '', int $limit = self::MAX_NOTES): array
     {
@@ -57,7 +61,7 @@ final class Notebook
         return array_map(self::row(...), $rows);
     }
 
-    /** @return array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string}|null */
+    /** @return array{id: int, topic: string, title: string, text: string, pinned: bool, proposal: bool, author: string, created_at: string, updated_at: string}|null */
     public static function find(Db $db, int $id): ?array
     {
         $row = $id > 0 ? $db->one('SELECT * FROM {notebook} WHERE id = ?', [$id]) : null;
@@ -90,6 +94,13 @@ final class Notebook
         if ($id > 0 && $existing === null) {
             return t('The note does not exist.');
         }
+        $auth = $app->auth();
+        $proposing = $auth->draftsOnly();
+        if ($proposing && $existing !== null && !$existing['proposal']) {
+            return t('A connection limited to drafts changes only the notes it proposed – write a new note instead.');
+        }
+        // a person in the administration (no connection) accepts a proposal by saving or pinning it; a connection keeps it a proposal
+        $proposal = $proposing || ($auth->connection() !== null && (bool) ($existing['proposal'] ?? false));
         $topic = array_key_exists('topic', $data) || $existing === null ? self::topic($data['topic'] ?? 'other') : $existing['topic'];
         if ($topic === null) {
             return t('The topic must be one of: %s.', implode(', ', array_keys(self::TOPICS)));
@@ -103,7 +114,8 @@ final class Notebook
             return t('A note needs a text.');
         }
         $now = date('Y-m-d H:i:s');
-        $row = ['topic' => $topic, 'title' => $title, 'text' => $text, 'pinned' => array_key_exists('pinned', $data) ? (int) (bool) $data['pinned'] : (int) ($existing['pinned'] ?? false),
+        $pinned = array_key_exists('pinned', $data) ? (int) (bool) $data['pinned'] : (int) ($existing['pinned'] ?? false);
+        $row = ['topic' => $topic, 'title' => $title, 'text' => $text, 'pinned' => $proposal ? 0 : $pinned, 'proposal' => (int) $proposal,
             'author' => self::author($app), 'updated_at' => $now];
         if ($existing === null) {
             $id = $db->insert('notebook', $row + ['created_at' => $now]);
@@ -135,10 +147,10 @@ final class Notebook
         return mb_substr((string) ($app->auth()->connection()['name'] ?? '') ?: ((string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? '')), 0, 100);
     }
 
-    /** @param array<string, mixed> $r @return array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string} */
+    /** @param array<string, mixed> $r @return array{id: int, topic: string, title: string, text: string, pinned: bool, proposal: bool, author: string, created_at: string, updated_at: string} */
     private static function row(array $r): array
     {
-        return ['id' => (int) $r['id'], 'topic' => (string) $r['topic'], 'title' => (string) $r['title'], 'text' => (string) $r['text'], 'pinned' => (bool) $r['pinned'],
+        return ['id' => (int) $r['id'], 'topic' => (string) $r['topic'], 'title' => (string) $r['title'], 'text' => (string) $r['text'], 'pinned' => (bool) $r['pinned'], 'proposal' => (bool) ($r['proposal'] ?? false),
             'author' => (string) $r['author'], 'created_at' => (string) $r['created_at'], 'updated_at' => (string) $r['updated_at']];
     }
 }

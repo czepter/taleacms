@@ -853,7 +853,8 @@ final class Kernel
             $app->session->set('pending_oauth', null);
             $access = \Talea\Front\OAuth::access($app->request->post('access') ?: 'drafts'); // no choice sent: drafts only, the default of the page
             $toolSet = \Talea\Mcp\Catalog::toolSet($app->request->post('tool_set')); // none sent: all tools, as before
-            ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ($toolSet === 'essentials' ? ', essentials' : '') . ')', 0, 100));
+            $toolSet = in_array($toolSet, \Talea\Mcp\Catalog::offered($app->settings()), true) ? $toolSet : 'all'; // a set this site does not offer (Fleet) is all
+            ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ')', 0, 100));
 
             return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access, $toolSet));
         }

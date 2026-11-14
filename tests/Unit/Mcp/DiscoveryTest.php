@@ -10,6 +10,7 @@ use Talea\Mcp\Catalog;
 use Talea\Mcp\Discovery;
 use Talea\Mcp\Server;
 use Talea\Mcp\Tools;
+use Talea\Tests\Support\FakeSettings;
 
 /** #52: the Essentials tool set – every tool belongs to exactly one runner, the runners' annotations hold, tools/list is much shorter. */
 #[CoversClass(Discovery::class)]
@@ -100,6 +101,7 @@ final class DiscoveryTest extends TestCase
         $this->assertNotContains('run_tool', $names('read'));
         $this->assertContains('run_tool', $names('drafts'));
         $this->assertNotContains('save_collection_item', $names('read'));
+        $this->assertNotContains('migration_report', array_column($forAccess('read'), 'name'), 'a read-only connection has no tool that makes the site fetch an address');
     }
 
     public function testFindToolsListsWhatTheEssentialsDoNot(): void
@@ -131,11 +133,35 @@ final class DiscoveryTest extends TestCase
         $this->assertStringContainsString('sends something', Discovery::refusal('run_tool', 'send_test_newsletter'));
     }
 
-    public function testToolSetsKnowOnlyAllAndEssentials(): void
+    public function testToolSetsAreKnownByName(): void
     {
-        $this->assertSame('essentials', Catalog::toolSet('essentials'));
-        $this->assertSame('all', Catalog::toolSet('all'));
+        foreach (['essentials', 'migration', 'fleet', 'all'] as $set) {
+            $this->assertSame($set, Catalog::toolSet($set));
+        }
         $this->assertSame('all', Catalog::toolSet(''), 'an unknown value (an old row, an old form) is all tools');
         $this->assertSame('all', Catalog::toolSet('everything'));
+        $this->assertNull(Catalog::listed('all'));
+        $this->assertSame(Catalog::MIGRATION, Catalog::listed('migration'));
+    }
+
+    public function testEveryListedSetHoldsRealToolsAndStaysShort(): void
+    {
+        $all = $this->everyTool();
+        foreach (Catalog::SETS as $set => $tools) {
+            foreach ($tools as $name) {
+                $this->assertArrayHasKey($name, Catalog::TOOLS, $set . ': ' . $name);
+            }
+            $listed = Discovery::essentials($all, 'full', $tools);
+            $this->assertLessThan(count($all) / 2, count($listed), $set);
+            $this->assertLessThan(60 * 1024, strlen((string) json_encode($listed)), $set . ' list stays small');
+        }
+        $this->assertContains('read_old_page', Catalog::MIGRATION);
+        $this->assertContains('layout_queue', Catalog::MIGRATION);
+    }
+
+    public function testFleetIsOfferedOnlyOnAConsole(): void
+    {
+        $this->assertSame(['essentials', 'migration', 'all'], Catalog::offered(FakeSettings::site(['extensions' => 'news'])));
+        $this->assertSame(['essentials', 'migration', 'fleet', 'all'], Catalog::offered(FakeSettings::site(['extensions' => 'news,fleet'])));
     }
 }

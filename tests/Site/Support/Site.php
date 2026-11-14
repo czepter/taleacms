@@ -282,6 +282,39 @@ final class Site
         return (string) ($this->mcp($tool, $arguments, $token)['result']['content'][0]['text'] ?? '');
     }
 
+    /**
+     * A tool of Mcp\Confirmation: the first call answers with a code, the same call with it acts – the second answer (as mcp()).
+     * An answer without a code (the tool refused before, or the call needs none) is returned as it is.
+     *
+     * @param array<string, mixed>|object $arguments
+     * @return array<string, mixed>
+     */
+    public function mcpConfirmed(string $tool, array|object $arguments = [], ?string $token = null): array
+    {
+        $first = $this->mcp($tool, $arguments, $token);
+        $text = json_decode((string) ($first['result']['content'][0]['text'] ?? ''), true);
+        if (!is_array($text) || empty($text['confirmation_required']) || !is_string($text['confirmation'] ?? null)) {
+            return $first;
+        }
+
+        return $this->mcp($tool, array_merge((array) $arguments, ['confirmation' => $text['confirmation']]), $token);
+    }
+
+    /** mcpConfirmed(), the tool's text decoded when it is JSON (as mcpResult). */
+    public function mcpConfirmedResult(string $tool, array|object $arguments = [], ?string $token = null): mixed
+    {
+        $text = $this->mcpConfirmed($tool, $arguments, $token)['result']['content'][0]['text'] ?? '';
+        $decoded = json_decode((string) $text, true);
+
+        return $decoded ?? $text;
+    }
+
+    /** mcpConfirmed(), the raw text (as mcpText). */
+    public function mcpConfirmedText(string $tool, array|object $arguments = [], ?string $token = null): string
+    {
+        return (string) ($this->mcpConfirmed($tool, $arguments, $token)['result']['content'][0]['text'] ?? '');
+    }
+
     /** The request log the fake outside-services server wrote for $name (oauth, search, sheets …); empty when there is none. */
     public function fakeLog(string $name): string
     {

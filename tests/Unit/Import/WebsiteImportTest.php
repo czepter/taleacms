@@ -34,6 +34,12 @@ final class WebsiteImportTest extends TestCase
             str_contains($webPage['content'], 'cookies'), str_contains($webPage['content'], 'alert'), str_contains($webPage['content'], '<form'), str_contains($webPage['content'], '<h1'),
             str_contains($webPage['content'], 'src="https://www.a.cz/img/team.jpg"'), str_contains($webPage['content'], 'href="/contact"'), str_contains($webPage['content'], 'href="https://other.cz/"'), $webPage['article'],
         ], '2.6 WebImport::extract: the main content without the header, footer, cookie bar, script and form');
+        $seoPage = \Talea\Core\WebImport::extract('<html><head><title>About us | Acme</title><meta property="og:image" content="/og.png"></head><body><main><h1>About us</h1><p>' . str_repeat('Long enough text. ', 8) . '</p></main></body></html>', 'https://www.a.cz/about-us/');
+        $this->assertSame(['form'], array_column($webPage['widgets'], 'kind'), '#339 WebImport::extract: the form is a widget (a marker in the content), not lost');
+        $this->assertStringContainsString('<talea-widget title="0"></talea-widget>', $webPage['content']);
+        $this->assertSame(['About us | Acme', 'https://www.a.cz/og.png'], [$seoPage['seo_title'], $seoPage['share_image']], '#339 WebImport::extract: the full <title> and the share image');
+        $this->assertSame(['https://a.cz/files/price-list.pdf', 'https://www.a.cz/a.docx'], \Talea\Core\WebImportFiles::documentLinks(
+            '<a href="/files/price-list.pdf">a</a><a href="https://www.a.cz/a.docx">b</a><a href="https://cdn.other.example/b.pdf">c</a><a href="/page.html">d</a><a href="mailto:x@a.cz">e</a><a href="/files/pic.zip">f</a>', 'https://a.cz'), '#339 documents the old site itself links to');
         $webArticle = \Talea\Core\WebImport::extract('<html><head><title>New workshop</title><meta property="article:published_time" content="2025-03-04T10:00:00+01:00"></head><body><article><p>' . str_repeat('We opened a new workshop. ', 6) . '</p></article></body></html>', 'https://a.cz/2025/03/new-workshop');
         $this->assertSame(['New workshop', '2025-03-04', true], [$webArticle['title'], substr($webArticle['date'], 0, 10), $webArticle['article']], '2.6 WebImport::extract: an article with its date, the title from <title> without the site name');
         $this->assertSame([true, false, false], [(new \Talea\Core\ImageDownloader('https://a.cz', true))->isAllowedUrl('https://cdn.wix.example/x.jpg'),

@@ -125,7 +125,7 @@ final class NewsletterJourneyTest extends SiteTestCase
         $site = $this->site();
         $site->runTasks();
         $draft = $site->mcpResult('draft_newsletter', ['subject' => 'Third letter', 'intro' => 'Hello again.', 'news_mode' => 'none']);
-        $answer = $site->mcp('send_newsletter', ['id' => $draft['id']]);
+        $answer = $site->mcpConfirmed('send_newsletter', ['id' => $draft['id']]);
         $this->assertStringContainsString('There are no confirmed subscribers yet.', (string) json_encode($answer), 'nobody left to send to');
         $all = $site->mcpResult('list_newsletters');
         $this->assertSame(0, $all['confirmed_subscribers'], 'Claude sees no confirmed subscriber');
@@ -154,7 +154,7 @@ final class NewsletterJourneyTest extends SiteTestCase
     {
         $site = $this->site();
         $draft = $site->mcpResult('draft_newsletter', ['subject' => $subject, 'intro' => 'Hello, here is our news.', 'news_mode' => 'none']);
-        $sent = $site->mcpResult('send_newsletter', ['id' => $draft['id']]);
+        $sent = $site->mcpConfirmedResult('send_newsletter', ['id' => $draft['id']]);
         $this->assertSame('sending', $sent['status'] ?? null, "$subject starts sending");
 
         return $site->rowId($draft['id']);

@@ -233,7 +233,7 @@ final class AgentJournal
         }
         $result = ['restored' => 0, 'removed' => 0, 'conflicts' => [], 'untracked' => $untracked, 'undone' => false];
         // restoring the settings row can change the instructions for Claude: that change is recorded like any other (#149)
-        $instructions = fn (): string => (string) ($db->value("SELECT value FROM {settings} WHERE name = 'claude_instructions'") ?? '');
+        $instructions = fn (): string => ClaudeInstructions::combine((string) ($db->value("SELECT value FROM {settings} WHERE name = 'claude_instructions'") ?? ''), Blueprint::claudeTexts($db));
         $instructionsBefore = $instructions();
         $db->transaction(function (Db $host) use ($rows, $force, &$result): void {
             foreach (array_reverse($rows) as $row) {
