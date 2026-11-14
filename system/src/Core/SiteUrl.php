@@ -14,7 +14,40 @@ final class SiteUrl
     /** The address the server sets (TALEA_SITE_URL without a trailing slash); '' = none, the stored setting rules. */
     public static function fromEnvironment(): string
     {
-        return rtrim(Config::env('SITE_URL'), '/');
+        return self::normalize(Config::env('SITE_URL'));
+    }
+
+    /**
+     * The address in one shape: scheme and host in lower case, no trailing slash, no trailing dot of the host, no port that is the
+     * scheme's default. An address that is not just scheme, host and port (a path, a query, a user) is returned as it is, without a
+     * trailing slash – the validator refuses it.
+     */
+    public static function normalize(string $url): string
+    {
+        $url = trim($url);
+        $parts = parse_url($url);
+        if ($parts === false || !isset($parts['scheme'], $parts['host']) || !in_array($parts['path'] ?? '', ['', '/'], true) || isset($parts['query']) || isset($parts['fragment']) || isset($parts['user'])) {
+            return rtrim($url, '/');
+        }
+        $scheme = strtolower($parts['scheme']);
+        $port = $parts['port'] ?? null;
+
+        return $scheme . '://' . rtrim(strtolower($parts['host']), '.') . ($port !== null && !(($scheme === 'https' && $port === 443) || ($scheme === 'http' && $port === 80)) ? ':' . $port : '');
+    }
+
+    /**
+     * How many accounts would lose every passkey that works on the site when its address changes from $old to $new: passkeys belong to
+     * the host (user_passkeys.rp_id), so with another host they sign in no more and the account falls back to password plus second step.
+     * 0 when the host stays the same (or there was none).
+     */
+    public static function passkeyFallbacks(Db $db, string $old, string $new): int
+    {
+        $host = Passkey::rpId($old);
+        if ($host === '' || $host === Passkey::rpId($new)) {
+            return 0;
+        }
+
+        return (int) $db->value('SELECT COUNT(DISTINCT k.user_id) FROM {user_passkeys} k WHERE k.rp_id = ? AND NOT EXISTS (SELECT 1 FROM {user_passkeys} n WHERE n.user_id = k.user_id AND n.rp_id = ?)', [$host, Passkey::rpId($new)]);
     }
 
     /**

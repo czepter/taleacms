@@ -74,11 +74,54 @@ const ADMIN_PAGES = ['/admin.php', '/admin.php?module=pages', '/admin.php?module
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
   '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=forms', '/admin.php?module=forms&action=new', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
-  '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=status', '/admin.php?action=account',
+  '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=settings&tab=cookies', '/admin.php?module=status', '/admin.php?action=account',
   '/admin.php?module=bookings'];
 for (const url of ADMIN_PAGES) {
   await step(`open ${url}`, async () => { await visit(url); await nothingSpillsOut(); });
 }
+
+// #338: System status lists the groups with a problem first and open, the groups that are fine folded behind a tick
+await step('system status: problems first', async () => {
+  await visit('/admin.php?module=status');
+  const groups = await page.locator('details.health-group').evaluateAll((els) => els.map((e) => ({ open: e.open, badge: e.querySelector('summary .badge').textContent.trim() })));
+  if (!groups.length) { throw new Error('no groups'); }
+  const firstFine = groups.findIndex((g) => g.badge === '✓');
+  if (firstFine !== -1 && groups.slice(firstFine).some((g) => g.badge !== '✓')) { throw new Error('a group with a problem comes after one that is fine: ' + JSON.stringify(groups)); }
+  if (groups.some((g) => g.open !== (g.badge !== '✓'))) { throw new Error('a group is open when fine or folded with a problem: ' + JSON.stringify(groups)); }
+});
+
+// #338: a table wrapper that scrolls sideways is a keyboard region named after its heading; one that fits has none of it
+await step('a wide table is a keyboard region', async () => {
+  const state = () => page.evaluate(() => [...document.querySelectorAll('.tab-wrap')].map((b) => ({ over: b.scrollWidth > b.clientWidth + 1, tabindex: b.getAttribute('tabindex'), role: b.getAttribute('role'), label: b.getAttribute('aria-label') ?? '' })));
+  const check = (rows) => rows.forEach((r) => {
+    if (r.over && !(r.tabindex === '0' && r.role === 'region' && r.label !== '')) { throw new Error('a scrolling table is not a named region: ' + JSON.stringify(r)); }
+    if (!r.over && (r.tabindex !== null || r.role === 'region')) { throw new Error('a table that fits is a region: ' + JSON.stringify(r)); }
+  });
+  // a screen whose table is wider than its box in a narrow window (listings become cards below 640 px, so not narrower)
+  let narrowRows = null;
+  for (const url of ['/admin.php?module=status', '/admin.php?module=settings&tab=cookies', '/admin.php?module=users', '/admin.php?module=changelog', '/admin.php?module=redirects', '/admin.php?module=settings&tab=backups']) {
+    await page.setViewportSize({ width: 660, height: 800 });
+    await visit(url);
+    await page.locator('details.health-group').evaluateAll((els) => els.forEach((e) => { e.open = true; }));
+    await page.waitForTimeout(300);
+    const rows = await state();
+    check(rows);
+    if (rows.some((r) => r.over)) { narrowRows = url; await page.setViewportSize({ width: 1800, height: 900 }); await page.waitForTimeout(400); check(await state()); break; }
+  }
+  if (narrowRows === null) { throw new Error('no table scrolls sideways at 660 px on any screen: the check proves nothing'); }
+  await page.setViewportSize({ width: 1440, height: 900 });
+});
+
+// #338: Privacy and cookies fits a phone: the cookie table becomes cards, nothing makes the page wider than the screen
+await step('privacy and cookies on a phone', async () => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await visit('/admin.php?module=settings&tab=cookies');
+  const wider = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (wider > 0) { throw new Error(`the page is ${wider}px wider than the screen at 360 px`); }
+  await nothingSpillsOut();
+  if (!(await page.locator('table.listing-cards').count())) { throw new Error('the cookie table is not a card list on a phone'); }
+  await page.setViewportSize({ width: 1440, height: 900 });
+});
 
 // a collection's fields are tiles on the item form's grid, each with its settings in the sidebar (collections/form.php): the typing
 // shows on the tile, Earlier / Later moves it without a reload, and the item form lays the fields out by their width
@@ -1416,6 +1459,44 @@ await step('public site: home, phone menu, cookies', async () => {
   const toggle = page.locator('.tl-nav-switch, button[popovertarget]').first();
   if (await toggle.count()) { await toggle.click().catch(() => {}); await page.waitForTimeout(300); }
   await page.setViewportSize({ width: 1440, height: 900 });
+});
+
+// #331: the collection list script fetches a list only from its own page: a link to another origin inside the list's filter
+// buttons is an ordinary link (no fetch), a filter link of this page is still swapped in place
+await step('collection list: only its own page is fetched and swapped (#331)', async () => {
+  await visit('/');
+  const foreign = [];
+  await page.route('https://evil.example/**', (r) => { foreign.push(r.request().resourceType()); r.fulfill({ status: 200, contentType: 'text/html',
+    headers: { 'Access-Control-Allow-Origin': '*' }, body: '<!doctype html><title>elsewhere</title><div data-collection="x331"><p id="evil331">x</p></div>' }); });
+  const own = new URL(page.url());
+  const ownList = (u) => u.origin === own.origin && u.searchParams.get('f-x331') === 'own';
+  const ownAnswer = (r) => r.fulfill({ status: 200, contentType: 'text/html',
+    body: '<!doctype html><div class="tl-collection" data-collection="x331"><p id="swapped331">fresh</p></div>' });
+  await page.route(ownList, ownAnswer);
+  const plant = (href) => page.evaluate((h) => {
+    document.querySelector('[data-collection="x331"]')?.remove();
+    const w = document.createElement('div'); w.className = 'tl-collection'; w.setAttribute('data-collection', 'x331');
+    const ul = document.createElement('ul'); ul.className = 'tl-collection-filters'; const a = document.createElement('a'); a.href = h; a.textContent = 'go';
+    ul.append(document.createElement('li')); ul.firstChild.append(a); w.append(ul); document.body.prepend(w);
+  }, href);
+  // the home page has no collection list, so the server leaves lists.js out: load it as a list page would have it, then prove it listens
+  if (!await page.locator('script[src*="/image/lists.js"]').count()) { await page.addScriptTag({ url: new URL('/image/lists.js', own.origin).href }); }
+  if (!await page.locator('script[src*="/image/lists.js"]').count()) { throw new Error('lists.js is not on the page'); }
+  const ownKinds = [];
+  page.on('request', (rq) => { if (ownList(new URL(rq.url()))) { ownKinds.push(rq.resourceType()); } });
+  await plant(own.pathname + '?f-x331=own');
+  await page.evaluate(() => { window.__s331 = 1; }); // a full page load would clear it
+  await page.click('[data-collection="x331"] a');
+  await page.waitForSelector('#swapped331');
+  if (new URL(page.url()).searchParams.get('f-x331') !== 'own') { throw new Error('the own filter link did not change the address'); }
+  if (await page.evaluate(() => window.__s331) !== 1) { throw new Error('the own filter link reloaded the page instead of swapping the list'); }
+  if (ownKinds.join() !== 'fetch') { throw new Error('the own list was requested as: ' + ownKinds.join()); }
+  await plant('https://evil.example/p');
+  await Promise.all([page.waitForURL('https://evil.example/p'), page.click('[data-collection="x331"] a')]);
+  if (foreign.join() !== 'document') { throw new Error('a foreign list link was requested as: ' + foreign.join()); } // a fetch would be "fetch"
+  await page.unroute('https://evil.example/**');
+  await page.unroute(ownList, ownAnswer);
+  await visit('/');
 });
 
 for (const url of ['/services', '/contact', '/news', '/search?q=test']) {

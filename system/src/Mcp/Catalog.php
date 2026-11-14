@@ -154,6 +154,9 @@ final class Catalog
         'get_search_performance' => ['read', ''],
         // Moving a site (2.7)
         'migration_report' => ['read', ''],
+        'read_old_page' => ['read', ''],
+        'list_layout_queue' => ['read', ''],
+        'layout_queue' => ['draft', ''], // ticking a page off is a work note, never publishing
         // A site that runs itself (2.8)
         'get_health' => ['read', ''],
         'list_events' => ['read', ''],
@@ -201,6 +204,9 @@ final class Catalog
         'propose_booking_times' => ['write', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
+        'fleet_calendar' => ['read', 'fleet'],
+        'fleet_inventory' => ['read', 'fleet'],
+        'fleet_plan' => ['read', 'fleet'],
         // The owner's sites (multisite, only with TALEA_MULTISITE and for administrators): Handlers\SiteTools
         'list_owner_sites' => ['read', ''],
         'create_site' => ['write', ''],
@@ -238,10 +244,15 @@ final class Catalog
     ];
 
     /**
-     * Tools that reach outside the site (an upload from an address, an import, the migration report that fetches the old
-     * site) – the MCP openWorldHint, and a reason for run_destructive_tool.
+     * THE list of tools that make the site fetch something from outside (an upload from an address, an import, the migration
+     * report that fetches the old site, a domain check) – the MCP openWorldHint, a reason for run_destructive_tool, and the
+     * rule that only a connection with full access may use them (fetchesUrl, fetchRefusal, allows). A new tool that downloads
+     * or reads another address (read_old_page …) goes here; an add-on tool declares `openWorld` in Api::mcpTool.
      */
-    public const array OPEN_WORLD = ['upload_file', 'upload_files', 'replace_media', 'import_website', 'migration_report', 'check_site_domain'];
+    public const array OPEN_WORLD = ['upload_file', 'upload_files', 'replace_media', 'import_website', 'migration_report', 'read_old_page', 'check_site_domain'];
+
+    /** OPEN_WORLD tools that reach outside only with this argument (upload_files: in any of its files); the others on every call. */
+    public const array FETCH_ARGUMENTS = ['upload_file' => 'url', 'upload_files' => 'url', 'replace_media' => 'url'];
 
     /**
      * Writes that send something to a person (an e-mail to a customer or a test newsletter): the runner treats them like a
@@ -255,8 +266,25 @@ final class Catalog
      */
     public const array SITE_TOOLS = ['list_owner_sites', 'create_site', 'update_site', 'set_look_parent', 'transfer_site', 'trash_site', 'restore_site', 'add_site_domain', 'check_site_domain', 'update_site_domain', 'remove_site_domain'];
 
-    /** How a connection lists its tools: "all" (as before) or "essentials" (ESSENTIALS, find_tools and the runners it needs). */
-    public const array TOOL_SETS = ['all', 'essentials'];
+    /**
+     * How a connection lists its tools: "all" (as before), "essentials" (ESSENTIALS), "migration" (MIGRATION: moving a site here) or "fleet"
+     * (FLEET: the console of several Talea sites) – each with find_tools and the runners it needs. A set decides which tools Claude sees
+     * first; the connection's access and the user's role still decide what it may do.
+     */
+    public const array TOOL_SETS = ['all', 'essentials', 'migration', 'fleet'];
+
+    /** The tools of a site move: the import, old pages, rebuilding, redirects, media, forms and the check. */
+    public const array MIGRATION = ['site_info', 'list_pages', 'get_page', 'create_page', 'update_page', 'builder_schema', 'get_build', 'build_from_html', 'edit_build', 'save_build',
+        'publish_build', 'preview_link', 'list_classes', 'save_classes', 'update_design_system', 'apply_part_template', 'get_menu', 'save_menu', 'list_media', 'upload_file', 'upload_files',
+        'list_redirects', 'save_redirect', 'import_website', 'read_old_page', 'migration_report', 'list_layout_queue', 'layout_queue', 'list_forms', 'create_form', 'import_enquiries',
+        'site_audit', 'list_changes', 'undo_agent_session', 'read_notebook'];
+
+    /** The tools of a fleet console (extension fleet): the sites, their health and events. */
+    public const array FLEET = ['site_info', 'list_sites', 'get_site', 'get_health', 'list_events', 'site_audit', 'list_changes', 'list_requests', 'update_request', 'read_notebook',
+        'write_notebook', 'undo_agent_session'];
+
+    /** The listed tools of each set that lists only some (all lists every tool). */
+    public const array SETS = ['essentials' => self::ESSENTIALS, 'migration' => self::MIGRATION, 'fleet' => self::FLEET];
 
     /**
      * The core tools an essentials connection lists: pages, the builder, the menu and the look, collections, media,
@@ -290,10 +318,65 @@ final class Catalog
         return in_array($set, self::TOOL_SETS, true) ? $set : 'all';
     }
 
+    /** The tools a set lists up front, or null for "all" (every tool the connection may use). @return list<string>|null */
+    public static function listed(string $set): ?array
+    {
+        return self::SETS[self::toolSet($set)] ?? null;
+    }
+
+    /**
+     * The sets a site offers on the consent screen and in My account: Fleet only on a fleet console.
+     *
+     * @return list<string>
+     */
+    public static function offered(\Talea\Core\Settings $settings): array
+    {
+        return ['essentials', 'migration', ...(\Talea\Core\Extensions::isEnabled($settings, 'fleet') ? ['fleet'] : []), 'all'];
+    }
+
     /** Does the tool reach outside the site? */
     public static function isOpenWorld(string $name): bool
     {
-        return in_array($name, self::OPEN_WORLD, true) || $name === 'run_destructive_tool';
+        return in_array($name, self::OPEN_WORLD, true) || $name === 'run_destructive_tool' || (bool) (\Talea\Extension\Registry::get()->tool($name)['open_world'] ?? false);
+    }
+
+    /** Does this call make the site fetch something from an address outside it? Only full-access connections may (fetchRefusal). */
+    public static function fetchesUrl(string $name, array $arguments): bool
+    {
+        if (isset(self::META[$name]) || !self::isOpenWorld($name)) {
+            return false;
+        }
+        $key = self::FETCH_ARGUMENTS[$name] ?? null;
+        if ($key === null) {
+            return true;
+        }
+        $given = static fn (mixed $v): bool => is_string($v) && trim($v) !== '';
+        if ($name === 'upload_files') {
+            $files = is_array($arguments['files'] ?? null) ? $arguments['files'] : [];
+
+            return array_filter($files, static fn (mixed $f): bool => is_array($f) && $given($f[$key] ?? null)) !== [];
+        }
+
+        return $given($arguments[$key] ?? null);
+    }
+
+    /** A tool that reaches outside on every call (not only with an argument): never listed or run for a connection without full access. */
+    public static function alwaysFetches(string $name): bool
+    {
+        return !isset(self::META[$name]) && !isset(self::FETCH_ARGUMENTS[$name]) && self::isOpenWorld($name);
+    }
+
+    /** Why this call is refused to a connection with $connectionAccess (full | drafts | read); null = it may run. */
+    public static function fetchRefusal(string $connectionAccess, string $name, array $arguments): ?string
+    {
+        if ($connectionAccess === 'full' || !self::fetchesUrl($name, $arguments)) {
+            return null;
+        }
+        if (isset(self::FETCH_ARGUMENTS[$name])) {
+            return 'Only a connection with full access makes the site download from an address. Send the file itself instead: data (base64) in upload_file or upload_files, or an upload link from request_upload.';
+        }
+
+        return 'Only a connection with full access makes the site fetch another address (' . $name . '). The user can do it in the administration, or connect Claude with full access.';
     }
 
     /** Is this a tool of the system or of an add-on (3.0)? */
@@ -323,10 +406,15 @@ final class Catalog
     /** Connection access levels (2.2) => the tool access they allow. */
     public const array CONNECTION_ACCESS = ['full' => ['read', 'draft', 'write', 'destructive'], 'drafts' => ['read', 'draft'], 'read' => ['read']];
 
-    /** May a connection with this access run the tool? */
+    /**
+     * May a connection with this access run the tool? A tool that fetches from outside on every call (alwaysFetches) is for
+     * full access only, whatever its own access level (migration_report is a read); upload_* take a url only on full access
+     * (fetchRefusal, checked when the call arrives).
+     */
     public static function allows(string $connectionAccess, string $name): bool
     {
-        return in_array(self::access($name), self::CONNECTION_ACCESS[$connectionAccess] ?? self::CONNECTION_ACCESS['read'], true);
+        return in_array(self::access($name), self::CONNECTION_ACCESS[$connectionAccess] ?? self::CONNECTION_ACCESS['read'], true)
+            && ($connectionAccess === 'full' || !self::alwaysFetches($name));
     }
 
     /** The method of Tools that runs the tool: site_info => toolSiteInfo. */

@@ -65,7 +65,8 @@ final class Totp
     }
 
     /**
-     * Eight one-time backup codes in case the phone is lost.
+     * Eight one-time backup codes in case the phone is lost: 64 bits each, written xxxx-xxxx-xxxx-xxxx. Codes made before were shorter
+     * (xxxxx-xxxxx) and keep working: only the sha256 of the code is stored (useBackupCode).
      *
      * @return array{0: list<string>, 1: string} readable codes and the JSON of hashes to store
      */
@@ -73,7 +74,7 @@ final class Totp
     {
         $codes = [];
         for ($i = 0; $i < 8; $i++) {
-            $codes[] = substr(bin2hex(random_bytes(5)), 0, 5) . '-' . substr(bin2hex(random_bytes(5)), 0, 5);
+            $codes[] = implode('-', str_split(bin2hex(random_bytes(8)), 4));
         }
 
         return [$codes, (string) json_encode(array_map(fn (string $k): string => hash('sha256', $k), $codes))];

@@ -9,6 +9,9 @@ if (Talea\Core\SiteUrl::locked($app->db())) {
 } else {
     $field('site_url', 'Site address', 'url', 'For example https://www.example.com, without a trailing slash. Links in e-mails, RSS, the sitemap and notifications are built from it. Change it after moving to another domain.', 'required placeholder="https://"');
 }
+if (in_array('site_url', $invalidFields, true) && !Talea\Core\SiteUrl::locked($app->db())) {
+    echo '<div class="row"><span class="caption"></span><div><label><input type="checkbox" name="site_url_confirm" value="1"> ', e(t('Change the host name anyway')), '</label></div></div>';
+}
 $field('site_description', 'Site description', 'lines', 'One or two sentences – a motto, a description for search engines and RSS.');
 $field('site_email', 'Site email', 'email', 'System notifications are sent to it.');
 ?>
@@ -20,6 +23,8 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 <?php endforeach ?>
 	</select><span class="help"><?= e(t('Anyone who must have it and has not turned it on yet can only reach My account after signing in until they set it up.')) ?></span></div>
 </div>
+<?php $field('passkey_only', 'Passkey-only sign-in', 'flag', 'Every account that has a passkey for this site signs in only with it, or with the password and a backup code. It applies to an account only once it has a passkey for this site, so nobody is locked out.'); ?>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'weaken-confirm', 'help' => t('Needed to make two-factor or passkey-only sign-in weaker – unless you signed in less than 10 minutes ago.')]) ?>
 <?php $autoSuspend = explode(',', $values['auto_suspend'] ?? ''); ?>
 <div class="row">
 	<span class="caption"><?= e(t('Suspend automatically')) ?></span>

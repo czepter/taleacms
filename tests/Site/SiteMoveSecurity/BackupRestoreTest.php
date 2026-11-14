@@ -46,4 +46,32 @@ final class BackupRestoreTest extends SiteTestCase
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_change_log WHERE action = 'backup_delete' AND description = ?", [$backup]));
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_events WHERE type = 'backup.deleted' AND message LIKE ?", ['%' . $backup . '%']));
     }
+
+    public function testRestoringTheOldestOfTenBackupsKeepsItsFile(): void
+    {
+        $site = $this->site();
+        $this->adminPost('/admin.php?module=settings&action=backup', [], '/admin.php?module=settings&tab=backups');
+        $backup = $this->newestBackup($site);
+        $this->assertNotSame('', $backup);
+        $folder = $site->path('storage/backups');
+        $ext = str_ends_with($backup, '.gz') ? '.sql.gz' : '.sql';
+        // the file to restore is the oldest of everything; nine copies are newer
+        foreach (glob($folder . '/talea-*') ?: [] as $other) {
+            if (basename($other) !== $backup) {
+                touch($other, time() - 3600);
+            }
+        }
+        touch($folder . '/' . $backup, time() - 20 * 3600);
+        for ($n = 1; $n <= 9; $n++) {
+            $copy = $folder . sprintf('/talea-20260101-0000%02d-copy-%08x', $n, $n) . $ext;
+            copy($folder . '/' . $backup, $copy);
+            touch($copy, time() - (19 - $n) * 3600);
+        }
+        $site->setting('site_name', 'Marker after the backup');
+        $this->adminPost('/admin.php?module=settings&action=restore_backup', ['file' => $backup], '/admin.php?module=settings&tab=backups');
+
+        $this->assertNotSame('Marker after the backup', $site->settingValue('site_name'), 'the restore worked: its file was not rotated away');
+        $this->assertFileExists($folder . '/' . $backup);
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_change_log WHERE action = 'backup_restore' AND description = ?", [$backup]));
+    }
 }

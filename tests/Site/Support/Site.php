@@ -73,6 +73,7 @@ final class Site
         $this->port = $this->startPhp($this->root, 'system/dev-router.php', [
             'TALEA_CAPTCHA_VERIFY' => 'http://127.0.0.1:' . $this->ports['captcha'] . '/', 'TALEA_CONNECTORS_FAKE' => 'http://127.0.0.1:' . $fake,
             'TALEA_AI_URL' => 'http://127.0.0.1:' . $fake . '/ai/v1/messages', 'TALEA_ANTISPAM_MIN' => '1', 'TALEA_IMPORT_LOCAL' => '1', 'TALEA_FIREWALL_LOCAL' => '1', 'TALEA_LINKS_LOCAL' => '1', 'TALEA_FLEET_LOCAL' => '1',
+            'TALEA_STRICT_DEPRECATIONS' => '1', // the tests fail on a deprecation; a site only logs it
         ] + ($this->options['env'] ?? []));
         $this->base = 'http://127.0.0.1:' . $this->port;
 
@@ -279,6 +280,39 @@ final class Site
     public function mcpText(string $tool, array|object $arguments = [], ?string $token = null): string
     {
         return (string) ($this->mcp($tool, $arguments, $token)['result']['content'][0]['text'] ?? '');
+    }
+
+    /**
+     * A tool of Mcp\Confirmation: the first call answers with a code, the same call with it acts – the second answer (as mcp()).
+     * An answer without a code (the tool refused before, or the call needs none) is returned as it is.
+     *
+     * @param array<string, mixed>|object $arguments
+     * @return array<string, mixed>
+     */
+    public function mcpConfirmed(string $tool, array|object $arguments = [], ?string $token = null): array
+    {
+        $first = $this->mcp($tool, $arguments, $token);
+        $text = json_decode((string) ($first['result']['content'][0]['text'] ?? ''), true);
+        if (!is_array($text) || empty($text['confirmation_required']) || !is_string($text['confirmation'] ?? null)) {
+            return $first;
+        }
+
+        return $this->mcp($tool, array_merge((array) $arguments, ['confirmation' => $text['confirmation']]), $token);
+    }
+
+    /** mcpConfirmed(), the tool's text decoded when it is JSON (as mcpResult). */
+    public function mcpConfirmedResult(string $tool, array|object $arguments = [], ?string $token = null): mixed
+    {
+        $text = $this->mcpConfirmed($tool, $arguments, $token)['result']['content'][0]['text'] ?? '';
+        $decoded = json_decode((string) $text, true);
+
+        return $decoded ?? $text;
+    }
+
+    /** mcpConfirmed(), the raw text (as mcpText). */
+    public function mcpConfirmedText(string $tool, array|object $arguments = [], ?string $token = null): string
+    {
+        return (string) ($this->mcpConfirmed($tool, $arguments, $token)['result']['content'][0]['text'] ?? '');
     }
 
     /** The request log the fake outside-services server wrote for $name (oauth, search, sheets …); empty when there is none. */

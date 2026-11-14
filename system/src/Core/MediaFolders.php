@@ -128,7 +128,7 @@ final class MediaFolders
      */
     public static function move(Db $db, int $id, ?int $parentId, ?string $name = null): void
     {
-        $lock = 'media-folders-' . $db->prefix;
+        $lock = 'media-folders-' . $db->ownerPrefix; // the folders are an owner table, shared by the sites of the owner
         $held = $db->lock($lock, 10); // ponytail: a lock not granted in 10 s is ignored – the transaction below still keeps one move consistent
         try {
             $db->transaction(function (Db $db) use ($id, $parentId, $name): void {

@@ -11,6 +11,9 @@
     "draft_blueprint": {
         "business": false
     },
+    "fleet_fix": {
+        "site_id": false
+    },
     "launch_site": {
         "business": false
     },

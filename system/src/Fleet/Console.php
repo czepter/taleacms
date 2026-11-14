@@ -17,7 +17,8 @@ use Talea\Core\Settings;
  *  - Heartbeat: each site reports every hour, signed; an older or repeated heartbeat is refused. The console stores the
  *    last one and answers, signed by its own key (and announces the newest design kit, Fleet\Kit).
  *  - Versions: the console shows which version each site runs; sites update by pulling a new image, never through the console.
- *  - Uptime: the console asks each site's home page every 5 minutes; down twice in a row = the event fleet.site_down.
+ *  - Uptime: the console asks each site's home page every 5 minutes; down twice in a row = the event fleet.site_down. The same
+ *    request reads the end of the site's certificate (Fleet\Http::probe), kept in cert_expires.
  * The console never calls into a site and holds no credentials for it: it only answers the sites.
  */
 final class Console
@@ -28,11 +29,12 @@ final class Console
 
     /** What a heartbeat may carry (Fleet\Heartbeat) – anything else is dropped. */
     private const array HEARTBEAT_KEYS = ['name', 'url', 'version', 'php', 'schema_version', 'status', 'problems', 'jobs_failing', 'cron_last_run', 'last_backup', 'offsite_backup',
-        'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version', 'error_reporting'];
+        'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version', 'error_reporting',
+        'database', 'web_server', 'extensions', 'languages'];
 
     /** Reasons for attention => weight; the list on the console is sorted by the sum. */
     public const array REASONS = [
-        'down' => 100, 'not_reporting' => 80, 'errors' => 60, 'jobs_failing' => 40, 'no_backup' => 30,
+        'down' => 100, 'not_reporting' => 80, 'errors' => 60, 'certificate' => 50, 'domain' => 45, 'jobs_failing' => 40, 'no_backup' => 30,
         'no_heartbeat' => 20, 'warnings' => 10, 'no_cron' => 5, 'enquiries' => 5, 'audit' => 2,
     ];
 
@@ -142,10 +144,12 @@ final class Console
     }
 
     /**
-     * Why a site needs attention, by weight (REASONS). Pure.
+     * Why a site needs attention, by weight (REASONS), and the items behind it (Fleet\Today). What a person accepted
+     * (fleet_sites.accepted, still in force) is not an open reason and not in the score: a reason leaves the open ones when all its
+     * items are accepted, and is listed under "accepted_reasons" ("accepted" stays the stored JSON of the row). Pure.
      *
      * @param array<string, mixed> $site a row of tl_fleet_sites
-     * @return array{score: int, reasons: list<string>}
+     * @return array{score: int, reasons: list<string>, accepted_reasons: list<string>, items: list<array<string, mixed>>} items carry "accepted" (the acceptance or null)
      */
     public static function attention(array $site, int $now): array
     {
@@ -176,6 +180,11 @@ final class Console
         if ($beat !== [] && (empty($beat['cron_last_run']) || $now - (int) $beat['cron_last_run'] > 86400)) {
             $reasons[] = 'no_cron';
         }
+        foreach (Expiry::KINDS as $kind => $column) {
+            if (($site[$column] ?? null) !== null && Expiry::severity($kind, (string) $site[$column], $now) !== null) {
+                $reasons[] = $kind; // the certificate or the domain registration ends soon (or has ended)
+            }
+        }
         if ((int) ($beat['enquiries_unanswered'] ?? 0) > 0) {
             $reasons[] = 'enquiries';
         }
@@ -183,7 +192,23 @@ final class Console
             $reasons[] = 'audit';
         }
 
-        return ['score' => array_sum(array_map(fn (string $r): int => self::REASONS[$r], $reasons)), 'reasons' => $reasons];
+        $acceptances = Today::decode($site);
+        $items = array_map(
+            fn (array $item): array => $item + ['accepted' => Today::holds($acceptances[$item['key']] ?? null, $item, $now) ? $acceptances[$item['key']] : null],
+            Today::items($site, $reasons, $beat, $now),
+        );
+        $open = [];
+        $accepted = [];
+        foreach ($reasons as $reason) {
+            $of = array_filter($items, fn (array $i): bool => $i['reason'] === $reason);
+            if ($of !== [] && array_filter($of, fn (array $i): bool => $i['accepted'] === null) === []) {
+                $accepted[] = $reason;
+            } else {
+                $open[] = $reason;
+            }
+        }
+
+        return ['score' => array_sum(array_map(fn (string $r): int => self::REASONS[$r], $open)), 'reasons' => $open, 'accepted_reasons' => $accepted, 'items' => $items];
     }
 
     /**
@@ -210,13 +235,19 @@ final class Console
     {
         $db = $app->db();
         $sites = array_values(array_filter(self::sites($db), fn (array $s): bool => $siteId === null || (int) $s['id'] === $siteId));
-        $statuses = Http::statuses(array_map(fn (array $s): string => (string) $s['url'] . '/', $sites));
+        $checks = Http::probe(array_map(fn (array $s): string => (string) $s['url'] . '/', $sites));
         $down = 0;
         foreach ($sites as $i => $site) {
-            $status = $statuses[$i] ?? 0;
+            $status = $checks[$i]['status'] ?? 0;
             $up = $status > 0 && $status < 500;
             $failures = $up ? 0 : min(255, (int) $site['up_failures'] + 1);
             $update = ['up_status' => $status, 'up_checked' => date('Y-m-d H:i:s'), 'up_failures' => $failures];
+            // the end of the certificate: a fresh date replaces the stored one; a failed handshake keeps what was known (Today then shows the expiry); a plain http site has none
+            if (($checks[$i]['certificate_ends'] ?? null) !== null) {
+                $update['cert_expires'] = date('Y-m-d H:i:s', (int) $checks[$i]['certificate_ends']);
+            } elseif (str_starts_with((string) $site['url'], 'http://')) {
+                $update['cert_expires'] = null;
+            }
             if ($up && $site['up'] !== null && (int) $site['up'] === 0) {
                 $update += ['up' => 1, 'up_changed' => date('Y-m-d H:i:s')];
                 Events::record($db, 'fleet.site_up', 'info', t('%s answers again.', (string) $site['url']), ['site' => (int) $site['id']]);
@@ -232,10 +263,30 @@ final class Console
                 $update['silent_reported'] = 1;
                 Events::record($db, 'fleet.site_silent', 'warning', t('%s has not sent its heartbeat for more than a day.', (string) $site['url']), ['site' => (int) $site['id']]);
             }
+            // a state that changed or whose last day passed is dropped: it must not come back when the old state returns
+            $accepted = Today::decode($site);
+            $pruned = Today::prune($accepted, self::attention($update + $site, time())['items'], time());
             $db->update('fleet_sites', $update, ['id' => (int) $site['id']]);
+            if ($pruned !== $accepted) {
+                self::storeAcceptances($db, (int) $site['id'], $site['accepted'] === null ? null : (string) $site['accepted'], $pruned);
+            }
         }
 
         return 'checked ' . count($sites) . ', down ' . $down;
+    }
+
+    /**
+     * Writes the pruned acceptances only if nobody changed them since they were read (the probes take seconds, and a person may accept
+     * a state meanwhile): a compare-and-swap on the stored text, portable to every engine. When it does not apply, the next run prunes again.
+     *
+     * @param ?string $was the stored text the pruning started from
+     * @param array<string, array<string, mixed>> $pruned
+     */
+    public static function storeAcceptances(Db $db, int $id, ?string $was, array $pruned): bool
+    {
+        $text = $pruned === [] ? null : json_encode($pruned, JSON_UNESCAPED_UNICODE);
+
+        return $db->run('UPDATE {fleet_sites} SET accepted = ? WHERE id = ? AND ' . ($was === null ? 'accepted IS NULL' : 'accepted = ?'), $was === null ? [$text, $id] : [$text, $id, $was])->rowCount() > 0;
     }
 
     /** @return list<array<string, mixed>> */

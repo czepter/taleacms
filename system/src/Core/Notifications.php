@@ -11,6 +11,14 @@ namespace Talea\Core;
  */
 final class Notifications
 {
+    /** True once a visit's response was handed to the visitor (the web server lets the script run on): only then a long job may run on that visit. */
+    private static bool $detached = false;
+
+    public static function detached(): bool
+    {
+        return self::$detached;
+    }
+
     /** After the page is sent to the visitor (index.php). */
     public static function runInBackground(App $app): void
     {
@@ -21,6 +29,10 @@ final class Notifications
         $s->set('notification_check', (string) time());
         if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();
+            self::$detached = true;
+        } elseif (function_exists('litespeed_finish_request')) {
+            litespeed_finish_request(); // LiteSpeed's lsapi
+            self::$detached = true;
         }
         ignore_user_abort(true);
         try {

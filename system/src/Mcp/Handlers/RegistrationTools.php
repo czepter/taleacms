@@ -44,7 +44,7 @@ trait RegistrationTools
                 $key = $row['source'] . "\0" . $row['element'];
                 $forms[$key] ??= \Talea\Front\Forms::findElement($db, (string) $row['source'], (string) $row['element'], 'form');
                 $out[] = ['id' => (int) $row['enquiry_id'], 'state' => $state, 'seats' => (int) $row['seats'], 'name' => Registrations::nameOf($forms[$key], (string) $row['data']),
-                    'email' => (string) $row['email'], 'created_at' => (string) $row['created_at']] + ($state === 'waitlisted' ? ['position' => $n + 1] : []);
+                    'email' => (string) $row['email'], 'created_at' => (string) $row['created_at']] + ($state === 'waitlisted' ? ['position' => $n + 1] : []) + \Talea\Mcp\Untrusted::mark(['name', 'email']);
             }
         }
 

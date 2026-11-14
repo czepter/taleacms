@@ -15,8 +15,56 @@ final class RemoteBackup
     /** Which media files are already copied (path => "size:mtime") and to which target. */
     public const string MEDIA_MANIFEST = Backup::FOLDER . '/media-copy.json';
 
+    /** The longest failure text kept in a status, an event or a message on screen. */
+    public const int FAILURE_LENGTH = 200;
+
     /** Seconds between background runs of the media copy when nothing is waiting. */
     private const int MEDIA_INTERVAL = 3600;
+
+    /**
+     * A failure of the off-site copy as one short line that is safe to show and to store: the passwords and the user name
+     * of the target, credentials in an address, e-mail addresses and the install folder are gone. Pure and idempotent, so a
+     * status saved earlier can be cleaned again when it is read.
+     */
+    public static function failureText(string $error, string ...$secrets): string
+    {
+        foreach ($secrets as $secret) {
+            if (mb_strlen($secret) < 4) {
+                continue;
+            }
+            foreach ([$secret, rawurlencode($secret), (string) preg_replace('/[\s|]+/u', ' ', $secret)] as $form) {
+                $error = str_ireplace($form, '…', $error);
+            }
+        }
+        $error = (string) preg_replace('#\b([a-z][a-z0-9+.-]*://)[^\s/@]+@#i', '$1', $error);
+        $error = ErrorReport::scrub($error);
+        $error = str_replace([TALEA_ROOT . '/', TALEA_ROOT], '', $error);
+        $error = trim((string) preg_replace('/[\s|]+/u', ' ', $error));
+        if (mb_strlen($error) > self::FAILURE_LENGTH) {
+            $error = rtrim(mb_substr($error, 0, self::FAILURE_LENGTH - 1)) . '…';
+        }
+
+        return $error;
+    }
+
+    private static function clean(Settings $s, string $error): string
+    {
+        return self::failureText($error, $s->get('backup_password'), $s->get('backup_user'));
+    }
+
+    /**
+     * A stored status with its failure text cleaned again: it may have been saved before the text was masked. The form is "date|ok or error"
+     * (backups) or "date|ok or error|files waiting" (media); an old error text may itself hold "|", so everything after the date is the
+     * text, except a trailing number written by Talea. Cleaning twice gives the same result.
+     */
+    public static function cleanStatus(Settings $s, string $status): string
+    {
+        if (!preg_match('/^([^|]*)\|(.*?)(\|\d+)?$/su', $status, $m) || in_array($m[2], ['', 'ok'], true)) {
+            return $status;
+        }
+
+        return $m[1] . '|' . self::clean($s, $m[2]) . ($m[3] ?? '');
+    }
 
     /** @return string|null error text, null = uploaded (or remote backup is turned off) */
     public static function upload(Settings $s, string $path): ?string
@@ -33,9 +81,13 @@ final class RemoteBackup
             }
             $error = null;
         } catch (\Throwable $e) {
-            $error = $e->getMessage();
+            $error = self::clean($s, $e->getMessage());
         }
         $s->set('remote_backup_status', date('Y-m-d H:i') . '|' . ($error ?? 'ok'));
+        if ($error !== null) {
+            // the automatic and the manual backup both end here: a failed copy is a failed backup (#336)
+            Events::record($s->db(), 'backup.failed', 'error', t('The off-site copy of the backup failed: %s', $error), ['file' => basename($path), 'offsite' => true]);
+        }
 
         return $error;
     }
@@ -91,14 +143,19 @@ final class RemoteBackup
                     $close();
                 }
             } catch (\Throwable $e) {
-                $error = $e->getMessage();
+                $error = self::clean($s, $e->getMessage());
             }
             if (!is_dir(Backup::FOLDER)) {
                 @mkdir(Backup::FOLDER, 0775, true);
             }
             file_put_contents(self::MEDIA_MANIFEST, (string) json_encode($manifest, JSON_UNESCAPED_SLASHES), LOCK_EX);
         }
+        $failing = !in_array(explode('|', $s->get('remote_media_status'))[1] ?? '', ['', 'ok'], true);
         $s->set('remote_media_status', date('Y-m-d H:i') . '|' . ($error ?? 'ok') . '|' . (count($pending) - $done));
+        if ($error !== null && !$failing) {
+            // once when the copy starts failing, not on every hourly retry
+            Events::record($s->db(), 'backup.failed', 'error', t('The off-site copy of the media failed: %s', $error), ['offsite' => true, 'media' => true]);
+        }
 
         return $error;
     }

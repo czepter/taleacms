@@ -136,6 +136,14 @@ final class DialectTest extends DatabaseTestCase
         $second->unlock('talea-dialect-test');
     }
 
+    public function testLockNamesAreScopedToTheDatabase(): void
+    {
+        $db = $this->db();
+        $this->assertSame($db->lockName('x'), $db->forSite('tl2_')->lockName('x'), 'one database, one scope');
+        $this->assertSame(Db::scopedLockName((string) $db->value($db->dialect()->lockScopeSql()), 'x'), $db->lockName('x'));
+        $this->assertNotSame($db->lockName('x'), $db->lockName('y'));
+    }
+
     public function testTableExistsAndDatabaseName(): void
     {
         $this->assertTrue($this->db()->tableExists('users'));

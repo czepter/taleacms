@@ -62,6 +62,7 @@ final class Users extends Module
             return $refusal;
         }
         $isSelf = $id === $this->app->auth()->id();
+        $before = $id > 0 ? $this->db->one('SELECT * FROM {users} WHERE user_id = ?', [$id]) : null;
         $data = [
             'username' => $r->post('username'),
             'name' => $r->post('name'),
@@ -82,6 +83,8 @@ final class Users extends Module
             $data['admin'] = Auth::ADMIN;
             $data['role'] = null;
             $data['blocked'] = 0;
+            // the own password, e-mail and two-factor sign-in change in My account, with the current password (Account) – never here
+            $data['email'] = (string) ($before['email'] ?? $data['email']);
         }
         if (!$data['blocked']) {
             $data['failed_logins'] = 0;
@@ -89,12 +92,11 @@ final class Users extends Module
         }
         // an administrator saving the account confirms it is wanted: the check of unused accounts (Core\SecurityHygiene) counts from now
         $data['confirmed_at'] = date('Y-m-d H:i:s');
-        if ($r->postBool('totp_reset')) {
+        if (!$isSelf && $r->postBool('totp_reset')) {
             // the user lost both the phone (or passkey device) and the backup codes: the administrator disables their two-factor sign-in
             $data['totp_secret'] = '';
             $data['totp_backup_codes'] = null;
-            $this->app->db()->run('DELETE FROM {user_passkeys} WHERE user_id = ?', [$id]); // a passkey is a second factor too: the account is left with the password only
-            $this->app->auth()->forgetOtherDevices($id); // and a remembered sign-in must not outlive the lost phone
+            $data['passkey_only'] = 0; // the passkeys go in the save, after the proof: nothing is left to be "only"
         }
 
         $errors = [];
@@ -107,7 +109,7 @@ final class Users extends Module
             $errors['email'] = 'The e-mail address is not valid.';
         }
         // the password as typed, like My account, the reset and the installer (3.3.3, N61); only blanks mean "no change"
-        $password = is_string($_POST['password'] ?? null) && trim($_POST['password']) !== '' ? $_POST['password'] : '';
+        $password = !$isSelf && is_string($_POST['password'] ?? null) && trim($_POST['password']) !== '' ? $_POST['password'] : '';
         $invite = $id === 0 && $r->postBool('invite');
         if ($invite && $data['email'] === '') {
             $errors['email'] = 'An invitation needs an e-mail.';
@@ -133,6 +135,15 @@ final class Users extends Module
             default => self::defaultModules((int) $data['admin']),
         };
 
+        // changes to another person that could take an account over or widen access need a fresh proof of the administrator (Auth::requireFresh)
+        if (!$isSelf) {
+            $modulesBefore = $id > 0 ? array_column($this->db->all('SELECT module FROM {user_permissions} WHERE user_id = ?', [$id]), 'module') : [];
+            if (self::sensitiveChanges($before, $data, $password !== '', $r->postBool('totp_reset'), array_values($modules), $modulesBefore) !== []
+                && ($refusal = $this->app->auth()->requireFresh($r)) !== null) {
+                return $this->form(['user_id' => $id] + $data, ['current_password' => $refusal]);
+            }
+        }
+
         // roles per site: the sites a person who is not an administrator may work on. Only a form that showed the choice changes it; "all
         // sites" is an explicit answer, and a limited person with nothing ticked has no site (Sites::limitedTo)
         $sitesShown = $r->postBool('sites_shown');
@@ -144,15 +155,23 @@ final class Users extends Module
                 $sites[] = (int) $site['site_id'];
             }
         }
-        $this->db->transaction(function () use (&$id, $data, $modules, $sites, $sitesShown, $limited): void {
+        $reactivated = $before !== null && (bool) $before['blocked'] && !$data['blocked'];
+        $totpReset = !$isSelf && $r->postBool('totp_reset');
+        $this->db->transaction(function () use (&$id, $data, $modules, $sites, $sitesShown, $limited, $reactivated, $totpReset, $r): void {
             if ($id > 0) {
                 $this->db->update('users', $data, ['user_id' => $id]);
+                if ($totpReset) {
+                    $this->db->delete('user_passkeys', ['user_id' => $id]); // a passkey is a second factor too: the account is left with the password only
+                    $this->app->auth()->forgetOtherDevices($id); // and a remembered sign-in must not outlive the lost phone
+                }
                 if (isset($data['password'])) {
                     // a new password ends the user's Claude connections and personal tokens: an administrator sets one when the
                     // account may be in the wrong hands, and a token would outlive the old password
-                    \Talea\Front\OAuth::revokeConnections($this->db, $id);
-                    $this->db->delete('api_tokens', ['user_id' => $id, 'kind' => 'token']);
+                    self::revokeAccess($this->db, $id);
                     $this->db->delete('user_devices', ['user_id' => $id]); // and no browser stays "known" to the old password
+                }
+                if ($reactivated && !$r->postBool('keep_connections')) {
+                    self::revokeAccess($this->db, $id); // a blocked account may have been blocked because a token leaked
                 }
             } else {
                 $id = $this->db->insert('users', $data);
@@ -180,6 +199,51 @@ final class Users extends Module
         }
 
         return $this->back('User saved.');
+    }
+
+    /** Ends the Claude connections (connected applications) and personal tokens of the account. @return int how many tokens went */
+    public static function revokeAccess(\Talea\Core\Db $db, int $id): int
+    {
+        return \Talea\Front\OAuth::revokeConnections($db, $id) + $db->delete('api_tokens', ['user_id' => $id, 'kind' => 'token']);
+    }
+
+    /**
+     * What a save changes that needs a fresh proof of the administrator (#332): another person's password, two-factor reset or e-mail,
+     * a new administrator, and every section for someone who is not one (it is the publishing role). Pure: the saved row, the form
+     * and the sections before and after decide.
+     *
+     * @param array<string, mixed>|null $before the stored row, null for a new person
+     * @param array<string, mixed> $data the new values (admin, email)
+     * @param list<string> $modules sections after the save
+     * @param list<string> $modulesBefore sections before it
+     * @return list<string> reasons: password | two_factor | email | administrator | every_section
+     */
+    public static function sensitiveChanges(?array $before, array $data, bool $passwordSet, bool $totpReset, array $modules, array $modulesBefore = []): array
+    {
+        $reasons = [];
+        if ($before !== null && $passwordSet) {
+            $reasons[] = 'password';
+        }
+        if ($before !== null && $totpReset) {
+            $reasons[] = 'two_factor';
+        }
+        if ($before !== null && strcasecmp((string) $before['email'], (string) $data['email']) !== 0) {
+            $reasons[] = 'email';
+        }
+        if ((int) $data['admin'] === Auth::ADMIN && ($before === null || (int) $before['admin'] !== Auth::ADMIN)) {
+            $reasons[] = 'administrator';
+        }
+        if ((int) $data['admin'] !== Auth::ADMIN && self::everySection($modules) && ($before === null || (int) $before['admin'] === Auth::ADMIN || !self::everySection($modulesBefore))) {
+            $reasons[] = 'every_section';
+        }
+
+        return $reasons;
+    }
+
+    /** Every section that can be given out one by one (Roles::configurable) is in $modules. @param list<string> $modules */
+    public static function everySection(array $modules): bool
+    {
+        return array_diff(array_keys(Roles::configurable()), $modules) === [];
     }
 
     /**
@@ -225,8 +289,9 @@ final class Users extends Module
             return $this->back('The account is not blocked.', type: 'error');
         }
         $this->db->update('users', ['blocked' => 0, 'auto_blocked_at' => null, 'failed_logins' => 0, 'locked_until' => null, 'confirmed_at' => date('Y-m-d H:i:s')], ['user_id' => $id]);
+        $revoked = self::revokeAccess($this->db, $id);
 
-        return $this->back('The account has been reactivated – the user can sign in again.');
+        return $this->back($revoked > 0 ? 'The account has been reactivated – the user can sign in again. Its Claude connections and personal tokens were revoked.' : 'The account has been reactivated – the user can sign in again.');
     }
 
     /** Revokes one Claude connection of the user: a personal token (token_id) or a connected application (klient). */

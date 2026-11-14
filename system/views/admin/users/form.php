@@ -39,6 +39,13 @@ $role = [
 	<label for="user"><?= e(t('User name')) ?></label>
 	<div><input class="textfield" type="text" id="user" name="username" value="<?= e($author['username']) ?>" maxlength="40" size="30" required><?= $error('username') ?></div>
 </div>
+<?php if ($isSelf): ?>
+<div class="row">
+	<span class="caption"><?= e(t('Email')) ?></span>
+	<div><?= e($author['email'] !== '' ? $author['email'] : '–') ?> <a href="<?= e($app->url('admin.php?action=account')) ?>"><?= e(t('Change it in My account')) ?></a>
+	<span class="help"><?= e(t('Your own password, e-mail and two-factor sign-in are changed in My account, with your current password.')) ?></span></div>
+</div>
+<?php else: ?>
 <div class="row">
 	<label for="email"><?= e(t('Email')) ?></label>
 	<div><input class="textfield wide" type="email" id="email" name="email" value="<?= e($author['email']) ?>" maxlength="190"><?= $error('email') ?></div>
@@ -53,6 +60,7 @@ $role = [
 <?php endif ?>
 	</div>
 </div>
+<?php endif ?>
 
 <fieldset>
 <legend><?= e(t('Roles')) ?></legend>
@@ -108,7 +116,7 @@ $role = [
 	</div>
 </div>
 <?php endif ?>
-<?php if ($hasTwoStep): ?>
+<?php if ($hasTwoStep && !$isSelf): ?>
 <div class="row">
 	<span class="caption"><?= e(t('Two-factor sign-in')) ?></span>
 	<div class="options"><span class="badge badge-published"><?= e(t('on')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone or passkey device and the backup codes)')) ?></label></div>
@@ -118,6 +126,9 @@ $role = [
 <div class="row">
 	<span class="caption"><?= e(t('Block account')) ?></span>
 	<div class="options"><label><input type="checkbox" name="blocked" value="1"<?= $author['blocked'] ? ' checked' : '' ?>> <?= e(t('user cannot sign in')) ?></label>
+<?php if ($author['blocked']): ?>
+	<label><input type="checkbox" name="keep_connections" value="1"> <?= e(t('keep its Claude connections and personal tokens when it is reactivated')) ?></label>
+<?php endif ?>
 <?php if ($author['blocked'] && !empty($author['auto_blocked_at'])): ?>
 	<span class="help"><?= e(t('Blocked automatically on %s – nobody had used the account for %d days. Untick the box and save to reactivate the account.', format_date($author['auto_blocked_at']), Talea\Core\SecurityHygiene::ACCOUNT_DAYS)) ?></span>
 <?php endif ?>
@@ -125,6 +136,10 @@ $role = [
 </div>
 <?php endif ?>
 </details>
+<?php if (!$isSelf): ?>
+<?= $app->view->render('admin/fresh_proof', ['app' => $app, 'id' => 'user-confirm', 'error' => isset($errors['current_password']) ? t($errors['current_password']) : null,
+    'help' => t('Needed when you set a password, change the e-mail, reset two-factor sign-in, make someone an administrator or give every section – unless you signed in less than 10 minutes ago.')]) ?>
+<?php endif ?>
 <p class="buttons"><input class="btn" type="submit" value="<?= e(t($author['user_id'] ? 'Save' : 'Add user')) ?>"></p>
 </form>
 <?php if ($author['user_id'] && ($connections ?? []) !== []): ?>

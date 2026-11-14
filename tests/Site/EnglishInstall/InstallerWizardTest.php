@@ -41,6 +41,16 @@ final class InstallerWizardTest extends SiteTestCase
         $this->assertStringContainsString('name="site_name" value="Acme"', $body, 'and its answers travel in hidden fields');
     }
 
+    public function testTheBusinessStepOffersAMoveFromAnotherPlatform(): void
+    {
+        $body = $this->post(['step' => 'website', 'go' => 'next', 'site_name' => 'Acme', 'site_language' => 'en', 'time_zone' => 'Europe/London']);
+        $this->assertStringContainsString('value="move"', $body, 'the business step lists the move');
+        $this->assertStringContainsString('Move a site here from WordPress or another platform', $body);
+        $body = $this->post(['step' => 'business', 'go' => 'next', 'blueprint' => 'move', 'site_name' => 'Acme', 'site_language' => 'en']);
+        $this->assertStringNotContainsString('Choose what kind of business it is.', $body, 'the move is a valid choice');
+        $this->assertStringContainsString('name="step" value="look"', $body, 'it goes on to the look');
+    }
+
     public function testLookCardShowsThePreview(): void
     {
         $body = $this->post(['step' => 'look', 'blueprint' => 'restaurant', 'look' => 'noir', 'site_name' => 'Acme', 'site_language' => 'en']);

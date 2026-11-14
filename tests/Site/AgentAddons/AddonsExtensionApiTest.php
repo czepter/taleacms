@@ -120,6 +120,35 @@ PHP . "\n");
         $this->deleteDirectory($this->site()->path('extensions/gate'));
     }
 
+    public function testAnOpenWorldAddonToolIsForFullAccessOnly(): void
+    {
+        // #334: an add-on tool that declares openWorld reaches outside the site – only a connection with full access lists and calls it
+        $this->extension('reach', '{"name":"Reach","class":"Reach\\\\Ext","requires":{"api":1}}', <<<'PHP'
+<?php namespace Reach; final class Ext implements \Talea\Extension\ExtensionInterface { public function register(\Talea\Extension\Api $api): void {
+    $api->mcpTool('fetch', 'Reaches outside.', [], 'read', fn (array $a): array => ['fetched' => true], '', true);
+    $api->mcpTool('look', 'Stays inside.', [], 'read', fn (array $a): array => ['looked' => true]);
+} }
+PHP . "\n");
+        $this->site()->exec("UPDATE tl_settings SET value = 'hello,reach' WHERE name = 'addons_enabled'");
+        $list = static fn (array $r): array => array_column((array) ($r['result']['tools'] ?? []), null, 'name');
+        $body = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
+
+        $full = $list($this->site()->mcpRaw($body));
+        $this->assertTrue($full['ext_reach_fetch']['annotations']['openWorldHint'] ?? null, 'the full connection lists it, marked as open world');
+        $this->assertFalse($full['ext_reach_look']['annotations']['openWorldHint'] ?? null);
+        $this->assertStringContainsString('fetched', $this->mcpRawText('ext_reach_fetch'));
+
+        $drafts = $this->draftsToken();
+        $listed = $list($this->site()->mcpRaw($body, $drafts));
+        $this->assertArrayNotHasKey('ext_reach_fetch', $listed, 'a drafts-only connection does not list it');
+        $this->assertArrayHasKey('ext_reach_look', $listed);
+        $this->assertStringContainsString('full access', $this->mcpRawText('ext_reach_fetch', [], $drafts));
+        $this->assertStringContainsString('looked', $this->mcpRawText('ext_reach_look', [], $drafts));
+
+        $this->site()->exec("UPDATE tl_settings SET value = 'hello' WHERE name = 'addons_enabled'");
+        $this->deleteDirectory($this->site()->path('extensions/reach'));
+    }
+
     public function testWithoutTheNewsSectionAnEditorReadsOnlyPublishedNews(): void
     {
         // 3.3.2 (N12)

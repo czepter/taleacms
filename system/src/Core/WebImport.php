@@ -24,12 +24,17 @@ use Talea\Admin\Modules\Redirects;
  *  - The work runs in batches of SECONDS (shared hosting), the state is a file in storage/import, and tl_import_map
  *    remembers what was imported, so running it again skips finished pages.
  * The design is not copied: the pages take the site's design system; Claude can match the look afterwards.
+ *
+ * @phpstan-type Extracted array{title: string, description: string, content: string, date: string, article: bool, widgets: list<array{kind: string, html: string, host: string}>, seo_title: string, share_image: string}
+ * @phpstan-type Page array{title: string, description: string, content: string, date: string, article: bool, widgets: list<array{kind: string, html: string, host: string}>, seo_title: string, share_image: string, text: string, seo: array{seo_title: string, image: string}}
  */
 final class WebImport
 {
     public const int MAX_PAGES = 300;
     private const float SECONDS = 15.0;
     private const int IMAGES_PER_PAGE = 40;
+    /** Seconds after the end of a step's batch in which a page may still start a download; the step stays well under the 60 s of the request. */
+    private const float DOWNLOAD_GRACE = 15.0;
     private const int MAX_SITEMAPS = 20;
 
     /** Addresses that are not content pages. */
@@ -42,14 +47,17 @@ final class WebImport
     private const array CONTENT = ['main', 'article', '[role="main"]', '#content', '#main', '.entry-content', '.post-content', '.page-content', '.content'];
 
     /** Parts of a page that are never content. */
-    private const string NOISE = 'script, style, noscript, template, iframe, form, nav, header, footer, aside, svg, button, dialog, [role="navigation"], [role="banner"], [role="contentinfo"], [aria-hidden="true"]';
+    private const string NOISE = 'script, style, noscript, template, nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"]';
+
+    /** Parts that are never content either, removed after the widgets (forms, frames, hidden panels of an accordion) were taken out of the page. */
+    private const string NOISE_AFTER_WIDGETS = 'iframe, form, svg, button, dialog, [aria-hidden="true"]';
 
     /** Classes and ids of cookie bars, pop-ups, sharing and comment blocks. */
-    private const string NOISE_NAMES = '/cookie|consent|gdpr|popup|modal|newsletter|share|sharing|social|breadcrumb|comment|related|sidebar|widget|skip-link|screen-reader/i';
+    private const string NOISE_NAMES = '/cookie|consent|gdpr|popup|modal|newsletter|share|sharing|social|breadcrumb|comment|related|sidebar|(?<![\w-])widget|skip-link|screen-reader/i';
 
     private float $end = 0.0;
 
-    public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $author, private readonly ImageDownloader $downloader)
+    public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $author, private readonly ImageDownloader $downloader, private readonly string $base = '')
     {
     }
 
@@ -68,8 +76,13 @@ final class WebImport
             'id' => substr(sha1($origin . microtime()), 0, 16), 'web' => $origin, 'domain' => ImageDownloader::domainFromUrl($origin), 'phase' => 'finding',
             'queue' => [$origin . '/'], 'maps' => [], 'maps_done' => false, 'urls' => [], 'position' => 0,
             'options' => ['language' => (string) ($options['language'] ?? ''), 'images' => (bool) ($options['images'] ?? true),
-                'redirects' => (bool) ($options['redirects'] ?? true), 'news' => (bool) ($options['news'] ?? true)],
-            'result' => ['pages' => 0, 'articles' => 0, 'images' => 0, 'redirects' => 0, 'skipped' => 0, 'failed' => 0],
+                'redirects' => (bool) ($options['redirects'] ?? true), 'news' => (bool) ($options['news'] ?? true),
+                'keep_starters' => null], // ids of the installer's starter pages that stay when an imported page wants their address; null = untouched ones are replaced (Core\StarterPages)
+            'starters' => ['replaced' => [], 'kept' => [], 'renamed' => []],
+            'result' => ['pages' => 0, 'articles' => 0, 'images' => 0, 'redirects' => 0, 'skipped' => 0, 'failed' => 0, 'parents' => 0, 'files' => 0],
+            'kept' => [], 'attention' => [], // what arrived as elements, by type; what needs the owner: [kind, old path, host] (Core\WebImportWidgets)
+            'paths' => [], // old path => id of the page this run made for it (the parent of a nested address)
+            'moved' => [], 'parents' => [], // the redirects written, and the empty parent pages made for nested addresses (listed in the result, at most MAX_LISTED each)
             'errors' => [], 'created' => date('Y-m-d H:i:s'),
         ];
     }
@@ -80,6 +93,61 @@ final class WebImport
         $c = parse_url(trim($url));
 
         return is_array($c) && in_array(strtolower((string) ($c['scheme'] ?? '')), ['http', 'https'], true) && ($c['host'] ?? '') !== '' && !isset($c['username']) && !isset($c['pass']);
+    }
+
+    /**
+     * What each page to be imported is going to be called, for the preview of the starter pages: [old address, slug, language column].
+     *
+     * @param array<string, mixed> $state
+     * @return list<array{old: string, slug: string, language: string}>
+     */
+    public static function targets(array $state, Settings $settings): array
+    {
+        $language = Language::column($settings, (string) $state['options']['language']);
+        $asNews = $state['options']['news'] && Extensions::isEnabled($settings, 'news');
+        $targets = [];
+        foreach (array_keys($state['urls']) as $url) {
+            $path = self::path($url);
+            if ($asNews && preg_match(self::ARTICLE, (string) parse_url($url, PHP_URL_PATH)) === 1) {
+                continue;
+            }
+            $slug = self::plannedSlug($path, '');
+            $targets[] = ['old' => '/' . $path, 'slug' => $slug, 'language' => $language];
+            // the parents of a nested address are made too – a starter page at one of them (Services) is met as well
+            $parts = explode('/', $slug);
+            while (count($parts) > 1) {
+                array_pop($parts);
+                $targets[] = ['old' => '/' . implode('/', $parts), 'slug' => implode('/', $parts), 'language' => $language];
+            }
+        }
+
+        return $targets;
+    }
+
+    /**
+     * The starter pages of this site that the pages to be imported would meet (action replace, keep, edited or home).
+     *
+     * @param array<string, mixed> $state
+     * @return list<array{old: string, page_id: int, public_id: string, title: string, address: string, published: bool, action: string}>
+     */
+    public static function starterChoices(Db $db, Settings $settings, array $state): array
+    {
+        return StarterPages::choices($db, $settings, self::targets($state, $settings), $state['options']['keep_starters']);
+    }
+
+    /**
+     * The preview is confirmed: the import starts.
+     *
+     * @param array<string, mixed> $state
+     * @param list<int>|null $keepStarters ids of the starter pages that stay; null = untouched ones are replaced
+     */
+    public static function confirm(array &$state, ?array $keepStarters): void
+    {
+        $state['options']['keep_starters'] = $keepStarters === null ? null : array_map('intval', $keepStarters);
+        // shallow addresses first: the parent of a nested address is a real page of the old site when the sitemap has it
+        uksort($state['urls'], fn (string $a, string $b): int => substr_count(self::path($a), '/') <=> substr_count(self::path($b), '/'));
+        $state['phase'] = 'import';
+        $state['position'] = 0;
     }
 
     /** @return array<string, mixed>|null */
@@ -197,6 +265,8 @@ final class WebImport
             $url = $urls[$state['position']];
             try {
                 $this->importPage($url, $state);
+            } catch (WebImportPaused) {
+                return; // the page continues in the next step (what it downloaded is remembered); the position stays
             } catch (\RuntimeException $e) {
                 $state['result']['failed']++;
                 $state['errors'] = array_slice([...$state['errors'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t($e->getMessage())], -15);
@@ -222,55 +292,218 @@ final class WebImport
         if ($html === null) {
             throw new \RuntimeException('The page could not be downloaded.');
         }
+        $this->importHtml($url, $html, $state);
+    }
+
+    /**
+     * Turns one downloaded page into a hidden page or news item (the part of importPage that needs no network).
+     *
+     * @param array<string, mixed> $state
+     */
+    public function importHtml(string $url, string $html, array &$state): void
+    {
+        $source = 'web:' . mb_substr((string) $state['domain'], 0, 36);
+        $key = sha1($url);
         $page = self::extract($html, $url);
-        if (trim(strip_tags($page['content'], '<img>')) === '') {
+        if (trim(strip_tags($page['content'], '<img><talea-widget>')) === '') {
             throw new \RuntimeException('The page has no content to import.');
         }
+        $language = Language::column($this->settings, (string) $state['options']['language']);
+        $old = self::path($url);
+        // widgets: placeholders for what cannot be brought over, images of the answers and panels in Media
+        $attention = $state['attention'] ?? [];
+        $page['widgets'] = WebImportWidgets::prepare($page['widgets'], $page['content'], $language !== '' ? $language : Language::defaults($this->settings), Extensions::isEnabled($this->settings, 'enquiries'), '/' . $old, $state);
+        $seo = ['seo_title' => $page['seo_title'] !== $page['title'] ? $page['seo_title'] : '', 'image' => ''];
         if ($state['options']['images']) {
-            $page['content'] = $this->images($page['content'], $state);
+            // one budget of documents and images for the page: its content and all its widgets share it
+            $files = new WebImportFiles($this->db, WebImportFiles::downloader((string) $state['web']), $this->author, $this->base, $this->mayDownload(...), '/' . $old);
+            $budget = ['left' => self::IMAGES_PER_PAGE, 'seen' => []];
+            try {
+                $page['content'] = $files->bring($this->images($page['content'], $state, $budget), $state);
+                foreach ($page['widgets'] as $i => $widget) {
+                    $page['widgets'][$i]['html'] = $widget['html'] === '' ? '' : $files->bring($this->images($widget['html'], $state, $budget), $state);
+                }
+            } catch (WebImportPaused $paused) {
+                $state['attention'] = $attention; // the page runs again from its start: its notes are made again then
+                throw $paused;
+            }
+            // the picture the old page showed in a share (og:image) is the page's own share image
+            $shared = $page['share_image'] !== '' ? $this->image($page['share_image'], $page['title'], $state) : null;
+            $seo['image'] = $shared === null ? '' : (string) $shared['image_path'];
+        }
+        $page['seo'] = $seo;
+        if ($seo['seo_title'] !== '' || $seo['image'] !== '') {
+            $state['kept']['seo'] = (int) ($state['kept']['seo'] ?? 0) + 1;
         }
         $page['content'] = self::safeContent($page['content']); // sanitized once more as the very last step before it is stored
-        $language = Language::column($this->settings, (string) $state['options']['language']);
+        $page['text'] = self::safeContent(WebImportWidgets::text($page['content'], $page['widgets']));
         $article = $state['options']['news'] && $page['article'] && Extensions::isEnabled($this->settings, 'news');
-        $old = self::path($url);
         if ($article) {
             $idc = $this->createArticle($page, $language);
             $this->map($source, 'news', $key, $idc);
             $state['result']['articles']++;
             $new = ($language !== '' ? $language . '/' : '') . 'news/' . (string) $this->db->value('SELECT slug FROM {news} WHERE news_id = ?', [$idc]);
         } else {
-            $ids = $this->createPage($page, $old, $language);
+            $planned = self::plannedSlug($old, $page['title']);
+            $parent = $this->parentOf($old, $language, $state);
+            $wanted = self::addressBelow($planned, $parent);
+            $held = StarterPages::makeRoom($this->db, $this->settings, $wanted, $language, $state['options']['keep_starters'] ?? null, $state['starters'], '/' . $old);
+            $ids = $this->createPage($page, $wanted, $language, $url, $parent, $parent === null, $state, '/' . $old);
             $this->map($source, 'page', $key, $ids);
+            $state['paths'][implode('/', self::segments($old))] = $ids;
             $state['result']['pages']++;
-            $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$ids]);
+            $final = (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$ids]);
+            if ($held && $final !== $wanted && count($state['starters']['renamed']) < WpImport::MAX_LISTED) {
+                $state['starters']['renamed'][] = ['old' => '/' . $old, 'new' => '/' . $final];
+            }
+            $new = ($language !== '' ? $language . '/' : '') . $final;
         }
         if ($state['options']['redirects'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'redirects')) {
             if (Redirects::addImported($this->db, $old, $new)) {
                 $state['result']['redirects']++;
+                if (count($state['moved'] ?? []) < WpImport::MAX_LISTED) {
+                    $state['moved'][] = ['from' => '/' . $old, 'to' => '/' . $new];
+                }
             }
         }
     }
 
-    /** @param array{title: string, description: string, content: string, date: string, article: bool} $page */
-    private function createPage(array $page, string $oldPath, string $language): int
+    /**
+     * The parts of an old path that make its address here: a leading language code of the old site (/de/…) is not one.
+     *
+     * @return list<string>
+     */
+    private static function segments(string $oldPath): array
     {
-        $base = $oldPath !== '' ? basename($oldPath) : 'home';
-        $seo = WpImport::availableSlug(
-            slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['title'], 110),
-            fn (string $url): bool => in_array($url, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null || ShortLinks::takesName($this->db, $url),
+        $segments = $oldPath === '' ? [] : explode('/', $oldPath);
+        if ($segments !== [] && isset(Language::AVAILABLE[$segments[0]]) && preg_match('/^' . Language::TAG . '$/D', $segments[0]) === 1) {
+            array_shift($segments);
+        }
+
+        return $segments;
+    }
+
+    /**
+     * The slug an old address would get here: the whole path, so /services/heating/boilers stays below its parents (an extension of
+     * the last part is cut off); the title when the last part has nothing to make a slug of; an empty path is the home page.
+     */
+    public static function plannedSlug(string $oldPath, string $title): string
+    {
+        $segments = self::segments($oldPath);
+        $last = count($segments) - 1;
+        $slugs = [];
+        foreach ($segments as $i => $segment) {
+            $slug = slugify($i === $last ? (string) preg_replace('/\.(html?|php|aspx?)$/i', '', $segment) : $segment, 110);
+            if ($slug === 'n-a' && $i === $last && $title !== '') {
+                $slug = slugify($title, 110);
+            }
+            $slugs[] = $slug;
+        }
+
+        return $slugs === [] ? 'home' : mb_substr(implode('/', $slugs), 0, 118);
+    }
+
+    /**
+     * The address of a page below its parent: the parent's address and the last part of its own.
+     *
+     * @param array{slug: string}|null $parent
+     */
+    private static function addressBelow(string $planned, ?array $parent): string
+    {
+        return $parent === null ? $planned : mb_substr($parent['slug'] . '/' . (string) preg_replace('#^.*/#', '', $planned), 0, 120);
+    }
+
+    /**
+     * The page a nested address lives below. This run's own page for that path, or a page of an earlier run; otherwise an empty
+     * hidden placeholder (its title from the address, no content), made on the spot with its own parents, so the address
+     * has a place in the tree – a page slug is the whole path (Admin\Modules\Pages::placement).
+     *
+     * @param array<string, mixed> $state
+     * @return array{page_id: int, slug: string}|null
+     */
+    private function parentOf(string $oldPath, string $language, array &$state): ?array
+    {
+        $segments = self::segments($oldPath);
+        array_pop($segments);
+        if ($segments === []) {
+            return null;
+        }
+        $path = implode('/', $segments);
+        $known = fn (int $id): ?array => $id > 0 ? $this->db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id]) : null;
+        if (($page = $known((int) ($state['paths'][$path] ?? 0))) !== null) {
+            return $page;
+        }
+        $source = 'web:' . mb_substr((string) $state['domain'], 0, 36);
+        foreach ([$state['web'] . '/' . $path . '/', $state['web'] . '/' . $path] as $address) {
+            $mapped = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type IN ('page', 'page_parent') AND source_id = ?", [$source, sha1($address)]);
+            if ($mapped !== null && ($page = $known((int) $mapped)) !== null) {
+                return $page;
+            }
+        }
+        $grandparent = $this->parentOf($path, $language, $state);
+        $planned = self::plannedSlug($path, '');
+        $slug = $this->freeAddress(self::addressBelow($planned, $grandparent), $language, $grandparent === null, $state, '/' . $path);
+        $id = $this->db->insert('pages', [
+            'slug' => $slug, 'title' => mb_substr(mb_convert_case(str_replace(['-', '_'], ' ', rawurldecode((string) end($segments))), MB_CASE_TITLE), 0, 200), 'text' => '', 'build' => null,
+            'visible' => 0, 'in_menu' => 0, 'parent_id' => $grandparent['page_id'] ?? null, 'language' => $language,
+            'import_source' => mb_substr($state['web'] . '/' . $path . '/', 0, 500), 'layout_pending' => 1, 'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+        $this->map($source, 'page_parent', sha1($state['web'] . '/' . $path . '/'), $id);
+        $state['paths'][$path] = $id;
+        $state['result']['parents'] = (int) ($state['result']['parents'] ?? 0) + 1;
+        if (count($state['parents']) < WpImport::MAX_LISTED) {
+            $state['parents'][] = ['old' => '/' . $path, 'new' => '/' . $slug];
+        }
+
+        return ['page_id' => $id, 'slug' => $slug];
+    }
+
+    /** Is the address no longer free for a new page: taken by a page or a short link in the language version, or – at the top level – reserved by the system? */
+    private function addressTaken(string $candidate, string $language, bool $topLevel): bool
+    {
+        return ($topLevel && (in_array($candidate, \Talea\Front\Kernel::reservedSlugs(), true) || isset(Language::AVAILABLE[$candidate])))
+            || Slug::taken($this->db, 'pages', $candidate, $language);
+    }
+
+    /**
+     * A free address for a new page: the wanted one unless a starter page of the installation that stays, a page, a short link or – at the top
+     * level – a reserved address already has it (the first free number then). Untouched starter pages at the address go to the trash first.
+     *
+     * @param array<string, mixed> $state
+     */
+    private function freeAddress(string $wanted, string $language, bool $topLevel, array &$state, string $old): string
+    {
+        StarterPages::makeRoom($this->db, $this->settings, $wanted, $language, $state['options']['keep_starters'] ?? null, $state['starters'], $old);
+
+        return WpImport::availableSlug(
+            $wanted,
+            fn (string $candidate): bool => $this->addressTaken($candidate, $language, $topLevel),
         );
-        $build = $this->build($page['title'], $page['content']);
+    }
+
+    /**
+     * @param Page $page
+     * @param array{page_id: int, slug: string}|null $parent
+     * @param array<string, mixed> $state
+     */
+    private function createPage(array $page, string $wanted, string $language, string $url, ?array $parent, bool $topLevel, array &$state, string $old): int
+    {
+        $seo = WpImport::availableSlug(
+            $wanted,
+            fn (string $candidate): bool => $this->addressTaken($candidate, $language, $topLevel),
+        );
+        $build = $this->build($page['title'], $page['content'], $page['widgets'], $state, $old);
 
         return $this->db->insert('pages', [
-            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 200), 'text' => $page['content'], 'build' => $build,
-            'description' => mb_substr($page['description'], 0, 300),
+            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 200), 'text' => $page['text'], 'build' => $build,
+            'description' => mb_substr($page['description'], 0, 300), 'seo_title' => mb_substr($page['seo']['seo_title'], 0, 200), 'image' => $page['seo']['image'],
             'visible' => 0, // hidden until the administrator checks it – nothing changes for visitors
-            'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
+            'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'language' => $language, 'parent_id' => $parent['page_id'] ?? null,
+            'import_source' => mb_substr($url, 0, 500), 'layout_pending' => 1,
         ]);
     }
 
-    /** @param array{title: string, description: string, content: string, date: string, article: bool} $page */
+    /** @param Page $page */
     private function createArticle(array $page, string $language): int
     {
         $category = (int) $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY category_id LIMIT 1', [$language]);
@@ -282,20 +515,25 @@ final class WebImport
         $now = date('Y-m-d H:i:s');
         $idc = $this->db->insert('news', [
             'slug' => $seo, 'title' => mb_substr($page['title'], 0, 255), 'intro' => $page['description'] !== '' ? '<p>' . e($page['description']) . '</p>' : '',
-            'text' => $page['content'], 'category_id' => $category, 'language' => $language, 'author_id' => $this->author,
+            'seo_title' => mb_substr($page['seo']['seo_title'], 0, 255), 'image' => str_contains($page['text'], $page['seo']['image']) ? '' : $page['seo']['image'],
+            'text' => $page['text'], 'category_id' => $category, 'language' => $language, 'author_id' => $this->author,
             'published_at' => $page['date'] !== '' ? $page['date'] : $now, 'visible' => 0, 'edited_at' => $now, 'announced_at' => $now, // never announced (webhook, IndexNow)
         ]);
         Search::index($this->db, $idc);
-        Media::recordUsage($this->db, $idc, '', '', $page['content']);
+        Media::recordUsage($this->db, $idc, '', '', $page['text']);
 
         return $idc;
     }
 
-    /** The page's HTML as a build, the same way as pages from WordPress: a heading and the content in a narrow section. */
-    private function build(string $title, string $html): ?string
+    /**
+     * The page's HTML as a build, the same way as pages from WordPress: a heading and the content in a narrow section.
+     *
+     * @param array<string, mixed> $state
+     */
+    private function build(string $title, string $html, array $widgets, array &$state, string $old): ?string
     {
         // the non-administrator converter: whatever site is imported never decides what goes into Custom HTML
-        $conversion = \Talea\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
+        $conversion = \Talea\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false, $widgets);
         $build = \Talea\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($this->db->all('SELECT name FROM {classes}'), 'name'));
         foreach ($build['children'] as &$section) {
             if ($section['type'] === 'section' && !isset($section['anchor'])) {
@@ -304,6 +542,13 @@ final class WebImport
         }
         unset($section);
         [$clean] = \Talea\Builder\Build::sanitize($build, false);
+        ['kept' => $kept, 'lostMaps' => $lostMaps] = WebImportWidgets::kept($clean, $widgets);
+        foreach ($kept as $type => $count) {
+            $state['kept'][$type] = (int) ($state['kept'][$type] ?? 0) + $count;
+        }
+        for ($i = 0; $i < $lostMaps && count($state['attention']) < 100; $i++) {
+            $state['attention'][] = ['kind' => 'map', 'path' => $old, 'host' => ''];
+        }
 
         return $clean['children'] === [] ? null : \Talea\Builder\Build::toJson($clean);
     }
@@ -313,20 +558,33 @@ final class WebImport
      * left out (a page must not keep loading images from the old site).
      *
      * @param array<string, mixed> $state
+     * @param array{left: int, seen: array<string, true>} $budget the images the page may still bring over, shared by its content and its widgets
+     * @throws WebImportPaused when this step has no time left for another download
      */
-    private function images(string $html, array &$state): string
+    private function images(string $html, array &$state, array &$budget): string
     {
-        $count = 0;
-
         // on the DOM, not with a regular expression over the markup: an attribute's text must never become a tag
-        return Html::rewriteImages($html, function (string $url, string $alt) use (&$count, &$state): array|false {
-            if (++$count > self::IMAGES_PER_PAGE || $url === '') {
+        return Html::rewriteImages($html, function (string $url, string $alt) use (&$budget, &$state): array|false {
+            if ($url === '') {
                 return false;
+            }
+            if (!isset($budget['seen'][$url])) {
+                if ($budget['left'] <= 0) {
+                    return false;
+                }
+                $budget['left']--;
+                $budget['seen'][$url] = true;
             }
             $image = $this->image($url, $alt, $state);
 
-            return $image === null ? false : ['src' => (string) $image['image_path'], 'alt' => $alt, 'width' => (int) $image['image_width'], 'height' => (int) $image['image_height']];
+            return $image === null ? false : ['src' => $this->base . '/' . $image['image_path'], 'alt' => $alt, 'width' => (int) $image['image_width'], 'height' => (int) $image['image_height']];
         });
+    }
+
+    /** May this page still start a download in this step? (Without a step – a page imported on its own – always.) */
+    private function mayDownload(): bool
+    {
+        return $this->end === 0.0 || microtime(true) < $this->end + self::DOWNLOAD_GRACE;
     }
 
     /**
@@ -362,6 +620,9 @@ final class WebImport
         $mediaId = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'image' AND source_id = ?", [$source, $key]);
         if ($mediaId !== null) {
             return (int) $mediaId === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [(int) $mediaId]);
+        }
+        if (!$this->mayDownload()) {
+            throw new WebImportPaused();
         }
         $temporary = WpFile::folder() . '/web-image-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
@@ -502,7 +763,7 @@ final class WebImport
      * The content of a page: title, description, publication date, whether it is an article, and the main content as
      * clean HTML with absolute image addresses.
      *
-     * @return array{title: string, description: string, content: string, date: string, article: bool}
+     * @return Extracted
      */
     public static function extract(string $html, string $url): array
     {
@@ -530,21 +791,9 @@ final class WebImport
         }
         $root ??= $doc->body;
         if ($root === null) {
-            return ['title' => $title, 'description' => $description, 'content' => '', 'date' => '', 'article' => false];
+            return ['title' => $title, 'description' => $description, 'content' => '', 'date' => '', 'article' => false, 'widgets' => [], 'seo_title' => '', 'share_image' => ''];
         }
-        // an element inside one removed earlier is already gone with it
-        foreach (iterator_to_array($root->querySelectorAll(self::NOISE)) as $node) {
-            if ($root->contains($node)) {
-                $node->remove();
-            }
-        }
-        foreach (iterator_to_array($root->querySelectorAll('[class], [id]')) as $node) {
-            if ($root->contains($node) && preg_match(self::NOISE_NAMES, $node->getAttribute('class') . ' ' . $node->getAttribute('id'))) {
-                $node->remove();
-            }
-        }
-        // the title becomes the page heading; lazy-loaded images get their real address
-        $root->querySelector('h1')?->remove();
+        // lazy-loaded images get their real address and links their path first: the widgets are cut out of the page after that
         foreach (iterator_to_array($root->querySelectorAll('img')) as $img) {
             $src = $img->getAttribute('data-src') ?: $img->getAttribute('data-lazy-src') ?: $img->getAttribute('src') ?: '';
             if ($src === '' || str_starts_with($src, 'data:')) {
@@ -560,11 +809,31 @@ final class WebImport
         foreach (iterator_to_array($root->querySelectorAll('a[href]')) as $a) {
             $href = $a->getAttribute('href') ?? '';
             $absolute = self::absolute($href, $url);
-            // links within the old site become paths; its pages are redirected to the new addresses after the import
+            // links within the old site become paths; its pages are redirected to the new addresses after the import. A document keeps its whole
+            // address (the encoded name, the query): the import fetches it by that address and points the link at Media – or leaves it as it was
             if ($absolute !== '' && ImageDownloader::domainFromUrl($absolute) === ImageDownloader::domainFromUrl($url)) {
-                $a->setAttribute('href', '/' . self::path($absolute));
+                $a->setAttribute('href', WebImportFiles::isDocument($absolute) ? $absolute : '/' . self::path($absolute));
             }
         }
+        // an element inside one removed earlier is already gone with it
+        foreach (iterator_to_array($root->querySelectorAll(self::NOISE)) as $node) {
+            if ($root->contains($node)) {
+                $node->remove();
+            }
+        }
+        foreach (iterator_to_array($root->querySelectorAll('[class], [id]')) as $node) {
+            if ($root->contains($node) && preg_match(self::NOISE_NAMES, $node->getAttribute('class') . ' ' . $node->getAttribute('id'))) {
+                $node->remove();
+            }
+        }
+        // forms, questions and answers, tabs, videos, maps and counters leave a marker; then the rest of the noise (frames, forms, buttons, hidden panels) goes
+        $widgets = \Talea\Builder\HtmlWidgets::extract($root);
+        foreach (iterator_to_array($root->querySelectorAll(self::NOISE_AFTER_WIDGETS)) as $node) {
+            if ($root->contains($node)) {
+                $node->remove();
+            }
+        }
+        $root->querySelector('h1')?->remove(); // the title becomes the page heading
         $content = trim((string) preg_replace('/\s+/u', ' ', $root->innerHTML));
         $article = ($timestamp !== false && $doc->querySelector('article') !== null) || preg_match(self::ARTICLE, (string) parse_url($url, PHP_URL_PATH)) === 1;
 
@@ -574,6 +843,9 @@ final class WebImport
             'content' => self::safeContent($content),
             'date' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
             'article' => $article,
+            'widgets' => $widgets,
+            'seo_title' => mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $doc->querySelector('title')?->textContent)), 0, 200),
+            'share_image' => ($share = $meta('meta[property="og:image"]') ?: $meta('meta[name="twitter:image"]')) !== '' ? self::absolute($share, $url) : '',
         ];
     }
 }

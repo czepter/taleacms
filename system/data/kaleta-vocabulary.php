@@ -222,7 +222,7 @@ return [
     'dark_mode' => ['vypnuto' => 'off', 'tmavy' => 'dark'],
     'extensions' => ['novinky' => 'news', 'poptavky' => 'enquiries', 'statistika' => 'stats', 'presmerovani' => 'redirects', 'jazyky' => 'languages', 'asistent' => 'assistant'],
 
-    // CSS custom properties and classes of the site in custom CSS and HTML (longest first is applied by convert.php)
+    // CSS custom properties and classes of the site in custom CSS and HTML (longest first is applied by convert.php). A selector in custom CSS keeps pointing at Talea's core class; a class="" attribute or an element's classes list may not carry a tl- class (#331), KaletaExport warns about those
     'css' => [
         '--ka-barva-primarni-jemna' => '--tl-color-primary-soft', '--ka-barva-na-primarni' => '--tl-color-on-primary', '--ka-barva-primarni' => '--tl-color-primary',
         '--ka-barva-sekundarni' => '--tl-color-secondary', '--ka-barva-text-svetle' => '--tl-color-text-light', '--ka-barva-text-tmave' => '--tl-color-text-dark',

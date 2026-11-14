@@ -83,7 +83,7 @@ final class BookingJourneyTest extends SiteTestCase
         $id = (int) $this->q("SELECT id FROM tl_bookings WHERE email = 'olga-bk@example.cz'");
         $this->assertNotContains('10:00', $this->freeTimes($service), 'the request holds its time');
 
-        $site->mcp('propose_booking_times', ['id' => $site->publicId('bookings', $id), 'times' => ["$day 13:00"], 'message' => 'After lunch?', 'confirm' => true]);
+        $site->mcpConfirmed('propose_booking_times', ['id' => $site->publicId('bookings', $id), 'times' => ["$day 13:00"], 'message' => 'After lunch?', 'confirm' => true]);
         $choose = $this->token($this->lastMail('olga-bk@example.cz', 'Other times%'), 'choose');
         $this->assertNotSame('', $choose, 'the proposal mail carries the choose link');
         $proposal = (int) $this->q("SELECT id FROM tl_booking_proposals WHERE booking_id = $id");
@@ -118,7 +118,7 @@ final class BookingJourneyTest extends SiteTestCase
         $day = self::$day;
         $this->bookService($service, ['slot' => "$day 11:00", 'name' => 'Petra Late', 'email' => 'petra-late-bk@example.cz']);
         $id = (int) $this->q("SELECT id FROM tl_bookings WHERE email = 'petra-late-bk@example.cz'");
-        $site->mcp('propose_booking_times', ['id' => $site->publicId('bookings', $id), 'times' => ["$day 14:00"], 'confirm' => true]);
+        $site->mcpConfirmed('propose_booking_times', ['id' => $site->publicId('bookings', $id), 'times' => ["$day 14:00"], 'confirm' => true]);
         $choose = $this->token($this->lastMail('petra-late-bk@example.cz', 'Other times%'), 'choose');
         $this->assertStringContainsString('result=ok', $this->bookService(self::$service, ['slot' => "$day 14:00", 'name' => 'Quick Visitor', 'email' => 'quick-bk@example.cz']), 'another visitor books the proposed time first');
         $proposal = (int) $this->q("SELECT id FROM tl_booking_proposals WHERE booking_id = $id");

@@ -6,6 +6,7 @@ namespace Talea\Tests\Site\SiteMoveSecurity;
 
 use Talea\Tests\Site\Support\Http;
 use Talea\Tests\Site\Support\SiteTestCase;
+use Talea\Tests\Site\Support\SoftwareAuthenticator;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -15,6 +16,8 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('site')]
 final class SiteAddressTest extends SiteTestCase
 {
+    use SoftwareAuthenticator;
+
     private const string MOVED = 'https://moved.example.com';
 
     /** @return list<array<string, mixed>> the change log rows of the site address, oldest first */
@@ -106,5 +109,49 @@ final class SiteAddressTest extends SiteTestCase
             $this->assertNotSame(301, $visitor->get($path, $other)->status, "$path answers on any host");
         }
         $site->setting('redirect_to_site_url', '0');
+    }
+
+    /** @return array<string, mixed> the General tab as the form posts it, with $fields on top */
+    private function general(array $fields): array
+    {
+        return $fields + ['tab' => 'general', 'site_name' => $this->site()->settingValue('site_name')];
+    }
+
+    public function testAHostChangeAsksWhenPasskeysWouldStopWorking(): void
+    {
+        $site = $this->site();
+        $site->setting('site_url', $site->base);
+        $this->registerKey('admin', '5a1f2b3c-4d5e-4f60-8a7b-9c0d1e2f3a4b'); // a passkey for the current host
+        $other = 'http://other-host.test';
+
+        $this->adminPost('/admin.php?module=settings&action=save', $this->general(['site_url' => $other]));
+        $this->assertSame($site->base, $site->settingValue('site_url'), 'another host with passkeys on the current one: not saved without a confirmation');
+        $page = $site->admin()->get('/admin.php?module=settings&tab=general');
+        $this->assertStringContainsString('another host name', $page->body, 'the message says what would happen');
+        $this->assertStringContainsString('name="site_url_confirm"', $page->body, 'and offers the confirmation');
+
+        $this->adminPost('/admin.php?module=settings&action=save', $this->general(['site_url' => $other, 'site_url_confirm' => '1']));
+        $this->assertSame($other, $site->settingValue('site_url'), 'confirmed: the host changes');
+
+        $this->adminPost('/admin.php?module=settings&action=save', $this->general(['site_url' => 'HTTP://Other-Host.test:80/']));
+        $this->assertSame($other, $site->settingValue('site_url'), 'the address is saved in one shape: lower case, no default port, no trailing slash');
+        $site->setting('site_url', $site->base);
+        $this->adminPost('/admin.php?module=settings&action=save', $this->general(['site_url' => $site->base . '/']));
+        $this->assertSame($site->base, $site->settingValue('site_url'), 'the same host with a trailing slash asks for nothing');
+        $site->exec('DELETE FROM tl_user_passkeys');
+    }
+
+    public function testMcpRefusesAHostChangeWithPasskeys(): void
+    {
+        $site = $this->site();
+        $site->setting('site_url', $site->base);
+        $this->registerKey('admin', '6b2a3c4d-5e6f-4071-8b8c-0d1e2f3a4b5c');
+        $result = $site->mcpResult('update_settings', ['settings' => ['site_url' => 'http://other-host.test']]);
+        $this->assertStringContainsString('passkeys', (string) ($result['errors']['site_url'] ?? ''), 'a connection cannot confirm it: refused');
+        $this->assertSame($site->base, $site->settingValue('site_url'));
+        $site->exec('DELETE FROM tl_user_passkeys');
+        $site->mcpResult('update_settings', ['settings' => ['site_url' => 'http://other-host.test']]);
+        $this->assertSame('http://other-host.test', $site->settingValue('site_url'), 'without passkeys the change works as before');
+        $site->setting('site_url', $site->base);
     }
 }

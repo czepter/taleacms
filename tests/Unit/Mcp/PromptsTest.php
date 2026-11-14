@@ -16,7 +16,7 @@ final class PromptsTest extends TestCase
     {
         // every snake_case word of a prompt is a tool, a parameter of a tool, a setting, a prompt or an argument – or one of
         // these words (a placeholder, a status, a field of a tool's answer); anything else is a tool that does not exist
-        $terms = ['cookie_table', 'in_progress', 'next_since_id', 'sending_problem', 'snake_case', 'talea_blueprint'];
+        $terms = ['confirmation_required', 'cookie_table', 'in_progress', 'next_since_id', 'sending_problem', 'snake_case', 'talea_blueprint'];
         $known = [...array_keys(Catalog::TOOLS), ...array_keys(Catalog::META), ...array_keys(\Talea\Core\Settings::DEFAULTS), ...$terms];
         foreach ([...\Talea\Mcp\Tools::definitions(), ...Discovery::definitions()] as $tool) {
             $known = [...$known, ...array_keys((array) $tool['inputSchema']['properties'])];
@@ -52,7 +52,7 @@ final class PromptsTest extends TestCase
     /** #157: the runbooks – each starts with the ground rules, fills its arguments in and refuses a missing required one */
     public function testRunbooks(): void
     {
-        $runbooks = ['migrate_site', 'launch_site', 'weekly_care', 'set_up_bookings', 'compliance_check', 'add_language_version', 'newsletter_release'];
+        $runbooks = ['migrate_site', 'launch_site', 'weekly_care', 'set_up_bookings', 'compliance_check', 'add_language_version', 'newsletter_release', 'fleet_fix'];
         $text = fn (string $name, array $arguments = []): string => Prompts::get($name, $arguments)['messages'][0]['content']['text'];
         $missing = '';
         try {
@@ -60,14 +60,29 @@ final class PromptsTest extends TestCase
         } catch (\InvalidArgumentException $e) {
             $missing = $e->getMessage();
         }
-        $this->assertSame([[], true, true, true, true, true, 'The prompt add_language_version needs the argument language.'], [
+        $this->assertSame([[], true, true, true, true, true, true, 'The prompt add_language_version needs the argument language.'], [
             array_values(array_filter($runbooks, fn (string $name): bool => !str_contains($text($name, ['old_url' => 'https://old.example', 'language' => 'de']), '## Ground rules'))),
             str_contains($text('launch_site'), 'for my business. The goal'),
             str_contains($text('launch_site', ['business' => 'a bakery']), 'for my business: a bakery. The goal'),
             str_contains($text('newsletter_release', ['topic' => 'the summer opening hours']), 'prepare the next newsletter about the summer opening hours.'),
             str_contains($text('add_language_version', ['language' => 'pt-br']), '`create_page` with `language` pt-br'),
+            str_contains($text('fleet_fix', ['site_id' => 'abc']), 'Start with the site abc and stop after it.'),
             str_contains($text('migrate_site', ['old_url' => 'https://old.example', 'platform' => 'WordPress']), 'move the old site https://old.example (WordPress) to'),
             $missing,
         ], '#157: the runbooks start with the ground rules and fill in their arguments');
+    }
+
+    /** A prompt that needs an extension is listed only where it is on; prompts/get still works anywhere. */
+    public function testAnExtensionPromptIsListedOnlyWhereItIsOn(): void
+    {
+        $settings = fn (string $extensions): \Talea\Core\Settings => (function () use ($extensions): \Talea\Core\Settings {
+            $s = (new \ReflectionClass(\Talea\Core\Settings::class))->newInstanceWithoutConstructor();
+            (new \ReflectionProperty(\Talea\Core\Settings::class, 'values'))->setValue($s, ['extensions' => $extensions]);
+
+            return $s;
+        })();
+        $names = fn (?\Talea\Core\Settings $s): array => array_column(Prompts::listAll($s), 'name');
+        $this->assertSame([true, false, true, true], [in_array('fleet_fix', $names(null), true), in_array('fleet_fix', $names($settings('news')), true), in_array('fleet_fix', $names($settings('news,fleet')), true),
+            in_array('build_page', $names($settings('news')), true)]);
     }
 }

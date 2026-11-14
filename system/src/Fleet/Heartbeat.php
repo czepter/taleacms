@@ -15,7 +15,8 @@ use Talea\Core\Scheduler;
 
 /**
  * What a site tells its console (2.9): version, health, background jobs, backups, enquiries waiting for an answer,
- * visits, the site audit and errors. Counts and states only – never names, e-mail addresses or the content of enquiries.
+ * visits, the site audit and errors, and for the console's inventory the database engine, the web server family, the features
+ * switched on and the languages. Counts, states and system names only – never names, e-mail addresses or the content of enquiries.
  * Texts are English (the console translates its own screens, not the site's sentences).
  */
 final class Heartbeat
@@ -58,6 +59,55 @@ final class Heartbeat
             'claude' => Extensions::isEnabled($s, 'claude'),
             'kit_version' => $s->int('fleet_kit_version') ?: null, // the shared design kit this site applied (2.16, Fleet\Kit)
             'error_reporting' => \Talea\Core\ErrorReport::enabled(), // errors go to Sentry or GlitchTip (TALEA_ERROR_DSN); the host is not told
+            // the inventory (#341): an older console drops these keys, an older site never sends them (the console reads them as null)
+            'database' => self::database((string) $db->value('SELECT VERSION()')),
+            'web_server' => self::webServer($s),
+            'extensions' => Extensions::enabled($s),
+            'languages' => array_values(array_unique([Language::defaults($s), ...Language::additional($s)])),
         ];
+    }
+
+    /** The engine and its major.minor version ("MariaDB 11.4"); '' when the server's version text holds no number. Pure. */
+    public static function database(string $version): string
+    {
+        if (preg_match('/(\d+)\.(\d+)/', $version, $m) !== 1) {
+            return '';
+        }
+        $engine = match (true) {
+            str_starts_with($version, 'SQLite') => 'SQLite',
+            stripos($version, 'mariadb') !== false => 'MariaDB',
+            stripos($version, 'postgres') !== false => 'PostgreSQL',
+            default => 'MySQL',
+        };
+
+        return $engine . ' ' . $m[1] . '.' . $m[2];
+    }
+
+    /** The web server family from SERVER_SOFTWARE, else from the SAPI; '' when neither says. Never a version. Pure. */
+    public static function serverFamily(string $software, string $sapi): string
+    {
+        $software = strtolower($software);
+        foreach (['frankenphp' => 'FrankenPHP', 'caddy' => 'Caddy', 'litespeed' => 'LiteSpeed', 'nginx' => 'nginx', 'apache' => 'Apache', 'lighttpd' => 'lighttpd',
+            'microsoft-iis' => 'IIS', 'development server' => 'PHP built-in server'] as $needle => $family) {
+            if (str_contains($software, $needle)) {
+                return $family;
+            }
+        }
+
+        return ['frankenphp' => 'FrankenPHP', 'apache2handler' => 'Apache', 'litespeed' => 'LiteSpeed', 'cli-server' => 'PHP built-in server'][$sapi] ?? '';
+    }
+
+    /**
+     * The web server family. A heartbeat sent by the command-line cron (the container) cannot see the web server, so it reports the
+     * family last seen on a web request: pairing, "Send now" and the heartbeats that visits trigger are web requests.
+     */
+    private static function webServer(\Talea\Core\Settings $s): ?string
+    {
+        $seen = self::serverFamily((string) ($_SERVER['SERVER_SOFTWARE'] ?? ''), PHP_SAPI);
+        if ($seen !== '' && $seen !== $s->get('fleet_web_server')) {
+            $s->set('fleet_web_server', $seen);
+        }
+
+        return $seen !== '' ? $seen : ($s->get('fleet_web_server') ?: null);
     }
 }

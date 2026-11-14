@@ -6,7 +6,8 @@
  * @var string $role the user's role, translated
  * @var string $selected full | drafts | read
  * @var string|null $recommended the level marked as recommended (the consent screen: drafts)
- * @var string $toolSet all | essentials – the tools the connection lists (Mcp\Catalog::TOOL_SETS)
+ * @var string $toolSet all | essentials | migration | fleet – the tools the connection lists (Mcp\Catalog::TOOL_SETS)
+ * @var list<string> $offered the sets this site offers (Mcp\Catalog::offered; default essentials and all)
  */
 $labels = Talea\Front\OAuth::ACCESS_LABELS;
 $options = [
@@ -16,8 +17,11 @@ $options = [
 ];
 $toolSets = [
     'essentials' => ['Essentials', 'About a quarter of the tools are listed – pages, the builder, collections, media, the look and the audit. Claude finds every other tool it may use (news, redirects, settings, bookings, newsletters…) when it needs it, with the same limits, change log and undo. Much less to load in every conversation.'],
+    'migration' => ['Migration', 'For moving a site here: the import, old pages, rebuilding, redirects, media and the migration report are listed first. Claude finds every other tool when it needs it, with the same limits.'],
+    'fleet' => ['Fleet console', 'For the console of your Talea sites: the sites, their health and events are listed first.'],
     'all' => ['All tools', 'Every tool this connection may use is listed up front. More to load in every conversation.'],
 ];
+$toolSets = array_intersect_key($toolSets, array_flip($offered ?? ['essentials', 'all']));
 ?>
 <fieldset class="access-connection">
 <legend><?= e(t('What may Claude do?')) ?></legend>
@@ -34,4 +38,5 @@ $toolSets = [
 	<label class="card-option"><input type="radio" name="tool_set" value="<?= e($key) ?>"<?= ($toolSet ?? 'all') === $key ? ' checked' : '' ?>><strong><?= e(t($label)) ?></strong><span><?= e(t($help)) ?></span></label>
 <?php endforeach ?>
 </div>
+<p class="help"><?= e(t('A tool set only decides which tools Claude sees first – what it may do still depends on your role and the access chosen above.')) ?></p>
 </fieldset>

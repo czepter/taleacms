@@ -23,7 +23,8 @@ final class CollectionSchema
         'FAQPage' => ['Question and answer', ['answer' => 'Answer']],
         // 2.11: validThrough comes from the item's "true until", the hiring organization from Business details (Core\Jobs)
         'JobPosting' => ['Job opening', ['description' => 'Description', 'employmentType' => 'Employment type', 'jobLocation' => 'Location (town)',
-            'baseSalary' => 'Salary from', 'baseSalaryMax' => 'Salary to', 'salaryUnit' => 'Salary unit (per month / per hour)']],
+            'baseSalary' => 'Salary from', 'baseSalaryMax' => 'Salary to', 'salaryUnit' => 'Salary unit (per month / per hour)',
+            'streetAddress' => 'Street address', 'postalCode' => 'Postal code', 'jobLocationType' => 'Workplace (on site, hybrid or remote)']],
         // a branch or store: the geo comes from a location field, the hours from a text written like the company hours
         'LocalBusiness' => ['Local business (branch, store)', ['address' => 'Address', 'telephone' => 'Phone', 'email' => 'Email', 'geo' => 'Location (latitude, longitude)', 'openingHours' => 'Opening hours']],
     ];
@@ -36,6 +37,9 @@ final class CollectionSchema
         'PART_TIME' => '/part|zkracen|castecn|polovic|skraten|teilzeit|niepeln|partiel|parcial|medio tiempo/',
         'FULL_TIME' => '/full|plny|\bhpp\b|vollzeit|pelny|plein|completo|pieno/',
     ];
+
+    /** Words that say a job is done remotely (Czech, Slovak, German, Polish, French, Spanish, Italian, English); "hybrid" is checked apart. */
+    private const string REMOTE = '/remote|telecommut|home.?office|from home|na dalku|z domova|vzdalen|fernarbeit|mobiles arbeiten|zdaln|remoto|teletrabajo|a distance|teletravail|smart working|telelavoro/'; // check-english: allow
 
     /** schema.org unitText of a salary by words in the text of the field; anything else is left out. */
     private const array SALARY_UNITS = [
@@ -87,8 +91,9 @@ final class CollectionSchema
      * @param string $issuerId @id of the company node (the provider of a service, the organiser of an event)
      * @param array<string, mixed> $issuer the company node itself (Front\Company::schema) – the hiring organization of a job posting;
      *        a Person issuer gives no job posting (it needs an organisation, Core\Audit says so) and no worksFor/parentOrganization
+     * @param bool $directApply the item page carries an application form (a job posting then says directApply)
      */
-    public static function forItem(array $collection, array $item, string $url, string $description, string $image, string $issuerId, array $issuer = []): ?array
+    public static function forItem(array $collection, array $item, string $url, string $description, string $image, string $issuerId, array $issuer = [], bool $directApply = false): ?array
     {
         $schema = self::of($collection);
         if ($schema === null) {
@@ -103,7 +108,7 @@ final class CollectionSchema
         $name = (string) $item['name'];
         $organization = ($issuer['@type'] ?? '') !== 'Person';
         if ($schema['type'] === 'JobPosting') {
-            return !$organization ? null : self::jobPosting($schema, $item, $value, $url, $description, $image, $issuer);
+            return !$organization ? null : self::jobPosting($schema, $item, $value, $url, $description, $image, $issuer, $directApply);
         }
         if ($schema['type'] === 'FAQPage') {
             $answer = $value('answer');
@@ -156,7 +161,9 @@ final class CollectionSchema
      * A job posting (2.11) as Google reads it: title, datePosted, validThrough (the item's "true until" – without it search
      * engines cannot tell an open job from an expired one, so the site audit asks for it), the hiring organization from
      * Business details, the place from the location field and the company country, the salary as a MonetaryAmount with the
-     * collection currency. Whatever is missing is left out – nothing is guessed.
+     * collection currency. A page with an application form says directApply; a workplace that says remote makes it
+     * TELECOMMUTE for applicants from the company country (hybrid is not remote); the street and the postal code complete the
+     * address. Whatever is missing is left out – nothing is guessed.
      *
      * @param array{type: string, fields: array<string, string>, currency: string} $schema
      * @param array<string, mixed> $item the item row
@@ -164,11 +171,15 @@ final class CollectionSchema
      * @param array<string, mixed> $issuer the company node (Front\Company::schema)
      * @return array<string, mixed>
      */
-    private static function jobPosting(array $schema, array $item, callable $value, string $url, string $description, string $image, array $issuer): array
+    private static function jobPosting(array $schema, array $item, callable $value, string $url, string $description, string $image, array $issuer, bool $directApply): array
     {
         $organization = array_filter(['@type' => 'Organization', 'name' => (string) ($issuer['legalName'] ?? $issuer['name'] ?? ''), 'sameAs' => (string) ($issuer['url'] ?? ''), 'logo' => (string) ($issuer['logo'] ?? '')]);
         $locality = $value('jobLocation');
+        $street = $value('streetAddress');
+        $postal = $value('postalCode');
+        $remote = self::remote($value('jobLocationType'));
         $country = (string) ($issuer['address']['addressCountry'] ?? '');
+        $address = array_filter(['@type' => 'PostalAddress', 'streetAddress' => $street, 'addressLocality' => $locality, 'postalCode' => $postal, 'addressCountry' => $country]);
         $min = self::number($value('baseSalary'));
         $max = self::number($value('baseSalaryMax'));
         $salary = null;
@@ -188,9 +199,20 @@ final class CollectionSchema
             'validThrough' => self::date((string) ($item['valid_until'] ?? '')),
             'employmentType' => self::employmentType($value('employmentType')),
             'hiringOrganization' => isset($organization['name']) ? $organization : null,
-            'jobLocation' => $locality !== '' ? ['@type' => 'Place', 'address' => array_filter(['@type' => 'PostalAddress', 'addressLocality' => $locality, 'addressCountry' => $country])] : null,
+            'directApply' => $directApply ? true : null,
+            'jobLocation' => $locality !== '' || $street !== '' || $postal !== '' ? ['@type' => 'Place', 'address' => $address] : null,
+            'jobLocationType' => $remote ? 'TELECOMMUTE' : null,
+            'applicantLocationRequirements' => $remote && $country !== '' ? ['@type' => 'Country', 'name' => $country] : null,
             'baseSalary' => $salary,
         ], fn (mixed $v): bool => $v !== '' && $v !== null);
+    }
+
+    /** True when the workplace text says the job is done remotely; hybrid work is not remote. Pure. */
+    public static function remote(string $text): bool
+    {
+        $normalized = mb_strtolower(remove_diacritics(trim($text)));
+
+        return $normalized !== '' && preg_match(self::REMOTE, $normalized) === 1 && !str_contains($normalized, 'hybri');
     }
 
     /** The schema.org employment type when the field text is recognisable, otherwise the text itself (schema.org allows Text); '' when empty. */

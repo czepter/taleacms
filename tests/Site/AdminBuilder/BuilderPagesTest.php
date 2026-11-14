@@ -85,6 +85,14 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertStringContainsString('Declaration not allowed', $class->body, 'class saved, dangerous CSS dropped');
 
         $this->assertSame(400, $this->pageAction('build_class', ['name' => 'Big Card'])->status, 'invalid class name refused');
+        // #331: "tl-" is Talea's own – no shared class under it, no rename to it
+        $reserved = $this->pageAction('build_class', ['name' => 'tl-collection-filters', 'css' => 'color: red']);
+        $this->assertSame(400, $reserved->status);
+        $this->assertStringContainsString('reserved for Talea', $reserved->body);
+        $rename = $this->pageAction('build_class', ['name' => 'card', 'new_name' => 'tl-card']);
+        $this->assertSame(400, $rename->status);
+        $this->assertStringContainsString('reserved for Talea', $rename->body);
+        $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM tl_classes WHERE name LIKE 'tl-%'"), 'no shared class starts with tl-');
         $this->assertSame('1', (string) $this->site()->value("SELECT value LIKE '%\"card\"%' FROM tl_settings WHERE name = 'look_draft'"), 'a change of an existing class in the builder goes to the draft look');
     }
 

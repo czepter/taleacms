@@ -414,6 +414,8 @@ final class Seo
         $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::SCRIPT_TEXTS) . $clicks . '></script>';
         // forms (steps, conditions, the estimate): a script of their own, kept by Front\PageFrame only on a page with a form
         $h[] = '<script src="' . e($this->app->url('image/forms.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute(self::FORM_SCRIPT_TEXTS) . '></script>';
+        // collection lists (filters and pages swapped without a reload): a script of their own, kept by Front\PageFrame only on a page with a list
+        $h[] = '<script src="' . e($this->app->url('image/lists.js')) . '?v=' . $version . '" defer blocking="render"></script>';
         if (!empty($meta['vitals'])) {
             // real-user speed (2.8, Core\WebVitals) and the visit beacon (Front\Stats::view): a small deferred script of its own, so pages
             // without image/web.js stay without it; the beacons go to POST /vitals and POST /_view without cookies or identifiers
@@ -631,7 +633,7 @@ final class Seo
             if (!empty($meta['item'])) {
                 // a collection item page: its schema.org type from the collection (service, person, product, event, question)
                 $node = \Talea\Builder\CollectionSchema::forItem($meta['item']['collection'], $meta['item']['item'], $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')),
-                    (string) ($meta['description'] ?? ''), (string) ($meta['image'] ?? ''), (string) $issuer['@id'], $issuer); // the whole company node: the hiring organization of a job posting (2.11)
+                    (string) ($meta['description'] ?? ''), (string) ($meta['image'] ?? ''), (string) $issuer['@id'], $issuer, (bool) ($meta['item']['form'] ?? false)); // the whole company node: the hiring organization of a job posting (2.11); a page with a form is a direct application
                 if ($node !== null) {
                     $chart[] = $node;
                 }

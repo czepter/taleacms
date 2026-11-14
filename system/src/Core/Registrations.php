@@ -243,15 +243,10 @@ final class Registrations
         return null;
     }
 
-    public static function lockName(int $itemId): string
-    {
-        return 'talea-seat-' . $itemId;
-    }
-
     /** The lock name for the whole seat group of an item (all language versions share it). */
     public static function lockFor(Db $db, int $itemId): string
     {
-        return self::lockName(min(self::group($db, $itemId)));
+        return 'seat-' . $db->prefix . min(self::group($db, $itemId)); // item ids repeat across the sites of one database
     }
 
     /**

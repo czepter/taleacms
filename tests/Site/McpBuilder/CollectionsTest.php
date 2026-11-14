@@ -266,6 +266,8 @@ PHP);
         preg_match_all('/<h3>[^<]*<\/h3>/', $body, $headings);
         $this->assertSame('<h3>Jane Novak</h3>', implode('', $headings[0]), 'the listing shows one item, sorted by name');
         $this->assertStringContainsString('href="/z-html?s-vyp1=2"', $body, 'pagination');
+        $this->assertStringContainsString('/image/lists.js', $body, 'a page with a collection list loads the script that swaps it (#331)');
+        $this->assertStringNotContainsString('/image/lists.js', $this->visit('/'), 'a page without a collection list does not');
         $this->assertStringContainsString('href="/z-html" aria-current="true">All', $body, 'the filter button for all');
         $this->assertStringContainsString('f-vyp1=Master', $body, 'filter buttons by field value');
 

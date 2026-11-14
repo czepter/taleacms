@@ -149,7 +149,7 @@ final class App
 
     public function auth(): Auth
     {
-        return $this->auth ??= new Auth($this->db(), $this->session);
+        return $this->auth ??= new Auth($this->db(), $this->session, $this->settings());
     }
 
     public function settings(): Settings
@@ -241,6 +241,11 @@ final class App
         set_error_handler(static function (int $severity, string $message, string $file, int $line): bool {
             if (!(error_reporting() & $severity)) {
                 return false;
+            }
+            if (($severity === E_DEPRECATED || $severity === E_USER_DEPRECATED) && !Config::flag('STRICT_DEPRECATIONS', false)) {
+                ErrorReport::deprecation($message, $file, $line); // a host's newer PHP must not take the site down (#337)
+
+                return true;
             }
             throw new \ErrorException($message, 0, $severity, $file, $line);
         });

@@ -76,12 +76,13 @@ final class EuDutiesTest extends SiteTestCase
 
     public function testRetentionWithAnonymiseKeepsTheRowAndBlanksThePerson(): void
     {
-        // the choice first – opening Enquiries runs the retention, which would delete the old row under the default
+        // the choice first – the clean-up job runs the retention, which would delete the old row under the default
         $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'enquiries', 'enquiries_months' => 24, 'job_applications_months' => 0, 'enquiries_expiry' => 'anonymise'], formPage: '/admin.php?module=settings&tab=enquiries');
         $this->site()->exec("INSERT INTO tl_enquiries (created_at, form, page, topic, email, data, status, category) VALUES (NOW() - INTERVAL 30 MONTH, 'Service 2.14', '/video-2-14', 'Video', 'old@example.com', ?, 2, 'sales')",
             ['[["Name","Old Customer"],["E-mail","old@example.com"],["Message","Fix the boiler"]]']);
         self::$old = (int) $this->site()->pdo->lastInsertId();
 
+        $this->site()->runTasks(); // the retention is a background job, not the work of a page view (#337)
         $response = $this->assertPage('/admin.php?module=enquiries');
 
         $this->assertSame('Service 2.14|/video-2-14|Video|sales||[["Name",""],["E-mail",""],["Message",""]]|1',

@@ -7,7 +7,7 @@ namespace Talea\Core;
 /**
  * Safe HTML from users without administrator permission (author and editor of news and pages, MCP with their token).
  * Unlike the conversion from WordPress (WpContent) it keeps the structure and the classes from the editor and removes only what can run code
- * or take over an account: scripts, frames, forms, event handlers, styles, the site's script hooks (data-…) and javascript:/data: URLs.
+ * or take over an account: scripts, frames, forms, event handlers, styles, the site's script hooks (data-…), Talea's own tl- classes and javascript:/data: URLs.
  * An administrator can insert custom HTML (the HTML element, layouts), so their text is not sanitized.
  */
 final class Html
@@ -38,6 +38,20 @@ final class Html
     public static function isSafeId(string $id): bool
     {
         return preg_match('/^[\p{L}\p{N}_.:-]{1,100}$/uD', $id) === 1 && preg_match('/^(tl[-_]|talea)/i', $id) !== 1 && !in_array(mb_strtolower($id), self::RESERVED_IDS, true);
+    }
+
+    /**
+     * The class attribute of a user's text without Talea's reserved "tl-…" classes (#331, as the builder with Build::CLASS_PATTERN): the
+     * site's scripts and styles hook on them, so a text must not borrow them. Any case; the other classes stay exactly as they were.
+     * The editor (image/editor.js) writes no "tl-" class; the ones a news text gets (Front\NewsText: outline, sharing, players) are added
+     * when it is shown, after this. '' = nothing left (the attribute goes).
+     */
+    public static function textClasses(string $value): string
+    {
+        $tokens = preg_split('/[\t\n\f\r ]+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $kept = array_filter($tokens, fn (string $t): bool => stripos($t, 'tl-') !== 0);
+
+        return count($kept) === count($tokens) ? $value : implode(' ', $kept);
     }
 
     /**
@@ -193,6 +207,8 @@ final class Html
                     && ($name !== 'id' || self::isSafeId($a->value));
                 if (!$ok) {
                     $n->removeAttribute($a->name);
+                } elseif ($name === 'class' && ($classes = self::textClasses($a->value)) !== $a->value) {
+                    $classes === '' ? $n->removeAttribute($a->name) : $n->setAttribute($a->name, $classes); // #331: Talea's tl- classes go
                 }
             }
             if (strtolower($n->localName) === 'a' && $n->getAttribute('target') === '_blank') {

@@ -24,7 +24,7 @@ final class Account
     private const array OP_TABS = [
         'profile' => 'details', 'password' => 'password', 'remember_end' => 'password',
         'token_new' => 'claude', 'token_delete' => 'claude', 'tool_set' => 'claude', 'app_disconnect' => 'claude',
-        'totp_start' => 'sign-in', 'totp_confirm' => 'sign-in', 'totp_off' => 'sign-in', 'passkey_delete' => 'sign-in',
+        'totp_start' => 'sign-in', 'totp_confirm' => 'sign-in', 'totp_off' => 'sign-in', 'passkey_delete' => 'sign-in', 'passkey_only' => 'sign-in', 'backup_codes_new' => 'sign-in',
     ];
 
     public function __construct(private readonly Kernel $kernel)
@@ -63,8 +63,8 @@ final class Account
                     $emailChanged = $email !== (string) $user['email'];
                     // the e-mail is where a password reset goes: changing it needs the current password, like a new password
                     // does – a stolen session alone must not take the account over (3.3.3, N56)
-                    if ($emailChanged && !password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                        $message = ['error', 'Enter your current password to change the e-mail address. Nothing was saved.'];
+                    if ($emailChanged && ($refusal = $this->refusal($app->auth()->confirmOwn($r), 'Enter your current password to change the e-mail address. Nothing was saved.')) !== null) {
+                        $message = ['error', $refusal];
                         break;
                     }
                     $db->update('users', ['name' => mb_substr($r->post('name'), 0, 100), 'email' => $email, 'url' => mb_substr($r->post('url'), 0, 255), 'position' => mb_substr($r->post('position'), 0, 100), 'photo' => mb_substr($r->post('photo'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
@@ -80,8 +80,9 @@ final class Account
                     break;
                 case 'password':
                     $newItems = (string) ($_POST['new_password'] ?? '');
+                    $refusal = $app->auth()->confirmOwn($r);
                     $message = match (true) {
-                        !password_verify((string) ($_POST['current_password'] ?? ''), $user['password']) => ['error', 'The current password is not correct.'],
+                        $refusal !== null => ['error', $refusal],
                         mb_strlen($newItems) < 10 => ['error', 'The new password must be at least 10 characters long.'],
                         $newItems !== (string) ($_POST['new_password_again'] ?? '') => ['error', 'The new passwords do not match.'],
                         default => null,
@@ -106,19 +107,20 @@ final class Account
                         break;
                     }
                     // a token works without the person present, possibly for good: like a new password, it needs the current one (N56)
-                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                        $message = ['error', 'The current password is not correct.'];
+                    if (($refusal = $app->auth()->confirmOwn($r)) !== null) {
+                        $message = ['error', $refusal];
                         break;
                     }
                     $token = 'talea_' . bin2hex(random_bytes(24));
                     $access = \Talea\Front\OAuth::access($r->post('access') ?: 'drafts'); // no choice sent: drafts only
                     // a personal token lists all tools unless the person picks the essentials (Claude Code and scripts)
                     $toolSet = \Talea\Mcp\Catalog::toolSet($r->post('tool_set'));
+                    $toolSet = in_array($toolSet, \Talea\Mcp\Catalog::offered($app->settings()), true) ? $toolSet : 'all';
                     // a token with an expiry ends by itself (2.8); one without works until it is revoked and System status reports it
                     $days = in_array($r->postInt('lifetime', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('lifetime', 365) : 365;
                     $db->insert('api_tokens', ['user_id' => $user['user_id'], 'name' => mb_substr($r->post('name') ?: 'Claude', 0, 100), 'access' => $access, 'tool_set' => $toolSet, 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
                         'expires_at' => $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null]);
-                    ChangeLog::write($app, 'account', 'claude_token', $access . ($toolSet === 'essentials' ? ', essentials' : '') . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
+                    ChangeLog::write($app, 'account', 'claude_token', $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
                     // the token is shown only now - hence no redirect
                     return $this->page($tab, ['newToken' => $token] + $data);
                 case 'token_delete':
@@ -130,6 +132,7 @@ final class Account
                     // personal token, "<set>:app:<client_id>" for every token of a connected application (a refresh copies it)
                     $parts = explode(':', $r->post('tool_set_switch'), 3);
                     $toolSet = \Talea\Mcp\Catalog::toolSet($parts[0]);
+                    $toolSet = in_array($toolSet, \Talea\Mcp\Catalog::offered($app->settings()), true) ? $toolSet : 'all';
                     $changed = match ($parts[1] ?? '') {
                         'token' => $db->run("UPDATE {api_tokens} SET tool_set = ? WHERE token_id = ? AND user_id = ? AND kind = 'token'", [$toolSet, $db->internalId('api_tokens', (string) ($parts[2] ?? '')), $user['user_id']])->rowCount(),
                         'app' => $db->run('UPDATE {api_tokens} SET tool_set = ? WHERE client_id = ? AND user_id = ?', [$toolSet, (string) ($parts[2] ?? ''), $user['user_id']])->rowCount(),
@@ -138,8 +141,12 @@ final class Account
                     if ($changed > 0) {
                         ChangeLog::write($app, 'account', 'claude_tool_set', $toolSet);
                     }
-                    $message = ['ok', $toolSet === 'essentials' ? 'Done – Claude will load the essentials in the next conversation it starts and find the other tools when it needs them.'
-                        : 'Done – Claude will see all tools in the next conversation it starts.'];
+                    $message = ['ok', match ($toolSet) {
+                        'essentials' => 'Done – Claude will load the essentials in the next conversation it starts and find the other tools when it needs them.',
+                        'migration' => 'Done – Claude will load the tools of a site move in the next conversation it starts and find the others when it needs them.',
+                        'fleet' => 'Done – Claude will load the fleet console tools in the next conversation it starts and find the others when it needs them.',
+                        default => 'Done – Claude will see all tools in the next conversation it starts.',
+                    }];
                     break;
                 case 'app_disconnect':
                     $db->delete('api_tokens', ['client_id' => $r->post('disconnect_client'), 'user_id' => $user['user_id']]);
@@ -148,8 +155,8 @@ final class Account
                     break;
                 case 'totp_start':
                     // an attacker's secret on the account would be the second factor: the key appears only after the password (N56)
-                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                        $message = ['error', 'The current password is not correct.'];
+                    if (($refusal = $app->auth()->confirmOwn($r)) !== null) {
+                        $message = ['error', $refusal];
                         break;
                     }
                     $app->session->set('totp_new', Totp::newSecret());
@@ -163,7 +170,7 @@ final class Account
                     }
                     [$codes, $json] = Totp::backupCodes();
                     // the confirming code is spent too: it cannot sign in a second time
-                    $db->update('users', ['totp_secret' => $secret, 'totp_backup_codes' => $json, 'totp_last_step' => $step], ['user_id' => $user['user_id']]);
+                    $db->update('users', ['totp_secret' => \Talea\Core\Vault::sealValue($app->settings(), $secret), 'totp_backup_codes' => $json, 'totp_last_step' => $step], ['user_id' => $user['user_id']]);
                     $app->session->remove('totp_new');
                     $app->auth()->forgetOtherDevices((int) $user['user_id']); // a remembered sign-in from before would skip the new code
                     ChangeLog::write($app, 'account', 'two_step_on');
@@ -174,8 +181,8 @@ final class Account
                     return $this->key($r->post('op') === 'passkey_save', $user);
                 case 'passkey_delete':
                     // the last key may be the whole second factor: a stolen session alone must not take it away (as totp_off)
-                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                        $message = ['error', 'Enter the correct password to remove a passkey.'];
+                    if (($refusal = $this->refusal($app->auth()->confirmOwn($r), 'Enter the correct password to remove a passkey.')) !== null) {
+                        $message = ['error', $refusal];
                         break;
                     }
                     $db->run('DELETE FROM {user_passkeys} WHERE passkey_id = ? AND user_id = ?', [$db->internalId('user_passkeys', $r->post('passkey_id')), $user['user_id']]);
@@ -189,14 +196,42 @@ final class Account
                         $message = ['ok', 'The passkey has been removed. Two-factor sign-in is turned off.'];
                     }
                     break;
+                case 'backup_codes_new':
+                    // new codes in place of the ones left (a phone lost, the codes running low): the old ones stop working
+                    if (!$app->auth()->hasTwoStep($user)) {
+                        break;
+                    }
+                    if (($refusal = $app->auth()->confirmOwn($r)) !== null) {
+                        $message = ['error', $refusal];
+                        break;
+                    }
+                    [$codes, $json] = Totp::backupCodes();
+                    $db->update('users', ['totp_backup_codes' => $json], ['user_id' => $user['user_id']]);
+                    ChangeLog::write($app, 'account', 'backup_codes_new');
+                    // the codes are shown only now - hence no redirect
+                    return $this->page($tab, ['backupCodes' => $codes] + $data);
+                case 'passkey_only':
+                    // the account signs in only with a passkey (or password plus passkey / backup code) once it has one for this site
+                    if (($refusal = $app->auth()->confirmOwn($r)) !== null) {
+                        $message = ['error', $refusal];
+                        break;
+                    }
+                    $on = $r->postBool('passkey_only');
+                    $db->update('users', ['passkey_only' => (int) $on], ['user_id' => $user['user_id']]);
+                    if ($on) {
+                        $app->auth()->forgetOtherDevices((int) $user['user_id']); // a remembered sign-in from before would skip the passkey
+                    }
+                    ChangeLog::write($app, 'account', $on ? 'passkey_only_on' : 'passkey_only_off');
+                    $message = ['ok', $on ? 'Passkey-only sign-in is on.' : 'Passkey-only sign-in is off.'];
+                    break;
                 case 'remember_end':
                     $app->auth()->forgetOtherDevices((int) $user['user_id']);
                     ChangeLog::write($app, 'account', 'remembered_ended');
                     $message = ['ok', 'Stay signed in has ended on all other devices.'];
                     break;
                 case 'totp_off':
-                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                        $message = ['error', 'Enter the correct password to turn it off.'];
+                    if (($refusal = $this->refusal($app->auth()->confirmOwn($r), 'Enter the correct password to turn it off.')) !== null) {
+                        $message = ['error', $refusal];
                         break;
                     }
                     // passkeys are a second factor of their own and stay – with them the backup codes stay too
@@ -215,6 +250,12 @@ final class Account
         }
 
         return $this->page($tab, ['newSecret' => (string) $app->session->get('totp_new', '')] + $data);
+    }
+
+    /** The reason a confirmation was refused, with this operation's own text for the plain "password is not correct". */
+    private function refusal(?string $reason, string $opText): ?string
+    {
+        return $reason === 'The current password is not correct.' ? $opText : $reason;
     }
 
     /** A known screen of My account, else the first; the AI connection only while its extension is on. */
@@ -238,17 +279,18 @@ final class Account
         $app = $this->kernel->app;
         $url = $app->settings()->get('site_url') ?: $app->request->origin();
         if (!$save) {
-            if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
-                return Response::json(['error' => t('Enter your current password to add a passkey.')], 403);
+            if (($refusal = $this->refusal($app->auth()->confirmOwn($app->request), 'Enter your current password to add a passkey.')) !== null) {
+                return Response::json(['error' => t($refusal)], 403);
             }
             $challenge = Passkey::challenge();
             $app->session->set('passkey_registration', $challenge);
+            $replace = $this->replacedKey($user); // "Register again": the key that is made anew is not excluded, or the device would refuse
 
             return Response::json(Passkey::registrationOptions(
                 $challenge, Passkey::rpId($url), $app->settings()->get('site_name'),
                 Passkey::b64(substr(hash('sha256', 'talea-passkey|' . $url . '|' . $user['user_id'], true), 0, 16)),
                 (string) $user['username'], (string) $user['name'],
-                array_map(static fn (array $k): string => (string) $k['credential_id'], $app->auth()->accountKeys((int) $user['user_id'])),
+                array_map(static fn (array $k): string => (string) $k['credential_id'], array_filter($app->auth()->accountKeys((int) $user['user_id']), static fn (array $k): bool => $replace === null || $k['passkey_id'] !== $replace['passkey_id'])),
             ));
         }
         $challenge = (string) $app->session->get('passkey_registration', '');
@@ -264,10 +306,20 @@ final class Account
         }
         $name = mb_substr(trim($app->request->post('name')), 0, 80);
         $first = !$app->auth()->hasTwoStep($user);
+        $replace = $this->replacedKey($user);
         $app->db()->insert('user_passkeys', [
             'user_id' => $user['user_id'], 'name' => $name !== '' ? $name : t('Passkey'), 'credential_hash' => $hash, 'credential_id' => $new['id'],
-            'public_key' => $new['key'], 'alg' => $new['alg'], 'sign_count' => $new['counter'], 'created_at' => date('Y-m-d H:i:s'),
+            'public_key' => $new['key'], 'alg' => $new['alg'], 'rp_id' => Passkey::rpId($url), 'sign_count' => $new['counter'], 'created_at' => date('Y-m-d H:i:s'),
+            // whether the device kept the key (credProps): only a kept key signs in alone; unknown stays NULL
+            'discoverable' => match ($app->request->post('discoverable')) { '1' => 1, '0' => 0, default => null },
         ]);
+        if ($replace !== null) {
+            $app->db()->delete('user_passkeys', ['passkey_id' => $replace['passkey_id'], 'user_id' => $user['user_id']]);
+            ChangeLog::write($app, 'account', 'passkey_renewed', $name);
+            $app->session->flash('ok', 'The passkey is registered again. It can now sign you in on its own.');
+
+            return Response::json(['ok' => true]);
+        }
         ChangeLog::write($app, 'account', 'passkey_added', $name);
         if ($first) {
             [$codes, $json] = Totp::backupCodes();
@@ -279,6 +331,14 @@ final class Account
         $app->session->flash('ok', 'The passkey has been added. Next time you can sign in with it alone, or with your password and the passkey.');
 
         return Response::json(['ok' => true]);
+    }
+
+    /** The passkey of this account that "Register again" replaces (its public id in the request), or null. @param array<string, mixed> $user @return array<string, mixed>|null */
+    private function replacedKey(array $user): ?array
+    {
+        $id = $this->kernel->app->request->post('replace');
+
+        return $id === '' ? null : $this->kernel->app->db()->one('SELECT * FROM {user_passkeys} WHERE public_id = ? AND user_id = ?', [$id, $user['user_id']]);
     }
 
     /**
@@ -319,6 +379,9 @@ final class Account
             'codesLeft' => count((array) json_decode((string) $user['totp_backup_codes'], true)),
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),
             'keys' => $app->auth()->accountKeys((int) $user['user_id']),
+            // passkey-only sign-in (#333): chosen by this account, asked by the site, and how many passkeys work on this site's host
+            'passkeyOnlyWanted' => !empty($user['passkey_only']), 'siteRequires' => $app->settings()->get('passkey_only') === '1',
+            'workingKeys' => count($app->auth()->workingKeys((int) $user['user_id'])),
             'remembered' => $app->auth()->rememberedElsewhere((int) $user['user_id']),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokens} WHERE user_id = ? AND kind = 'token' ORDER BY token_id DESC", [$user['user_id']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token

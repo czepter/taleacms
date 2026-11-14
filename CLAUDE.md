@@ -42,7 +42,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **SQL is written portably (HF-14): the same code runs on MySQL 8 and PostgreSQL 18.** Not in product SQL: `INSERT IGNORE` / `ON DUPLICATE KEY`
   (`Db::insertIgnore()`, `insertIgnoreSelect()`, `upsert()` with `{old.col}`/`{new.col}` expressions), `IF()` / `IFNULL()` / `FIELD()` (`CASE`, `COALESCE`,
   `Dialect::listPosition()`), `GROUP_CONCAT`, `JSON_EXTRACT`, `MATCH … AGAINST` (`Dialect::groupConcat()`, `jsonExtract()`, `fulltextMatch()`), `CURDATE()`
-  (`CURRENT_DATE`), `SHOW …` or `information_schema` with `DATABASE()` (`Db::columns()`, `uniqueKeys()`, `tableExists()`), `GET_LOCK` (`Db::lock()`), `"text"` for strings.
+  (`CURRENT_DATE`), `SHOW …` or `information_schema` with `DATABASE()` (`Db::columns()`, `uniqueKeys()`, `tableExists()`), `GET_LOCK` (`Db::lock()`, which scopes the name by the database: add the table prefix for a per-site lock), `"text"` for strings.
   Boolean columns: `= TRUE` / `= FALSE`, `SUM(CASE WHEN … THEN 1 ELSE 0 END)`, and `TRUE`/`FALSE` or a parameter in `INSERT`s; fetched booleans are 1/0 on both
   engines (`Core\PgStatement`). `INTERVAL 5 DAY` and `INTERVAL ? HOUR` are fine (`Postgres::rewrite()` turns them into PostgreSQL syntax). User-facing `LIKE` goes through
   `Dialect::likeInsensitive()`; NULL ordering that shows is made explicit (`col IS NULL, col`). Schema differences live in `Core\MigrationSupport`.
@@ -81,7 +81,9 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   never `!important`.
 - Dark mode: `<html data-dark>` by the setting `dark_mode`; CSS `@media (prefers-color-scheme: dark) { :root[data-dark] { … } }`.
 - Shared interactive pieces (gallery, photo viewer, video, outline, share, FAQ, edit-in-place) have style and script in
-  `image/web.css` / `image/web.js` (added by `Seo::head()`); rules are in `:where()` so that a template overrides them.
+  `image/web.css` / `image/web.js` (added by `Seo::head()`); rules are in `:where()` so that a template overrides them. Collection lists
+  (filters and pages swapped without a reload) have `image/lists.js`, kept by `PageFrame` only on a page with a list. A script that
+  fetches markup and puts it into the page fetches only its own page (`ownPage` in `image/lists.js`: same origin and path, an HTML answer from there).
 - **Right to left** (Arabic, `ar`): `Language::isRtl()/dir()/dirAttribute()` give `<html dir>` per page language; site CSS uses logical properties, rules they cannot say
   live in `Element::rtlCss()` (added by `Renderer::css` only on RTL pages); `image/web.js` follows `document.documentElement.dir`; the admin stays LTR (`bdi()` isolates typed
   values in lists, content fields get `dir`); split lines with `\R/u`, never byte-wise. `slugify()` transliterates Arabic; a title with nothing to transliterate gets `Slug::fromId` (`page-12`).
@@ -114,7 +116,10 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **Element** = a class in `Builder\Elements\` (extends `Element`, listed in `Build::ELEMENTS`): content fields (`properties()`),
   allowed tags, base CSS in layer `builder` through `:where()`. **Style** (`Builder\Style::PROPERTIES`) has the states
   `base`/`tablet` (≤1023 px)/`mobile` (≤767 px)/`hover`; values are tokens or safe free values. A class's own CSS goes through
-  `Style::customCss()` (no `url()`, blocks or `@`).
+  `Style::customCss()` (no `url()`, blocks or `@`). Class names starting with `tl-` are Talea's own (the elements' markup, the hooks of
+  the site's scripts): `Build::CLASS_PATTERN` refuses them as user classes (editor, class manager, MCP, imports, with
+  `Build::RESERVED_CLASS_NOTE`), `Renderer` drops them from a stored build (`Build::userClasses`) and `Html::safe` from rich text
+  (`Html::textClasses`).
 - **Publishing** (`Builder\Publisher`, also from MCP): the previous version goes to `build_revisions` (20 per page or part), the content
   without layout (`Build::asText`) is stored in `text` for search, llms.txt, the API and the return to text. The draft preview is
   `?build=draft` (needs the Pages right), `&editor=1` adds `data-tl-id`. A signed preview link (`Core\Preview`, HMAC, one target,
@@ -151,7 +156,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   never from the request; `Core\Antispam` (signed time, honeypot, per-IP limit) without cookies; the result is only a code in the URL.
   The script of forms (steps, rules, the live estimate, the step beacon `POST /form-step`) is `image/forms.js`, only on pages with a form;
   rules and results are edited in the builder's logic overlay (`image/builder/form-logic.js`, logic in `Builder\FormLogic`).
-- **HTML to build** (`Builder\HtmlConverter`): semantic HTML + a `<style>` with single-class rules become elements and classes.
+- **HTML to build** (`Builder\HtmlConverter`): semantic HTML + a `<style>` with single-class rules become elements and classes; ARIA tabs, `<figure><data>` counters, map and service frames become Tabs, Counter, Map and Embed. `Builder\HtmlWidgets` finds an old page's widgets by structure (never by a builder's name) before the import sanitizes it.
 
 ## Content and services
 
@@ -164,16 +169,30 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   only, frozen at start, per-recipient unsubscribe with `List-Unsubscribe-Post`. Mailing services: `Core\Newsletter`.
 - Stats without cookies (`Front\Stats`, `Core\Report`): a visit is counted only when the browser confirms the page (`image/vitals.js` → `POST /_view`, signed path, `Stats::view`); the request itself counts nothing, so the page cache cannot skew it; prefetch/prerender/cross-site, previews and signed-in people are skipped, 300 views a visitor a day, 10 views in 10 seconds = machine; the setting `stats_counting_since` marks the break in the figures; web vitals histogram (`Core\WebVitals`, `image/vitals.js`).
 - **Short links** (`Core\ShortLinks`, extension `short_links`, `docs/superpowers/specs/2026-10-31-short-links-design.md`): `/<name>` or `/s/<code>` leads to a page, news item, collection item or URL with UTM fields kept off the paper; the target is resolved when followed (302, `no-store`, never cached), the routes run before add-on routes, the name is lower-cased on lookup and reserved against pages, collections, news and redirects (`ShortLinks::nameError`, `takesName` in `Slug::taken` and the collection checks); an unreachable target goes to the home page and `site_audit` flags it (kind `short_link`); all writes go through `ShortLinks::save`/`clean` (admin, MCP, import).
+- **Stored secrets** (`Core\Vault`): connector credentials are always sealed; the settings in `Vault::SETTINGS` and `users.totp_secret` are sealed (prefix `sealed:`) only while the key comes from `TALEA_SECRET_KEY`; `Settings::get/set` open and seal them; plain values are sealed on an administrator's admin page, by the daily `security` job and before every backup; an unreadable value reads `''` and System status (Encryption key) flags it. A new secret setting goes into `Vault::SETTINGS` (`tests/Unit/VaultTest.php` guards it).
 - Audit (`Core\Audit`, MCP `site_audit`), company data (`Front\Company`, structured data from it in `Front\Seo`), site backups to FTPS/S3
   (`Core\RemoteBackup`), uploads (`Core\Images`, `Core\Files`).
+- **Fleet console** (`Fleet\*`, extension `fleet`): heartbeat keys are additive (`Console::HEARTBEAT_KEYS`, a missing key is null); Today items and accepted states live in `Fleet\Today`, certificate and domain dates and their reminders in `Fleet\Expiry`, the inventory in `Fleet\Inventory`; the console never holds access to a site (MCP `fleet_plan` points to each site's own connector).
 - **Course registrations** are enquiries with a `seat_state` (confirmed|waiting|waitlisted|declined|cancelled); `Core\Registrations` is the only writer of seat states (lock with `Registrations::lockFor`, never mail under the lock) and sends the mails after it. Cancelling a course offers other courses through a take-over link `/_course/<token>/<n>`. Visitor texts of courses and bookings go through `Core\Messages` (templates composed from `t()` sentences; overrides are settings `message_<id>_<part>[_<lang>]`, edited in Settings → Messages, over MCP through `update_settings`).
 - AI assistant (`Core\Assistant`): providers anthropic | openai | google | mistral; the key is a `secret` setting; model output is untrusted input.
 - **In-admin AI flow** (#31, the owner's own key only): the first-run wizard (`Modules\Wizard`, `Core\SiteWizard`: questions → plan to review → blueprint + draft look + hidden draft pages) and the builder's Ask box (`BuilderActions::actionBuildAsk`, `Builder\AskBox`: a request becomes `Builder\Edits` operations on the draft). Nothing is sent before a click, nothing publishes, model output goes through `Build::sanitize` (no code), `Guardrails::assistantRefusal` applies, every run is one `AgentJournal` session (undo in Change log → Claude sessions) and a `change_log` row `assistant`/`ask|wizard`. Tests use `tools/fake/ai.php` (`TALEA_AI_URL`).
 - **MCP** (`Mcp\Server`, `Mcp\Tools`, `/mcp`) is the main way sites are built by AI: whatever the editor can do must be possible there
   (pages and builder, classes, design system, media, settings, redirects, trash, news, collections …). The interface and the code are
   English; the recorded contract is `tools/contracts/mcp-tools.json`, the prompts (runbooks in `Mcp\Prompts`) `mcp-prompts.json` (`php tools/contracts.php`). Nothing over MCP may write outside
-  content or run code or queries; PHP templates are never created or changed through MCP. A connection lists all tools or the **Essentials** set (`tool_set` on `api_tokens`/`oauth_codes`, chosen on the consent screen, kept by a refresh; personal tokens and existing connections default to all): the rest is reached through `find_tools` and three runners `run_read_tool` / `run_tool` / `run_destructive_tool` (`Mcp\Discovery::runner()` classifies every tool by `Catalog::access()`, `Catalog::SENDS` and `Catalog::OPEN_WORLD`; the inner call is a normal `tools/call`). Every admin action is in the `$parity` map of
+  content or run code or queries; PHP templates are never created or changed through MCP. A connection lists all tools or the **Essentials**, **Migration** or (on a fleet console) **Fleet** set (`tool_set` on `api_tokens`/`oauth_codes`, `Catalog::SETS`, offered by `Catalog::offered()`; chosen on the consent screen, kept by a refresh; personal tokens and existing connections default to all): the rest is reached through `find_tools` and three runners `run_read_tool` / `run_tool` / `run_destructive_tool` (`Mcp\Discovery::runner()` classifies every tool by `Catalog::access()`, `Catalog::SENDS` and `Catalog::OPEN_WORLD`; the inner call is a normal `tools/call`). Every admin action is in the `$parity` map of
   `tests/Unit/Mcp/ParityTest.php`: read-only, an MCP tool, or "admin: reason".
+- **MCP safety (#334):** text people outside the team wrote (visitors, preview-link commenters, other sites) is marked with
+  `Mcp\Untrusted::mark(keys)` – the result object gets `untrusted: [keys]`; every new tool that returns such text uses it
+  (read_old_page too). `Catalog::OPEN_WORLD` is the one list of tools that make the site fetch from outside (an add-on tool
+  declares `openWorld` in `Api::mcpTool`); `Catalog::fetchesUrl($name, $arguments)` says whether a call does (upload_* only with
+  a `url`, `Catalog::FETCH_ARGUMENTS`) and only full-access connections may (`Catalog::fetchRefusal`; `Catalog::allows` hides
+  the always-fetching ones). Tools that e-mail people or erase for good are in `Mcp\Confirmation::TOOLS`: `Mcp\Server` answers
+  the first acting call with `confirmation_required` and a code (HMAC of the site key over tool, user, connection, the canonical
+  arguments and 10 minutes), the same call with `confirmation` acts once (`ip_checks` type `mcp_confirm`); a connection that was handed a
+  scheduled run never gets one for `HANDOUT_HOURS`, also after it reported and with `site` (`AgentSchedules::withhold`; the marker
+  `api_tokens.routine_until` is keyed by user and token or OAuth client, not by name; an open run becomes partial). A notebook note from a drafts-only
+  connection is a proposal (`notebook.proposal`) until a person saves it in the admin. The instructions notice watches
+  `ClaudeInstructions::watched()` – the owner's text and the applied blueprints' instructions.
 - **Files waiting for approval** (`Core\MediaStaging`): what a drafts-only Claude connection uploads waits outside the web root in
   `storage/staging/` (`media.staged_at`; the row keeps the public `media/…` path). A missing `/media/…` file reaches `index.php`, which
   shows a waiting file to signed-in users and draft previews only. It goes public once published content uses it (`promotePublished`
@@ -186,6 +205,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   `Members::notGated(type, idColumn)`** (lists, sitemap, llms.txt, feeds, search, newsletters, announcements); a gated page answers
   `private, no-store` + noindex and is never cached (`Kernel::gate()`). A group that still gates content cannot be deleted. Limits through `Antispam::tally`.
 - Login: by user name or e-mail (an address two accounts share signs neither in), `password_hash`, TOTP, passkeys (`Core\Passkey`; a passkey is a second factor of its own: two-factor sign-in is on when `totp_secret` is set OR the account has a passkey – `Auth::hasTwoStep()`; the first passkey of an account without TOTP creates the backup codes, the last one removed clears them; `Totp::step` never accepts a code for an empty secret; instead of the code after the password, or alone on the first step when the device verified its owner – UV flag, no account named in the challenge), password reset `Admin\PasswordReset`.
+  **Fresh proof** (`Auth::requireFresh` for changes to other people and the site – another person's password, e-mail or 2FA reset, making an administrator, every section, weakening `require_2fa`/`passkey_only`; `Auth::confirmOwn` for the own account and Claude connections; code in the trait `Core\AuthProof`): a proof recorded in the session (a credential sign-in, a passkey confirmation at `admin.php?action=proof`, a backup code) younger than 10 minutes, or the password now (`Auth::confirmPassword` counts wrong ones like the sign-in: ten in a row lock confirming for 15 minutes, the person stays signed in). The own row in Users has no password, e-mail or 2FA reset (My account). **Passkey only** (`users.passkey_only`, setting `passkey_only`; `Auth::passkeyOnly`): in force only with a passkey whose `user_passkeys.rp_id` is this site's host (`Auth::workingKeys`); then no app code at sign-in and no password for confirmations (a passkey or a backup code); `TALEA_PASSKEY_ONLY_OFF` (environment or `define()` in config.php) switches it off and lets an administrator without app or backup codes in with the password.
   "Stay signed in" (`Auth::REMEMBER_COOKIE` `tl_remember`, 30 days from the sign-in, set only after the second step): its sha256 and the password fingerprint in `user_remember_tokens`; `Auth::user()` trades it for a new session once the old one ended; sign-out or a new password ends it; turning two-factor sign-in on or off, removing a passkey or an administrator's 2FA reset (clears the app, the backup codes and the passkeys) end it on the account's other devices (`Auth::forgetOtherDevices`), and My account can end them too; the cookie bypasses `Front\Cache`.
 
 ## Multisite (`TALEA_MULTISITE`, off by default; `docs/specs/multisite.md`)
@@ -197,7 +217,7 @@ users, media, components/facts with `site_id`, tokens, the agent journal, `sites
 `site` (public id; added like `reason`, not in the contract file; `Server::onSite()` runs the call on an `App` of that site and switches the static state),
 the site tools are `Mcp\Handlers\SiteTools` (administrators, flag on). `agent_journal.site_prefix` makes undo write back on the right site. A Talea archive
 import is refused with several sites (`SiteImport::refusal()`). Flag off = nothing here is consulted. Never fall back to site 1 when a prefix or a
-site id is unknown (`Sites::currentId()` throws).
+site id is unknown (`Sites::currentId()` throws). The key of stored secrets is the install's (`TALEA_SECRET_KEY`, no per-site suffix); sealed values live per site prefix (settings) and per owner (users); a passkey belongs to one host, so to one site (`user_passkeys.rp_id`).
 Look families (`Core\LookFamily`, `sites.look_parent_id`, docs/specs/multisite.md): a child site takes the parent's published design system, `dark_mode`, classes (merged by name) and header/footer parts, pushed on every publish of the parent (`Look::publish`, `Publisher::part`, a new class) under `Db::lock`, with the child's earlier look kept in its `look_versions`; the child is locked in admin and MCP (`LookFamily::refusal()` and siblings) and detaches when the parent is archived or trashed. One level, same owner.
 Agency tools (`TALEA_OWNERS`, docs/specs/multisite.md): several owners are table-prefix groups (`Core\Owners`, install table `owners`, operators = administrators of owner 1,
 media folder per owner, `Core\OwnerClone`). **Roles per site:** owner table `user_sites` (no rows = every site; administrators always have every site);
@@ -212,6 +232,7 @@ Transfer between owners (`Core\SiteTransfer`, Owners → Move a site, MCP `trans
 row goes through the sanitizers, settings only from the allow-list `SiteExport::SETTINGS`). Never relax: XML with DOCTYPE/entities is
 refused, content passes an allow-list of tags, the image downloader only fetches public addresses of the old site with pinned connections
 and size/time limits, never SVG.
+**Site moves** (#340, #339): linked documents of an old page (the old site's own domain only, `ImageDownloader` + `Files::saveFile`, `Core\WebImportFiles`), `read_old_page` (`Core\OldPage`, `Core\SemanticHtml`) and the placeholders for what cannot be brought over (`Core\WebImportWidgets`).  `Core\StarterPages` – the installer records its pages in the setting `starter_pages` ({public id: fingerprint}); an import (`WebImport`, `WpImport`) trashes an *untouched* starter page (fingerprint equal, `updated_at` NULL, no draft, no translation) that sits at an imported address, never the home page; the installer's choice `move` makes an empty site (`Starter::createForMove`). `pages.import_source` / `layout_pending` (`Core\LayoutQueue`, Pages tab, MCP `list_layout_queue`/`layout_queue`) mark imported pages whose layout is not rebuilt; ticking off touches nothing else. `WebImport` keeps nested addresses (`parent_id`, hidden empty parent pages, shallow addresses first). `Core\MoveStatus` is the block of Site audit and `site_audit.move`.
 
 ## Running and testing
 

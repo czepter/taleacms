@@ -140,12 +140,14 @@ final class Renderer
         // inside a Collection list the element repeats: style through the class s-<id>, not through the id (an id must be on the page only once)
         $isRepeated = $k->inLoop > 0;
         $id = $isRepeated ? null : ($p['anchor'] ?? ($hasStyle ? 's-' . $p['id'] : null));
-        $classes = array_merge($isRepeated && $hasStyle ? ['s-' . $p['id']] : [], $p['classes'] ?? []);
+        // #331: a build stored before "tl-" names were reserved loses them here – the element renders without the hook
+        $own = Build::userClasses($p['classes'] ?? null);
+        $classes = array_merge($isRepeated && $hasStyle ? ['s-' . $p['id']] : [], $own);
         if ($hasStyle && !isset($k->styles[$p['id']])) {
             $k->styles[$p['id']] = true;
             $k->css .= Style::css($isRepeated ? '.s-' . $p['id'] : '#' . $id, $style, $customCss, $k->app->request->basePath());
         }
-        foreach ($p['classes'] ?? [] as $t) {
+        foreach ($own as $t) {
             $k->classes[$t] = true;
         }
         $custom = self::customAttributes($p['attributes'] ?? null);

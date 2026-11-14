@@ -138,7 +138,8 @@ final class Webhook
     /** The secret signing the calls; created the first time it is needed. */
     public static function secret(Settings $settings): string
     {
-        if ($settings->get('webhook_secret') === '') {
+        // a secret that cannot be read (the key is gone) is not replaced: the receivers hold it, and the key may come back (System status)
+        if ($settings->get('webhook_secret') === '' && !$settings->unreadable('webhook_secret')) {
             $settings->set('webhook_secret', 'whsec_' . bin2hex(random_bytes(24)));
         }
 

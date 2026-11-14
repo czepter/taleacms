@@ -6,6 +6,7 @@ namespace Talea\Mcp\Handlers;
 
 use Talea\Admin\Modules\Media;
 use Talea\Admin\Modules\Categories;
+use Talea\Admin\Modules\Collections as CollectionsModule;
 use Talea\Admin\Modules\Pages;
 use Talea\Core\App;
 use Talea\Core\Language;
@@ -233,7 +234,8 @@ trait CollectionTools
 
         return ['total' => count($rows), 'page' => $pageNumber, 'pages' => max(1, (int) ceil(count($rows) / 50)), 'items' => array_map(fn (array $r): array => ['id' => (int) $r['item_id'], 'name' => $r['name'], 'slug' => $r['slug'], 'order' => (int) $r['sort_order'], 'visible' => (bool) $r['visible'],
             'language' => $r['language'], 'values' => json_decode((string) $r['data'], true) ?: new \stdClass()]
-            + array_filter(['seo_title' => $r['seo_title'], 'description' => $r['description'], 'image' => $r['image'], 'noindex' => (bool) $r['noindex'], 'publish_at' => $r['publish_at']]) + \Talea\Core\SeoFields::output($r) + self::validityOutput($r) + $registration($r) + $documentOutput($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
+            + array_filter(['seo_title' => $r['seo_title'], 'description' => $r['description'], 'image' => $r['image'], 'noindex' => (bool) $r['noindex'], 'publish_at' => $r['publish_at']]) + \Talea\Core\SeoFields::output($r) + self::validityOutput($r) + $registration($r) + $documentOutput($r)
+            + ($r['submitted_via'] !== null ? \Talea\Mcp\Untrusted::mark(['name', 'values']) : []), array_slice($rows, ($pageNumber - 1) * 50, 50))];
     }
 
     /** save_collection_item */
@@ -255,18 +257,22 @@ trait CollectionTools
             // saving would put it back on the site while it still waits in the trash to be deleted
             throw new \InvalidArgumentException('The item is in the trash. Bring it back with restore_from_trash first.');
         }
-        // a drafts-only connection (3.2) creates hidden items and changes hidden ones – what visitors see stays a person's call
-        $draftsOnly = $auth->draftsOnly();
-        if ($draftsOnly) {
-            $proposeInstead = ' Write the change you propose (the item and its values) into the note of the request or the summary of the run for a person to apply – or the user connects Claude with full access.';
-            if ($previous !== null && ((int) $previous['visible'] === 1 || $previous['publish_at'] !== null)) {
-                throw new \DomainException('This connection can only save drafts, and this item is on the site (or scheduled to be published), so it cannot be changed here.' . $proposeInstead);
+        // a drafts-only connection (3.2) and an account whose role does not publish (an author) create hidden items and change hidden ones –
+        // what visitors see stays a person's call
+        $hiddenOnly = !$auth->canPublish();
+        if ($hiddenOnly) {
+            $who = $auth->draftsOnly() ? 'This connection' : 'This account (its role does not publish)';
+            $proposeInstead = $auth->draftsOnly()
+                ? ' Write the change you propose (the item and its values) into the note of the request or the summary of the run for a person to apply – or the user connects Claude with full access.'
+                : ' Write the change you propose (the item and its values) into the note of the request for an editor or an administrator to apply.';
+            if (($refusal = CollectionsModule::publishedRefusal($auth, $previous)) !== null) {
+                throw new \DomainException($who . ' can only save drafts, and this item is on the site (or scheduled to be published), so it cannot be changed here.' . ($auth->draftsOnly() ? '' : ' ' . $refusal) . $proposeInstead);
             }
             if ($previous !== null && !empty($a['visible'])) {
-                throw new \DomainException('This connection can only save drafts: it cannot make an item visible.' . $proposeInstead);
+                throw new \DomainException($who . ' can only save drafts: it cannot make an item visible.' . $proposeInstead);
             }
             if (is_string($a['publish_at'] ?? null) && trim($a['publish_at']) !== '') {
-                throw new \DomainException('This connection can only save drafts: it cannot schedule an item to be published.' . $proposeInstead);
+                throw new \DomainException($who . ' can only save drafts: it cannot schedule an item to be published.' . $proposeInstead);
             }
             unset($a['visible'], $a['publish_at']); // a new item stays hidden whatever visible says; a blank date means none
         }
@@ -312,7 +318,7 @@ trait CollectionTools
                 $row['visible'] = $fields['visible'];
             }
         }
-        if ($draftsOnly) {
+        if ($hiddenOnly) {
             $row['visible'] = 0; // defence in depth: no field combination makes an item public from this scope
             $row['publish_at'] = null;
         }
@@ -320,7 +326,7 @@ trait CollectionTools
         $row += \Talea\Core\SeoFields::fromInput($a);
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($collection, $data, (bool) ($row['visible'] ?? $previous['visible'] ?? 0))) {
-            throw new \DomainException(Notices::REFUSAL_HIDE . ($draftsOnly ? ' This connection can only save hidden drafts: give a posting date in the future, or propose the notice in the note for a person.' : ' Pass visible true, or a posting date in the future.'));
+            throw new \DomainException(Notices::REFUSAL_HIDE . ($hiddenOnly ? ' This connection can only save hidden drafts: give a posting date in the future, or propose the notice in the note for a person.' : ' Pass visible true, or a posting date in the future.'));
         }
         if ($previous !== null) {
             Collections::saveVersion($this->app, $previous, $row);
@@ -333,7 +339,7 @@ trait CollectionTools
         }
         \Talea\Core\SeoScore::refresh($this->app, 'item', $itemId);
         Notices::recordSave($this->app, $collection, $previous, $row, $itemId); // the audit trail of a notice board (2.11)
-        if (!$draftsOnly && \Talea\Core\Calendar::fields($collection) !== null) {
+        if (!$hiddenOnly && \Talea\Core\Calendar::fields($collection) !== null) {
             // a raised capacity frees seats for the waiting list (mails people); a drafts-only connection leaves that to the person who saves or publishes
             \Talea\Core\Registrations::refill($this->app, [$itemId]);
         }
@@ -343,7 +349,7 @@ trait CollectionTools
         $unknownKeys = array_values(array_diff(array_keys(is_array($a['values'] ?? null) ? $a['values'] : []), array_column($collection['fields'], 'key')));
 
         return ['id' => $itemId, 'collection' => $collection['slug'], 'invalid_fields' => array_keys($errors)] + ($unknownKeys !== [] ? ['unknown_keys' => $unknownKeys] : []) + self::validityOutput($row)
-            + ($draftsOnly ? ['visible' => (bool) $row['visible'], 'next' => 'Saved hidden: a person reviews the item and makes it visible (Collections, or Waiting for you on the dashboard).'] : []) + [
+            + ($hiddenOnly ? ['visible' => (bool) $row['visible'], 'next' => 'Saved hidden: a person reviews the item and makes it visible (Collections, or Waiting for you on the dashboard).'] : []) + [
             'url' => $collection['detail'] ? $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['slug'] . '/' . $seo) : null]
             // a document (2.11): the stable address of its current file, for links and buttons
             + ($collection['detail'] && \Talea\Core\Documents::fileField($collection) !== null ? ['latest_url' => $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['slug'] . '/' . $seo . '/latest')] : []);
@@ -368,6 +374,8 @@ trait CollectionTools
         $k = $collection();
         // the permanent archive of an official notice board (2.11, Core\Notices)
         $need(!Notices::isNotices($k), Notices::REFUSAL_DELETE . ' (save_collection_item with values {"taken_down": "YYYY-MM-DD"}; the notice then moves to the archive.)');
+        $need(CollectionsModule::publishedRefusal($auth, $db->one('SELECT visible, publish_at FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$id, $k['collection_id']])) === null,
+            CollectionsModule::PUBLISH_REFUSAL . ' Write the change into the note of the request for a person.');
         if (!\Talea\Admin\Modules\Collections::trashItem($db, $id, (int) $k['collection_id'])) {
             throw new \InvalidArgumentException('The item is not in this collection (or it is already in the trash). Use list_collection_items.');
         }
@@ -397,6 +405,7 @@ trait CollectionTools
             return ['versions' => array_map(fn (array $v): array => ['id' => (int) $v['revision_id'], 'saved' => substr((string) $v['created_at'], 0, 16), 'by' => (string) ($v['user_name'] ?? '')],
                 \Talea\Builder\Publisher::listAll($db, ['part' => 'item:' . $id]))];
         }
+        $need(CollectionsModule::publishedRefusal($auth, $item) === null, CollectionsModule::PUBLISH_REFUSAL . ' Write the change into the note of the request for a person.');
         $version = \Talea\Builder\Collections::loadVersion($db, $id, (int) ($a['version'] ?? 0)) ?? throw new \InvalidArgumentException('The version does not exist. Use list_item_versions.');
         if ($db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$k['collection_id'], $item['language'], $version['slug'] ?? '', $id]) !== null) {
             unset($version['slug']); // the address is taken by another item meanwhile

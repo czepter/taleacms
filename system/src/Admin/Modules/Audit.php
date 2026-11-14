@@ -30,6 +30,6 @@ final class Audit extends Module
             }
         }
 
-        return $this->view('list', 'Site audit', ['groups' => $groups, 'total' => count($audit['findings']), 'audit' => $audit, 'category' => $category, 'counts' => $counts]);
+        return $this->view('list', 'Site audit', ['groups' => $groups, 'total' => count($audit['findings']), 'audit' => $audit, 'category' => $category, 'counts' => $counts, 'move' => \Talea\Core\MoveStatus::of($this->app)]);
     }
 }

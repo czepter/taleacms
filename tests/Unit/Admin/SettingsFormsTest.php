@@ -33,6 +33,7 @@ final class SettingsFormsTest extends TestCase
                     'screen_collections', 'new_screen_token', 'smtp_ses_region', // smtp_ses_region: read by MailServices::settle(); 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
                     'kind_key', 'kind_name', 'kind_description', 'kind_move', 'kind_delete', // the kinds of enquiries (Triage::storeKinds in Settings::actionSave)
                     'instructions_seen', 'month', 'group', 'language', 'reset_message', // #149: the acknowledge button (Settings::actionAcknowledgeInstructions); #161: the month a report send or view names
+                    'site_url_confirm', // #332: the host-name confirmation, read by Settings::actionSave
                     'search'], true)) { // the overview's search (a GET form that finds screens and single settings, Kernel::settingsSearch)
                     $unknownFields[] = basename($view) . ': ' . $name;
                 }

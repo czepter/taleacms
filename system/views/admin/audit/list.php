@@ -2,12 +2,14 @@
 /**
  * Site audit: findings by kind, each with a link to fix it.
  *
+ * @var Talea\Core\App $app
  * @var Talea\Admin\Modules\Audit $module
  * @var array<string, list<array<string, mixed>>> $groups
  * @var int $total
  * @var array{score: int, previous: ?int, passed: list<string>, failed: array<string, int>} $audit
  * @var string $category
  * @var array<string, int> $counts
+ * @var array<string, mixed>|null $move  Core\MoveStatus: where a move of a site to this one stands; null when nothing was imported
  */
 use Talea\Core\Audit;
 
@@ -27,6 +29,27 @@ $tabs = ['' => t('All'), 'basics' => t('Basics'), 'advanced' => t('Advanced'), '
 		</div>
 	</div>
 </div>
+<?php if ($move !== null): $report = $move['report']; ?>
+<section class="panel-card">
+<h2><?= e(t('Moving the site')) ?></h2>
+<div class="tiles">
+	<div class="tiles-item"><strong><?= (int) $move['pages_imported'] ?></strong><span><?= e(t('Imported pages')) ?></span></div>
+	<div class="tiles-item"><strong><?= (int) $move['layout_pending'] ?></strong><span><?php if ($move['layout_pending'] > 0): ?><a href="<?= e($app->url('admin.php?module=pages&status=layout')) ?>"><?= e(t('Layout still to rebuild')) ?></a><?php else: ?><?= e(t('Layout still to rebuild')) ?><?php endif ?></span></div>
+	<div class="tiles-item"><strong><?= (int) $move['starter_pages_left'] ?></strong><span><?php if ($move['starter_pages_left'] > 0): ?><a href="<?= e($app->url('admin.php?module=transfer')) ?>"><?= e(t('Starter pages left')) ?></a><?php else: ?><?= e(t('Starter pages left')) ?><?php endif ?></span></div>
+	<div class="tiles-item"><strong><?= (int) $move['redirects'] ?></strong><span><?= e(t('Redirects')) ?></span></div>
+	<div class="tiles-item"><strong><?= (int) $move['forms'] ?></strong><span><?= e(t('Forms')) ?></span></div>
+</div>
+<?php if ($report === null || !$report['done']): ?>
+<p class="small-text"><?= e(t('No migration report yet – check the move before the domain is switched.')) ?> <a href="<?= e($app->url('admin.php?module=transfer')) ?>"><?= e(t('Import and export')) ?></a></p>
+<?php elseif (!$report['reachable']): ?>
+<p class="notice notice-error"><?= e(t('The old site could not be reached in the latest check.')) ?></p>
+<?php elseif ($report['clean']): ?>
+<p class="notice notice-ok"><?= e(t('The latest check of the move (%s) is clean.', format_date($report['checked_at'], true))) ?></p>
+<?php else: ?>
+<p class="notice"><?= e(t('The latest check of the move (%s) found %d errors and %d warnings.', format_date($report['checked_at'], true), (int) $report['errors'], (int) $report['warnings'])) ?></p>
+<?php endif ?>
+</section>
+<?php endif ?>
 <nav class="list-tabs" aria-label="<?= e(t('Categories')) ?>">
 <?php foreach ($tabs as $slug => $label): ?>
 	<a href="<?= e($module->url('', $slug === '' ? [] : ['category' => $slug])) ?>"<?= $slug === $category ? ' aria-current="page"' : '' ?>><?= e($label) ?> <span class="list-tab-count"><?= $slug === '' ? $total : ($counts[$slug] ?? 0) ?></span></a>

@@ -100,6 +100,11 @@ final class VisitBeaconTest extends SiteTestCase
         $site->exec('INSERT INTO tl_stats_days (day, visits, views) VALUES (CURRENT_DATE - INTERVAL 3 DAY, 10, 30)');
 
         $stats = $site->admin()->get('/admin.php?module=stats&days=7');
+        $this->assertStringContainsString('class="chart" role="group"', $stats->body, '#338: the chart is a group of bars');
+        $this->assertStringContainsString('aria-describedby="stats-chart-summary"', $stats->body);
+        $this->assertStringContainsString('id="stats-chart-summary"', $stats->body, 'the group is described by a text summary');
+        $this->assertMatchesRegularExpression('/class="chart-column"[^>]* role="img"/', $stats->body, 'every bar is an image with its own label');
+        $this->assertStringNotContainsString('class="chart" role="img"', $stats->body, 'no image around focusable bars');
         $this->assertStringContainsString('class="small-text stats-counting"', $stats->body, 'Statistics name the day counting changed');
         $this->assertStringContainsString('Figures before ' . $today . ' counted every request', $stats->body, 'the note carries the day');
         $this->assertStringContainsString('Figures before ' . $today, $site->admin()->get('/admin.php?days=7')->body, 'the dashboard marks it too');
