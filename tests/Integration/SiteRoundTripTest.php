@@ -8,7 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use Talea\Builder\Build;
 use Talea\Builder\Collections;
 use Talea\Core\Db;
-use Talea\Core\Migrator;
+use Talea\Core\Owners;
 use Talea\Core\Settings;
 use Talea\Core\SiteExport;
 use Talea\Core\SiteImport;
@@ -22,14 +22,14 @@ use Talea\Tests\Support\DatabaseTestCase;
  * data a moved site loses without any error. A second check keeps the lists of the export honest: every table and every column of the
  * schema, and every setting, is either in the archive or named here with the reason it stays behind.
  *
- * The source is the class's database under tl_, the empty site the same database under rt_ (its own migrations).
+ * The source is the class's database under tl_, the empty site is a further owner of the same database (Owners::add: its own tables and
+ * its own index names, because PostgreSQL and SQLite want index names unique in the whole database; a second INSTALL with the same names
+ * cannot exist there, docs/specs/postgres.md).
  */
 #[CoversClass(SiteExport::class)]
 #[CoversClass(SiteImport::class)]
 final class SiteRoundTripTest extends DatabaseTestCase
 {
-    private const string TARGET_PREFIX = 'rt_';
-
     /** Tables that never travel, with the reason (a new table must be added to the export or here). */
     private const array NOT_EXPORTED = [
         // personal data of visitors and customers, and what belongs to them
@@ -148,8 +148,11 @@ final class SiteRoundTripTest extends DatabaseTestCase
         $this->fill($db);
         self::$before = $this->archive($db);
 
-        Migrator::migrate(['prefix' => self::TARGET_PREFIX] + $config);
-        $target = self::$target = Db::fromConfig(['prefix' => self::TARGET_PREFIX] + $config);
+        $owner = Owners::add($db, 'Round trip', 'organisation', 'rt@example.test');
+        if (Owners::provisionPending($db, $config) !== ['owner ' . $owner . ': ready']) {
+            throw new \RuntimeException('The empty site was not set up.');
+        }
+        $target = self::$target = $db->forOwner($owner);
         $admin = $target->insert('users', ['username' => 'rt-admin', 'password' => 'x', 'name' => 'Importer', 'email' => 'rt@example.test', 'admin' => 2, 'language' => '', 'confirmed_at' => date('Y-m-d H:i:s')]);
         $file = 'round-trip-' . bin2hex(random_bytes(4)) . '.zip';
         copy(self::$before['zip'], WpFile::dir() . '/' . $file);
