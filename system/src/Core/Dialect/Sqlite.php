@@ -16,8 +16,13 @@ final class Sqlite extends Dialect
     /** The file of a site whose configuration names none, relative to the installation. */
     public const string DEFAULT_FILE = 'storage/database/talea.sqlite';
 
-    /** @var array<string, resource> lock name => open lock file (flock is released when the file is closed) */
-    private static array $locks = [];
+    /**
+     * Connection => lock name => open lock file. flock is released when the file is closed, and a WeakMap drops the files of a connection
+     * that is gone, so as on MySQL a lock never outlives its connection.
+     *
+     * @var \WeakMap<PDO, array<string, resource>>|null
+     */
+    private static ?\WeakMap $locks = null;
 
     public function name(): string
     {
@@ -272,10 +277,15 @@ final class Sqlite extends Dialect
         return 'talea_fold(' . $column . ') LIKE talea_fold(' . $placeholder . ") ESCAPE '\\'";
     }
 
-    /** A file lock next to the database: SQLite has no named locks, and every process of the site sees the same folder. */
+    /**
+     * A file lock next to the database: SQLite has no named locks, and every process of the site sees the same folder. As on MySQL the lock
+     * belongs to the connection: a second connection of the same process waits for it like another process does (flock on two open files
+     * conflicts), the connection that holds it is told false at once.
+     */
     public function lock(PDO $pdo, string $name, int $timeout): bool
     {
-        if (isset(self::$locks[$name])) {
+        self::$locks ??= new \WeakMap();
+        if (isset(self::$locks[$pdo][$name])) {
             return false;
         }
         $file = self::lockFile($pdo, $name);
@@ -286,7 +296,7 @@ final class Sqlite extends Dialect
         $until = microtime(true) + $timeout;
         do {
             if (flock($handle, LOCK_EX | LOCK_NB)) {
-                self::$locks[$name] = $handle;
+                self::$locks[$pdo] = [$name => $handle] + (self::$locks[$pdo] ?? []);
 
                 return true;
             }
@@ -299,10 +309,16 @@ final class Sqlite extends Dialect
 
     public function unlock(PDO $pdo, string $name): void
     {
-        if (isset(self::$locks[$name])) {
-            flock(self::$locks[$name], LOCK_UN);
-            fclose(self::$locks[$name]);
-            unset(self::$locks[$name]);
+        $held = self::$locks[$pdo] ?? [];
+        if (isset($held[$name])) {
+            flock($held[$name], LOCK_UN);
+            fclose($held[$name]);
+            unset($held[$name]);
+            if ($held === []) {
+                unset(self::$locks[$pdo]);
+            } else {
+                self::$locks[$pdo] = $held;
+            }
         }
     }
 

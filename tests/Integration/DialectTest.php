@@ -136,6 +136,18 @@ final class DialectTest extends DatabaseTestCase
         $second->unlock('talea-dialect-test');
     }
 
+    public function testALockEndsWithItsConnection(): void
+    {
+        $gone = Db::fromConfig($this->dbConfig());
+        $this->assertTrue($gone->lock('talea-dialect-gone', 0));
+        unset($gone);
+        gc_collect_cycles();
+
+        $other = Db::fromConfig($this->dbConfig());
+        $this->assertTrue($other->lock('talea-dialect-gone', 0), 'a connection that is gone holds nothing');
+        $other->unlock('talea-dialect-gone');
+    }
+
     public function testLockNamesAreScopedToTheDatabase(): void
     {
         $db = $this->db();

@@ -78,7 +78,7 @@ final class StarterPages
         }
         $marks = implode(', ', array_fill(0, count($recorded), '?'));
         $rows = $db->all(
-            "SELECT p.*, CASE WHEN EXISTS (SELECT 1 FROM {pages} t WHERE t.translation_of = p.page_id AND t.deleted_at IS NULL) THEN 1 ELSE 0 END AS translated FROM {pages} p WHERE p.public_id IN ({$marks}) AND p.deleted_at IS NULL",
+            "SELECT p.*, CASE WHEN EXISTS (SELECT 1 FROM {pages} t WHERE t.translation_of = p.page_id AND t.deleted_at IS NULL) THEN 1 ELSE 0 END AS translated FROM {pages} p WHERE p.public_id IN ({$marks}) AND p.deleted_at IS NULL ORDER BY p.page_id",
             array_map('strval', array_keys($recorded)),
         );
         $home = $settings->int('home_page');
