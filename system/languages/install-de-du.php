@@ -4,6 +4,7 @@
 return [
     'A few short steps and your website is running. Everything can be changed later in the administration.' => 'Ein paar kurze Schritte, und deine Website läuft. Alles lässt sich später in der Administration ändern.',
     'A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → General.' => 'Eine Website in mehreren Sprachen: Jede weitere Version (z. B. /en/…) hat eigene Seiten, Kategorien und News, einen Sprachumschalter und hreflang-Tags. Die Sprachen wählst du unter Einstellungen → Allgemein.',
+    'An empty site with a placeholder home page; import the old site right after installation.' => 'Eine leere Website mit einer Platzhalter-Startseite; die alte Website importierst du gleich nach der Installation.',
     'An empty site; import its export right after installation.' => 'Eine leere Website; ihren Export importierst du gleich nach der Installation.',
     'Colours, fonts, header and footer. The looks that suit your business come first; the preview shows your home page.' => 'Farben, Schriften, Kopf- und Fußzeile. Zuerst stehen die Looks, die zu deinem Unternehmen passen; die Vorschau zeigt deine Startseite.',
     'Could not connect to the database server. Check the server and port.' => 'Verbindung zum Datenbankserver nicht möglich. Prüfe Server und Port.',
@@ -31,6 +32,7 @@ return [
     'The server has set up the database for you: %s on %s.' => 'Die Datenbank hat der Server für dich eingerichtet: %s auf %s.',
     'The site is empty. Sign in and drop the export of your Talea site on the Import and export page.' => 'Die Website ist leer. Melde dich an und lege den Export deiner Talea-Website auf der Seite Import und Export ab.',
     'The site is empty. Sign in and import the export of your Talea site in Import and export → Import from Talea.' => 'Die Website ist leer. Melde dich an und importiere den Export deiner Talea-Website unter Import und Export → Import aus Talea.',
+    'The site is ready for the move. Sign in and import the old site on the Import and export page – from a WordPress export or from its address.' => 'Die Website ist bereit für den Umzug. Melde dich an und importiere die alte Website auf der Seite Import und Export – aus einem WordPress-Export oder von ihrer Adresse.',
     'The tables were created, but config.php could not be written. Check the write permissions.' => 'Die Tabellen wurden erstellt, aber config.php konnte nicht geschrieben werden. Prüfe die Schreibrechte.',
     'Then tell Claude about your business, for example:' => 'Erzähle Claude dann von deinem Unternehmen, zum Beispiel:',
     'There is no database with this name on the server. Create it in your hosting control panel or correct the name.' => 'Auf dem Server gibt es keine Datenbank mit diesem Namen. Lege sie im Kontrollpanel deines Hostings an oder korrigiere den Namen.',
@@ -42,4 +44,5 @@ return [
     'Your own cookie-free traffic analytics.' => 'Deine eigene cookiefreie Traffic-Analyse.',
     'Your site' => 'Deine Website',
     'Your website' => 'Deine Website',
+    '[The home page of the moved site goes here: publish the imported home page and set it as the home page.]' => '[Hier kommt die Startseite der umgezogenen Website hin: Veröffentliche die importierte Startseite und lege sie als Startseite fest.]',
 ];

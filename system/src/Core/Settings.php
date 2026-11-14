@@ -54,6 +54,7 @@ final class Settings
         'site_language' => 'en',         // site language: template texts, <html lang>, structured data (Core\Language)
         'german_register' => 'informal',      // form of address in the German texts for visitors: informal (du) | formal (Sie); the administration has its own choice per user
         'additional_languages' => '',         // further language versions at /en/, /de/… (Language versions extension), comma-separated codes
+        'starter_pages' => '',  // the installer's starter pages: JSON {page public id: fingerprint} (Core\StarterPages); '' = none recorded
         'home_page' => '0',     // page (tl_pages.ids) as the site's home page; 0 = news listing
         'news_per_page' => '9',        // news items per listing page
         'maintenance' => '0',              // maintenance mode: visitors see a notice, logged-in administrators see the site
@@ -69,6 +70,7 @@ final class Settings
         'webhook_url' => '',          // where to send the data of a just-published news item (Make, Zapier...)
         'webhook_enquiries' => '',    // where to send a new enquiry from a form (CRM, Make, Zapier, n8n…)
         'webhook_secret' => '',       // created by itself; signs webhook calls (X-Talea-Signature), shown only to administrators
+        'passkey_only' => '0',        // every account with a passkey for this site signs in only with it (#333, Auth::passkeyOnly); TALEA_PASSKEY_ONLY_OFF switches it off
         'require_2fa' => '',          // '' | admins (administrators) | everyone (everyone) – mandatory two-factor login
         'auto_suspend' => '',         // automatic suspension (2.8, Core\SecurityHygiene), a list: accounts = block accounts unused for 90 days, connections = revoke Claude connections unused for 60 days
         'page_cache' => '1',       // full-page cache for visitors who are not logged in (until a change or a new day, Front\Cache)
@@ -187,6 +189,7 @@ final class Settings
         'fleet_kit_version' => '0',    // the kit version applied here
         'fleet_kit_applied_at' => '',
         'fleet_kit_error' => '',       // why the last kit was refused (English, translated where shown)
+        'fleet_web_server' => '',      // the web server family a web request last saw (Fleet\Heartbeat) – the cron cannot see it
         'remote_backup' => 'off', // copy of the backup off the server: off | ftp | s3
         'backup_host' => '',          // FTP server, or the S3 storage URL (s3.eu-central-1.amazonaws.com)
         'backup_user' => '',      // FTP user name / S3 access key
@@ -259,7 +262,8 @@ final class Settings
         }
 
         if (isset($this->values[$key])) {
-            return $this->values[$key];
+            // a password or key of an outside service is stored sealed while TALEA_SECRET_KEY is set; one that cannot be opened reads as empty (Vault, System status)
+            return in_array($key, Vault::SETTINGS, true) ? Vault::openValue($this, $this->values[$key]) ?? '' : $this->values[$key];
         }
 
         // default texts the visitor sees, in the site language (an English site must not show the Czech maintenance notice or cookie bar)
@@ -276,8 +280,33 @@ final class Settings
         return $this->get($key) === '1';
     }
 
+    /** The value as stored, a sealed one still sealed (Core\Vault, System status); '' for none. */
+    public function raw(string $key): string
+    {
+        $this->values ??= $this->db->pairs('SELECT name, value FROM {settings}');
+
+        return $this->values[$key] ?? '';
+    }
+
+    /** The setting is stored sealed and cannot be opened with the key in use (the variable is gone or another one): it reads as empty. */
+    public function unreadable(string $key): bool
+    {
+        $stored = $this->raw($key);
+
+        return Vault::isSealed($stored) && Vault::openValue($this, $stored) === null;
+    }
+
+    /** Forgets what was read: the next get() reads the table again (a value was changed behind this object, Core\Vault). */
+    public function reload(): void
+    {
+        $this->values = null;
+    }
+
     public function set(string $key, string $value): void
     {
+        if (in_array($key, Vault::SETTINGS, true)) {
+            $value = Vault::sealValue($this, $value);
+        }
         $this->db->upsert('settings', ['name' => $key, 'value' => $value], ['name']);
         if ($this->values !== null) {
             $this->values[$key] = $value;

@@ -22,7 +22,7 @@ final class Kernel
      * The editors' ongoing requests (unsaved state, assistant, build draft, the SEO tab's live check): they do not change the site, so they neither clear the
      * page cache (it would be cold all the time during work) nor publish files waiting for approval (Core\MediaStaging).
      */
-    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask', 'seo_check'];
+    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask', 'seo_check', 'proof'];
 
     /** A path segment that may stand for a module, an action or an id (anything else stays in the query). */
     private const string SEGMENT = '[A-Za-z0-9_.-]+';
@@ -170,7 +170,7 @@ final class Kernel
     public const array SETTINGS_SEARCH = [
         ['settings', 'general', 'site_name', 'Site name'], ['settings', 'general', 'site_url', 'Site address'], ['settings', 'general', 'site_email', 'Site email'],
         ['settings', 'general', 'site_description', 'Site description'], ['settings', 'general', 'time_zone', 'Time zone'], ['settings', 'general', 'site_language', 'Site language'],
-        ['settings', 'general', 'home_page', 'Site home page'], ['settings', 'general', 'footer_text', 'Footer text'], ['settings', 'general', 'require_2fa', 'Two-factor sign-in'],
+        ['settings', 'general', 'home_page', 'Site home page'], ['settings', 'general', 'footer_text', 'Footer text'], ['settings', 'general', 'require_2fa', 'Two-factor sign-in'], ['settings', 'general', 'passkey_only', 'Passkey-only sign-in'],
         ['settings', 'general', 'news_per_page', 'News items per page'], ['settings', 'general', 'page_cache', 'Page cache'],
         ['settings', 'address', 'indexing', 'Allow the site in search engines'], ['settings', 'address', 'redirect_to_site_url', 'Redirect other addresses to the site address'],
         ['settings', 'seo', 'share_image', 'Sharing image'], ['settings', 'seo', 'robots_extra', 'Custom robots.txt rules'], ['settings', 'seo', 'ai_crawlers', 'AI search engines and assistants'],
@@ -359,15 +359,10 @@ final class Kernel
             $app->session->flash('error', t('The database is behind the code: run "php bin/migrate" on the server.'));
         }
 
-        if ($app->auth()->isAdmin() && !\Talea\Core\Demo::active()) {
-            \Talea\Core\Backup::createAutomatic($app->db(), $app->settings());
+        if ($app->auth()->isAdmin() && !\Talea\Core\Demo::active() && !$request->isPost()) {
+            \Talea\Core\Vault::sealStored($app->db(), $app->settings()); // passwords and keys kept in plain text before TALEA_SECRET_KEY was set (#335)
         }
-        if ($app->auth()->user() !== null) {
-            Modules\News::emptyTrash($app->db()); // the trash keeps news and pages for 30 days
-            Modules\Pages::emptyTrash($app->db());
-            Modules\Collections::emptyTrash($app->db());
-            Modules\Enquiries::emptyTrash($app->db());
-        }
+        // Backups (job backup) and the trash (job trash) are background jobs (Core\Scheduler), never the work of an admin page view.
 
         $ident = $request->get('module');
         \Talea\Core\ErrorReport::tag('module', $ident !== '' ? $ident : 'dashboard');
@@ -379,7 +374,7 @@ final class Kernel
             return Response::redirect($app->url('admin.php' . ($ident !== '' ? '?module=' . rawurlencode($ident) : '')));
         }
         // mandatory two-factor sign-in: whoever does not have it yet can only go to My account (and sign out) until they enable it
-        if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['account', 'token'], true)) {
+        if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['account', 'token', 'proof'], true)) {
             $app->session->flash('error', t('This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.'));
 
             return Response::redirect($app->url('admin.php?action=account&tab=sign-in'));
@@ -397,6 +392,9 @@ final class Kernel
         if ($action === 'token') {
             // after a new sign-in in another tab, the editor takes the valid form token here and continues saving
             return Response::json(['csrf' => $app->session->csrfToken()]);
+        }
+        if ($action === 'proof' && $request->isPost()) {
+            return $this->proof();
         }
         if ($action === 'account') {
             return (new Account($this))->handle();
@@ -586,7 +584,7 @@ final class Kernel
         }
         if ($this->app->auth()->isAdmin()) {
             $backup = \Talea\Core\Backup::listAll()[0]['time'] ?? 0;
-            if (time() - $backup > 8 * 86400 && \Talea\Core\Owners::isFirst($this->app->db())) { // the backups are the install's, not a further owner's
+            if (($backup === 0 || days_ago($backup) > 8) && \Talea\Core\Owners::isFirst($this->app->db())) { // the backups are the install's, not a further owner's
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
             }
             // the instructions steer every Claude connection and a connection may rewrite them: shown until an administrator checked them (#149)
@@ -779,7 +777,8 @@ final class Kernel
                 // the password as typed, not trimmed – as every place that sets one reads it (3.3.3, N61)
                 : $app->auth()->login($app->request->post('username'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address, $app->request->postBool('remember'));
             if ($error === null && $app->auth()->user() !== null) {
-                ChangeLog::write($app, 'signed_in', 'login', $secondStep ? 'two-step' : '');
+                // the escape (TALEA_PASSKEY_ONLY_OFF) let an account with two-factor sign-in in with the password alone: the log says so
+                ChangeLog::write($app, 'signed_in', 'login', $secondStep ? 'two-step' : (\Talea\Core\Auth::passkeyOnlyOff() && $app->auth()->hasTwoStep((array) $app->auth()->user()) ? 'TALEA_PASSKEY_ONLY_OFF' : ''));
 
                 return Response::redirect($this->resolveAfterSignIn());
             }
@@ -798,6 +797,25 @@ final class Kernel
             // the passkey button: after the password when the account has keys, on the first step when any account has one
             'keys' => $app->auth()->isAwaitingCode() ? $app->auth()->isAwaitingKey() : (int) $app->db()->value('SELECT COUNT(*) FROM {user_passkeys}') > 0,
         ]), $error === null ? 200 : 401);
+    }
+
+    /**
+     * "Confirm with your passkey" (image/passkeys.js, button[data-passkey-confirm]): a signed-in person proves it is them with a passkey
+     * instead of typing the password; the proof counts for ten minutes (Auth::requireFresh). step=options asks for a challenge,
+     * step=verify sends the device's signature. Answers JSON.
+     */
+    private function proof(): Response
+    {
+        $app = $this->app;
+        $url = $app->settings()->get('site_url') ?: $app->request->origin();
+        if ($app->request->post('step') === 'options') {
+            $options = $app->auth()->proofChallenge($url);
+
+            return Response::json($options ?? ['error' => t('This account has no passkey for this site.')], $options === null ? 400 : 200);
+        }
+        $error = $app->auth()->verifyProof((array) json_decode((string) ($_POST['answer'] ?? ''), true), $url);
+
+        return Response::json($error === null ? ['ok' => true] : ['error' => t($error)], $error === null ? 200 : 401);
     }
 
     /**
@@ -828,15 +846,15 @@ final class Kernel
                 return Response::redirect($oauth->deny($pending));
             }
             // a connection keeps working without the person present (refresh tokens): like a personal token, it needs the current password (N56)
-            if (!password_verify($app->request->post('current_password'), (string) $app->auth()->user()['password'])) {
-                $error = 'The current password is not correct.'; // the pending request stays, the form is shown again
-            }
+            // the pending request stays and the form is shown again; a wrong password counts like a wrong sign-in
+            $error = $app->auth()->confirmOwn($app->request);
         }
         if ($error === null && $app->request->isPost()) {
             $app->session->set('pending_oauth', null);
             $access = \Talea\Front\OAuth::access($app->request->post('access') ?: 'drafts'); // no choice sent: drafts only, the default of the page
             $toolSet = \Talea\Mcp\Catalog::toolSet($app->request->post('tool_set')); // none sent: all tools, as before
-            ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ($toolSet === 'essentials' ? ', essentials' : '') . ')', 0, 100));
+            $toolSet = in_array($toolSet, \Talea\Mcp\Catalog::offered($app->settings()), true) ? $toolSet : 'all'; // a set this site does not offer (Fleet) is all
+            ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ')', 0, 100));
 
             return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access, $toolSet));
         }

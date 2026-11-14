@@ -52,6 +52,9 @@ final class JobsTest extends SiteTestCase
         $this->assertSame(1, (int) $site->value("SELECT COUNT(*) > 0 FROM tl_events WHERE type = 'build.published'"), 'a publishing event is recorded');
         $this->assertStringNotContainsString('@', (string) $site->value("SELECT GROUP_CONCAT(data) FROM tl_events WHERE type = 'enquiry.received'"), 'the enquiry event carries no e-mail address');
         $this->assertPage('/admin.php?module=status', 200, 'alerts_email', message: 'System status lists the background jobs');
+        $this->assertPage('/admin.php?module=status', 200, ['Personal data clean-up', 'class="panel-collapsed health-group"'], message: 'System status has the clean-up row, in groups');
+        $site->setting('data_cleanup', (string) (time() - 3 * 86400));
+        $this->assertPage('/admin.php?module=status', 200, 'are not being deleted', message: 'a clean-up that has not run for more than two days is a warning');
     }
 
     public function testAnErrorEventGoesOutAsOneAlertEmailAtMostAnHour(): void

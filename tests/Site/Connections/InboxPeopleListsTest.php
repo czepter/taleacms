@@ -47,8 +47,11 @@ final class InboxPeopleListsTest extends SiteTestCase
         $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_enquiries WHERE public_id = ?', [$id]), 'deleted permanently from the trash');
 
         $site->exec("INSERT INTO tl_enquiries (created_at, form, email, data, status, deleted_at) VALUES (NOW(), 'Contact', 'old.trash@example.com', '[]', 0, NOW() - INTERVAL 31 DAY)");
-        $this->assertPage('/admin.php?module=enquiries', 200, message: 'an admin visit empties the trash');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_enquiries WHERE email = 'old.trash@example.com'"), 'after 30 days in the trash an enquiry is gone');
+        $this->assertPage('/admin.php?module=enquiries', 200, message: 'an admin visit');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_enquiries WHERE email = 'old.trash@example.com'"), 'an admin page view does not empty the trash (#337)');
+        $site->exec("DELETE FROM tl_jobs WHERE name = 'trash'");
+        $site->runTasks();
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_enquiries WHERE email = 'old.trash@example.com'"), 'after 30 days in the trash the daily job deletes an enquiry');
     }
 
     public function testATopicLinksOnlyToAPageOfTheSite(): void

@@ -10,7 +10,8 @@ namespace Talea\Core;
  * access and portability) or erase it (the right to erasure) – instead of searching enquiries, subscribers and queues
  * one by one on each site.
  *
- *  - Found: enquiries with the address as the sender or anywhere in their fields, the subscription and its pending
+ *  - Found: enquiries with the address as the sender or as the whole value of a field (not an address that merely contains it, and not a
+ *    note that mentions it), the subscription and its pending
  *    sync to the mailing service, e-mails still in the outgoing queue, testimonial requests, bookings of appointments
  *    (3.0, Core\Booking), the member account of the site's member login (Core\Members), and an account of the administration
  *    (shown only – accounts are removed in Users, never here).
@@ -41,6 +42,27 @@ final class PersonalData
     }
 
     /**
+     * Does the enquiry belong to the address? The sender's address, or a field whose whole value is the address (a colleague's e-mail
+     * field) – compared exactly, ignoring case and spaces. A longer address that contains it (xjane@example.com) or a note that only
+     * mentions it does not belong to the person.
+     *
+     * @param array<string, mixed> $enquiry a row of find() with the decoded 'data'
+     */
+    public static function belongsTo(array $enquiry, string $email): bool
+    {
+        $same = static fn (mixed $value): bool => is_string($value) && mb_strtolower(trim($value)) === $email;
+        if ($same($enquiry['email'] ?? '')) {
+            return true;
+        }
+        $found = false;
+        array_walk_recursive($enquiry['data'], static function (mixed $value) use ($same, &$found): void {
+            $found = $found || $same($value);
+        });
+
+        return $found;
+    }
+
+    /**
      * Everything the site keeps about the address.
      *
      * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, member: ?array<string, mixed>, account: ?array<string, mixed>}
@@ -65,9 +87,10 @@ final class PersonalData
         }
 
         return [
-            // the sender's address, or the address typed into any field of the form (a colleague's e-mail field)
-            'enquiries' => array_map(fn (array $r): array => ['data' => json_decode((string) $r['data'], true) ?: []] + $r,
+            // the sender's address, or the address typed into a field of the form (a colleague's e-mail field): LIKE only narrows the rows, belongsTo decides
+            'enquiries' => array_values(array_filter(array_map(fn (array $r): array => ['data' => json_decode((string) $r['data'], true) ?: []] + $r,
                 $db->all('SELECT enquiry_id, public_id, created_at, form, page, topic, email, data, campaign, landing_page, referrer FROM {enquiries} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY enquiry_id', [$email, $like])),
+                fn (array $r): bool => self::belongsTo($r, $email))),
             'subscriber' => $subscriber,
             'sync' => $db->all('SELECT action, created_at, attempts FROM {subscription_queue} WHERE LOWER(email) = ?', [$email]),
             'mail' => $db->all('SELECT mail_id, subject, created_at, sent_at FROM {mail} WHERE LOWER(recipient) = ? ORDER BY mail_id', [$email]),

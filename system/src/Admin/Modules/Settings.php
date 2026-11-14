@@ -13,6 +13,7 @@ use Talea\Core\Health;
 use Talea\Core\Messages;
 use Talea\Admin\ChangeLog;
 use Talea\Core\Backup;
+use Talea\Core\RemoteBackup;
 
 /**
  * Site settings (table tl_settings) split into tabs.
@@ -21,6 +22,8 @@ use Talea\Core\Backup;
 class Settings extends Module
 {
     use \Talea\Admin\ServerActions;
+    use \Talea\Admin\HoursActions;
+    use \Talea\Admin\FleetActions;
 
     public const string IDENT = 'settings';
     public const string NAME = 'Settings';
@@ -53,7 +56,7 @@ class Settings extends Module
         'general' => [
             'site_name' => 'text', 'site_url' => 'pattern:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'lines', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
-            'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'list:' . \Talea\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'require_2fa' => 'choice:|admins|everyone', 'trusted_proxy' => 'choice:|cloudflare',
+            'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'list:' . \Talea\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'require_2fa' => 'choice:|admins|everyone', 'passkey_only' => 'flag', 'trusted_proxy' => 'choice:|cloudflare',
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
             'screen_mode' => 'flag', 'screen_seconds' => 'number:' . \Talea\Front\Screen::MIN_SECONDS . ':' . \Talea\Front\Screen::MAX_SECONDS, 'screen_news' => 'flag', 'screen_hours' => 'flag', 'screen_clock' => 'flag',
             'auto_suspend' => 'list:' . \Talea\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Talea\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
@@ -220,10 +223,10 @@ class Settings extends Module
             'invalidFields' => $invalid['fields'],
             'values' => $invalid['values'] + $values,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
-            'remoteStatus' => $settings->get('remote_backup_status'),
-            'mediaStatus' => $settings->get('remote_media_status'),
+            'remoteStatus' => RemoteBackup::cleanStatus($settings, $settings->get('remote_backup_status')),
+            'mediaStatus' => RemoteBackup::cleanStatus($settings, $settings->get('remote_media_status')),
             'tasksToken' => $settings->get('tasks_token'),
-            'errorLog' => $tab === 'health' && \Talea\Core\Owners::isFirst($this->db) ? self::readFileTail(TALEA_ROOT . '/storage/log/errors.log', 40) : [],
+            'errorLog' => $tab === 'health' && \Talea\Core\Owners::isFirst($this->db) ? \Talea\Core\ErrorReport::entries(40) : [],
             'mail' => $tab === 'mail' ? $this->db->all('SELECT recipient, subject, created_at, sent_at, attempts, next_attempt_at, error FROM {mail} ORDER BY mail_id DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Talea\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
@@ -273,6 +276,9 @@ class Settings extends Module
         $errors = [];
         $given = [];
         $zoneBefore = $settings->get('time_zone');
+        $twoFactorBefore = $settings->get('require_2fa');
+        $passkeyOnlyBefore = $settings->bool('passkey_only');
+        $urlBefore = $settings->get('site_url');
         $instructionsBefore = $settings->get('claude_instructions'); // a change goes to the change log with both texts (#149)
         $override = []; // values saved instead of what the form sent
         if ($tab === 'analytics' && $this->request->postBool('disconnect')) {
@@ -307,6 +313,7 @@ class Settings extends Module
             }
             // "code" is not trimmed or modified in any other way - it is HTML/JS inserted by the administrator
             $value = $override[$key] ?? ($type === 'code' ? (string) ($_POST[$key] ?? '') : $this->request->post($key));
+            $value = $key === 'site_url' ? \Talea\Core\SiteUrl::normalize($value) : $value; // lower case, no trailing slash, dot or default port
             if (str_starts_with($type, 'list:')) {
                 $settings->set($key, implode(',', array_intersect($this->request->postList($key), explode('|', substr($type, 5)))));
                 continue;
@@ -316,6 +323,8 @@ class Settings extends Module
                     $settings->set($key, '');
                 } elseif ($value !== '' && $type !== 'secret' && !preg_match(substr($type, 7), $value)) {
                     $errors[] = $key; // the value is never printed in the message, only the field name
+                } elseif (\Talea\Core\Vault::isSealed($value) && \Talea\Core\Vault::installKey($settings) === null && in_array($key, \Talea\Core\Vault::SETTINGS, true)) {
+                    $errors[] = $key; // without an install key it would be stored plain, read as a sealed value and come back empty
                 } elseif ($value !== '') {
                     $settings->set($key, mb_substr($value, 0, 300));
                 }
@@ -335,6 +344,23 @@ class Settings extends Module
                 continue;
             }
             $settings->set($key, $clean);
+        }
+        // two refusals on the General tab are checked together: one must not let the other's change through unconfirmed
+        $refused = [];
+        if ($tab === 'general' && (self::weakensTwoFactor($twoFactorBefore, $settings->get('require_2fa')) || ($passkeyOnlyBefore && !$settings->bool('passkey_only')))
+            && ($refusal = $this->app->auth()->requireFresh($this->request)) !== null) {
+            // making two-factor sign-in optional for more people, or turning passkey-only off for the site, needs a fresh proof (#332, #333)
+            $settings->set('require_2fa', $twoFactorBefore);
+            $settings->set('passkey_only', $passkeyOnlyBefore ? '1' : '0');
+            $refused[] = t('The other settings are saved, but sign-in was not weakened: %s', t($refusal));
+        }
+        if (($fallbacks = \Talea\Core\SiteUrl::passkeyFallbacks($this->db, $urlBefore, $settings->get('site_url'))) > 0 && !$this->request->postBool('site_url_confirm')) {
+            $settings->set('site_url', $urlBefore); // passkeys work only on the host they were registered for: confirm first
+            $this->app->session->set('settings_invalid', ['tab' => $tab, 'fields' => ['site_url'], 'values' => ['site_url' => $this->request->post('site_url')]]);
+            $refused[] = t('The new address has another host name. Passkeys work only on the host they were registered for: %d account(s) would sign in with the password and the second step until they add a passkey again. Tick “Change the host name anyway” and save again.', $fallbacks);
+        }
+        if ($refused !== []) {
+            return $this->back(implode(' ', $refused), '', $this->tabParams($tab), 'error');
         }
         \Talea\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'), typed: true);
         // a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
@@ -406,6 +432,14 @@ class Settings extends Module
             : $this->rejectInvalid($tab, $errors, $given);
     }
 
+    /** Does the change make two-factor sign-in required for fewer people? Ranks: optional < administrators < everyone. */
+    public static function weakensTwoFactor(string $before, string $after): bool
+    {
+        $rank = ['' => 0, 'admins' => 1, 'everyone' => 2];
+
+        return ($rank[$after] ?? 0) < ($rank[$before] ?? 0);
+    }
+
     protected function actionBackup(): Response
     {
         if (!$this->request->isPost()) {
@@ -452,143 +486,17 @@ class Settings extends Module
         return $this->back('Backup deleted.', '', ['tab' => 'backups']);
     }
 
-    /** An exception to the opening hours (2.10, Core\Hours). */
-    protected function actionHoursAdd(): Response
-    {
-        if (!$this->request->isPost()) {
-            return $this->back('', '', ['tab' => 'company']);
-        }
-        $error = \Talea\Core\Hours::save($this->app, ['from' => $this->request->post('exception_from'), 'to' => $this->request->post('exception_to'),
-            'closed' => $this->request->postBool('exception_closed'), 'hours' => $this->request->post('exception_hours'), 'note' => $this->request->post('exception_note'),
-            'notice_days' => $this->request->postInt('exception_notice', 7)]);
-
-        return $error !== null ? $this->back($error, '', ['tab' => 'company'], 'error') : $this->back('The exception is saved.', '', ['tab' => 'company']);
-    }
-
-    protected function actionHoursDelete(): Response
-    {
-        if ($this->request->isPost()) {
-            \Talea\Core\Hours::delete($this->app, $this->request->postInt('exception'));
-        }
-
-        return $this->back('The exception is deleted.', '', ['tab' => 'company']);
-    }
-
-    /** Applies an exception Claude proposed (3.2): from now on the site uses it. */
-    protected function actionHoursApply(): Response
-    {
-        if ($this->request->isPost() && \Talea\Core\Hours::apply($this->app, $this->request->postInt('exception'))) {
-            return $this->back('The exception is applied.', '', ['tab' => 'company']);
-        }
-
-        return $this->back('The proposal no longer exists.', '', ['tab' => 'company'], 'error');
-    }
-
-    /** Discards an exception Claude proposed (3.2) – the site never used it. */
-    protected function actionHoursDiscard(): Response
-    {
-        if ($this->request->isPost()) {
-            \Talea\Core\Hours::discard($this->app, $this->request->postInt('exception'));
-        }
-
-        return $this->back('The proposal is discarded.', '', ['tab' => 'company']);
-    }
-
-    /** A door sign for an exception, printable in a new tab (2.10, Core\HoursSign) – GET that only renders, so the demo shows it too. */
-    protected function actionHoursSign(): Response
-    {
-        $exception = \Talea\Core\Hours::find($this->db, $this->request->getInt('exception'));
-        if ($exception === null) {
-            return $this->error('The exception no longer exists.', 404);
-        }
-        $urls = [];
-        foreach (\Talea\Core\HoursSign::FORMATS as $format) {
-            $urls[$format] = $this->url('hours_sign', ['exception' => $exception['id']] + ($format === 'a4' ? [] : ['format' => $format]));
-        }
-
-        // its own inline styles and the Print button script, nothing else may run – like the report preview
-        return new Response(\Talea\Core\HoursSign::render($this->app, $exception, $this->request->get('format'), $urls), 200, ['Content-Type' => 'text/html; charset=utf-8',
-            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; script-src 'self'; frame-ancestors 'self'; base-uri 'none'"]);
-    }
-
-    /** Pairs the site with a fleet console (2.9, Fleet\Link) – the pairing key comes from the console. */
-    protected function actionFleetPair(): Response
-    {
-        if (!$this->request->isPost()) {
-            return $this->back('', '', ['tab' => 'console']);
-        }
-        try {
-            \Talea\Fleet\Link::pair($this->app, $this->request->post('pairing_key'));
-        } catch (\RuntimeException $e) {
-            return $this->back($e->getMessage(), '', ['tab' => 'console'], 'error');
-        }
-
-        return $this->back('The site is paired with the console and has sent its first report.', '', ['tab' => 'console']);
-    }
-
-    protected function actionFleetSend(): Response
-    {
-        if (!$this->request->isPost()) {
-            return $this->back('', '', ['tab' => 'console']);
-        }
-        try {
-            \Talea\Fleet\Link::send($this->app);
-        } catch (\RuntimeException $e) {
-            return $this->back($e->getMessage(), '', ['tab' => 'console'], 'error');
-        }
-
-        return $this->back('The report has been sent to the console.', '', ['tab' => 'console']);
-    }
-
-
-    protected function actionFleetUnpair(): Response
-    {
-        if ($this->request->isPost()) {
-            \Talea\Fleet\Link::unpair($this->app);
-        }
-
-        return $this->back('The site no longer reports to the console.', '', ['tab' => 'console']);
-    }
-
-    /** Opt in to (or out of) the console's shared design kit (2.16, Fleet\Kit) – it arrives as drafts with the next report. */
-    protected function actionFleetKit(): Response
-    {
-        if ($this->request->isPost()) {
-            $on = $this->request->postBool('fleet_kit');
-            $this->app->settings()->set('fleet_kit', $on ? '1' : '0');
-            \Talea\Admin\ChangeLog::write($this->app, 'settings', 'fleet_kit', $on ? 'on' : 'off');
-        }
-
-        return $this->back('The choice about the shared kit is saved.', '', ['tab' => 'console']);
-    }
-
-    /**
-     * The last N lines of a file without loading the whole file into memory.
-     *
-     * @return list<string>
-     */
-    private static function readFileTail(string $file, int $lines): array
-    {
-        if (!is_file($file) || filesize($file) === 0) {
-            return [];
-        }
-        $f = fopen($file, 'rb');
-        fseek($f, -min(filesize($file), 64 * 1024), SEEK_END);
-        $end = (string) stream_get_contents($f);
-        fclose($f);
-
-        return array_slice(array_values(array_filter(explode("\n", $end), fn (string $r): bool => trim($r) !== '')), -$lines);
-    }
-
     /** Restoring the database from a backup; right before it, a safety backup of the current state is created. */
     protected function actionRestoreBackup(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back('', '', ['tab' => 'backups']);
         }
+        $file = $this->request->post('file');
         try {
-            $safetyBackup = Backup::create($this->db, 'before_restore');
-            $statementCount = Backup::restore($this->db, $this->request->post('file'));
+            // the safety backup must not rotate away the file it is about to restore
+            $safetyBackup = Backup::create($this->db, 'before_restore', $file);
+            $statementCount = Backup::restore($this->db, $file);
         } catch (\Throwable $e) {
             $reverted = false;
             if (isset($safetyBackup)) {
@@ -605,7 +513,7 @@ class Settings extends Module
             return $this->back(t('Restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'error');
         }
         \Talea\Front\Cache::clear();
-        ChangeLog::backup($this->app, 'settings', 'backup_restore', $this->request->post('file'));
+        ChangeLog::backup($this->app, 'settings', 'backup_restore', $file);
 
         return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
     }
@@ -846,7 +754,7 @@ class Settings extends Module
             return $this->back();
         }
 
-        return \Talea\Core\ClaudeInstructions::acknowledge($this->app->settings(), $this->request->post('instructions_seen'))
+        return \Talea\Core\ClaudeInstructions::acknowledge($this->app, $this->request->post('instructions_seen'))
             ? $this->back('Thank you. Home no longer points to the instructions until they change again.', '', ['tab' => 'ai'])
             : $this->back('The instructions changed again in the meantime – check them once more.', '', ['tab' => 'ai'], 'error');
     }

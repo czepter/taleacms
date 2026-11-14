@@ -4,6 +4,8 @@ End-to-end tests of whole installed sites over HTTP. They replace the shell walk
 site (a copy of the code in a temp folder, its own database, its own PHP server, the web installer, a signed-in administrator, an MCP
 token), so classes share nothing and run in parallel.
 
+The harness starts the site with `TALEA_STRICT_DEPRECATIONS=1`: a PHP deprecation stays an exception there (a real site only logs it once a day).
+
 ```bash
 vendor/bin/phpunit --testsuite site                       # all, one after another
 vendor/bin/paratest --testsuite site --processes 6        # all, six classes at a time
@@ -57,6 +59,7 @@ final class SomethingTest extends SiteTestCase
 | `curl … -X POST … -d "_csrf=$TOKEN"` | `$this->adminPost('/admin.php?module=…&action=…', ['field' => 'v'], formPage: '/admin.php?module=…')` (fetches a fresh token from `formPage`) or `$http->post($path, ['_csrf' => $http->get($page)->csrf(), …])` |
 | `csrf` / `$TOKEN` | `$this->site()->csrf($client, '/page')` |
 | `mcp tool '{json}'` | `$this->site()->mcp('tool', [..])` (decoded JSON-RPC), `->mcpResult('tool', [..])` (the tool's text, decoded when JSON), `->mcp('tool', $args, token: $other)` |
+| a two-step tool (`Mcp\Confirmation`) | `$this->site()->mcpConfirmed('delete_media', [..])` makes the call, takes the code of `confirmation_required` and repeats it; `mcpConfirmedResult` / `mcpConfirmedText` as `mcpResult` / `mcpText` |
 | `sq "SELECT …"` (mysql client) | `->value($sql, $params)` (first column), `->rows($sql, $params)`, `->exec($sql, $params)` |
 | `REPLACE INTO tl_settings …` | `->setting('name', 'value')`, `->settingValue('name')` |
 | `rm -f $WORK/web/storage/cache/pages/*.html` | `->clearPageCache()` |

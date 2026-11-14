@@ -172,7 +172,9 @@ final class Forms
                 $file = $_FILES['p' . $i] ?? null;
                 $uploaded = is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $file['tmp_name']);
                 $extension = $uploaded ? strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) : '';
-                if ($uploaded && (!in_array($extension, Form::ATTACHMENT_EXTENSIONS, true) || (int) $file['size'] > Form::MAX_ATTACHMENT)) {
+                // the content counts, not the name: a CV must be what its extension says, and no attachment may be HTML, a script or a program
+                $mime = $uploaded ? (string) (new \finfo(FILEINFO_MIME_TYPE))->file((string) $file['tmp_name']) : '';
+                if ($uploaded && (!Form::attachmentAllowed($field, $extension, $mime) || (int) $file['size'] > Form::MAX_ATTACHMENT || \Talea\Core\Files::forbiddenContent((string) $file['tmp_name']))) {
                     return $redirectUri('field', $i);
                 }
                 if (!$uploaded && $field['required']) {

@@ -42,7 +42,7 @@ trait ReportTools
             'id' => $stored['id'], 'month' => $stored['month'], 'created_at' => $stored['created_at'],
             'print_url' => $this->app->request->origin() . $this->app->url('admin.php?module=settings&action=report_view&month=' . $stored['month']),
             'report' => $stored['data'],
-        ];
+        ] + \Talea\Mcp\Untrusted::mark(['report']); // the same referrers, landing pages, campaigns and search terms as get_stats
     }
 
     private function onlyAdministratorsReadReports(): void

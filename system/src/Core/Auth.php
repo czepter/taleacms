@@ -13,6 +13,8 @@ namespace Talea\Core;
  */
 final class Auth
 {
+    use AuthProof;
+
     public const int AUTHOR = 0;
     public const int EDITOR = 1;
     public const int ADMIN = 2;
@@ -65,8 +67,14 @@ final class Auth
     /** @var list<string>|null */
     private ?array $modules = null;
 
-    public function __construct(private readonly Db $db, private readonly Session $session)
+    public function __construct(private readonly Db $db, private readonly Session $session, private ?Settings $settings = null)
     {
+    }
+
+    /** The settings of the site the account is signed in to (passkey-only, the host of the passkeys). */
+    private function settings(): Settings
+    {
+        return $this->settings ??= new Settings($this->db);
     }
 
     /**
@@ -116,7 +124,7 @@ final class Auth
             return $noAccess; // asked after the password: it is not a way to find out which accounts exist
         }
         $this->session->regenerate();
-        if ($this->hasTwoStep($user)) {
+        if ($this->hasTwoStep($user) && !$this->escapeSignIn($user)) {
             // the password matches, but the account has two-factor sign-in: only the code from the app, a backup code or a passkey completes it
             $this->session->set('pending_user', ['user_id' => (int) $user['user_id'], 'time' => time(), 'remember' => $remember]);
 
@@ -124,6 +132,7 @@ final class Auth
         }
         $this->recordSignIn((int) $user['user_id']);
         $this->startSignIn((int) $user['user_id'], (string) $this->db->value('SELECT password FROM {users} WHERE user_id = ?', [$user['user_id']]), $remember);
+        $this->recordProof('password', (int) $user['user_id']);
 
         return null;
     }
@@ -236,6 +245,7 @@ final class Auth
     private function startSignIn(int $idu, string $passwordHash, bool $remember = false): void
     {
         $this->session->set('user_id', $idu);
+        $this->session->remove('proof'); // a sign-in starts without proof; the credential that opened it records its own (recordProof)
         $this->session->set('fingerprint', self::passwordHash($passwordHash));
         $this->session->set('login_at', time());
         $this->session->set('last_seen', time());
@@ -380,7 +390,7 @@ final class Auth
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_backup_codes'], $code);
-        $step = $user === null ? null : Totp::step($user['totp_secret'], $code);
+        $step = $user === null || $this->passkeyOnly($user) ? null : Totp::step(Vault::openValue($this->settings(), (string) $user['totp_secret']) ?? '', $code); // a passkey-only account: backup codes and passkeys only; a seed that cannot be opened never passes
         if ($step !== null && !$this->claimCodeStep((int) $user['user_id'], $step)) {
             $step = null; // a code of a step this account already signed in with never passes again
         }
@@ -402,6 +412,7 @@ final class Auth
         $this->session->remove('pending_user');
         $this->session->regenerate();
         $this->startSignIn((int) $user['user_id'], (string) $user['password'], $remember);
+        $this->recordProof($step === null ? 'backup' : 'code', (int) $user['user_id']);
 
         return null;
     }
@@ -424,13 +435,28 @@ final class Auth
     /** Does the account waiting for the second step have an authenticator app (else it has passkeys alone)? */
     public function awaitingApp(): bool
     {
-        return $this->isAwaitingCode() && (string) $this->db->value('SELECT totp_secret FROM {users} WHERE user_id = ?', [(int) $this->session->get('pending_user')['user_id']]) !== '';
+        $user = $this->isAwaitingCode() ? $this->db->one('SELECT * FROM {users} WHERE user_id = ?', [(int) $this->session->get('pending_user')['user_id']]) : null;
+
+        return $user !== null && (string) $user['totp_secret'] !== '' && !$this->passkeyOnly($user);
     }
 
     /** @return list<array<string, mixed>> passkeys of the account */
     public function accountKeys(int $idu): array
     {
         return $this->db->all('SELECT * FROM {user_passkeys} WHERE user_id = ? ORDER BY passkey_id', [$idu]);
+    }
+
+    /**
+     * The passkeys that work on this site: the ones registered for its host (user_passkeys.rp_id). A passkey of another host (a site
+     * of the same owner, an address the site has left) cannot sign in here, so it does not count for passkey-only sign-in.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function workingKeys(int $idu): array
+    {
+        $host = Passkey::rpId($this->settings()->get('site_url'));
+
+        return $host === '' ? [] : $this->db->all('SELECT * FROM {user_passkeys} WHERE user_id = ? AND rp_id = ? ORDER BY passkey_id', [$idu, $host]);
     }
 
     /**
@@ -479,7 +505,7 @@ final class Auth
             if ($key === null || $user === null) {
                 throw new \RuntimeException($pending !== null ? 'This key does not belong to the account.' : 'This passkey is not registered on this site.');
             }
-            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['public_key'], (int) $key['sign_count'], $pending === null);
+            $this->assertKey($key, $response, $challenge, $siteUrl, $pending === null, $pending === null ? ['discoverable' => 1] : []);
         } catch (\RuntimeException $e) {
             $this->db->insert('ip_checks', ['ip' => Antispam::hash($ip), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
@@ -489,13 +515,28 @@ final class Auth
 
             return t($e->getMessage());
         }
-        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s')], ['passkey_id' => $key['passkey_id']]);
         $this->recordSignIn((int) $user['user_id']);
         $this->session->remove('pending_user');
         $this->session->regenerate();
         $this->startSignIn((int) $user['user_id'], (string) $user['password'], $pending !== null ? !empty($pending['remember']) : $remember);
+        $this->recordProof('passkey', (int) $user['user_id']);
 
         return null;
+    }
+
+    /**
+     * Verifies a passkey assertion of $key and records that the key was used: the signature counter, the time and the host (a
+     * successful assertion proves the host the key works for, so user_passkeys.rp_id heals itself).
+     *
+     * @param array<string, mixed> $key row of user_passkeys
+     * @param array<string, mixed> $response
+     * @param array<string, mixed> $extra more columns of the key row to write (a key that signed in alone is kept on its device)
+     * @throws \RuntimeException with the (untranslated) reason for the refusal
+     */
+    private function assertKey(array $key, array $response, string $challenge, string $siteUrl, bool $verified, array $extra = []): void
+    {
+        $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['public_key'], (int) $key['sign_count'], $verified);
+        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s'), 'rp_id' => Passkey::rpId($siteUrl)] + $extra, ['passkey_id' => $key['passkey_id']]);
     }
 
     /**
@@ -524,6 +565,8 @@ final class Auth
         $this->startSignIn($userId, (string) $user['password']);
         if ($fingerprint !== null) {
             $this->session->set('operator_fp', $fingerprint); // checked on every request (sessionUser)
+            // an operator's row has no password or passkey of its own: the handoff is the proof (a normal handoff records none)
+            $this->recordProof('handoff', $userId);
         }
 
         return true;
@@ -544,6 +587,7 @@ final class Auth
             if ($this->user !== null && !Sites::allowsHere($this->db, $this->user)) {
                 $this->user = null; // roles per site: a person who may not work on this site is signed out here
             }
+            ErrorReport::user((string) ($this->user['public_id'] ?? '')); // the local error log names who was signed in
         }
 
         return $this->user;
@@ -634,6 +678,32 @@ final class Auth
     public function isEditor(): bool
     {
         return (int) ($this->user()['admin'] ?? -1) === self::EDITOR;
+    }
+
+    /**
+     * The escape for a lockout (TALEA_PASSKEY_ONLY_OFF, as an environment variable or define() in config.php, guarded with defined() as the file is read more than once): passkey-only sign-in is off and
+     * an administrator who has neither the app nor backup codes any more signs in with the password alone (escapeSignIn).
+     */
+    public static function passkeyOnlyOff(): bool
+    {
+        return Config::flag('PASSKEY_ONLY_OFF', false) || (defined('TALEA_PASSKEY_ONLY_OFF') && (bool) constant('TALEA_PASSKEY_ONLY_OFF'));
+    }
+
+    /**
+     * The account signs in only with a passkey (or password plus passkey / backup code): the account chose it (users.passkey_only) or the
+     * site asks it of every account (setting passkey_only) – and it has a passkey that works on this site's host, so nobody is locked out.
+     *
+     * @param array<string, mixed> $user
+     */
+    public function passkeyOnly(array $user): bool
+    {
+        return !self::passkeyOnlyOff() && (!empty($user['passkey_only']) || $this->settings()->get('passkey_only') === '1') && $this->workingKeys((int) $user['user_id']) !== [];
+    }
+
+    /** While the escape is on: an administrator with no app and no backup codes left is let in with the password alone. @param array<string, mixed> $user */
+    private function escapeSignIn(array $user): bool
+    {
+        return self::passkeyOnlyOff() && (int) $user['admin'] === self::ADMIN && (string) $user['totp_secret'] === '' && (array) json_decode((string) $user['totp_backup_codes'], true) === [];
     }
 
     /** Two-factor sign-in is on: an authenticator app (TOTP) or at least one passkey – a passkey is a second factor of its own. @param array<string, mixed> $user */

@@ -60,8 +60,11 @@ final class Health
         }
         $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'warning', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
-        [$keyState, $keyInfo] = Connectors::keyStatus($siteSettings);
+        [$keyState, $keyInfo] = Vault::status($siteSettings);
         $add(t('Security'), t('Encryption key'), $keyState, $keyInfo);
+        if (Auth::passkeyOnlyOff()) {
+            $add(t('Security'), t('Passkey-only sign-in'), 'warning', t('TALEA_PASSKEY_ONLY_OFF is set: passkey-only sign-in is off, and administrators without an app or backup codes sign in with the password alone. Remove it once you are back in.'));
+        }
         $add(t('Security'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
 
         // --- accounts and access (2.8, Core\SecurityHygiene): what the daily check looks at, each item with a link to fix it
@@ -114,15 +117,13 @@ final class Health
             $claude['state'] !== 'off' ? [['text' => t('Claude connection'), 'url' => $app->url('admin.php?module=claude')]] : []);
 
         // --- operation
-        $log = TALEA_ROOT . '/storage/log/errors.log';
-        $errorCount = 0;
-        if (is_file($log) && Owners::isFirst($app->db())) { // the log and the backups are the install's: a further owner does not read them
-            $from = date('c', time() - 86400);
-            foreach (array_slice(file($log, FILE_IGNORE_NEW_LINES) ?: [], -500) as $row) {
-                $errorCount += (int) (substr($row, 1, 25) >= $from);
-            }
+        $counts = ['errors' => 0, 'deprecations' => 0];
+        if (Owners::isFirst($app->db())) { // the log and the backups are the install's: a further owner does not read them
+            $counts = ErrorReport::counts(time() - 86400);
         }
-        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', $errorCount === 0 ? t('none') : t('%d - details in storage/log/errors.log', $errorCount));
+        $errorCount = $counts['errors'];
+        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', ($errorCount === 0 ? t('none') : t('%d - details in storage/log/errors.log', $errorCount))
+            . ($counts['deprecations'] > 0 ? '; ' . t('%d PHP deprecation notice(s) – the site keeps working; an update of Talea removes them', $counts['deprecations']) : '')); // a deprecation never changes the state
         // error tracking (Core\ErrorReport): set by the operator with TALEA_ERROR_DSN; a failed send since the last good one warns
         $tracking = ErrorReport::status();
         $add(t('Operation'), t('Error tracking'), !$tracking['enabled'] || $tracking['failed_at'] === 0 ? 'ok' : 'warning', !$tracking['enabled']
@@ -134,12 +135,12 @@ final class Health
                 . ($tracking['browser'] ? ', ' . t('browser errors of the public site too') : ''));
         if (Owners::isFirst($app->db())) {
             $last = Backup::listAll()[0]['time'] ?? 0;
-            $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
-            $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
+            $age = $last > 0 ? days_ago($last) : null;
+            $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups tab') : (match ($age) { 0 => t('today'), 1 => t('yesterday'), default => t('%d days ago', $age) }) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
         }
         $add(t('Operation'), t('Search engine indexing'), $siteSettings->bool('indexing') ? 'ok' : 'warning', $siteSettings->bool('indexing') ? t('allowed') : t('disabled on the SEO and GEO tab - the site will not appear in search results'));
         $add(t('Operation'), t('Media size'), 'ok', self::size(MediaFolder::bytes(MediaFolder::dir())));
-        $remote = explode('|', $app->settings()->get('remote_backup_status'), 2);
+        $remote = explode('|', RemoteBackup::cleanStatus($app->settings(), $app->settings()->get('remote_backup_status')), 2);
         if ($app->settings()->get('remote_backup') !== 'off') {
             $add(t('Operation'), t('Off-site backups'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'warning', ($remote[1] ?? '') === 'ok' ? t('last copy uploaded %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('last attempt %s failed: %s', $remote[0], $remote[1]) : t('no copy has been made yet')));
         } else {
@@ -181,6 +182,14 @@ final class Health
         $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0);
         $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'error' : 'warning'),
             $failing === [] ? t('every job worked the last time it ran') : implode('; ', array_map(fn (array $j): string => t('%s failed %d× in a row: %s', t($j['label']), $j['failures'], $j['last_error']), $failing)));
+        // purgePersonalData() writes data_cleanup before its work, so this row says the clean-up is RUNNING; one that throws is reported by the row above (failures of the job cleanup)
+        $cleanup = $siteSettings->int('data_cleanup');
+        $state = self::cleanupState($cleanup, time());
+        $add(t('Operation'), t('Personal data clean-up'), $state === 'stale' ? 'warning' : 'ok', match ($state) {
+            'new' => t('has not run yet – the background jobs start it'),
+            'ok' => t('last run %s', format_date(date('Y-m-d H:i:s', $cleanup), true)),
+            'stale' => t('last run %s – enquiries and other personal data past their retention are not being deleted; check the background jobs and cron below', format_date(date('Y-m-d H:i:s', $cleanup), true)),
+        });
         $problems = Events::problems($db, 168);
         if ($problems !== []) {
             $add(t('Operation'), t('Problems in the last 7 days'), 'warning', implode(', ', array_map(fn (string $type, int $n): string => $type . ' ×' . $n, array_keys($problems), $problems)));
@@ -210,6 +219,42 @@ final class Health
         }
 
         return ['ok', t('%s (%s) – PHP and the database count time the same way', $phpZone, $offset($phpMinutes))];
+    }
+
+    /**
+     * The checks as groups, the ones with a problem first (an error before a warning, those that are fine last); a group keeps the
+     * place of its first check among the groups of the same state, and its checks keep their order.
+     *
+     * @param list<array<string, mixed>> $checks
+     * @return list<array{group: string, status: string, checks: list<array<string, mixed>>}>
+     */
+    public static function grouped(array $checks): array
+    {
+        $groups = [];
+        foreach ($checks as $check) {
+            $name = (string) $check['group'];
+            $groups[$name] ??= ['group' => $name, 'status' => 'ok', 'checks' => []];
+            $groups[$name]['checks'][] = $check;
+            $groups[$name]['status'] = self::summary($groups[$name]['checks']);
+        }
+        $rank = ['error' => 2, 'warning' => 1, 'ok' => 0];
+        $groups = array_values($groups);
+        usort($groups, fn (array $a, array $b): int => $rank[$b['status']] <=> $rank[$a['status']]); // usort is stable
+
+        return $groups;
+    }
+
+    /** Days without a run of the personal-data clean-up after which System status warns. */
+    public const int CLEANUP_DAYS = 2;
+
+    /** 'new' = never run (a fresh install), 'stale' = not for more than CLEANUP_DAYS days, else 'ok'. */
+    public static function cleanupState(int $lastRun, int $now): string
+    {
+        return match (true) {
+            $lastRun === 0 => 'new',
+            $now - $lastRun > self::CLEANUP_DAYS * 86400 => 'stale',
+            default => 'ok',
+        };
     }
 
     /** Summary for monitoring: the worst status found. */

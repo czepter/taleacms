@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Talea\Mcp;
 
 /**
- * Tools on demand. An essentials connection (Catalog::TOOL_SETS) lists the core tools (Catalog::ESSENTIALS) and the meta tools:
+ * Tools on demand. An essentials, migration or fleet connection (Catalog::TOOL_SETS) lists the tools of its set (Catalog::SETS) and the meta tools:
  * find_tools tells Claude what else the connection may use and hands out the full definitions it asks for, and three runners
  * run a tool by name (Mcp\Server, the same path as a direct tools/call) – each only its own class of tools (runner()), so its
  * MCP annotations hold for everything it runs. The site's tools stay the same; only what every conversation carries in its
@@ -34,10 +34,10 @@ final class Discovery
     /** @return list<array<string, mixed>> the meta tools' definitions (English) */
     public static function definitions(): array
     {
-        $runner = fn (string $example): array => ['type' => 'object', 'properties' => [
+        $runner = fn (string $example, bool $confirmation = false): array => ['type' => 'object', 'properties' => [
             'name' => ['type' => 'string', 'description' => 'the tool, e.g. ' . $example . ' (from find_tools)'],
             'arguments' => ['type' => 'object', 'description' => 'the tool\'s parameters, as find_tools describes them'],
-        ], 'required' => ['name']];
+        ] + ($confirmation ? [Confirmation::PARAMETER => ['type' => 'string', 'description' => 'the code a tool answered with (confirmation_required) – passed to the tool; only after the user said yes to exactly this action']] : []), 'required' => ['name']];
 
         return [
             ['name' => 'find_tools', 'description' => 'Finds the other tools of this site. This connection lists the essentials only; every other tool it may use (news, redirects, settings, '
@@ -53,8 +53,8 @@ final class Discovery
                 . 'change log and undo. A tool that removes, sends or reaches outside the site is refused. Call find_tools first. Publish or make visible only when the user asks.',
                 'inputSchema' => $runner('create_news')],
             ['name' => 'run_destructive_tool', 'description' => 'Runs a tool of this site that removes, overwrites or sends something, or reaches outside the site – a delete, '
-                . 'a newsletter, a booking decision, a download from an address – exactly as a direct call. Confirm the exact action with the user before every call. Call find_tools first.',
-                'inputSchema' => $runner('delete_media')],
+                . 'a newsletter, a booking decision, a download from an address – exactly as a direct call. Confirm the exact action with the user before every call. A tool that e-mails people or erases for good first answers confirmation_required with a code: repeat the call with confirmation only after their yes. Call find_tools first.',
+                'inputSchema' => $runner('delete_media', true)],
         ];
     }
 
@@ -75,15 +75,16 @@ final class Discovery
     /**
      * The runners an essentials connection lists: only those that some tool outside its list needs, and never
      * run_destructive_tool on a read-only connection – its annotations would promise changes the connection can never make
-     * (the open-world reads there are still callable directly by name).
+     * (a read-only connection has no open-world tool at all: Catalog::allows).
      *
      * @param list<array<string, mixed>> $available every tool the connection may use
+     * @param list<string> $listed the tools the connection's set lists
      * @return list<string>
      */
-    public static function runners(array $available, string $access): array
+    public static function runners(array $available, string $access, array $listed = Catalog::ESSENTIALS): array
     {
         $needed = array_unique(array_map(fn (array $t): string => self::runner((string) $t['name']),
-            array_filter($available, fn (array $t): bool => !in_array($t['name'], Catalog::ESSENTIALS, true))));
+            array_filter($available, fn (array $t): bool => !in_array($t['name'], $listed, true))));
 
         return array_values(array_filter(array_keys(self::RUNNERS), fn (string $r): bool => in_array($r, $needed, true) && !($access === 'read' && $r === 'run_destructive_tool')));
     }
@@ -92,13 +93,14 @@ final class Discovery
      * The tools/list of an essentials connection: the core tools it may use, then find_tools and the runners it needs.
      *
      * @param list<array<string, mixed>> $available the connection's whole tools/list (every tool it may use)
+     * @param list<string> $listed the tools the connection's set lists
      * @return list<array<string, mixed>>
      */
-    public static function essentials(array $available, string $access): array
+    public static function essentials(array $available, string $access, array $listed = Catalog::ESSENTIALS): array
     {
-        $meta = ['find_tools', ...self::runners($available, $access)];
+        $meta = ['find_tools', ...self::runners($available, $access, $listed)];
 
-        return [...array_values(array_filter($available, fn (array $t): bool => in_array($t['name'], Catalog::ESSENTIALS, true))),
+        return [...array_values(array_filter($available, fn (array $t): bool => in_array($t['name'], $listed, true))),
             ...array_map(Server::listed(...), array_values(array_filter(self::definitions(), fn (array $d): bool => in_array($d['name'], $meta, true))))];
     }
 

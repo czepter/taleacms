@@ -45,7 +45,7 @@ $running = in_array($state['phase'], ['analysis', 'import', 'images'], true);
 <?php if (($v['items'] ?? 0) > 0): ?>
 	<div class="tiles-item"><strong><?= (int) $v['items'] ?></strong><span><?= e(t('Collection items (custom post types), in %s new collections', (int) ($v['collections'] ?? 0))) ?></span></div>
 <?php endif ?>
-<?php if (Talea\Core\WpImport::isMultilingual($state)): ?>
+<?php if (Talea\Core\WpLanguages::isMultilingual($state)): ?>
 	<div class="tiles-item"><strong><?= (int) ($v['translations'] ?? 0) ?></strong><span><?= e(t('Translations linked to their original')) ?></span></div>
 <?php endif ?>
 </div>
@@ -64,6 +64,7 @@ $running = in_array($state['phase'], ['analysis', 'import', 'images'], true);
 <?php endforeach ?>
 </ul></details>
 <?php endif ?>
+<?= $app->view->render('admin/transfer/starters', ['choices' => null, 'result' => $state['starters'] ?? null]) ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigation" href="<?= e($app->url('admin.php?module=pages')) ?>"><?= e(t('Show the pages')) ?></a><?php if ($app->auth()->hasModule('redirects')): // somewhere to go after the counts ?> <a class="navigation" href="<?= e($app->url('admin.php?module=redirects')) ?>"><?= e(t('Show the redirects')) ?></a><?php endif ?> <a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 
 <h2><?= e(t('Images from the old site')) ?></h2>

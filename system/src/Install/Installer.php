@@ -150,7 +150,7 @@ final class Installer
                     if ($errors === []) {
                         Preview::forget();
 
-                        return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['blueprint'] === 'export',
+                        return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['blueprint'] === 'export', 'fromMove' => $data['blueprint'] === 'move',
                             'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null]);
                     }
                 }
@@ -204,7 +204,7 @@ final class Installer
                 }
                 break;
             case 'business':
-                if ($d['blueprint'] !== '' && $d['blueprint'] !== 'export' && !isset(Blueprint::available()[$d['blueprint']])) {
+                if (!in_array($d['blueprint'], ['', 'export', 'move'], true) && !isset(Blueprint::available()[$d['blueprint']])) {
                     $errors['blueprint'] = t('Choose what kind of business it is.');
                 }
                 break;
@@ -417,6 +417,12 @@ final class Installer
                 return;
             }
             $looks = Looks::ranked(self::topicsOf($d['blueprint']));
+            if ($d['blueprint'] === 'move') {
+                // "Move a site here from WordPress or another platform": a placeholder home page and the look, the pages come with the import
+                Starter::createForMove($db, $d['site_name'], $siteLanguage, $looks[$d['look']] ?? reset($looks), $extensions, $this->request->basePath(), $settings);
+
+                return;
+            }
             Starter::create($db, $d['site_name'], $siteLanguage, $looks[$d['look']] ?? reset($looks), $extensions, $this->request->basePath(), $settings);
 
             if (!in_array('news', $extensions, true)) {
@@ -440,12 +446,12 @@ final class Installer
     /** The looks topics a business fits: its blueprint's, or a general business site's. @return list<string> */
     public static function topicsOf(string $blueprint): array
     {
-        return $blueprint === '' ? self::GENERAL_TOPICS : (Blueprint::available()[$blueprint]['topics'] ?? []);
+        return in_array($blueprint, ['', 'move'], true) ? self::GENERAL_TOPICS : (Blueprint::available()[$blueprint]['topics'] ?? []);
     }
 
     private function siteUrl(): string
     {
-        return rtrim(Config::env('SITE_URL'), '/') ?: $this->request->origin();
+        return \Talea\Core\SiteUrl::fromEnvironment() ?: $this->request->origin();
     }
 
     /** @param array<string, mixed> $data */

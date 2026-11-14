@@ -591,6 +591,8 @@ final class SiteImport
         $tags = $clean['_tags'] ?? [];
         unset($clean['_tags']);
         $clean = array_intersect_key($clean + (in_array($table, ['components', 'facts'], true) ? ['site_id' => Sites::currentId($this->db)] : []), array_flip($this->columns($table))); // an imported component or fact belongs to this site
+        // a savepoint: on PostgreSQL a refused row aborts the whole transaction of the batch unless it is rolled back to here
+        $this->db->run('SAVEPOINT import_row');
         try {
             if ($this->siteMode() && $table === 'components') {
                 $this->db->update('components', array_diff_key($clean, ['component_id' => 1, 'public_id' => 1]), ['component_id' => (int) $clean['component_id']]); // the row reserved for it
@@ -602,9 +604,15 @@ final class SiteImport
             } else {
                 $this->db->insert($table, $clean);
             }
-        } catch (\PDOException) {
-            return false; // a duplicate number or address in the export
+        } catch (\PDOException $e) {
+            $this->db->run('ROLLBACK TO SAVEPOINT import_row');
+            if (!Db::isRefusedRow($e)) {
+                throw $e; // a lost connection or a broken statement is not "a skipped row"
+            }
+
+            return false; // a duplicate number or address in the export, or a value the column refuses
         }
+        $this->db->run('RELEASE SAVEPOINT import_row');
         if ($table === 'news') {
             $this->person((string) ($r['author'] ?? ''), '');
         } elseif ($table === 'booking_staff') {

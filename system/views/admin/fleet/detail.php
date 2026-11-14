@@ -18,6 +18,9 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 	<tr><th scope="row"><?= e(t('Up')) ?></th><td><?= $site['up'] === null ? e(t('not checked yet')) : ((int) $site['up'] === 1 ? e(t('yes')) : '<span class="badge badge-error">' . e(t('no')) . '</span>') ?><?= $site['up_checked'] !== null ? ' · ' . e(t('checked %s', format_date(new DateTimeImmutable((string) $site['up_checked']), true))) . ((int) $site['up_status'] > 0 ? ' (HTTP ' . (int) $site['up_status'] . ')' : '') : '' ?></td></tr>
 	<tr><th scope="row"><?= e(t('Last report')) ?></th><td><?= $site['last_seen'] !== null ? e(format_date(new DateTimeImmutable((string) $site['last_seen']), true)) : e(t('no report yet')) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Version')) ?></th><td><?= e((string) $site['version']) ?><?= !empty($beat['php']) ? ' · PHP ' . e((string) $beat['php']) : '' ?></td></tr>
+	<tr><th scope="row"><?= e(t('Certificate ends')) ?></th><td><?php if ($site['cert_expires'] !== null): $left = \Talea\Fleet\Expiry::daysLeft((string) $site['cert_expires'], time()); ?><?= e(format_date(new DateTimeImmutable((string) $site['cert_expires']))) ?> · <?= e($left >= 0 ? t('in %d days', $left) : t('%d days ago', -$left)) ?><?php else: ?><?= e(t('not known – the site does not use https or has not been checked yet')) ?><?php endif ?></td></tr>
+	<tr><th scope="row"><?= e(t('Domain registration ends')) ?></th><td><form class="form" method="post" action="<?= e($module->url('domain')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($site['public_id']) ?>">
+		<input type="date" class="textfield" name="domain_expires" value="<?= e((string) $site['domain_expires']) ?>" aria-label="<?= e(t('Domain registration ends')) ?>"> <button class="btn" type="submit"><?= e(t('Save')) ?></button></form></td></tr>
 	<tr><th scope="row"><?= e(t('Health')) ?></th><td><?= e(t(['ok' => 'Everything is fine.', 'warning' => 'warnings', 'error' => 'errors', '' => '–'][(string) $site['status']] ?? '–')) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Last backup')) ?></th><td><?= e($date($beat['last_backup'] ?? null)) ?> · <?= e(t('off-site copy: %s', $yes($beat['offsite_backup'] ?? false))) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Cron last called')) ?></th><td><?= e($date($beat['cron_last_run'] ?? null)) ?></td></tr>
@@ -35,6 +38,16 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 <p class="small-text"><?= e(t('The site reports its problems in English; fix them in its administration.')) ?></p>
 <?php endif ?>
 <?php if (($beat['jobs_failing'] ?? []) !== []): ?><p class="notice notice-error"><?= e(t('Background jobs that fail: %s', implode(', ', $beat['jobs_failing']))) ?></p><?php endif ?>
+<?php $acceptedItems = array_values(array_filter($site['items'], fn (array $i): bool => $i['accepted'] !== null)); ?>
+<?php if ($acceptedItems !== []): ?>
+<h2><?= e(t('Accepted states')) ?></h2>
+<div class="tab-wrap"><table class="listing"><tbody>
+<?php foreach ($acceptedItems as $i): ?>
+	<tr><td><strong><?= e($reasonLabels[$i['key']] ?? $i['title']) ?></strong></td><td><?= e((string) $i['accepted']['note']) ?><br><span class="small-text"><?= e(t('until %s', format_date((string) $i['accepted']['until']))) ?> · <?= e(t('by %s', (string) ($i['accepted']['by'] ?? ''))) ?></span></td>
+	<td><form class="form" method="post" action="<?= e($module->url('withdraw')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($site['public_id']) ?>"><input type="hidden" name="check" value="<?= e($i['key']) ?>"><input type="hidden" name="back" value="detail"><button class="navigation" type="submit"><?= e(t('Withdraw')) ?></button></form></td></tr>
+<?php endforeach ?>
+</tbody></table></div>
+<?php endif ?>
 <form class="form" method="post" action="<?= e($module->url('check')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= e($site['public_id']) ?>">

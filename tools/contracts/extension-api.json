@@ -51,7 +51,8 @@
             "array $schema",
             "string $access",
             "callable $handler",
-            "string $requires"
+            "string $requires",
+            "bool $openWorld"
         ],
         "notFound": [
             "callable $hook"

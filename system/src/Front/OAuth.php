@@ -243,12 +243,13 @@ final class OAuth
             }
             // the new pair keeps the connection's last served call (Core\ClaudeConnection): a refresh is not a call
             $used = \Talea\Core\ClaudeConnection::lastUse($db, (int) $refresh['user_id'], $clientId);
+            $routine = \Talea\Core\ClaudeConnection::routineUntil($db, (int) $refresh['user_id'], $clientId); // a scheduled run's window is not shortened by a refresh
             // rotation: the old refresh token ends, and only the request that removed it gets a new pair
             if ($db->run("DELETE FROM {api_tokens} WHERE token_id = ? AND kind = 'refresh'", [(int) $refresh['token_id']])->rowCount() !== 1) {
                 return $this->error('invalid_grant', 'The refresh token is invalid or expired – connect the application again.');
             }
 
-            return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access'], (string) $refresh['tool_set'], $used); // the access and the tool set chosen at consent (or switched in My account) stay
+            return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access'], (string) $refresh['tool_set'], $used, $routine); // the access and the tool set chosen at consent (or switched in My account) stay
         }
 
         return $this->error('unsupported_grant_type', 'Only authorization_code and refresh_token are supported.');
@@ -257,8 +258,9 @@ final class OAuth
     /**
      * @param array<string, mixed> $client
      * @param string|null $used the last call a refresh carries over to the new refresh row, null for a new connection
+     * @param string|null $routine the end of the window of a scheduled run, carried over to both new rows
      */
-    private function issueTokens(Db $db, int $idu, array $client, string $level, string $toolSet, ?string $used = null): Response
+    private function issueTokens(Db $db, int $idu, array $client, string $level, string $toolSet, ?string $used = null, ?string $routine = null): Response
     {
         $user = $db->one('SELECT user_id FROM {users} WHERE user_id = ? AND blocked = FALSE', [$idu]);
         if ($user === null) {
@@ -269,7 +271,7 @@ final class OAuth
         foreach ([[$access, 'access', self::ACCESS_LIFETIME], [$refresh, 'refresh', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
             $db->insert('api_tokens', ['user_id' => $idu, 'name' => $client['name'], 'client_id' => $client['client_id'], 'kind' => $kind, 'access' => self::access($level),
                 'tool_set' => \Talea\Mcp\Catalog::toolSet($toolSet), 'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
-                'used_at' => $kind === 'refresh' ? $used : null]);
+                'used_at' => $kind === 'refresh' ? $used : null, 'routine_until' => $routine]);
         }
         // cleanup of expired tokens and codes
         $db->run("DELETE FROM {api_tokens} WHERE kind <> 'token' AND expires_at < ?", [date('Y-m-d H:i:s')]);

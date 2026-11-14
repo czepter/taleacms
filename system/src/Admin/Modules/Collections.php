@@ -523,6 +523,20 @@ final class Collections extends Module
         return $this->back(t('The answer was discarded. The item stays as it was.'), 'item', $back);
     }
 
+    /** What a role that cannot publish (an author) is told when an item is on the site already. */
+    public const string PUBLISH_REFUSAL = 'Items on the site are changed by an editor or an administrator.';
+
+    /**
+     * An account that cannot publish (Auth::canPublish) saves collection items as hidden drafts and leaves alone what is on the
+     * site (published or scheduled): changing, deleting or restoring such an item is the editor's. The same rule holds over MCP.
+     *
+     * @param array<string, mixed>|null $item the stored row
+     */
+    public static function publishedRefusal(\Talea\Core\Auth $auth, ?array $item): ?string
+    {
+        return !$auth->canPublish() && $item !== null && ((int) $item['visible'] === 1 || $item['publish_at'] !== null) ? self::PUBLISH_REFUSAL : null;
+    }
+
     protected function actionSaveItem(): Response
     {
         $r = $this->request;
@@ -544,6 +558,10 @@ final class Collections extends Module
         if (($missing = KolekceObsahu::missingRequired($k['fields'], $data)) !== []) {
             return $this->back(t('Fill in the required fields: %s', implode(', ', $missing)), 'item', $idp > 0 ? ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')] : ['id' => $k['public_id']], 'error');
         }
+        $previous = $idp > 0 ? $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $k['collection_id']]) : null;
+        if (($refusal = self::publishedRefusal($this->app->auth(), $previous)) !== null) {
+            return $this->back(t($refusal), 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')], 'error');
+        }
         $seo = slugify($r->post('slug') !== '' ? $r->post('slug') : $name, 150);
         // the slug is unique within a language: a translation of the item can have the same one (/compare/wordpress, /de/compare/wordpress)
         $language = Language::column($this->app->settings(), $r->post('language'));
@@ -552,11 +570,15 @@ final class Collections extends Module
             'sort_order' => max(-9999, min(9999, $r->postInt('sort_order'))), 'language' => $language, 'updated_at' => date('Y-m-d H:i:s'),
             'valid_until' => \Talea\Core\Validity::date($r->post('valid_until')), 'review_by' => \Talea\Core\Validity::date($r->post('review_by'))] // 2.10
             + KolekceObsahu::pageFields($_POST, $r->postBool('visible')) + \Talea\Core\SeoFields::fromInput($_POST);
+        $hiddenOnly = !$this->app->auth()->canPublish(); // an author saves hidden drafts; an editor publishes them
+        if ($hiddenOnly) {
+            $row['visible'] = 0;
+            $row['publish_at'] = null;
+        }
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($k, $data, (bool) $row['visible'])) {
             return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')], 'error');
         }
-        $previous = $idp > 0 ? $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $k['collection_id']]) : null;
         if ($previous !== null) {
             KolekceObsahu::saveVersion($this->app, $previous, $row);
             $this->db->update('collection_items', $row, ['item_id' => $idp]);
@@ -579,9 +601,11 @@ final class Collections extends Module
         }
 
         // "Save and continue" stays in the editor
+        $saved = $hiddenOnly ? 'The item was saved as hidden – an editor or an administrator publishes it.' : 'The item was saved.';
+
         return $r->post('after_save') === 'stay'
-            ? $this->back('The item was saved.', 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')])
-            : $this->back('The item was saved.', 'items', ['id' => $k['public_id']]);
+            ? $this->back($saved, 'item', ['id' => $k['public_id'], 'item' => $this->publicId($idp, 'collection_items')])
+            : $this->back($saved, 'items', ['id' => $k['public_id']]);
     }
 
     /** Actions the list does with ticked items (2.14): show, hide, language version, trash. A notice board keeps its notices (2.11). */
@@ -596,11 +620,19 @@ final class Collections extends Module
         if (Notices::isNotices($k) && $action !== 'visible') {
             return $this->back(t($action === 'trash' ? Notices::REFUSAL_DELETE : Notices::REFUSAL_HIDE), 'items', ['id' => $this->publicId($idk)], 'error');
         }
+        if ($action === 'visible' && !$this->app->auth()->canPublish()) {
+            return $this->back('Publishing is done by an editor or an administrator.', 'items', ['id' => $this->publicId($idk)], 'error');
+        }
         $language = Language::column($this->app->settings(), $this->request->post('language'));
         $done = 0;
         $skipped = 0;
+        $onSite = 0; // items an author leaves to the editor: they are on the site
         foreach (array_unique(array_map(fn (string $uuid): int => $this->db->internalId('collection_items', $uuid), $this->request->postList('selected'))) as $idp) {
-            $p = $this->db->one('SELECT item_id, name, slug, language FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $idk]);
+            $p = $this->db->one('SELECT item_id, name, slug, language, visible, publish_at FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $idk]);
+            if (self::publishedRefusal($this->app->auth(), $p) !== null) {
+                $onSite++;
+                continue;
+            }
             // the address is unique within a language: an item whose address the target language already has stays where it is
             if ($p === null || ($action === 'language' && $this->db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$idk, $language, $p['slug'], $idp]) !== null)) {
                 $skipped++;
@@ -624,7 +656,8 @@ final class Collections extends Module
             'language' => t('Items moved to the language version: %d.', $done), default => t('Items moved to the trash: %d.', $done),
         };
 
-        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (the address is taken in that language).', $skipped) : ''), 'items', ['id' => $this->publicId($idk)], $done > 0 ? 'ok' : 'error');
+        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (the address is taken in that language).', $skipped) : '')
+            . ($onSite > 0 ? ' ' . t('Skipped: %d (on the site – an editor or an administrator changes those).', $onSite) : ''), 'items', ['id' => $this->publicId($idk)], $done > 0 ? 'ok' : 'error');
     }
 
     /** E-mail signature of a person (2.10, Builder\EmailSignature): the preview, a copy button, the plain text and where to paste it. */
@@ -669,6 +702,9 @@ final class Collections extends Module
         if ($version === null) {
             return $this->back('The version does not exist.', 'items', ['id' => $this->publicId($idk)], 'error');
         }
+        if (($refusal = self::publishedRefusal($this->app->auth(), $item)) !== null) {
+            return $this->back(t($refusal), 'items', ['id' => $this->publicId($idk)], 'error');
+        }
         // the address of a restored version may be taken by another item in the meantime
         if ($this->db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$idk, $item['language'], $version['slug'] ?? '', $idp]) !== null) {
             unset($version['slug']);
@@ -690,7 +726,11 @@ final class Collections extends Module
             if ($this->isNoticeBoard($idk)) {
                 return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $this->publicId($idk)], 'error'); // the permanent archive (2.11)
             }
-            self::trashItem($this->db, $this->idParam('item_id', 'collection_items'), $idk);
+            $idp = $this->idParam('item_id', 'collection_items');
+            if (($refusal = self::publishedRefusal($this->app->auth(), $this->db->one('SELECT visible, publish_at FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $idk]))) !== null) {
+                return $this->back(t($refusal), 'items', ['id' => $this->publicId($idk)], 'error');
+            }
+            self::trashItem($this->db, $idp, $idk);
         }
 
         return $this->back('The item is in the trash – it is no longer on the site; you can restore it for 30 days.', 'items', ['id' => $this->publicId($idk)]);
@@ -755,10 +795,10 @@ final class Collections extends Module
         return $db->run('UPDATE {collection_items} SET deleted_at = NULL WHERE item_id = ? AND collection_id = ? AND deleted_at IS NOT NULL', [$idp, $idk])->rowCount() > 0;
     }
 
-    /** Items longer than 30 days in the trash are deleted permanently (with pages and news, on an admin visit). */
-    public static function emptyTrash(\Talea\Core\Db $db): void
+    /** Items longer than 30 days in the trash are deleted permanently (job trash, with pages, news and enquiries). */
+    public static function emptyTrash(\Talea\Core\Db $db): int
     {
-        $db->run('DELETE FROM {collection_items} WHERE deleted_at < NOW() - INTERVAL 30 DAY');
+        return $db->run('DELETE FROM {collection_items} WHERE deleted_at < NOW() - INTERVAL 30 DAY')->rowCount();
     }
 
     /* ---------- item template in the builder (administrator) ---------- */

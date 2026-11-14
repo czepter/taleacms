@@ -175,7 +175,7 @@ if ($siteLanguages !== []) {
 }
 ?>
 <?= $app->view->render('admin/list/selection', ['form' => 'bulk', 'action' => $module->url('bulk_items'), 'csrf' => $csrf, 'hidden' => ['collection_id' => $k['public_id']], 'extra' => $languageSelect, 'actions' => array_merge(
-    [['value' => 'visible', 'label' => t('Publish'), 'kind' => 'primary'], ['value' => 'hide', 'label' => t('Hide')]],
+    $app->auth()->canPublish() ? [['value' => 'visible', 'label' => t('Publish'), 'kind' => 'primary'], ['value' => 'hide', 'label' => t('Hide')]] : [['value' => 'hide', 'label' => t('Hide')]],
     $siteLanguages !== [] ? [['value' => 'language', 'label' => t('Move to this language version')]] : [],
     empty($noticeBoard) ? [['value' => 'trash', 'label' => t('Move to trash'), 'kind' => 'danger', 'confirm' => t('Move the selected items to the trash?')]] : [],
 )]) ?>

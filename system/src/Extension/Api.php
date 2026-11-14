@@ -106,9 +106,13 @@ final class Api
      * role), or the ident of an admin section the user must have (pages, news, enquiries…). Left empty, a read or draft
      * tool is open to every user, a write tool needs an editor and a destructive one an administrator.
      *
+     * $openWorld (API 2, #334): true = the tool reaches outside the site (it fetches an address or calls another server). The tool
+     * then carries openWorldHint, run_destructive_tool runs it, and only connections with full access list and call it
+     * (Mcp\Catalog::fetchesUrl). It is a declaration like the capabilities: PHP cannot sandbox an add-on.
+     *
      * @param array<string, mixed> $schema
      */
-    public function mcpTool(string $name, string $description, array $schema, string $access, callable $handler, string $requires = ''): void
+    public function mcpTool(string $name, string $description, array $schema, string $access, callable $handler, string $requires = '', bool $openWorld = false): void
     {
         if (!in_array($access, self::TOOL_ACCESS, true)) {
             throw new \InvalidArgumentException('Unknown access: ' . $access);
@@ -117,7 +121,7 @@ final class Api
             throw new \InvalidArgumentException('Unknown role or section: ' . $requires);
         }
         $this->registry->addTool('ext_' . $this->slug . '_' . self::name($name), $description, $schema + ['type' => 'object'], $access, $handler,
-            $requires !== '' ? $requires : self::DEFAULT_ROLE[$access]);
+            $requires !== '' ? $requires : self::DEFAULT_ROLE[$access], $openWorld);
     }
 
     /** May the signed-in user call a tool that requires $requires (a role of TOOL_ROLES or a section ident)? */

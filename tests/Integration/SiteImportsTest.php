@@ -391,4 +391,20 @@ final class SiteImportsTest extends DatabaseTestCase
         $kept = $at(['image_path' => 'media/2026/10/mine.jpg', 'thumb_path' => 'media/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/2026/10/foreign.jpg']);
         $this->assertSame('', $kept['thumb_path'], 'a thumbnail outside the folder is cleared');
     }
+
+    public function testARefusedRowIsSkippedAndTheRestOfTheBatchIsImported(): void
+    {
+        $db = $this->db();
+        $import = new SiteImport($db, new Settings($db), 0);
+        $insert = new \ReflectionMethod($import, 'insert');
+        $row = fn (string $from, string $to): array => ['from_path' => $from, 'to_path' => $to, 'type' => 301];
+        // the test runs inside a transaction: on PostgreSQL a refused row would abort it without the savepoint
+        $results = [
+            $insert->invoke($import, 'redirects', $row('same-old-address', '/one'), 1),
+            $insert->invoke($import, 'redirects', $row('same-old-address', '/two'), 2), // refused by the unique address
+            $insert->invoke($import, 'redirects', $row('another-old-address', '/three'), 3), // on PostgreSQL this failed too, silently, before the savepoint
+        ];
+        $this->assertSame([true, false, true], $results);
+        $this->assertSame(2, (int) $db->value("SELECT COUNT(*) FROM {redirects} WHERE from_path IN ('same-old-address', 'another-old-address')"));
+    }
 }

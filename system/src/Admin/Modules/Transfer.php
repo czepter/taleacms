@@ -13,6 +13,7 @@ use Talea\Core\ImageDownloader;
 use Talea\Core\MigrationReport;
 use Talea\Core\WebImport;
 use Talea\Core\WpImport;
+use Talea\Core\WpLanguages;
 use Talea\Core\WpFile;
 use Talea\Import\Batch;
 use Talea\Import\Fetch;
@@ -54,6 +55,7 @@ final class Transfer extends Module
 
         return $this->view('list', 'Import and export', [
             'files' => $files,
+            'starterPages' => array_values(array_filter(\Talea\Core\StarterPages::untouched($this->db, $this->app->settings()), fn (array $p): bool => !$p['home'])),
             'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))),
             'missingXml' => !class_exists(\XMLReader::class) || !class_exists(\Dom\HTMLDocument::class),
             'exports' => SiteExport::listAll(),
@@ -124,7 +126,7 @@ final class Transfer extends Module
                 try {
                     @set_time_limit(60);
                     $state = WebImport::load($state['id']) ?? $state;
-                    (new WebImport($this->db, $this->app->settings(), $this->app->auth()->id(), new ImageDownloader($state['web'], true)))->step($state);
+                    (new WebImport($this->db, $this->app->settings(), $this->app->auth()->id(), new ImageDownloader($state['web'], true), $this->request->basePath()))->step($state);
                 } finally {
                     WebImport::save($state);
                     flock($lock, LOCK_UN);
@@ -132,7 +134,10 @@ final class Transfer extends Module
             }
         }
 
-        return $this->view('web', 'Import from a website', ['state' => $state]);
+        return $this->view('web', 'Import from a website', [
+            'state' => $state,
+            'starters' => $state['phase'] === 'preview' ? WebImport::starterChoices($this->db, $this->app->settings(), $state) : null,
+        ]);
     }
 
     /** After the preview: import the pages found. */
@@ -142,11 +147,38 @@ final class Transfer extends Module
         if (!$this->request->isPost() || $state === null || $state['phase'] !== 'preview') {
             return $this->back();
         }
-        $state['phase'] = 'import';
-        $state['position'] = 0;
+        WebImport::confirm($state, $this->starterKeep(WebImport::starterChoices($this->db, $this->app->settings(), $state)));
         WebImport::save($state);
 
         return $this->back('', 'web_progress', ['id' => $state['id']]);
+    }
+
+    /**
+     * The starter pages that stay: those the preview offered to replace that the person left unticked.
+     *
+     * @param list<array{page_id: int, public_id: string, action: string}> $choices Core\StarterPages::choices
+     * @return list<int>
+     */
+    private function starterKeep(array $choices): array
+    {
+        $replace = $this->request->postList('replace_starter');
+
+        return array_values(array_map(fn (array $c): int => $c['page_id'], array_filter(
+            $choices,
+            fn (array $c): bool => in_array($c['action'], ['replace', 'keep'], true) && !in_array($c['public_id'], $replace, true),
+        )));
+    }
+
+    /** Moves the starter pages nobody has touched since the installation to the trash in one step (the home page stays). */
+    protected function actionStarterTrash(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $count = \Talea\Core\StarterPages::trashAll($this->db, $this->app->settings());
+        \Talea\Admin\ChangeLog::write($this->app, 'transfer', 'starter pages trashed', (string) $count);
+
+        return $this->back(t('Starter pages moved to the trash: %d.', $count));
     }
 
     /** Removes the record of an import; the imported pages stay. */
@@ -345,7 +377,8 @@ final class Transfer extends Module
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
             'categories' => $this->db->all('SELECT category_id, public_id, name, language FROM {categories} ORDER BY language, name'),
             'redirectsEnabled' => \Talea\Core\Extensions::isEnabled($settings, 'redirects'),
-            'missingLanguages' => WpImport::missingLanguages($state, $settings),
+            'missingLanguages' => WpLanguages::missingLanguages($state, $settings),
+            'starters' => WpImport::starterChoices($this->db, $settings, $state),
         ]);
     }
 
@@ -362,7 +395,9 @@ final class Transfer extends Module
             'drafts' => $r->postBool('drafts'), 'pages' => $r->postBool('pages'), 'builder' => $r->postBool('builder'),
             'redirects' => $r->postBool('redirects'), 'category' => $this->db->internalId('categories', $r->post('category')), 'collections' => $r->postBool('collections'),
             'add_languages' => $r->postBool('add_languages'),
+            'keep_starters' => $this->starterKeep(WpImport::starterChoices($this->db, $this->app->settings(), $state)),
         ];
+        $state['starters'] = WpImport::newState($state['file'])['starters'];
         $state['phase'] = 'import';
         $state['position'] = 0;
         $state['result'] = WpImport::newState($state['file'])['result'];

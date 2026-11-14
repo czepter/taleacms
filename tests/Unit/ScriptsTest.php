@@ -34,6 +34,7 @@ final class ScriptsTest extends TestCase
             'image/vitals.js' => ['system/src/Front'],
             'image/forms.js' => ['system/src/Builder/Elements'],
             'image/lists.js' => ['system/src/Builder/Elements'],
+            'image/passkeys.js' => ['system/views/admin'],
             'image/print.js' => ['system/views/admin/settings'],
         ];
         foreach ($whereCreated as $script => $folders) {

@@ -4,4 +4,5 @@ return [
     'down' => t('does not answer'), 'not_reporting' => t('stopped reporting'), 'errors' => t('errors'),
     'jobs_failing' => t('background jobs fail'), 'no_backup' => t('no recent backup'), 'no_heartbeat' => t('no report yet'), 'warnings' => t('warnings'),
     'no_cron' => t('cron not set up'), 'enquiries' => t('enquiries waiting'), 'audit' => t('audit findings'),
+    'certificate' => t('certificate expires soon'), 'domain' => t('domain registration expires soon'),
 ];

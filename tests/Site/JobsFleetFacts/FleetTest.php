@@ -70,6 +70,7 @@ final class FleetTest extends SiteTestCase
 
         $this->sameValue($console->base . '|1', $site->value("SELECT CONCAT((SELECT value FROM tl_settings WHERE name = 'fleet_console_url'), '|', (SELECT value <> '' FROM tl_settings WHERE name = 'fleet_site_id'))"), 'pairing: the site knows its console and its number there');
         $this->sameValue('1|1|1|1', $console->value("SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM tl_fleet_sites"), 'pairing: the console has the site with its first report');
+        $this->sameValue('1', $console->value("SELECT heartbeat LIKE '%\"database\":\"%' AND heartbeat LIKE '%\"languages\":[%' FROM tl_fleet_sites"), 'pairing: the first report names the database and the languages (the inventory)');
         $this->sameValue('1', $console->value('SELECT COUNT(*) FROM tl_fleet_pairing WHERE used_at IS NOT NULL'), 'pairing: the code works only once');
         $this->assertStringNotContainsString('@', (string) $console->value('SELECT heartbeat FROM tl_fleet_sites'), 'the report carries no e-mail addresses');
 
@@ -122,6 +123,7 @@ final class FleetTest extends SiteTestCase
         $id = self::$fleetId;
         $this->postAs($console, '/admin.php?module=fleet&action=check', [], '/admin.php?module=fleet');
         $this->sameValue('1', $console->value('SELECT up FROM tl_fleet_sites WHERE id = ?', [$id]), 'uptime: the console sees the site up');
+        $this->sameValue('1', $console->value('SELECT cert_expires IS NULL FROM tl_fleet_sites WHERE id = ?', [$id]), 'uptime: a plain http site has no certificate date');
         $console->exec("UPDATE tl_fleet_sites SET url = 'http://127.0.0.1:1', last_seen = NOW() - INTERVAL 30 HOUR, silent_reported = 0 WHERE id = ?", [$id]);
         $this->postAs($console, '/admin.php?module=fleet&action=check', [], '/admin.php?module=fleet');
         $this->postAs($console, '/admin.php?module=fleet&action=check', [], '/admin.php?module=fleet');
@@ -140,6 +142,114 @@ final class FleetTest extends SiteTestCase
         $this->assertStringContainsString('console_version', $list, 'MCP list_sites on the console: the version the console runs');
         $this->assertStringContainsString('jobs_failing', $this->consoleMcp('get_site', ['id' => $this->console()->publicId('fleet_sites', self::$fleetId)]), 'MCP get_site: the last report');
         $this->assertStringNotContainsString('console_version', $this->mcpText('list_sites'), 'list_sites exists only on a console');
+    }
+
+    /** #341: Today groups the checks; a known state is accepted with a note and a day, shown to Claude and taken back. */
+    public function testTodayGroupsAndAcceptingAState(): void
+    {
+        $console = $this->console();
+        $id = self::$fleetId;
+        $public = $console->publicId('fleet_sites', $id);
+        $this->assertStringContainsString('Backups', $console->admin()->get('/admin.php?module=fleet')->body, 'Today has a group of backup checks (the paired site reports no off-site backup)');
+        $until = trim($console->php('echo date("Y-m-d", strtotime("+30 days"));'));
+
+        $this->postAs($console, '/admin.php?module=fleet&action=accept', ['id' => $public, 'check' => 'check:Off-site backups', 'note' => '', 'until' => $until], '/admin.php?module=fleet');
+        $this->sameValue('1', $console->value('SELECT accepted IS NULL FROM tl_fleet_sites WHERE id = ?', [$id]), 'an acceptance without a note is refused');
+        $this->postAs($console, '/admin.php?module=fleet&action=accept', ['id' => $public, 'check' => 'check:Off-site backups', 'note' => 'New site, backups start tonight', 'until' => $until], '/admin.php?module=fleet');
+        $this->sameValue('1', $console->value("SELECT accepted LIKE '%Off-site backups%' FROM tl_fleet_sites WHERE id = ?", [$id]), 'the state is accepted');
+        $today = $console->admin()->get('/admin.php?module=fleet')->body;
+        $this->assertStringContainsString('Accepted', $today, 'Today lists it under Accepted');
+        $this->assertStringContainsString('New site, backups start tonight', $today);
+
+        $site = $this->consoleMcp('get_site', ['id' => $public]);
+        $this->assertStringContainsString('"check":"check:Off-site backups"', $site, 'MCP get_site lists the check');
+        $this->assertStringContainsString('"note":"New site, backups start tonight"', $site, '... with the accepted note');
+        $this->assertStringContainsString('"check":"check:Off-site backups"', $this->consoleMcp('list_sites'), 'MCP list_sites shows the accepted state');
+
+        $this->postAs($console, '/admin.php?module=fleet&action=withdraw', ['id' => $public, 'check' => 'check:Off-site backups'], '/admin.php?module=fleet');
+        $this->sameValue('1', $console->value('SELECT accepted IS NULL FROM tl_fleet_sites WHERE id = ?', [$id]), 'withdrawn');
+    }
+
+    /** #341: the uptime job prunes the acceptances it read before the probes; one a person added meanwhile is not overwritten. */
+    public function testPruningNeverOverwritesAnAcceptanceMadeMeanwhile(): void
+    {
+        $console = $this->console();
+        $id = self::$fleetId;
+        $until = trim($console->php('echo date("Y-m-d", strtotime("+30 days"));'));
+        $old = json_encode(['check:Gone' => ['state' => 'warning', 'note' => 'old', 'until' => $until]]);
+        $new = json_encode(['check:Gone' => ['state' => 'warning', 'note' => 'old', 'until' => $until], 'check:Debug mode' => ['state' => 'warning', 'note' => 'accepted while the probes ran', 'until' => $until]]);
+        $console->exec('UPDATE tl_fleet_sites SET accepted = ? WHERE id = ?', [$new, $id]);
+        $call = fn (string $was, string $pruned): string => trim($console->php('var_dump(Talea\\Fleet\\Console::storeAcceptances(Talea\\Core\\App::boot()->db(), ' . $id . ', ' . var_export($was, true) . ', json_decode(' . var_export($pruned, true) . ', true)));'));
+        $this->assertStringContainsString('bool(false)', $call($old, '{}'), 'the pruning started from the old text: it does not apply');
+        $this->sameValue($new, (string) $console->value('SELECT accepted FROM tl_fleet_sites WHERE id = ?', [$id]), 'the acceptance made meanwhile is still there');
+        $this->assertStringContainsString('bool(true)', $call($new, '{"check:Debug mode":{"state":"warning","note":"kept","until":"' . $until . '"}}'), 'from the current text it applies');
+        $this->sameValue('1', $console->value("SELECT accepted LIKE '%kept%' AND accepted NOT LIKE '%Gone%' FROM tl_fleet_sites WHERE id = ?", [$id]), 'the pruned set is stored');
+        $console->exec('UPDATE tl_fleet_sites SET accepted = NULL WHERE id = ?', [$id]);
+    }
+
+    /** #341: the inventory with a filter per column, the CSV and the MCP tool. */
+    public function testInventoryFiltersAndCsv(): void
+    {
+        $console = $this->console();
+        $name = (string) $console->value('SELECT name FROM tl_fleet_sites WHERE id = ?', [self::$fleetId]);
+        $page = $console->admin()->get('/admin.php?module=fleet&show=all');
+        $this->assertStringContainsString('<select name="database"', $page->body, 'a select per column');
+        $this->assertStringContainsString($name, $page->body);
+        $this->assertStringNotContainsString($name, $console->admin()->get('/admin.php?module=fleet&show=all&language=zz')->body, 'a filter that matches nothing hides the site');
+        $csv = $console->admin()->get('/admin.php?module=fleet&action=inventory_csv');
+        $this->assertSame(200, $csv->status);
+        $this->assertStringContainsString('text/csv', (string) ($csv->headers['content-type'] ?? ''));
+        $this->assertStringContainsString($console->value('SELECT url FROM tl_fleet_sites WHERE id = ?', [self::$fleetId]), $csv->body, 'the file lists the site address');
+        $tool = $this->consoleMcp('fleet_inventory');
+        $this->assertStringContainsString('"web_server"', $tool);
+        $this->assertStringContainsString('"values"', $tool);
+        $this->assertStringContainsString('"count":0', $this->consoleMcp('fleet_inventory', ['language' => 'zz']));
+    }
+
+    /** #341: fleet_plan names each site's own connector and no secret; the runbook is offered on a console only. */
+    public function testFleetPlanAndTheRunbook(): void
+    {
+        $console = $this->console();
+        $plan = $this->consoleMcp('fleet_plan');
+        $this->assertStringContainsString('"connector":"' . $this->site()->base . '/mcp"', str_replace('\\/', '/', $plan), 'the plan names the connector of the site');
+        $this->assertStringNotContainsString('talea_', $plan, 'no token in the plan');
+        $this->assertStringNotContainsString('relay', $plan);
+        $list = '{"jsonrpc":"2.0","id":1,"method":"prompts/list"}';
+        $this->assertStringContainsString('fleet_fix', json_encode($console->mcpRaw($list, self::$consoleToken)), 'a console offers the runbook');
+        $this->assertStringNotContainsString('fleet_fix', json_encode($this->site()->mcpRaw($list)), 'a site without the extension does not');
+        $get = json_encode($console->mcpRaw('{"jsonrpc":"2.0","id":2,"method":"prompts/get","params":{"name":"fleet_fix"}}', self::$consoleToken));
+        $this->assertStringContainsString('fleet_plan', $get);
+    }
+
+    /** #341: a typed domain date and a certificate date make the calendar, one reminder e-mail, events and an entry in the bell. */
+    public function testDomainDateCalendarAndReminders(): void
+    {
+        $console = $this->console();
+        $id = self::$fleetId;
+        $public = $console->publicId('fleet_sites', $id);
+        $in20 = trim($console->php('echo date("Y-m-d", strtotime("+20 days"));'));
+        $this->postAs($console, '/admin.php?module=fleet&action=domain', ['id' => $public, 'domain_expires' => 'junk'], '/admin.php?module=fleet&action=detail&id=' . $public);
+        $this->sameValue('1', $console->value('SELECT domain_expires IS NULL FROM tl_fleet_sites WHERE id = ?', [$id]), 'a date that is not a date is refused');
+        $this->postAs($console, '/admin.php?module=fleet&action=domain', ['id' => $public, 'domain_expires' => $in20], '/admin.php?module=fleet&action=detail&id=' . $public);
+        $this->sameValue($in20, (string) $console->value('SELECT domain_expires FROM tl_fleet_sites WHERE id = ?', [$id]), 'the domain registration date is saved');
+
+        $console->exec('UPDATE tl_fleet_sites SET cert_expires = NOW() + INTERVAL 10 DAY WHERE id = ?', [$id]);
+        $console->setting('alerts_enabled', '1');
+        $console->setting('alerts_email', 'ops@example.com');
+        $console->exec("UPDATE tl_jobs SET last_run = NULL WHERE name = 'fleet_expiry'");
+        $console->runTasks();
+        $this->sameValue('1|2', $console->value("SELECT CONCAT((SELECT COUNT(*) FROM tl_mail WHERE recipient = 'ops@example.com' AND subject LIKE '%expire soon%'), '|', (SELECT COUNT(*) FROM tl_events WHERE type = 'fleet.expiry_reminder'))"), 'one e-mail with both reminders, and an event for each');
+        $console->exec("UPDATE tl_jobs SET last_run = NULL WHERE name = 'fleet_expiry'");
+        $console->runTasks();
+        $this->sameValue('1', $console->value("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'ops@example.com' AND subject LIKE '%expire soon%'"), 'a reminder goes once per date and threshold');
+
+        $page = $console->admin()->get('/admin.php?module=fleet&action=calendar');
+        $this->assertStringContainsString((string) $console->value('SELECT name FROM tl_fleet_sites WHERE id = ?', [$id]), $page->body, 'the calendar lists the site');
+        $this->assertSame(200, $console->admin()->get('/admin.php?module=fleet&action=calendar&month=2026-01')->status, 'another month answers');
+        $this->assertStringContainsString('expire soon', $console->admin()->get('/admin.php?action=waiting')->body, 'the bell lists the dates that end soon');
+        $this->assertStringContainsString('"kind":"domain"', $this->consoleMcp('fleet_calendar'), 'MCP fleet_calendar lists the domain date');
+        $this->assertMatchesRegularExpression('/"site_id":"[0-9a-f-]{36}"/', $this->consoleMcp('fleet_calendar'), 'its site id is a public id');
+        $console->exec('UPDATE tl_fleet_sites SET cert_expires = NULL, domain_expires = NULL, reminders = NULL WHERE id = ?', [$id]);
     }
 
     // ---- 2.16 shared design kit

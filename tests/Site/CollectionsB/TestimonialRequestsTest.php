@@ -19,11 +19,11 @@ final class TestimonialRequestsTest extends SiteTestCase
         $enquiry = $this->insertEnquiry('customer@example.com', '[["Message","Thank you"]]', 2);
         $noMail = $this->insertEnquiry('', '[]', 2);
 
-        $this->assertStringContainsString('no valid e-mail address', $this->mcpText('create_form_link', ['id' => $this->site()->publicId('enquiries', $noMail), 'send' => true]), 'testimonials: an enquiry without an e-mail cannot be mailed');
+        $this->assertStringContainsString('no valid e-mail address', $this->site()->mcpConfirmedText('create_form_link', ['id' => $this->site()->publicId('enquiries', $noMail), 'send' => true]), 'testimonials: an enquiry without an e-mail cannot be mailed');
         $nameOnly = $site->mcpResult('create_form_link', ['label' => 'Anna Weber, wedding 2019']);
         $this->assertStringContainsString('/_f/', (string) ($nameOnly['link'] ?? ''), 'testimonials: a link needs neither an enquiry nor an e-mail address');
         $this->assertSame('Anna Weber, wedding 2019', (string) $site->value("SELECT label FROM tl_form_links WHERE label <> '' ORDER BY id DESC LIMIT 1"), 'testimonials: the label says who the link is for');
-        $this->assertStringContainsString('Only a link for an enquiry', $this->mcpText('create_form_link', ['label' => 'Stranger', 'email' => 'stranger@example.com', 'send' => true]), 'testimonials: an address the site did not get from the person is never mailed');
+        $this->assertStringContainsString('Only a link for an enquiry', $this->site()->mcpConfirmedText('create_form_link', ['label' => 'Stranger', 'email' => 'stranger@example.com', 'send' => true]), 'testimonials: an address the site did not get from the person is never mailed');
         $this->assertStringContainsString('label', $this->mcpText('create_form_link', []), 'testimonials: without enquiry and label there is nobody to name the link after');
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_forms WHERE origin = 'system:testimonial'"), 'testimonials: the system form is one record in Enquiries → Forms');
 

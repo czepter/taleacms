@@ -150,6 +150,7 @@ final class RegistrationsTest extends DatabaseTestCase
         $b = $this->item($c, 'salsa-x', ['start' => '2030-01-01 10:00']);
         $this->db()->update('collection_items', ['slug' => 'salsa', 'language' => 'de'], ['item_id' => $b['item_id']]);
         $this->assertSame(Registrations::lockFor($this->db(), $a['item_id']), Registrations::lockFor($this->db(), $b['item_id']));
+        $this->assertStringContainsString($this->db()->prefix, Registrations::lockFor($this->db(), $a['item_id']), 'item ids repeat across the sites of one database');
     }
 
     /** A real App that shares the test's connection (and so its transaction). */

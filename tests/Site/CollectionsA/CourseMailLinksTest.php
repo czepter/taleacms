@@ -34,7 +34,7 @@ final class CourseMailLinksTest extends SiteTestCase
             'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Anna', 'p1' => 'anna@example.com', 'p3' => '1']);
 
         $this->site()->setting('site_url', '');
-        $this->mcpText('cancel_course', ['item' => $this->site()->publicId('collection_items', (int) $this->sq("SELECT item_id FROM tl_collection_items WHERE slug = 'salsa'")),
+        $this->site()->mcpConfirmedText('cancel_course', ['item' => $this->site()->publicId('collection_items', (int) $this->sq("SELECT item_id FROM tl_collection_items WHERE slug = 'salsa'")),
             'offer' => [$this->site()->publicId('collection_items', (int) $this->sq("SELECT item_id FROM tl_collection_items WHERE slug = 'tango'"))]]);
 
         $body = (string) $this->sq("SELECT body FROM tl_mail WHERE recipient = 'anna@example.com' ORDER BY mail_id DESC LIMIT 1");

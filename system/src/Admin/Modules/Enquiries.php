@@ -31,8 +31,6 @@ final class Enquiries extends Module
 
     protected function actionList(): Response
     {
-        \Talea\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
-        self::deleteExpired($this->app);
         $filter = $this->request->get('status');
         $trash = $filter === 'trash';
         $conditions = match ($filter) {
@@ -332,11 +330,12 @@ final class Enquiries extends Module
         return $ids === [] ? 0 : $db->run('UPDATE {enquiries} SET deleted_at = NULL WHERE deleted_at IS NOT NULL AND enquiry_id IN (' . implode(',', array_map('intval', $ids)) . ')')->rowCount();
     }
 
-    /** Enquiries longer than 30 days in the trash are deleted with their attachments (with pages and news, on an admin visit). */
-    public static function emptyTrash(\Talea\Core\Db $db): void
+    /** Enquiries longer than 30 days in the trash are deleted with their attachments (job trash, with pages, news and collection items). */
+    public static function emptyTrash(\Talea\Core\Db $db): int
     {
         self::deleteAttachments($db->all('SELECT data FROM {enquiries} WHERE deleted_at < NOW() - INTERVAL 30 DAY'));
-        $db->run('DELETE FROM {enquiries} WHERE deleted_at < NOW() - INTERVAL 30 DAY');
+
+        return $db->run('DELETE FROM {enquiries} WHERE deleted_at < NOW() - INTERVAL 30 DAY')->rowCount();
     }
 
     /**

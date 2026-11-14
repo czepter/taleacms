@@ -7,6 +7,7 @@
  * @var Talea\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $state  Core\WebImport
+ * @var list<array<string, mixed>>|null $starters  the starter pages the pages found would meet (preview only; Core\StarterPages::choices)
  */
 $v = $state['result'];
 $urls = array_keys($state['urls']);
@@ -28,6 +29,7 @@ $urls = array_keys($state['urls']);
 </tbody></table></div>
 <?php if (count($urls) > 40): ?><p class="small-text"><?= e(t('… and %s more.', count($urls) - 40)) ?></p><?php endif ?>
 <form method="post" action="<?= e($module->url('web_run')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($state['id']) ?>">
+<?= $app->view->render('admin/transfer/starters', ['choices' => $starters, 'result' => null]) ?>
 	<p><button class="btn" type="submit"><?= e(t('Import %s pages', count($urls))) ?></button></p></form>
 <?php endif ?>
 <?php elseif ($state['phase'] === 'import'): ?>
@@ -42,8 +44,39 @@ $urls = array_keys($state['urls']);
 	<div class="tiles-item"><strong><?= (int) $v['articles'] ?></strong><span><?= e(t('New news items')) ?></span></div>
 	<div class="tiles-item"><strong><?= (int) $v['images'] ?></strong><span><?= e(t('Images in Media')) ?></span></div>
 	<div class="tiles-item"><strong><?= (int) $v['redirects'] ?></strong><span><?= e(t('Redirects from old addresses')) ?></span></div>
+<?php if (!empty($v['files'])): ?>
+	<div class="tiles-item"><strong><?= (int) $v['files'] ?></strong><span><?= e(t('Documents in Media')) ?></span></div>
+<?php endif ?>
+<?php if (!empty($v['parents'])): ?>
+	<div class="tiles-item"><strong><?= (int) $v['parents'] ?></strong><span><?= e(t('Empty parent pages')) ?></span></div>
+<?php endif ?>
 	<div class="tiles-item"><strong><?= (int) $v['skipped'] ?></strong><span><?= e(t('Skipped (already imported earlier)')) ?></span></div>
 </div>
+<?php $kept = array_filter((array) ($state['kept'] ?? [])); ?>
+<?php if ($kept !== []): ?>
+<div class="tiles">
+<?php foreach (['form' => 'Forms', 'faq' => 'Questions and answers', 'tabs' => 'Tabs', 'video' => 'Videos', 'map' => 'Maps', 'embed' => 'Embedded pages', 'counter' => 'Counters'] as $type => $label): ?>
+<?php if (!empty($kept[$type])): ?>	<div class="tiles-item"><strong><?= (int) $kept[$type] ?></strong><span><?= e(t($label)) ?></span></div>
+<?php endif ?>
+<?php endforeach ?>
+</div>
+<?php endif ?>
+<?php if (!empty($state['attention'])): ?>
+<div class="notice notice-warning"><p><strong><?= e(t('Needs your attention')) ?></strong></p><ul>
+<?php foreach ($state['attention'] as $a): ?><li><?= e($a['path'] . ' – ' . t(Talea\Core\WebImportWidgets::ATTENTION[$a['kind']] ?? $a['kind'], $a['host'])) ?></li><?php endforeach ?>
+</ul></div>
+<?php endif ?>
+<?= $app->view->render('admin/transfer/starters', ['choices' => null, 'result' => $state['starters'] ?? null]) ?>
+<?php if (!empty($state['moved'])): ?>
+<details class="advanced"><summary><?= e(t('Redirects written (%s)', (int) $v['redirects'])) ?></summary><ul>
+<?php foreach ($state['moved'] as $r): ?><li><?= e($r['from'] . ' → ' . $r['to']) ?></li><?php endforeach ?>
+</ul></details>
+<?php endif ?>
+<?php if (!empty($state['parents'])): ?>
+<details class="advanced"><summary><?= e(t('Empty parent pages created for nested addresses: %s', (int) $v['parents'])) ?></summary><ul>
+<?php foreach ($state['parents'] as $r): ?><li><?= e($r['old'] . ' → ' . $r['new']) ?></li><?php endforeach ?>
+</ul></details>
+<?php endif ?>
 <?php if ($state['errors'] !== []): ?>
 <details class="advanced"><summary><?= e(t('%s pages could not be imported', (int) $v['failed'])) ?></summary><ul>
 <?php foreach ($state['errors'] as $row): ?><li><?= e($row) ?></li><?php endforeach ?>

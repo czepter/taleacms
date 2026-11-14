@@ -633,7 +633,7 @@ final class Seo
             if (!empty($meta['item'])) {
                 // a collection item page: its schema.org type from the collection (service, person, product, event, question)
                 $node = \Talea\Builder\CollectionSchema::forItem($meta['item']['collection'], $meta['item']['item'], $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')),
-                    (string) ($meta['description'] ?? ''), (string) ($meta['image'] ?? ''), (string) $issuer['@id'], $issuer); // the whole company node: the hiring organization of a job posting (2.11)
+                    (string) ($meta['description'] ?? ''), (string) ($meta['image'] ?? ''), (string) $issuer['@id'], $issuer, (bool) ($meta['item']['form'] ?? false)); // the whole company node: the hiring organization of a job posting (2.11); a page with a form is a direct application
                 if ($node !== null) {
                     $chart[] = $node;
                 }

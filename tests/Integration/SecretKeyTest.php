@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use Talea\Core\Antispam;
 use Talea\Core\Connectors;
 use Talea\Core\Settings;
+use Talea\Core\Vault;
 use Talea\Tests\Support\DatabaseTestCase;
 
 /**
@@ -67,7 +68,7 @@ final class SecretKeyTest extends DatabaseTestCase
         $this->assertNotSame('', $this->databaseKey(), 'the key is created in the database as before');
         $this->assertSame($this->databaseKey(), (new Antispam($this->db(), $this->settings()))->key());
         $this->assertSame('api-token', Connectors::decrypt($this->settings(), $this->stored()['secret']));
-        $this->assertSame('warning', Connectors::keyStatus($this->settings())[0], 'System status warns about the key in the database');
+        $this->assertSame('warning', Vault::status($this->settings())[0], 'System status warns about the key in the database');
     }
 
     public function testTheVariableReEncryptsTheCredentialsAndClearsTheDatabaseKey(): void
@@ -86,7 +87,7 @@ final class SecretKeyTest extends DatabaseTestCase
         $this->assertNull($after['refresh_token'], 'an empty column stays empty');
         $settings = $this->settings();
         $this->assertSame(['api-token', 'access'], [Connectors::decrypt($settings, $after['secret']), Connectors::decrypt($settings, $after['access_token'])]);
-        $this->assertSame('ok', Connectors::keyStatus($settings)[0]);
+        $this->assertSame('ok', Vault::status($settings)[0]);
 
         $signing = (new Antispam($this->db(), $this->settings()))->key();
         $this->assertNotSame($signingBefore, $signing, 'the signing key comes from the variable too');
@@ -104,9 +105,9 @@ final class SecretKeyTest extends DatabaseTestCase
         // the database alone (restored on a server without the variable): nothing can be read, System status says so
         putenv('TALEA_SECRET_KEY');
         $this->assertNull(Connectors::decrypt($this->settings(), $this->stored()['secret']));
-        [$state, $info] = Connectors::keyStatus($this->settings());
+        [$state, $info] = Vault::status($this->settings());
         $this->assertSame('error', $state);
-        $this->assertStringContainsString('2 stored connector credential(s) cannot be read', $info);
+        $this->assertStringContainsString('2 stored secret(s) cannot be read', $info);
 
         // another variable cannot read them either
         putenv('TALEA_SECRET_KEY=' . str_repeat('0', 64));
@@ -117,7 +118,7 @@ final class SecretKeyTest extends DatabaseTestCase
         putenv('TALEA_SECRET_KEY=' . self::SECRET);
         $this->assertSame('api-token', Connectors::decrypt($this->settings(), $this->stored()['secret']));
         $this->assertSame('', $this->databaseKey());
-        $this->assertSame('ok', Connectors::keyStatus($this->settings())[0]);
+        $this->assertSame('ok', Vault::status($this->settings())[0]);
     }
 
     public function testShortVariableIsIgnoredAndReported(): void
@@ -129,7 +130,7 @@ final class SecretKeyTest extends DatabaseTestCase
         $this->assertNull(Antispam::environmentSecret($this->settings()));
         $this->assertSame($key, (new Antispam($this->db(), $this->settings()))->key(), 'the database key stays in use');
         $this->assertSame('api-token', Connectors::decrypt($this->settings(), $this->stored()['secret']));
-        $this->assertSame('error', Connectors::keyStatus($this->settings())[0]);
+        $this->assertSame('error', Vault::status($this->settings())[0]);
     }
 
     public function testNewSiteWithTheVariableNeverStoresAKey(): void

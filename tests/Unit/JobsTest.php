@@ -12,7 +12,7 @@ final class JobsTest extends TestCase
     public function testJobOpenings(): void
     {
         $jobsPreset = \Talea\Builder\Presets::get('jobs');
-        $jobFields = \Talea\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['key' => $f[0], 'label' => $f[1], 'type' => $f[2]], $jobsPreset['fields']));
+        $jobFields = \Talea\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['key' => $f[0], 'label' => $f[1], 'type' => $f[2]] + (isset($f[3]['options']) ? ['options' => $f[3]['options']] : []), $jobsPreset['fields']));
         $jobCollection = fn (string $currency): array => ['slug' => 'jobs', 'detail' => 1, 'fields' => $jobFields, 'schema_org' => json_encode(['currency' => $currency] + $jobsPreset['schema'])];
         $jobIssuer = ['@type' => 'LocalBusiness', '@id' => 'https://example.cz/#firma', 'name' => 'Web', 'legalName' => 'Truhlárna s.r.o.', 'url' => 'https://example.cz/', 'logo' => 'https://example.cz/media/logo.svg', // check-english: allow
             'address' => ['@type' => 'PostalAddress', 'addressLocality' => 'Brno', 'addressCountry' => 'CZ']];
@@ -55,6 +55,14 @@ final class JobsTest extends TestCase
         $jobForm = $findForm(\Talea\Builder\Presets::itemTemplate($jobsPreset, $jobFields)['children']);
         $this->assertSame([t('Job application'), ['text', 'email', 'tel', 'file', 'textarea', 'checkbox', 'hidden'], true, '{{name}}', true], [
             $jobForm['content']['name'] ?? null, array_column($jobForm['content']['fields'] ?? [], 'type'), $jobForm['content']['fields'][3]['required'] ?? null, $jobForm['content']['fields'][6]['value'] ?? null, $jobForm['content']['fields'][5]['required'] ?? null], '2.11 jobs preset: the item template has a Job application form – name, e-mail, phone, a required CV attachment, a message, consent and the hidden job name that survives sanitizing'); // t(): the dictionary of an earlier test is still set
+        // #342: the workplace, the street and the postal code come last (the contact keeps its place), map to structured data, and the form confirms
+        $this->assertSame([['street', 'postal_code', 'remote'], ['text', 'text', 'radio'], ['on site', 'hybrid', 'remote'], 'street', 'postal_code', 'remote', true, true, true, true], [
+            array_column(array_slice($jobFields, 10), 'key'), array_column(array_slice($jobFields, 10), 'type'), $jobFields[12]['options'],
+            $jobsPreset['schema']['fields']['streetAddress'], $jobsPreset['schema']['fields']['postalCode'], $jobsPreset['schema']['fields']['jobLocationType'],
+            str_contains($jobsPreset['claude'], 'remote:'), ($jobForm['content']['confirmation'] ?? false) === true,
+            ($jobForm['content']['confirmation_subject'] ?? '') === t('We have received your application'), str_contains(json_encode(\Talea\Builder\Presets::itemTemplate($jobsPreset, $jobFields)), '{{remote}}')],
+            '#342 jobs preset: street, postal code and workplace are appended; they feed the structured data; the application form sends a received confirmation');
+        $this->assertSame('cv', $jobForm['content']['fields'][3]['accept'] ?? null, '#342 the CV field of the jobs form takes documents only');
         $this->assertSame(['JobPosting', ['sort' => 'newest'], true, ['preset' => 'people'], true], [$jobsPreset['schema']['type'], $jobsPreset['list'], $jobsPreset['redirect_hidden'], $jobsPreset['fields'][8][3] ?? null, str_contains($jobsPreset['claude'], 'valid_until')], '2.11 jobs preset: JobPosting data, newest first, hidden jobs lead to the jobs page, the contact links to the team');
         // retention of applications: enquiries from a jobs collection (their source) older than the months
         $jobSources = ['collection:5'];
@@ -72,5 +80,38 @@ final class JobsTest extends TestCase
         $this->assertSame([['CZ', 6], ['DE', 6], ['AT', 6], null, null], [\Talea\Core\Jobs::suggestedRetention('CZ', 'en'), \Talea\Core\Jobs::suggestedRetention('', 'de'), \Talea\Core\Jobs::suggestedRetention('at', ''),
             \Talea\Core\Jobs::suggestedRetention('FR', 'fr'), \Talea\Core\Jobs::suggestedRetention('', 'en')], '2.11 Jobs::suggestedRetention – by the company country, then by the site language; unknown = no hint');
         $this->assertSame(['Job openings', true, '0', 'Job opening'], [\Talea\Core\Audit::KINDS['job'], isset(\Talea\Core\Events::TYPES['applications.purged']), \Talea\Core\Settings::DEFAULTS['job_applications_months'], \Talea\Builder\CollectionSchema::TYPES['JobPosting'][0]], '2.11: the audit kind, the event and the setting of job applications are known');
+    }
+
+    /** #342: direct apply, remote work with the applicant country, street and postal code – and nothing guessed */
+    public function testJobPostingForRemoteAndOnSiteJobs(): void
+    {
+        $fields = \Talea\Builder\Collections::sanitizeFields([
+            ['key' => 'location', 'label' => 'Location', 'type' => 'text'], ['key' => 'street', 'label' => 'Street', 'type' => 'text'],
+            ['key' => 'postal_code', 'label' => 'Postal code', 'type' => 'text'], ['key' => 'remote', 'label' => 'Workplace', 'type' => 'text'],
+        ]);
+        $collection = ['slug' => 'jobs', 'detail' => 1, 'fields' => $fields, 'schema_org' => json_encode(['type' => 'JobPosting', 'currency' => '',
+            'fields' => ['jobLocation' => 'location', 'streetAddress' => 'street', 'postalCode' => 'postal_code', 'jobLocationType' => 'remote']])];
+        $issuer = ['@type' => 'LocalBusiness', '@id' => 'https://example.com/#company', 'name' => 'Joinery Ltd', 'url' => 'https://example.com/', 'address' => ['@type' => 'PostalAddress', 'addressCountry' => 'GB']];
+        $item = fn (string $workplace): array => ['name' => 'Carpenter', 'slug' => 'carpenter', 'created_at' => '2026-10-02 10:00:00', 'valid_until' => null,
+            'data' => ['location' => 'Leeds', 'street' => '12 Park Row', 'postal_code' => 'LS1 5HD', 'remote' => $workplace]];
+        $make = fn (string $workplace, ?array $by = null, bool $direct = true): array => \Talea\Builder\CollectionSchema::forItem($collection, $item($workplace), 'https://example.com/jobs/carpenter', 'd', '', $issuer['@id'], $by ?? $issuer, $direct);
+
+        $onSite = $make('on site');
+        $this->assertSame(['@type' => 'Place', 'address' => ['@type' => 'PostalAddress', 'streetAddress' => '12 Park Row', 'addressLocality' => 'Leeds', 'postalCode' => 'LS1 5HD', 'addressCountry' => 'GB']], $onSite['jobLocation'], 'the full address');
+        $this->assertTrue($onSite['directApply']);
+        $this->assertArrayNotHasKey('jobLocationType', $onSite);
+        $this->assertArrayNotHasKey('applicantLocationRequirements', $onSite);
+
+        $remote = $make('remote');
+        $this->assertSame('TELECOMMUTE', $remote['jobLocationType']);
+        $this->assertSame(['@type' => 'Country', 'name' => 'GB'], $remote['applicantLocationRequirements']);
+        $noCountry = $make('remote', ['address' => []] + $issuer);
+        $this->assertSame('TELECOMMUTE', $noCountry['jobLocationType']);
+        $this->assertArrayNotHasKey('applicantLocationRequirements', $noCountry, 'no company country, no applicant location');
+
+        $this->assertArrayNotHasKey('jobLocationType', $make('hybrid'), 'hybrid is not remote');
+        $this->assertArrayNotHasKey('directApply', $make('on site', null, false), 'without an application form the key is absent');
+        $this->assertSame([true, true, true, true, false, false, false, false], array_map(\Talea\Builder\CollectionSchema::remote(...),
+            ['remote', 'Remote work', 'Home-Office', 'na dálku', 'hybrid', 'Hybrid / remote', 'on site', '']), 'CollectionSchema::remote'); // check-english: allow
     }
 }

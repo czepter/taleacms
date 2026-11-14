@@ -40,7 +40,7 @@ final class ShippedBlueprintsTest extends SiteTestCase
         $site->mcp('remove_blueprint', ['key' => 'municipality']);
         foreach ($site->rows('SELECT slug FROM tl_collections WHERE collection_id > ?', [$idk0]) as $row) {
             $slug = $row['slug'];
-            $site->mcp('delete_collection', ['collection' => $slug]);
+            $site->mcpConfirmed('delete_collection', ['collection' => $slug]);
             $site->exec('DELETE FROM tl_pages WHERE slug IN (?, ?) AND visible = 0', [$slug, $slug . '-archive']);
         }
         $this->assertSame('0|0', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM tl_blueprints), '|', (SELECT COUNT(*) FROM tl_collections WHERE collection_id > $idk0))"), 'shipped blueprints: removed again, the site has no blueprint and no collection of the municipality');

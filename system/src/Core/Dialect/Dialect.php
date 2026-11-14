@@ -137,6 +137,12 @@ abstract class Dialect
 
     abstract public function currentDatabaseSql(): string;
 
+    /** What a lock name is scoped by (Db::lockName()): MySQL's GET_LOCK is server-wide, so the database; PostgreSQL adds the schema, SQLite the file. */
+    public function lockScopeSql(): string
+    {
+        return $this->currentDatabaseSql();
+    }
+
     // ---- backups (Core\Backup): a plain SQL file the application writes and reads itself, without mysqldump or pg_dump
 
     /** Real names of the tables of this installation (prefix), in the order a restore can insert them (referenced tables first). @return list<string> */
