@@ -23,6 +23,6 @@ final class Untrusted
      */
     public static function mark(array $keys): array
     {
-        return [self::KEY => array_values($keys)];
+        return [self::KEY => $keys];
     }
 }

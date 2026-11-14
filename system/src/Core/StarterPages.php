@@ -28,7 +28,7 @@ final class StarterPages
             $value = $row[$column] ?? '';
             $values[] = match ($column) {
                 'visible', 'in_menu' => (int) $value,
-                'parent_id' => $value === null || $value === '' ? null : (int) $value,
+                'parent_id' => $value === '' ? null : (int) $value,
                 default => (string) $value,
             };
         }

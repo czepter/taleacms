@@ -192,12 +192,11 @@ final class Console
             $reasons[] = 'audit';
         }
 
-        $items = Today::items($site, $reasons, $beat, $now);
         $acceptances = Today::decode($site);
-        foreach ($items as &$item) {
-            $item['accepted'] = Today::holds($acceptances[$item['key']] ?? null, $item, $now) ? $acceptances[$item['key']] : null;
-        }
-        unset($item);
+        $items = array_map(
+            fn (array $item): array => $item + ['accepted' => Today::holds($acceptances[$item['key']] ?? null, $item, $now) ? $acceptances[$item['key']] : null],
+            Today::items($site, $reasons, $beat, $now),
+        );
         $open = [];
         $accepted = [];
         foreach ($reasons as $reason) {

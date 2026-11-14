@@ -251,6 +251,9 @@ final class HtmlWidgets
     private static function cleanForm(Element $form): string
     {
         $copy = $form->cloneNode(true);
+        if (!$copy instanceof Element) {
+            return '';
+        }
         foreach (iterator_to_array($copy->querySelectorAll('input, select, textarea')) as $field) {
             if (HtmlConverter::isSpamTrap($field, $copy)) {
                 $field->remove();
@@ -282,7 +285,8 @@ final class HtmlWidgets
         $value = (string) self::counterValue($el);
         $before = $after = '';
         $seen = false;
-        foreach ($el->parentElement?->childNodes ?? [] as $node) {
+        $parent = $el->parentElement;
+        foreach ($parent === null ? [] : $parent->childNodes as $node) {
             if ($node->isSameNode($el)) {
                 $seen = true;
             } elseif (($text = trim($node->textContent)) !== '' && mb_strlen($text) <= 4) {
@@ -309,7 +313,7 @@ final class HtmlWidgets
         $copy = $block->cloneNode(true);
         $el->removeAttribute('data-tl-number');
         $caption = '';
-        if (!$block->isSameNode($el)) {
+        if ($copy instanceof Element && !$block->isSameNode($el)) {
             $copy->querySelector('[data-tl-number]')?->remove();
             $caption = trim((string) preg_replace('/\s+/u', ' ', $copy->textContent));
         }
@@ -434,7 +438,7 @@ final class HtmlWidgets
     /**
      * ARIA tabs: a tab list and its panels (named by aria-controls, else in order among the panels next to the list).
      *
-     * @return list<array{nodes: list<Element>, html: string}>
+     * @return array<string, array{nodes: list<Element>, html: string}> by the node path of the tab list, so that + keeps one group per list
      */
     private static function ariaTabs(Element $root): array
     {
@@ -471,7 +475,7 @@ final class HtmlWidgets
      * Tabs only the class names give away: a list called …tabs-nav / …tab-controls and panels called …tab-pane / …tab-content next to
      * it, matched by order.
      *
-     * @return list<array{nodes: list<Element>, html: string}>
+     * @return array<string, array{nodes: list<Element>, html: string}> by the node path of the tab list
      */
     private static function classTabs(Element $root): array
     {

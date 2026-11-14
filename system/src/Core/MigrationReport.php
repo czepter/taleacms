@@ -122,7 +122,7 @@ final class MigrationReport
     /**
      * One old address: where it leads on this site and what got lost.
      *
-     * @return array{stara: string, nova: string, stav: string, problemy: list<string>, titulek_stary: string, titulek_novy: string}
+     * @return array{old: string, new: string, status: string, problems: list<string>, old_title: string, new_title: string, old_form: bool, read: bool}
      */
     private function check(string $url): array
     {
@@ -133,7 +133,7 @@ final class MigrationReport
         if (in_array($status, ['missing', 'hidden', 'chain', 'redirect_out'], true)) {
             $problems[] = $status;
         }
-        if ($target['type'] === 'page' && isset($this->starters()[$target['page_id']])) {
+        if ($target['type'] === 'page' && isset($this->starters()[$target['page_id'] ?? 0])) {
             $problems[] = 'starter'; // the old address lands on a starter page nobody has touched
         }
         $old = null;
@@ -190,7 +190,7 @@ final class MigrationReport
      * Where a path leads on this site: ok (published content), redirect (one hop to published content), chain (more hops),
      * redirect_out (to another site), hidden (content that is not published) or missing.
      *
-     * @return array{status: string, url: string, type: string, title: string, description: string, form: bool, images: int, page_id: int}
+     * @return array{status: string, url: string, type: string, title: string, description: string, form: bool, images: int, visible?: bool, page_id?: int} page_id only for a page
      */
     public function resolve(string $path, int $hops = 0): array
     {

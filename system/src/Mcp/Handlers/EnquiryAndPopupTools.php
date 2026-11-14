@@ -66,7 +66,7 @@ trait EnquiryAndPopupTools
             'fields' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
             + ($p['category'] !== '' ? ['category' => $p['category'], 'priority' => \Talea\Core\Triage::PRIORITIES[(int) $p['priority']] ?? null,
                 'draft_reply' => $p['suggested_reply'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : [])
-            + \Talea\Mcp\Untrusted::mark(['page', 'campaign', 'first_page', 'came_from', 'email', 'fields'] + ($p['category'] !== '' && $p['suggested_reply'] ? [6 => 'draft_reply'] : [])), // a draft reply was written from the visitor's text
+            + \Talea\Mcp\Untrusted::mark([...['page', 'campaign', 'first_page', 'came_from', 'email', 'fields'], ...($p['category'] !== '' && $p['suggested_reply'] ? ['draft_reply'] : [])]), // a draft reply was written from the visitor's text
             $db->all('SELECT enquiry_id, created_at, form, page, topic, landing_page, referrer, campaign, email, status, category, priority, suggested_reply, triaged_by, data FROM {enquiries} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY enquiry_id DESC LIMIT ' . $limit, $params));
     }
 

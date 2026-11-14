@@ -24,6 +24,9 @@ use Talea\Admin\Modules\Redirects;
  *  - The work runs in batches of SECONDS (shared hosting), the state is a file in storage/import, and tl_import_map
  *    remembers what was imported, so running it again skips finished pages.
  * The design is not copied: the pages take the site's design system; Claude can match the look afterwards.
+ *
+ * @phpstan-type Extracted array{title: string, description: string, content: string, date: string, article: bool, widgets: list<array{kind: string, html: string, host: string}>, seo_title: string, share_image: string}
+ * @phpstan-type Page array{title: string, description: string, content: string, date: string, article: bool, widgets: list<array{kind: string, html: string, host: string}>, seo_title: string, share_image: string, text: string, seo: array{seo_title: string, image: string}}
  */
 final class WebImport
 {
@@ -140,7 +143,7 @@ final class WebImport
      */
     public static function confirm(array &$state, ?array $keepStarters): void
     {
-        $state['options']['keep_starters'] = $keepStarters === null ? null : array_values(array_map('intval', $keepStarters));
+        $state['options']['keep_starters'] = $keepStarters === null ? null : array_map('intval', $keepStarters);
         // shallow addresses first: the parent of a nested address is a real page of the old site when the sitemap has it
         uksort($state['urls'], fn (string $a, string $b): int => substr_count(self::path($a), '/') <=> substr_count(self::path($b), '/'));
         $state['phase'] = 'import';
@@ -479,8 +482,9 @@ final class WebImport
     }
 
     /**
-     * @param array{title: string, description: string, content: string, date: string, article: bool} $page
+     * @param Page $page
      * @param array{page_id: int, slug: string}|null $parent
+     * @param array<string, mixed> $state
      */
     private function createPage(array $page, string $wanted, string $language, string $url, ?array $parent, bool $topLevel, array &$state, string $old): int
     {
@@ -499,7 +503,7 @@ final class WebImport
         ]);
     }
 
-    /** @param array{title: string, description: string, content: string, date: string, article: bool} $page */
+    /** @param Page $page */
     private function createArticle(array $page, string $language): int
     {
         $category = (int) $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY category_id LIMIT 1', [$language]);
@@ -521,7 +525,11 @@ final class WebImport
         return $idc;
     }
 
-    /** The page's HTML as a build, the same way as pages from WordPress: a heading and the content in a narrow section. */
+    /**
+     * The page's HTML as a build, the same way as pages from WordPress: a heading and the content in a narrow section.
+     *
+     * @param array<string, mixed> $state
+     */
     private function build(string $title, string $html, array $widgets, array &$state, string $old): ?string
     {
         // the non-administrator converter: whatever site is imported never decides what goes into Custom HTML
@@ -755,7 +763,7 @@ final class WebImport
      * The content of a page: title, description, publication date, whether it is an article, and the main content as
      * clean HTML with absolute image addresses.
      *
-     * @return array{title: string, description: string, content: string, date: string, article: bool, widgets: list<array{kind: string, html: string, host: string}>, seo_title: string, share_image: string}
+     * @return Extracted
      */
     public static function extract(string $html, string $url): array
     {

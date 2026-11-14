@@ -187,8 +187,8 @@ final class Health
         $state = self::cleanupState($cleanup, time());
         $add(t('Operation'), t('Personal data clean-up'), $state === 'stale' ? 'warning' : 'ok', match ($state) {
             'new' => t('has not run yet – the background jobs start it'),
-            'ok' => t('last run %s', format_date(date('Y-m-d H:i:s', $cleanup), true)),
             'stale' => t('last run %s – enquiries and other personal data past their retention are not being deleted; check the background jobs and cron below', format_date(date('Y-m-d H:i:s', $cleanup), true)),
+            default => t('last run %s', format_date(date('Y-m-d H:i:s', $cleanup), true)),
         });
         $problems = Events::problems($db, 168);
         if ($problems !== []) {

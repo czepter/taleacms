@@ -186,6 +186,9 @@ final class OldPage
     {
         $copy = $el->cloneNode(true);
         $kinds = [];
+        if (!$copy instanceof Element) {
+            return $kinds;
+        }
         foreach (HtmlWidgets::extract($copy) as $widget) {
             $kinds[$widget['kind']] = ($kinds[$widget['kind']] ?? 0) + 1;
         }
@@ -200,6 +203,9 @@ final class OldPage
     private static function cleaned(Element $el, string $url): string
     {
         $copy = $el->cloneNode(true);
+        if (!$copy instanceof Element) {
+            return '';
+        }
         foreach (iterator_to_array($copy->querySelectorAll('script, style, noscript, template, link, meta')) as $drop) {
             $drop->remove();
         }
@@ -213,9 +219,7 @@ final class OldPage
                 }
             }
         }
-        $html = $copy instanceof Element ? Html::outer($copy) : '';
-
-        return trim((string) preg_replace(['/<!--.*?-->/s', '/\s+/u'], ['', ' '], $html));
+        return trim((string) preg_replace(['/<!--.*?-->/s', '/\s+/u'], ['', ' '], Html::outer($copy)));
     }
 
     /** HTML cut to a size at the end of a tag. */
