@@ -41,6 +41,26 @@ final class PagesListTest extends SiteTestCase
         $this->assertPageLacks('/admin.php?module=pages&status=hidden', 'row-menu-' . $site->publicId('pages', $draft), message: 'the hidden tab lists only hidden pages');
     }
 
+    public function testImportedPagesWaitInTheLayoutTab(): void
+    {
+        $site = $this->site();
+        $home = (int) $site->settingValue('home_page');
+        [$first, $second] = array_map('intval', array_column($site->rows('SELECT page_id FROM tl_pages WHERE deleted_at IS NULL AND page_id <> ? ORDER BY page_id', [$home]), 'page_id'));
+        $site->exec("UPDATE tl_pages SET layout_pending = TRUE, import_source = 'https://old.example/a/', updated_at = '2026-02-03 04:05:06' WHERE page_id IN (?, ?)", [$first, $second]);
+
+        $this->assertPage('/admin.php?module=pages', 200, ['Layout not rebuilt <span class="list-tab-count">2</span>', 'Layout not rebuilt yet', 'name="bulk" value="layout_done"'], message: 'the tab counts the imported pages');
+        $this->assertPage('/admin.php?module=pages&status=layout', 200, 'row-menu-' . $site->publicId('pages', $first), message: 'the tab lists them');
+
+        $this->adminPost('/admin.php?module=pages&action=layout_done', ['page_id' => $site->publicId('pages', $first)], '/admin.php?module=pages');
+        $this->assertSame(0, (int) $site->value('SELECT layout_pending FROM tl_pages WHERE page_id = ?', [$first]));
+        $this->assertSame('2026-02-03 04:05:06', (string) $site->value('SELECT updated_at FROM tl_pages WHERE page_id = ?', [$first]), 'ticking off does not touch the page');
+
+        $this->adminPost('/admin.php?module=pages&action=bulk', ['bulk' => 'layout_done', 'selected' => [$site->publicId('pages', $second)]], '/admin.php?module=pages');
+        $this->assertSame(0, (int) $site->value('SELECT layout_pending FROM tl_pages WHERE page_id = ?', [$second]));
+        $this->assertSame('2026-02-03 04:05:06', (string) $site->value('SELECT updated_at FROM tl_pages WHERE page_id = ?', [$second]));
+        $this->assertPageLacks('/admin.php?module=pages', 'Layout not rebuilt <span', message: 'the tab goes when the queue is empty');
+    }
+
     public function testLanguageFilterAppliesOnChange(): void
     {
         $site = $this->site();

@@ -54,6 +54,7 @@ final class Settings
         'site_language' => 'en',         // site language: template texts, <html lang>, structured data (Core\Language)
         'german_register' => 'informal',      // form of address in the German texts for visitors: informal (du) | formal (Sie); the administration has its own choice per user
         'additional_languages' => '',         // further language versions at /en/, /de/… (Language versions extension), comma-separated codes
+        'starter_pages' => '',  // the installer's starter pages: JSON {page public id: fingerprint} (Core\StarterPages); '' = none recorded
         'home_page' => '0',     // page (tl_pages.ids) as the site's home page; 0 = news listing
         'news_per_page' => '9',        // news items per listing page
         'maintenance' => '0',              // maintenance mode: visitors see a notice, logged-in administrators see the site

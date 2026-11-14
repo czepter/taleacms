@@ -26,7 +26,7 @@ final class McpSitesTest extends SiteTestCase
     /** @param array<string, mixed> $arguments @return array<string, mixed> */
     private function call(string $tool, array $arguments = [], ?string $token = null): array
     {
-        $result = $this->site()->mcp($tool, $arguments, $token)['result'] ?? [];
+        $result = $this->site()->mcpConfirmed($tool, $arguments, $token)['result'] ?? [];
 
         return ['error' => ($result['isError'] ?? false) === true, 'text' => (string) ($result['content'][0]['text'] ?? '')];
     }
@@ -225,6 +225,25 @@ final class McpSitesTest extends SiteTestCase
         $tools = array_column((array) $site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}')['result']['tools'], 'annotations', 'name');
         $this->assertTrue($tools['trash_site']['destructiveHint']);
         $this->assertFalse($tools['restore_site']['destructiveHint']);
+    }
+
+    public function testARoutineCannotStepAroundItsWindowWithTheSiteArgument(): void
+    {
+        $site = $this->site();
+        $site->exec("INSERT INTO tl_agent_schedules (name, task, text, cadence, day, time, active, next_due, created_at) VALUES ('Sites run', 'custom', 'Look around.', 'daily', 1, '07:00', 1, NOW() - INTERVAL 1 HOUR, NOW())");
+        $token = 'talea_' . bin2hex(random_bytes(24));
+        $site->exec("INSERT INTO tl_api_tokens (user_id, name, token_hash, access, created_at) SELECT user_id, 'Routine', ?, 'full', NOW() FROM tl_users WHERE username = 'admin'", [hash('sha256', $token)]);
+        $this->assertCount(1, (array) ($site->mcpResult('get_due_agent_runs', [], $token)['runs'] ?? []));
+        $erase = ['email' => 'nobody-at-all@example.com', 'confirm' => true];
+
+        $answer = json_decode((string) $site->mcpText('erase_personal_data', $erase + ['site' => self::$second], $token), true);
+        $this->assertTrue($answer['confirmation_required'] ?? false);
+        $this->assertArrayNotHasKey('confirmation', $answer, 'the routine gets no code on the sibling either');
+        $this->assertArrayHasKey('scheduled_run', $answer);
+
+        // the connection that was not handed a run gets its code on the sibling as usual
+        $other = json_decode((string) $site->mcpText('erase_personal_data', $erase + ['site' => self::$second]), true);
+        $this->assertArrayHasKey('confirmation', $other);
     }
 
     public function testTheClassicArchiveImportIsRefusedWhileThereAreSeveralSitesAndPointsToTheSitesArea(): void

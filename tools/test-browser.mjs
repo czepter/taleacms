@@ -74,11 +74,54 @@ const ADMIN_PAGES = ['/admin.php', '/admin.php?module=pages', '/admin.php?module
   '/admin.php?module=appearance', '/admin.php?module=parts', '/admin.php?module=components', '/admin.php?module=popups', '/admin.php?module=users',
   '/admin.php?module=roles', '/admin.php?module=stats', '/admin.php?module=redirects', '/admin.php?module=changelog', '/admin.php?module=transfer',
   '/admin.php?module=extensions', '/admin.php?module=enquiries', '/admin.php?module=forms', '/admin.php?module=forms&action=new', '/admin.php?module=subscribers', '/admin.php?module=newsletters', '/admin.php?module=settings',
-  '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=status', '/admin.php?action=account',
+  '/admin.php?module=settings&tab=seo', '/admin.php?module=settings&tab=analytics', '/admin.php?module=settings&tab=backups', '/admin.php?module=settings&tab=cookies', '/admin.php?module=status', '/admin.php?action=account',
   '/admin.php?module=bookings'];
 for (const url of ADMIN_PAGES) {
   await step(`open ${url}`, async () => { await visit(url); await nothingSpillsOut(); });
 }
+
+// #338: System status lists the groups with a problem first and open, the groups that are fine folded behind a tick
+await step('system status: problems first', async () => {
+  await visit('/admin.php?module=status');
+  const groups = await page.locator('details.health-group').evaluateAll((els) => els.map((e) => ({ open: e.open, badge: e.querySelector('summary .badge').textContent.trim() })));
+  if (!groups.length) { throw new Error('no groups'); }
+  const firstFine = groups.findIndex((g) => g.badge === '✓');
+  if (firstFine !== -1 && groups.slice(firstFine).some((g) => g.badge !== '✓')) { throw new Error('a group with a problem comes after one that is fine: ' + JSON.stringify(groups)); }
+  if (groups.some((g) => g.open !== (g.badge !== '✓'))) { throw new Error('a group is open when fine or folded with a problem: ' + JSON.stringify(groups)); }
+});
+
+// #338: a table wrapper that scrolls sideways is a keyboard region named after its heading; one that fits has none of it
+await step('a wide table is a keyboard region', async () => {
+  const state = () => page.evaluate(() => [...document.querySelectorAll('.tab-wrap')].map((b) => ({ over: b.scrollWidth > b.clientWidth + 1, tabindex: b.getAttribute('tabindex'), role: b.getAttribute('role'), label: b.getAttribute('aria-label') ?? '' })));
+  const check = (rows) => rows.forEach((r) => {
+    if (r.over && !(r.tabindex === '0' && r.role === 'region' && r.label !== '')) { throw new Error('a scrolling table is not a named region: ' + JSON.stringify(r)); }
+    if (!r.over && (r.tabindex !== null || r.role === 'region')) { throw new Error('a table that fits is a region: ' + JSON.stringify(r)); }
+  });
+  // a screen whose table is wider than its box in a narrow window (listings become cards below 640 px, so not narrower)
+  let narrowRows = null;
+  for (const url of ['/admin.php?module=status', '/admin.php?module=settings&tab=cookies', '/admin.php?module=users', '/admin.php?module=changelog', '/admin.php?module=redirects', '/admin.php?module=settings&tab=backups']) {
+    await page.setViewportSize({ width: 660, height: 800 });
+    await visit(url);
+    await page.locator('details.health-group').evaluateAll((els) => els.forEach((e) => { e.open = true; }));
+    await page.waitForTimeout(300);
+    const rows = await state();
+    check(rows);
+    if (rows.some((r) => r.over)) { narrowRows = url; await page.setViewportSize({ width: 1800, height: 900 }); await page.waitForTimeout(400); check(await state()); break; }
+  }
+  if (narrowRows === null) { throw new Error('no table scrolls sideways at 660 px on any screen: the check proves nothing'); }
+  await page.setViewportSize({ width: 1440, height: 900 });
+});
+
+// #338: Privacy and cookies fits a phone: the cookie table becomes cards, nothing makes the page wider than the screen
+await step('privacy and cookies on a phone', async () => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await visit('/admin.php?module=settings&tab=cookies');
+  const wider = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (wider > 0) { throw new Error(`the page is ${wider}px wider than the screen at 360 px`); }
+  await nothingSpillsOut();
+  if (!(await page.locator('table.listing-cards').count())) { throw new Error('the cookie table is not a card list on a phone'); }
+  await page.setViewportSize({ width: 1440, height: 900 });
+});
 
 // a collection's fields are tiles on the item form's grid, each with its settings in the sidebar (collections/form.php): the typing
 // shows on the tile, Earlier / Later moves it without a reload, and the item form lays the fields out by their width

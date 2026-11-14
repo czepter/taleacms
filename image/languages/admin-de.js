@@ -2018,6 +2018,7 @@ window.TALEA_TRANSLATIONS = {
 	"System notifications are sent to it.": "Systembenachrichtigungen werden dorthin gesendet.",
 	"System status": "Systemstatus",
 	"Tab name": "Tab-Name",
+	"Table": "Tabelle",
 	"Table prefix": "Tabellenpräfix",
 	"Tables with this prefix already exist in the database. Choose another prefix or remove them first.": "In der Datenbank existieren bereits Tabellen mit diesem Präfix. Wählen Sie ein anderes Präfix oder entfernen Sie sie zuerst.",
 	"Tag deleted. The news items remain, they just no longer carry it.": "Schlagwort gelöscht. Die News-Beiträge bleiben erhalten, tragen es aber nicht mehr.",

@@ -22,7 +22,9 @@ $severityClass = ['error' => 'badge badge-error', 'warning' => 'badge badge-draf
 <form method="post" action="<?= e($module->url('report', ['id' => $state['id']])) ?>" data-auto-submit="400"><?= $csrf ?>
 	<p><button class="btn" type="submit"><?= e(t('Continue')) ?></button></p></form>
 <?php else: ?>
-<?php if ($s['failed'] === 0 && $s['warnings'] === 0 && $result['web'] === []): ?>
+<?php if (!empty($s['unreachable'])): ?>
+<p class="notice notice-error"><?= e(t('The old site could not be reached from this server – none of its pages could be read, only the addresses were checked. Check the address, or whether the old site blocks this server.')) ?></p>
+<?php elseif ($s['failed'] === 0 && $s['warnings'] === 0 && $result['web'] === []): ?>
 <p class="notice notice-ok"><?= e(t('Everything moved: every old address leads to a published page and nothing was lost.')) ?></p>
 <?php elseif ($s['failed'] > 0): ?>
 <p class="notice notice-error"><?= e(t('Not ready to go live: %s problems would cost visitors or search engines something.', $s['failed'])) ?></p>

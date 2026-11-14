@@ -359,18 +359,10 @@ final class Kernel
             $app->session->flash('error', t('The database is behind the code: run "php bin/migrate" on the server.'));
         }
 
-        if ($app->auth()->isAdmin() && !\Talea\Core\Demo::active()) {
-            if (!$request->isPost()) {
-                \Talea\Core\Vault::sealStored($app->db(), $app->settings()); // passwords and keys kept in plain text before TALEA_SECRET_KEY was set (#335)
-            }
-            \Talea\Core\Backup::createAutomatic($app->db(), $app->settings());
+        if ($app->auth()->isAdmin() && !\Talea\Core\Demo::active() && !$request->isPost()) {
+            \Talea\Core\Vault::sealStored($app->db(), $app->settings()); // passwords and keys kept in plain text before TALEA_SECRET_KEY was set (#335)
         }
-        if ($app->auth()->user() !== null) {
-            Modules\News::emptyTrash($app->db()); // the trash keeps news and pages for 30 days
-            Modules\Pages::emptyTrash($app->db());
-            Modules\Collections::emptyTrash($app->db());
-            Modules\Enquiries::emptyTrash($app->db());
-        }
+        // Backups (job backup) and the trash (job trash) are background jobs (Core\Scheduler), never the work of an admin page view.
 
         $ident = $request->get('module');
         \Talea\Core\ErrorReport::tag('module', $ident !== '' ? $ident : 'dashboard');
@@ -592,7 +584,7 @@ final class Kernel
         }
         if ($this->app->auth()->isAdmin()) {
             $backup = \Talea\Core\Backup::listAll()[0]['time'] ?? 0;
-            if (time() - $backup > 8 * 86400 && \Talea\Core\Owners::isFirst($this->app->db())) { // the backups are the install's, not a further owner's
+            if (($backup === 0 || days_ago($backup) > 8) && \Talea\Core\Owners::isFirst($this->app->db())) { // the backups are the install's, not a further owner's
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
             }
             // the instructions steer every Claude connection and a connection may rewrite them: shown until an administrator checked them (#149)
@@ -861,7 +853,8 @@ final class Kernel
             $app->session->set('pending_oauth', null);
             $access = \Talea\Front\OAuth::access($app->request->post('access') ?: 'drafts'); // no choice sent: drafts only, the default of the page
             $toolSet = \Talea\Mcp\Catalog::toolSet($app->request->post('tool_set')); // none sent: all tools, as before
-            ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ($toolSet === 'essentials' ? ', essentials' : '') . ')', 0, 100));
+            $toolSet = in_array($toolSet, \Talea\Mcp\Catalog::offered($app->settings()), true) ? $toolSet : 'all'; // a set this site does not offer (Fleet) is all
+            ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ')', 0, 100));
 
             return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access, $toolSet));
         }

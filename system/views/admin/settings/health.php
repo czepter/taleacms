@@ -2,16 +2,15 @@
 /** The "System health" tab. */
 $icons = ['ok' => '✓', 'warning' => '!', 'error' => '✕'];
 $summary = Talea\Core\Health::summary($checks);
-$group = '';
 ?>
 <p class="notice notice-<?= ['ok' => 'ok', 'warning' => 'warning', 'error' => 'error'][$summary] ?>"><?= e(t(['ok' => 'Everything is fine.', 'warning' => 'The system is running, but some items deserve attention.', 'error' => 'Errors were found that prevent the site from running properly.'][$summary])) ?></p>
+<?php foreach (Talea\Core\Health::grouped($checks) as $g): $problems = count(array_filter($g['checks'], fn (array $k): bool => $k['status'] !== 'ok')); ?>
+<details class="panel-collapsed health-group"<?= $g['status'] !== 'ok' ? ' open' : '' ?>>
+<summary><span class="badge badge-<?= ['ok' => 'published', 'warning' => 'draft', 'error' => 'error'][$g['status']] ?>" title="<?= e(t(['ok' => 'OK', 'warning' => 'warning', 'error' => 'error'][$g['status']])) ?>"><?= $icons[$g['status']] ?></span> <strong><?= e($g['group']) ?></strong> <span class="small-text"><?= e($problems === 0 ? t('%d checks, all fine', count($g['checks'])) : t('%d of %d need attention', $problems, count($g['checks']))) ?></span></summary>
 <div class="tab-wrap">
 <table class="listing">
 <tbody>
-<?php foreach ($checks as $k): ?>
-<?php if ($k['group'] !== $group): $group = $k['group']; ?>
-<tr><th colspan="3" scope="colgroup"><?= e($group) ?></th></tr>
-<?php endif ?>
+<?php foreach ($g['checks'] as $k): ?>
 <tr>
 	<td class="center"><span class="badge badge-<?= ['ok' => 'published', 'warning' => 'draft', 'error' => 'error'][$k['status']] ?>" title="<?= e(t(['ok' => 'OK', 'warning' => 'warning', 'error' => 'error'][$k['status']])) ?>"><?= $icons[$k['status']] ?></span></td>
 	<td><strong><?= e($k['name']) ?></strong></td>
@@ -21,6 +20,8 @@ $group = '';
 </tbody>
 </table>
 </div>
+</details>
+<?php endforeach ?>
 <?php if (!Talea\Core\Config::fromEnv() && Talea\Core\Config::readableByEveryone(TALEA_ROOT . '/config.php') && Talea\Core\Owners::isFirst($app->db())): ?>
 <fieldset>
 <legend><?= e(t('Permissions of config.php')) ?></legend>
@@ -36,7 +37,7 @@ $group = '';
 <?php if ($errorLog === []): ?>
 <p><?= e(t('No errors – the log is empty.')) ?></p>
 <?php else: ?>
-<pre class="log-errors"><?php foreach (array_reverse($errorLog) as $row): ?><?= e(mb_strimwidth(str_replace(TALEA_ROOT, '', $row), 0, 400, '…')) . "\n" ?><?php endforeach ?></pre>
+<pre class="log-errors"><?= e(implode("\n", array_map(fn (string $entry): string => mb_strimwidth(str_replace(TALEA_ROOT, '', rtrim($entry)), 0, 2000, '…') . "\n", $errorLog))) ?></pre>
 <p class="navigation-row"><button class="navigation danger" type="submit" formaction="<?= e($module->url('delete_log')) ?>" data-confirm="<?= e(t('Clear the error log?')) ?>"><?= e(t('Clear the log')) ?></button> <span class="small-text"><?= e(t('Newest first, the last 40 entries from storage/log/errors.log.')) ?></span></p>
 <?php endif ?>
 </fieldset>

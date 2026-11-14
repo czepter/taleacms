@@ -28,7 +28,15 @@ final class NewsTrashTest extends SiteTestCase
         $this->assertSame('0/1', (string) $site->value('SELECT CONCAT(visible, \'/\', deleted_at IS NULL) FROM tl_news WHERE news_id = ?', [$idc]), 'restored news comes back as a draft');
 
         $site->exec('UPDATE tl_news SET visible = 1, deleted_at = NOW() - INTERVAL 31 DAY WHERE news_id = ?', [$idc]);
-        $this->assertPage('/admin.php', 200, 'Welcome,', message: 'entering the administration empties the old trash');
-        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_news WHERE news_id = ?', [$idc]), 'news older than 30 days in the trash is deleted for good');
+        $this->assertPage('/admin.php', 200, 'Welcome,', message: 'entering the administration');
+        $this->assertSame('1', (string) $site->value('SELECT COUNT(*) FROM tl_news WHERE news_id = ?', [$idc]), 'an admin page view does not empty the trash (#337)');
+
+        $site->mcp('create_collection', ['name' => 'Trash test list', 'preset' => 'faq']);
+        $site->exec("INSERT INTO tl_collection_items (public_id, collection_id, name, slug, data, created_at, deleted_at) SELECT '6f1c2d3e-4b5a-4c6d-8e7f-0011223344bb', collection_id, 'Old', 'old-trashed-item', '{}', NOW(), NOW() - INTERVAL 31 DAY FROM tl_collections ORDER BY collection_id LIMIT 1");
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_collection_items WHERE slug = 'old-trashed-item'"), 'the site has a collection to put an old trashed item into');
+        $site->exec("DELETE FROM tl_jobs WHERE name = 'trash'");
+        $site->runTasks();
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_news WHERE news_id = ?', [$idc]), 'the daily trash job deletes news older than 30 days in the trash for good');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_collection_items WHERE slug = 'old-trashed-item'"), 'and collection items');
     }
 }

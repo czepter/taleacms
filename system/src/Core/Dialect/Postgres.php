@@ -287,6 +287,12 @@ final class Postgres extends Dialect
         return 'SELECT current_database()';
     }
 
+    /** Advisory locks are per database already; the schema separates two installs that share one database. */
+    public function lockScopeSql(): string
+    {
+        return "SELECT current_database() || '/' || current_schema()";
+    }
+
     public function returning(string $keyColumn): string
     {
         return ' RETURNING ' . $this->quote($keyColumn);

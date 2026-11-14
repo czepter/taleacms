@@ -85,7 +85,10 @@ final class Migrator
     {
         try {
             $applied = array_map('strval', array_column($db->all('SELECT version FROM {migrations}'), 'version'));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            if (!Db::isMissing($e)) {
+                throw $e; // an unreachable database is not "nothing applied"
+            }
             $applied = []; // the log table does not exist yet: nothing has been applied
         }
 
@@ -119,7 +122,7 @@ final class Migrator
         }
         unset($config['site_prefix'], $config['owner_prefix']);
         $db = Db::fromConfig($config);
-        $lock = substr('talea-migrate-' . hash('sha256', $db->databaseName() . '|' . $db->prefix), 0, 64);
+        $lock = 'migrate-' . $db->prefix; // Db::lock adds the database
         if (!$db->lock($lock, 60)) {
             throw new \RuntimeException('Another migration is running.');
         }

@@ -133,6 +133,7 @@
     "cancel_booking": {
         "parameters": {
             "confirm": "boolean",
+            "confirmation": "string",
             "id": "string"
         },
         "required": [
@@ -146,6 +147,7 @@
     },
     "cancel_course": {
         "parameters": {
+            "confirmation": "string",
             "item": "string",
             "message": "string",
             "offer": "array"
@@ -198,6 +200,7 @@
     "confirm_booking": {
         "parameters": {
             "confirm": "boolean",
+            "confirmation": "string",
             "id": "string"
         },
         "required": [
@@ -282,6 +285,7 @@
     },
     "create_form_link": {
         "parameters": {
+            "confirmation": "string",
             "email": "string",
             "fixed": "object",
             "form": "string",
@@ -389,6 +393,7 @@
     "decline_booking": {
         "parameters": {
             "confirm": "boolean",
+            "confirmation": "string",
             "id": "string",
             "message": "string"
         },
@@ -416,7 +421,8 @@
     },
     "delete_collection": {
         "parameters": {
-            "collection": "string"
+            "collection": "string",
+            "confirmation": "string"
         },
         "required": [
             "collection"
@@ -457,6 +463,7 @@
     },
     "delete_enquiry": {
         "parameters": {
+            "confirmation": "string",
             "id": "string"
         },
         "required": [
@@ -522,6 +529,7 @@
     },
     "delete_media": {
         "parameters": {
+            "confirmation": "string",
             "id": "string"
         },
         "required": [
@@ -709,6 +717,7 @@
     "erase_personal_data": {
         "parameters": {
             "confirm": "boolean",
+            "confirmation": "string",
             "email": "string"
         },
         "required": [
@@ -1020,9 +1029,11 @@
             "confirm": "boolean",
             "images": "boolean",
             "import_id": "string",
+            "keep_starter_pages": "array",
             "language": "string",
             "news": "boolean",
             "redirects": "boolean",
+            "replace_starter_pages": "boolean",
             "url": "string"
         },
         "required": [],
@@ -1044,6 +1055,18 @@
             "saved_section": "string",
             "section": "string",
             "variant": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "layout_queue": {
+        "parameters": {
+            "done": "array",
+            "offset": "integer"
         },
         "required": [],
         "annotations": {
@@ -1300,6 +1323,17 @@
             "collection",
             "id"
         ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_layout_queue": {
+        "parameters": {
+            "offset": "integer"
+        },
+        "required": [],
         "annotations": {
             "readOnlyHint": true,
             "destructiveHint": false,
@@ -1641,6 +1675,7 @@
     "propose_booking_times": {
         "parameters": {
             "confirm": "boolean",
+            "confirmation": "string",
             "id": "string",
             "message": "string",
             "times": "array"
@@ -1693,6 +1728,21 @@
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false
+        }
+    },
+    "read_old_page": {
+        "parameters": {
+            "format": "string",
+            "section": "integer",
+            "url": "string"
+        },
+        "required": [
+            "url"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": true
         }
     },
     "remove_blueprint": {
@@ -1880,6 +1930,7 @@
     "run_destructive_tool": {
         "parameters": {
             "arguments": "object",
+            "confirmation": "string",
             "name": "string"
         },
         "required": [
@@ -2243,6 +2294,7 @@
     "send_newsletter": {
         "parameters": {
             "at": "string",
+            "confirmation": "string",
             "id": "string",
             "unschedule": "boolean"
         },
@@ -2436,6 +2488,7 @@
     "undo_agent_session": {
         "parameters": {
             "confirm": "boolean",
+            "confirmation": "string",
             "force": "boolean",
             "id": "integer"
         },
@@ -2642,6 +2695,7 @@
     "update_registration": {
         "parameters": {
             "action": "string",
+            "confirmation": "string",
             "message": "string",
             "registration": "string"
         },

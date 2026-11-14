@@ -42,7 +42,7 @@ final class ParityTest extends TestCase
                 'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
                 'duplicate' => 'admin: a copy of a page – Claude creates the page and saves the build', 'import' => 'admin: upload of a page export file',
                 'build_text' => 'admin: back from the builder to a text page', 'restore_version' => 'admin: text revisions of a text page', 'compare' => $readOnly,
-                'translations' => 'translation_status', 'bulk' => 'update_page'],
+                'translations' => 'translation_status', 'bulk' => 'update_page', 'layout_done' => 'layout_queue'],
             'news' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'compare' => $readOnly, 'versions' => $readOnly, 'search_json' => $readOnly,
                 'save' => 'update_news', 'save_text' => 'update_news', 'delete' => 'trash_news', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
                 'draft' => 'admin: autosave of the editor', 'duplicate' => 'admin: a copy of a news item – Claude creates a new one', 'links' => 'admin: link check runs on its own',
@@ -104,7 +104,7 @@ final class ParityTest extends TestCase
             'redirects' => ['list' => $readOnly, 'save' => 'save_redirect', 'delete' => 'save_redirect', 'toggle' => 'save_redirect', 'duplicate' => 'save_redirect', 'test' => $readOnly,
                 'settings' => 'update_settings'],
             'missing_pages' => ['list' => $readOnly, 'redirect' => 'save_redirect', 'clear' => 'admin: clearing the list of 404 addresses', 'ignore' => 'ignore_not_found', 'ignore_all' => 'ignore_not_found'],
-            'transfer' => ['list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'purge_files' => 'admin: removes import and export files from the server', 'select' => 'admin: WordPress import',
+            'transfer' => ['starter_trash' => 'admin: one step of a move in Import and export – Claude trashes single pages with trash_page', 'list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'purge_files' => 'admin: removes import and export files from the server', 'select' => 'admin: WordPress import',
                 'run' => 'admin: WordPress import', 'progress' => 'admin: WordPress import', 'images' => 'admin: WordPress import', 'delete_file' => 'admin: WordPress import', 'delete_export' => 'admin: site export',
                 'talea' => 'admin: moving a whole site into a new installation', 'talea_select' => 'admin: moving a whole site into a new installation',
                 'talea_run' => 'admin: moving a whole site into a new installation', 'talea_delete' => 'admin: moving a whole site into a new installation',
@@ -118,7 +118,7 @@ final class ParityTest extends TestCase
             'claude' => ['list' => $readOnly],
             'newsletter_settings' => $settingsParity,
             'facts' => ['list' => 'list_facts', 'edit' => $readOnly, 'save' => 'save_fact', 'delete' => 'delete_fact', 'claims' => 'find_claims'],
-            'notebook' => ['list' => 'read_notebook', 'edit' => $readOnly, 'save' => 'write_notebook', 'pin' => 'write_notebook', 'delete' => 'delete_notebook_entry'],
+            'notebook' => ['list' => 'read_notebook', 'edit' => $readOnly, 'save' => 'write_notebook', 'pin' => 'write_notebook', 'delete' => 'delete_notebook_entry'], // saving or pinning a proposal in the admin accepts it (Core\Notebook)
             // 2.17: scheduled runs – what a routine in Claude does on the site and when is the administrator's decision; Claude only gets the due runs and reports them
             'schedules' => ['list' => $readOnly, 'edit' => $readOnly, 'history' => $readOnly, 'save' => 'admin: a schedule is the administrator\'s instruction to a routine (2.17) – Claude gets the due runs with get_due_agent_runs and reports them with report_agent_run',
                 'delete' => 'admin: a schedule is the administrator\'s instruction to a routine (2.17)', 'toggle' => 'admin: a schedule is the administrator\'s instruction to a routine (2.17)'],
@@ -159,5 +159,20 @@ final class ParityTest extends TestCase
             }
         }
         $this->assertSame([], $missingParity, 'Parity: every admin action is a read, an MCP tool or admin only on purpose');
+    }
+
+    /** #334: what e-mails people or erases for good takes two steps (Mcp\Confirmation), or says here why it does not */
+    public function testToolsThatEmailPeopleOrEraseForGoodNeedTwoSteps(): void
+    {
+        $expected = ['cancel_booking', 'cancel_course', 'confirm_booking', 'create_form_link', 'decline_booking', 'delete_collection', 'delete_enquiry', 'delete_media',
+            'erase_personal_data', 'propose_booking_times', 'send_newsletter', 'undo_agent_session', 'update_registration'];
+        $actual = array_keys(\Talea\Mcp\Confirmation::TOOLS);
+        sort($actual);
+        $this->assertSame($expected, $actual);
+
+        $notConfirmed = ['send_test_newsletter' => 'goes to the connected user only', 'update_request' => 'e-mails the colleague who wrote the request – inside the team'];
+        foreach (\Talea\Mcp\Catalog::SENDS as $tool) {
+            $this->assertTrue(isset(\Talea\Mcp\Confirmation::TOOLS[$tool]) || isset($notConfirmed[$tool]), $tool . ' sends: two steps, or a reason why not');
+        }
     }
 }

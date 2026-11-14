@@ -18,6 +18,9 @@ use Talea\Core\Extensions;
  * token of an application connected via OAuth (connector in Claude, Front\OAuth).
  * Claude then acts with this user's permissions (author / editor / administrator), limited by the access of the connection
  * (full, drafts or read, 2.2). New installations have the extension switched on.
+ *
+ * A tool that e-mails people or erases for good (Confirmation::TOOLS) is gated in call(): the first acting call answers
+ * confirmation_required with a code and does nothing, the identical call with that code acts (#334).
  */
 final class Server
 {
@@ -169,7 +172,7 @@ final class Server
             'ping' => $ok([]),
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2); an essentials connection
             // lists the core tools, find_tools and the runners it needs (Mcp\Discovery)
-            'tools/list' => $ok(['tools' => $this->toolSet() === 'essentials' ? Discovery::essentials($this->available($tools), $this->access()) : $this->available($tools)]),
+            'tools/list' => $ok(['tools' => ($listed = Catalog::listed($this->toolSet())) !== null ? Discovery::essentials($this->available($tools), $this->access(), $listed) : $this->available($tools)]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
@@ -216,9 +219,9 @@ final class Server
         // the meta tools: callable on any connection, they only find tools and run them through this same method
         if ($name === 'find_tools') {
             $available = $this->available($tools);
-            $essentials = $this->toolSet() === 'essentials';
+            $listed = Catalog::listed($this->toolSet());
             try {
-                $found = Discovery::find($available, $essentials ? Catalog::ESSENTIALS : array_column($available, 'name'), $arguments, $essentials ? Discovery::runners($available, $this->access()) : []);
+                $found = Discovery::find($available, $listed ?? array_column($available, 'name'), $arguments, $listed !== null ? Discovery::runners($available, $this->access(), $listed) : []);
             } catch (\InvalidArgumentException $e) {
                 return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
             }
@@ -229,9 +232,9 @@ final class Server
             return $this->runTool($tools, $arguments, $name);
         }
         if (Catalog::exists($name) && !Catalog::allows($this->access(), $name)) {
-            return ['content' => [['type' => 'text', 'text' => $this->access() === 'read'
+            return ['content' => [['type' => 'text', 'text' => Catalog::fetchRefusal($this->access(), $name, $arguments) ?? ($this->access() === 'read'
                 ? 'This connection can only read the site. Changes need a connection with more access – the user sets it when connecting Claude, or under My account.'
-                : 'This connection can only save drafts: builds, hidden pages and collection items, news drafts, the draft look, proposed exceptions to the opening hours, enquiry triage and notebook notes. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.']], 'isError' => true];
+                : 'This connection can only save drafts: builds, hidden pages and collection items, news drafts, the draft look, proposed exceptions to the opening hours, enquiry triage and notebook notes (as proposals). This tool changes the live site – the user can do it in the admin, or connect Claude with full access.')]], 'isError' => true];
         }
         // multisite: `site` runs the tool on a sibling (added to the schema like `reason`, see withReason)
         if (\Talea\Core\Sites::enabled() && array_key_exists('site', $arguments) && !in_array($name, Catalog::SITE_TOOLS, true)) {
@@ -248,9 +251,15 @@ final class Server
         try {
             $items = $tools->listAll();
             $arguments = self::extractJson($items, $name, $arguments);
+            // #334: only a connection with full access makes the site download from an address (upload_* with url)
+            if (($fetch = Catalog::fetchRefusal($this->access(), $name, $arguments)) !== null) {
+                return ['content' => [['type' => 'text', 'text' => $fetch]], 'isError' => true];
+            }
             // why Claude makes the change (2.15): any write tool takes it; it goes to the change log, never to the tool
             $reason = \Talea\Core\Guardrails::reason($arguments['reason'] ?? null);
-            unset($arguments['reason']);
+            // the code of a two-step confirmation (#334) is for the gate below, never for the tool
+            $confirmation = is_string($arguments[Confirmation::PARAMETER] ?? null) ? trim($arguments[Confirmation::PARAMETER]) : '';
+            unset($arguments['reason'], $arguments[Confirmation::PARAMETER]);
             $unknownParams = self::unknownParams($items, $name, $arguments);
             // rows are named by their public id (HF-16): the tools below work with the numbers, so the guardrails and the journal see them
             $given = $arguments;
@@ -265,6 +274,13 @@ final class Server
             }
             if ($ownTool) {
                 $arguments = \Talea\Mcp\PublicIds::in($this->app->db(), $name, $given); // now an id that names no row is refused
+            }
+            // #334: a call that e-mails people or erases for good runs only with the code an earlier identical call answered with
+            if ($ownTool && Confirmation::needed($name, $given)) {
+                $answer = $this->confirmationGate($name, $given, $confirmation);
+                if ($answer !== null) {
+                    return ['content' => [['type' => 'text', 'text' => json_encode($answer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
+                }
             }
             // every content row a change touches is journaled, so the whole Claude session can be undone (2.17, Core\AgentJournal)
             $db = $this->app->db();
@@ -417,6 +433,9 @@ final class Server
         if (!isset($inner['reason']) && is_string($arguments['reason'] ?? null)) {
             $inner['reason'] = $arguments['reason']; // the reason may come with the runner itself
         }
+        if (!isset($inner[Confirmation::PARAMETER]) && is_string($arguments[Confirmation::PARAMETER] ?? null)) {
+            $inner[Confirmation::PARAMETER] = $arguments[Confirmation::PARAMETER]; // the code may come with the runner itself
+        }
         if (!isset($inner['site']) && is_string($arguments['site'] ?? null) && \Talea\Core\Sites::enabled()) {
             $inner['site'] = $arguments['site']; // the site may come with the runner itself; the inner call applies it
         }
@@ -452,7 +471,39 @@ final class Server
         return array_values(array_filter(array_map(self::listed(...), $tools->listAll()), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])));
     }
 
-    /** The tool set of this connection: all | essentials. */
+    /**
+     * The gate of Confirmation: null = the code fits this call and is used up now (the tool runs); otherwise the answer instead of
+     * running it – a new code (the first call, or a code that does not fit) or, in a scheduled run, none.
+     *
+     * @param array<string, mixed> $given the arguments as sent (public ids), without reason and confirmation
+     * @return array<string, mixed>|null
+     */
+    private function confirmationGate(string $name, array $given, string $code): ?array
+    {
+        $app = $this->app;
+        // a connection that was handed a scheduled run (the last HANDOUT_HOURS, on every site) never confirms: the call waits for a person and is noted in the run
+        $run = \Talea\Core\AgentSchedules::withhold($app, (array) $this->user, $name, $given);
+        if ($run !== null) {
+            return Confirmation::withheld($name, $run);
+        }
+        $key = (new \Talea\Core\Antispam($app->db(), $app->settings()))->key();
+        $user = $app->auth()->id();
+        $connection = $this->connectionKey();
+        $now = time();
+        if ($code !== '' && Confirmation::valid($key, $code, $name, $user, $connection, $given, $now) && Confirmation::claim($app->db(), $code, $user)) {
+            return null;
+        }
+
+        return Confirmation::answer($name, Confirmation::code($key, $name, $user, $connection, $given, $now + Confirmation::MINUTES * 60), $code !== '');
+    }
+
+    /** Which connection this is for a confirmation code: the OAuth client (its access token changes every hour), else the personal token. */
+    private function connectionKey(): string
+    {
+        return \Talea\Core\ClaudeConnection::keyOf((array) $this->user);
+    }
+
+    /** The tool set of this connection: all | essentials | migration | fleet (Catalog::TOOL_SETS). */
     private function toolSet(): string
     {
         return $this->app->auth()->connection()['tool_set'] ?? 'all';
@@ -572,6 +623,7 @@ final class Server
         if (!\Talea\Core\Sites::allowsHere($db, $token)) {
             return null; // roles per site: a person who may not work on the site this connection calls has no connection to it
         }
+        \Talea\Core\ErrorReport::user((string) ($token['public_id'] ?? '')); // the local error log names the connection's person
 
         return $token;
     }

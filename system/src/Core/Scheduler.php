@@ -28,13 +28,14 @@ final class Scheduler
         'newsletter_sync' => [0, 'any', 'Subscribers to the mailing service'],
         'newsletter_mailing' => [0, 'cron', 'Sending newsletters'],
         'media_sync' => [0, 'any', 'Off-site copy of the media'],
-        'backup' => [0, 'cron', 'Automatic backups'],
+        'backup' => [0, 'any', 'Automatic backups'],
         'links' => [0, 'any', 'Checking links'],
         'redirects' => [86400, 'any', 'Redirects for addresses visitors could not find'],
         // #161: the previous month's report is stored once the month has turned – before the clean-up deletes its oldest sources,
         // and before the monthly e-mail, which is written from it
         'report_archive' => [3600, 'any', 'Monthly report archive: the previous month stored, 24 months kept'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
+        'trash' => [86400, 'any', 'Emptying the trash: what was deleted more than 30 days ago'],
         'alerts' => [300, 'any', 'Alert e-mails'],
         'security' => [86400, 'any', 'Suspending unused accounts and connections, encrypting stored secrets'],
         'validity' => [3600, 'any', 'Content that expires or asks for review'],
@@ -68,10 +69,10 @@ final class Scheduler
     /** Of the OWNER_JOBS: those over files that belong to the whole install (backups, the media folder); they run for the first owner only (Owners::sharedFilesRefusal()). */
     public const array INSTALL_JOBS = ['backup', 'media_sync'];
 
-    /** Lock name per database and table prefix: GET_LOCK is server-wide, two sites on one MySQL server must not wait for each other's jobs. */
+    /** Lock name per table prefix (Db::lock adds the database): two sites must not wait for each other's jobs. */
     private static function lockName(Db $db): string
     {
-        return substr('talea-sched-' . hash('sha256', $db->databaseName() . '|' . $db->prefix), 0, 64);
+        return 'sched-' . $db->prefix;
     }
 
     /**
@@ -96,7 +97,10 @@ final class Scheduler
 
                 return 'ok';
             },
-            'backup' => function (App $app): string {
+            'backup' => function (App $app, string $source): string {
+                if (!self::backupMayRun($source)) {
+                    return 'waits for cron'; // a visitor never waits for a dump
+                }
                 Backup::createAutomatic($app->db(), $app->settings());
 
                 return 'ok';
@@ -114,6 +118,8 @@ final class Scheduler
 
                 return 'ok';
             },
+            'trash' => fn (App $app): string => 'news ' . \Talea\Admin\Modules\News::emptyTrash($app->db()) . ', pages ' . \Talea\Admin\Modules\Pages::emptyTrash($app->db())
+                . ', items ' . \Talea\Admin\Modules\Collections::emptyTrash($app->db()) . ', enquiries ' . \Talea\Admin\Modules\Enquiries::emptyTrash($app->db()),
             'alerts' => fn (App $app): string => Alerts::run($app),
             'security' => function (App $app): string {
                 $done = SecurityHygiene::run($app);
@@ -203,6 +209,15 @@ final class Scheduler
         }
 
         return $results;
+    }
+
+    /**
+     * A dump takes seconds to minutes: on a visit it runs only when the response is already with the visitor (PHP-FPM, LiteSpeed). Under
+     * mod_php or the built-in server the visitor would wait for it, so there the backup stays with cron and the administration.
+     */
+    public static function backupMayRun(string $source): bool
+    {
+        return $source !== 'visit' || Notifications::detached();
     }
 
     /** Jobs of a role the site may not have: the heartbeat only on a site paired with a console, the uptime checks only on a console (2.9). */

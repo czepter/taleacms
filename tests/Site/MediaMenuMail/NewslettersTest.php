@@ -226,7 +226,7 @@ final class NewslettersTest extends SiteTestCase
         $test = $site->mcpResult('send_test_newsletter', ['id' => $site->publicId('newsletters', $nl2)]);
         $this->assertSame('admin@example.cz', $test['sent_to'], 'MCP: test goes to the connected user');
 
-        $scheduled = $site->mcpResult('send_newsletter', ['id' => $site->publicId('newsletters', $nl2), 'at' => '2099-01-01 08:00']);
+        $scheduled = $site->mcpConfirmedResult('send_newsletter', ['id' => $site->publicId('newsletters', $nl2), 'at' => '2099-01-01 08:00']);
         $this->assertSame(['scheduled', '2099-01-01 08:00'], [$scheduled['status'], $scheduled['scheduled_at']], 'MCP: send_newsletter schedules');
 
         $site->exec('UPDATE tl_newsletters SET scheduled_at = NOW() - INTERVAL 1 MINUTE WHERE id = ?', [$nl2]);

@@ -65,14 +65,16 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
 <?php if ($countingSince !== null): ?>
 <p class="small-text stats-counting"><?= e(Talea\Front\Stats::countingNote($countingSince)) ?></p>
 <?php endif ?>
+<?php $peak = array_reduce($chart, fn (?array $best, array $h): array => $best === null || $h['views'] > $best['views'] ? $h : $best); ?>
 <figure class="stats-chart">
 <figcaption><?= e(t('Page views and visits by day')) ?></figcaption>
-<div class="chart" role="img" aria-label="<?= e(t('Bar chart of page views by day')) ?>">
+<div class="chart" role="group" aria-label="<?= e(t('Bar chart of page views by day')) ?>" aria-describedby="stats-chart-summary">
 <?php foreach ($chart as $h): ?>
 <?php $dayLabel = t('%s: %s page views, %s visits', format_date($h['day']), $h['views'], $h['visits']) . ($h['enquiries'] + $h['signups'] > 0 ? ', ' . t('%s leads', $h['enquiries'] + $h['signups']) : ''); ?>
-	<div class="chart-column"<?= $h['day'] === $countingSince ? ' data-counting-change' : '' ?> data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"><i data-tip-anchor style="height:<?= round($h['views'] / $max * 100, 1) ?>%"><b style="height:<?= $h['views'] > 0 ? round($h['visits'] / $h['views'] * 100, 1) : 0 ?>%"></b></i></div>
+	<div class="chart-column"<?= $h['day'] === $countingSince ? ' data-counting-change' : '' ?> role="img" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"><i data-tip-anchor style="height:<?= round($h['views'] / $max * 100, 1) ?>%"><b style="height:<?= $h['views'] > 0 ? round($h['visits'] / $h['views'] * 100, 1) : 0 ?>%"></b></i></div>
 <?php endforeach ?>
 </div>
+<p class="visually-hidden" id="stats-chart-summary"><?= e(t('%s to %s: %s page views and %s visits in all; the most page views on %s (%s).', format_date($chart[0]['day']), format_date($chart[count($chart) - 1]['day']), format_count(array_sum(array_column($chart, 'views'))), format_count(array_sum(array_column($chart, 'visits'))), format_date((string) $peak['day']), format_count((int) $peak['views']))) ?></p>
 <p class="small-text"><?= e(format_date($chart[0]['day'])) ?> – <?= e(format_date($chart[count($chart) - 1]['day'])) ?> · <?= e(t('the light part of each bar is page views, the dark part visits. Measurement uses no cookies and stores no IP addresses; bots are not counted.')) ?></p>
 </figure>
 <?php if ($experiments !== []): ?>

@@ -42,7 +42,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **SQL is written portably (HF-14): the same code runs on MySQL 8 and PostgreSQL 18.** Not in product SQL: `INSERT IGNORE` / `ON DUPLICATE KEY`
   (`Db::insertIgnore()`, `insertIgnoreSelect()`, `upsert()` with `{old.col}`/`{new.col}` expressions), `IF()` / `IFNULL()` / `FIELD()` (`CASE`, `COALESCE`,
   `Dialect::listPosition()`), `GROUP_CONCAT`, `JSON_EXTRACT`, `MATCH … AGAINST` (`Dialect::groupConcat()`, `jsonExtract()`, `fulltextMatch()`), `CURDATE()`
-  (`CURRENT_DATE`), `SHOW …` or `information_schema` with `DATABASE()` (`Db::columns()`, `uniqueKeys()`, `tableExists()`), `GET_LOCK` (`Db::lock()`), `"text"` for strings.
+  (`CURRENT_DATE`), `SHOW …` or `information_schema` with `DATABASE()` (`Db::columns()`, `uniqueKeys()`, `tableExists()`), `GET_LOCK` (`Db::lock()`, which scopes the name by the database: add the table prefix for a per-site lock), `"text"` for strings.
   Boolean columns: `= TRUE` / `= FALSE`, `SUM(CASE WHEN … THEN 1 ELSE 0 END)`, and `TRUE`/`FALSE` or a parameter in `INSERT`s; fetched booleans are 1/0 on both
   engines (`Core\PgStatement`). `INTERVAL 5 DAY` and `INTERVAL ? HOUR` are fine (`Postgres::rewrite()` turns them into PostgreSQL syntax). User-facing `LIKE` goes through
   `Dialect::likeInsensitive()`; NULL ordering that shows is made explicit (`col IS NULL, col`). Schema differences live in `Core\MigrationSupport`.
@@ -156,7 +156,7 @@ builder, collections, forms, bookings and a connection to language models (MCP).
   never from the request; `Core\Antispam` (signed time, honeypot, per-IP limit) without cookies; the result is only a code in the URL.
   The script of forms (steps, rules, the live estimate, the step beacon `POST /form-step`) is `image/forms.js`, only on pages with a form;
   rules and results are edited in the builder's logic overlay (`image/builder/form-logic.js`, logic in `Builder\FormLogic`).
-- **HTML to build** (`Builder\HtmlConverter`): semantic HTML + a `<style>` with single-class rules become elements and classes.
+- **HTML to build** (`Builder\HtmlConverter`): semantic HTML + a `<style>` with single-class rules become elements and classes; ARIA tabs, `<figure><data>` counters, map and service frames become Tabs, Counter, Map and Embed. `Builder\HtmlWidgets` finds an old page's widgets by structure (never by a builder's name) before the import sanitizes it.
 
 ## Content and services
 
@@ -179,8 +179,20 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - **MCP** (`Mcp\Server`, `Mcp\Tools`, `/mcp`) is the main way sites are built by AI: whatever the editor can do must be possible there
   (pages and builder, classes, design system, media, settings, redirects, trash, news, collections …). The interface and the code are
   English; the recorded contract is `tools/contracts/mcp-tools.json`, the prompts (runbooks in `Mcp\Prompts`) `mcp-prompts.json` (`php tools/contracts.php`). Nothing over MCP may write outside
-  content or run code or queries; PHP templates are never created or changed through MCP. A connection lists all tools or the **Essentials** set (`tool_set` on `api_tokens`/`oauth_codes`, chosen on the consent screen, kept by a refresh; personal tokens and existing connections default to all): the rest is reached through `find_tools` and three runners `run_read_tool` / `run_tool` / `run_destructive_tool` (`Mcp\Discovery::runner()` classifies every tool by `Catalog::access()`, `Catalog::SENDS` and `Catalog::OPEN_WORLD`; the inner call is a normal `tools/call`). Every admin action is in the `$parity` map of
+  content or run code or queries; PHP templates are never created or changed through MCP. A connection lists all tools or the **Essentials**, **Migration** or (on a fleet console) **Fleet** set (`tool_set` on `api_tokens`/`oauth_codes`, `Catalog::SETS`, offered by `Catalog::offered()`; chosen on the consent screen, kept by a refresh; personal tokens and existing connections default to all): the rest is reached through `find_tools` and three runners `run_read_tool` / `run_tool` / `run_destructive_tool` (`Mcp\Discovery::runner()` classifies every tool by `Catalog::access()`, `Catalog::SENDS` and `Catalog::OPEN_WORLD`; the inner call is a normal `tools/call`). Every admin action is in the `$parity` map of
   `tests/Unit/Mcp/ParityTest.php`: read-only, an MCP tool, or "admin: reason".
+- **MCP safety (#334):** text people outside the team wrote (visitors, preview-link commenters, other sites) is marked with
+  `Mcp\Untrusted::mark(keys)` – the result object gets `untrusted: [keys]`; every new tool that returns such text uses it
+  (read_old_page too). `Catalog::OPEN_WORLD` is the one list of tools that make the site fetch from outside (an add-on tool
+  declares `openWorld` in `Api::mcpTool`); `Catalog::fetchesUrl($name, $arguments)` says whether a call does (upload_* only with
+  a `url`, `Catalog::FETCH_ARGUMENTS`) and only full-access connections may (`Catalog::fetchRefusal`; `Catalog::allows` hides
+  the always-fetching ones). Tools that e-mail people or erase for good are in `Mcp\Confirmation::TOOLS`: `Mcp\Server` answers
+  the first acting call with `confirmation_required` and a code (HMAC of the site key over tool, user, connection, the canonical
+  arguments and 10 minutes), the same call with `confirmation` acts once (`ip_checks` type `mcp_confirm`); a connection that was handed a
+  scheduled run never gets one for `HANDOUT_HOURS`, also after it reported and with `site` (`AgentSchedules::withhold`; the marker
+  `api_tokens.routine_until` is keyed by user and token or OAuth client, not by name; an open run becomes partial). A notebook note from a drafts-only
+  connection is a proposal (`notebook.proposal`) until a person saves it in the admin. The instructions notice watches
+  `ClaudeInstructions::watched()` – the owner's text and the applied blueprints' instructions.
 - **Files waiting for approval** (`Core\MediaStaging`): what a drafts-only Claude connection uploads waits outside the web root in
   `storage/staging/` (`media.staged_at`; the row keeps the public `media/…` path). A missing `/media/…` file reaches `index.php`, which
   shows a waiting file to signed-in users and draft previews only. It goes public once published content uses it (`promotePublished`
@@ -220,6 +232,7 @@ Transfer between owners (`Core\SiteTransfer`, Owners → Move a site, MCP `trans
 row goes through the sanitizers, settings only from the allow-list `SiteExport::SETTINGS`). Never relax: XML with DOCTYPE/entities is
 refused, content passes an allow-list of tags, the image downloader only fetches public addresses of the old site with pinned connections
 and size/time limits, never SVG.
+**Site moves** (#340, #339): linked documents of an old page (the old site's own domain only, `ImageDownloader` + `Files::saveFile`, `Core\WebImportFiles`), `read_old_page` (`Core\OldPage`, `Core\SemanticHtml`) and the placeholders for what cannot be brought over (`Core\WebImportWidgets`).  `Core\StarterPages` – the installer records its pages in the setting `starter_pages` ({public id: fingerprint}); an import (`WebImport`, `WpImport`) trashes an *untouched* starter page (fingerprint equal, `updated_at` NULL, no draft, no translation) that sits at an imported address, never the home page; the installer's choice `move` makes an empty site (`Starter::createForMove`). `pages.import_source` / `layout_pending` (`Core\LayoutQueue`, Pages tab, MCP `list_layout_queue`/`layout_queue`) mark imported pages whose layout is not rebuilt; ticking off touches nothing else. `WebImport` keeps nested addresses (`parent_id`, hidden empty parent pages, shallow addresses first). `Core\MoveStatus` is the block of Site audit and `site_audit.move`.
 
 ## Running and testing
 

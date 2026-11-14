@@ -35,6 +35,12 @@ final class ErrorReport
     /** The same fingerprint is sent once per this many seconds (per container). */
     public const int FLOOD_SECONDS = 60;
 
+    /** The local error log, its size limit (one older file .1 is kept), the frames of an entry and the characters of its message. */
+    public const string LOG = TALEA_ROOT . '/storage/log/errors.log';
+    public const int LOG_BYTES = 1_048_576;
+    private const int LOG_FRAMES = 8;
+    private const int LOG_MESSAGE = 500;
+
     /** Lines of source before and after the line of a frame; frames per exception at most. */
     private const int CONTEXT_LINES = 5;
     private const int MAX_FRAMES = 50;
@@ -54,6 +60,10 @@ final class ErrorReport
     private static array $sources = [];
     /** Part of the flood counter's key: only the tests change it (reset()), so one run does not count another's events. */
     private static string $floodScope = '';
+    /** The public id of the signed-in person of this request (the local log only). */
+    private static string $user = '';
+    /** @var array<string, true> deprecations already handled by this process */
+    private static array $deprecations = [];
 
     /**
      * Reads the configuration: the environment wins over config.php. A malformed DSN leaves reporting off and says so once in
@@ -444,19 +454,163 @@ final class ErrorReport
     }
 
     /**
-     * Writes an uncaught throwable to storage/log/errors.log: the first line as System status counts it ([date] class: message
-     * in file:line), the event id when it was reported, then the trace indented. The log is rotated at 5 MB (one .1 file).
+     * Writes an uncaught throwable to storage/log/errors.log (see entry()); the log is kept under 1 MB with one older .1 file.
      */
     public static function log(\Throwable $e, ?string $eventId = null): void
     {
-        $file = TALEA_ROOT . '/storage/log/errors.log';
-        if (@filesize($file) > 5 * 1024 * 1024) {
-            @rename($file, $file . '.1');
+        self::append(self::entry($e, $eventId));
+    }
+
+    /**
+     * One entry of the log: the first line as System status counts it ([date] Class: message in file:line, the event id when it was
+     * reported), a line naming the request, the person and the version, then a short trace. The message is scrubbed and capped, the
+     * paths are relative to the install, the query string and the arguments of the calls are never written.
+     */
+    public static function entry(\Throwable $e, ?string $eventId = null): string
+    {
+        $message = mb_substr(trim((string) preg_replace('/\s+/u', ' ', self::scrub($e->getMessage()))), 0, self::LOG_MESSAGE);
+        $entry = sprintf("[%s] %s: %s in %s:%d%s\n", date('c'), $e::class, $message, self::relative($e->getFile()), $e->getLine(), $eventId !== null ? ' [event ' . $eventId . ']' : '');
+        $entry .= '  ' . self::context() . "\n";
+        foreach (array_slice($e->getTrace(), 0, self::LOG_FRAMES) as $i => $call) {
+            $where = isset($call['file']) ? self::relative((string) $call['file']) . ':' . (int) ($call['line'] ?? 0) : '[internal function]';
+            $entry .= sprintf("  #%d %s %s%s%s()\n", $i, $where, $call['class'] ?? '', $call['type'] ?? '', $call['function']);
         }
-        $line = sprintf("[%s] %s: %s in %s:%d%s\n", date('c'), $e::class, $e->getMessage(), $e->getFile(), $e->getLine(), $eventId !== null ? ' [event ' . $eventId . ']' : '');
-        $trace = $e->getTraceAsString();
-        $line .= $trace === '' ? '' : '  ' . str_replace("\n", "\n  ", $trace) . "\n";
-        @file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
+
+        return $entry;
+    }
+
+    /**
+     * A PHP deprecation (a host's newer PHP, an add-on) is no reason to stop a page: it is written to the log once a day for each
+     * message and place (the memo file deprecations.json next to the log) and never sent to the tracker. Never throws.
+     */
+    public static function deprecation(string $message, string $file, int $line, string $log = self::LOG): void
+    {
+        try {
+            $key = sha1($message . '|' . $file . ':' . $line);
+            if (isset(self::$deprecations[$log . $key])) {
+                return;
+            }
+            self::$deprecations[$log . $key] = true;
+            $memo = dirname($log) . '/deprecations.json';
+            if (!is_dir(dirname($log))) {
+                @mkdir(dirname($log), 0775, true);
+            }
+            $f = @fopen($memo, 'c+');
+            if ($f === false || !flock($f, LOCK_EX)) {
+                return;
+            }
+            $today = date('Y-m-d');
+            $seen = json_decode((string) stream_get_contents($f), true);
+            $seen = is_array($seen) ? array_filter($seen, fn ($day): bool => $day === $today) : [];
+            $new = !isset($seen[$key]);
+            $suppressed = false;
+            if ($new) {
+                if (count($seen) < 500) {
+                    $seen[$key] = $today;
+                } else {
+                    // the memo is full: logging every further place on every request would push the real errors out of the log
+                    $new = false;
+                    $suppressed = !isset($seen['full']);
+                    $seen['full'] = $today;
+                }
+                if ($new || $suppressed) {
+                    ftruncate($f, 0);
+                    rewind($f);
+                    fwrite($f, (string) json_encode($seen));
+                }
+            }
+            flock($f, LOCK_UN);
+            fclose($f);
+            if ($suppressed) {
+                self::append(sprintf("[%s] Deprecated: more than 500 different deprecations today; further ones are not logged until tomorrow\n  %s\n", date('c'), self::context()), $log);
+            }
+            if ($new) {
+                self::append(sprintf("[%s] Deprecated: %s in %s:%d\n  %s\n", date('c'), mb_substr(trim((string) preg_replace('/\s+/u', ' ', self::scrub($message))), 0, self::LOG_MESSAGE), self::relative($file), $line, self::context()), $log);
+            }
+        } catch (\Throwable) {
+            // the error handler must never fail
+        }
+    }
+
+    /** The request, the signed-in person and the version, for the second line of an entry. */
+    private static function context(): string
+    {
+        $method = (string) ($_SERVER['REQUEST_METHOD'] ?? '');
+        $parts = [$method === '' ? 'cli' : preg_replace('/[^A-Z]/', '', strtoupper($method)) . ' ' . self::urlPath((string) ($_SERVER['REQUEST_URI'] ?? '/'))];
+        if (self::$user !== '') {
+            $parts[] = 'user ' . self::$user;
+        }
+        $parts[] = 'Talea ' . TALEA_VERSION;
+
+        return implode(' · ', $parts);
+    }
+
+    /** The public id of the signed-in person, for the local log only (never sent to the tracker). */
+    public static function user(string $publicId): void
+    {
+        self::$user = preg_match('/^[0-9a-f-]{36}$/i', $publicId) === 1 ? $publicId : '';
+    }
+
+    /** Appends an entry; a log over $cap bytes becomes the .1 file first (one writer moves it: the others see the new, small log). */
+    public static function append(string $entry, string $file = self::LOG, int $cap = self::LOG_BYTES): void
+    {
+        if (!is_dir(dirname($file))) {
+            @mkdir(dirname($file), 0775, true);
+        }
+        if ((int) @filesize($file) > $cap && ($lock = @fopen($file, 'c')) !== false) {
+            if (flock($lock, LOCK_EX)) {
+                clearstatcache(true, $file);
+                if ((int) @filesize($file) > $cap) { // two requests that both saw a full log must not move the fresh one over the history
+                    @rename($file, $file . '.1');
+                }
+                flock($lock, LOCK_UN);
+            }
+            fclose($lock);
+        }
+        @file_put_contents($file, $entry, FILE_APPEND | LOCK_EX);
+    }
+
+    /**
+     * The last whole entries of the log, newest first (the end of the file is read, a cut first entry is dropped).
+     *
+     * @return list<string>
+     */
+    public static function entries(int $limit = 40, string $file = self::LOG): array
+    {
+        $size = (int) @filesize($file);
+        $f = $size > 0 ? @fopen($file, 'rb') : false;
+        if ($f === false) {
+            return [];
+        }
+        $read = min($size, 262144);
+        fseek($f, -$read, SEEK_END);
+        $text = (string) stream_get_contents($f);
+        fclose($f);
+        $chunks = preg_split('/^(?=\[\d{4}-\d\d-\d\d)/m', $text) ?: [];
+        if ($read < $size && $chunks !== []) {
+            array_shift($chunks); // the first one starts in the middle of an entry
+        }
+        $chunks = array_values(array_filter($chunks, fn (string $c): bool => trim($c) !== ''));
+
+        return array_slice(array_reverse($chunks), 0, $limit);
+    }
+
+    /**
+     * What the log holds since a moment: uncaught errors and (apart) PHP deprecations.
+     *
+     * @return array{errors: int, deprecations: int}
+     */
+    public static function counts(int $since, string $file = self::LOG): array
+    {
+        $from = date('c', $since);
+        $counts = ['errors' => 0, 'deprecations' => 0];
+        foreach (self::entries(1000, $file) as $entry) {
+            if (substr($entry, 1, 25) >= $from) {
+                $counts[str_contains((string) strstr($entry, "\n", true), '] Deprecated: ') ? 'deprecations' : 'errors']++;
+            }
+        }
+
+        return $counts;
     }
 
     /**
@@ -609,6 +763,8 @@ final class ErrorReport
         self::$queue = [];
         self::$sources = [];
         self::$floodScope = bin2hex(random_bytes(4));
+        self::$user = '';
+        self::$deprecations = [];
     }
 
     /**

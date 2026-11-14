@@ -45,8 +45,12 @@ trait ServerActions
 
     protected function actionDeleteLog(): Response
     {
-        if ($this->request->isPost() && \Talea\Core\Owners::isFirst($this->db) && is_file(TALEA_ROOT . '/storage/log/errors.log')) {
-            file_put_contents(TALEA_ROOT . '/storage/log/errors.log', '');
+        if ($this->request->isPost() && \Talea\Core\Owners::isFirst($this->db)) {
+            if (is_file(\Talea\Core\ErrorReport::LOG)) {
+                file_put_contents(\Talea\Core\ErrorReport::LOG, '');
+            }
+            @unlink(\Talea\Core\ErrorReport::LOG . '.1');
+            @unlink(dirname(\Talea\Core\ErrorReport::LOG) . '/deprecations.json');
         }
 
         return $this->back('The error log is empty.', '', ['tab' => 'health']);

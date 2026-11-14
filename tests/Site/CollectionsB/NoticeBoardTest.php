@@ -103,7 +103,7 @@ final class NoticeBoardTest extends SiteTestCase
         $this->assertSame('1', (string) $site->value('SELECT deleted_at IS NULL FROM tl_collection_items WHERE item_id = ?', [$b]), 'admin: the delete action refuses a notice');
         $this->assertPage("/admin.php?module=collections&action=items&id={$site->publicId('collections', $board)}", 200, 'change the takedown date instead', message: 'admin: the refusal is explained');
 
-        $text = $this->mcpText('delete_collection', ['collection' => 'notice-board']);
+        $text = $this->site()->mcpConfirmedText('delete_collection', ['collection' => 'notice-board']);
         $this->assertStringContainsString('cannot be deleted', $text, 'MCP: the board cannot be deleted while it has notices');
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_collections WHERE slug = 'notice-board'"), 'MCP: the board is still there');
 

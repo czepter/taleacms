@@ -372,6 +372,7 @@ final class Batch
             'visible' => $status['visible'],
             'in_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
             'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
+            'import_source' => $p->oldUrl !== '' ? mb_substr($p->oldUrl, 0, 500) : null, 'layout_pending' => 1,
         ]);
         Slug::fromId($this->db, 'pages', $ids); // a title with nothing to transliterate: page-<id>, not n-a
         $this->writeMap('page', $p->key, $ids);

@@ -13,6 +13,7 @@ use Talea\Core\Health;
 use Talea\Core\Messages;
 use Talea\Admin\ChangeLog;
 use Talea\Core\Backup;
+use Talea\Core\RemoteBackup;
 
 /**
  * Site settings (table tl_settings) split into tabs.
@@ -222,10 +223,10 @@ class Settings extends Module
             'invalidFields' => $invalid['fields'],
             'values' => $invalid['values'] + $values,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
-            'remoteStatus' => $settings->get('remote_backup_status'),
-            'mediaStatus' => $settings->get('remote_media_status'),
+            'remoteStatus' => RemoteBackup::cleanStatus($settings, $settings->get('remote_backup_status')),
+            'mediaStatus' => RemoteBackup::cleanStatus($settings, $settings->get('remote_media_status')),
             'tasksToken' => $settings->get('tasks_token'),
-            'errorLog' => $tab === 'health' && \Talea\Core\Owners::isFirst($this->db) ? self::readFileTail(TALEA_ROOT . '/storage/log/errors.log', 40) : [],
+            'errorLog' => $tab === 'health' && \Talea\Core\Owners::isFirst($this->db) ? \Talea\Core\ErrorReport::entries(40) : [],
             'mail' => $tab === 'mail' ? $this->db->all('SELECT recipient, subject, created_at, sent_at, attempts, next_attempt_at, error FROM {mail} ORDER BY mail_id DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Talea\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
@@ -485,33 +486,17 @@ class Settings extends Module
         return $this->back('Backup deleted.', '', ['tab' => 'backups']);
     }
 
-    /**
-     * The last N lines of a file without loading the whole file into memory.
-     *
-     * @return list<string>
-     */
-    private static function readFileTail(string $file, int $lines): array
-    {
-        if (!is_file($file) || filesize($file) === 0) {
-            return [];
-        }
-        $f = fopen($file, 'rb');
-        fseek($f, -min(filesize($file), 64 * 1024), SEEK_END);
-        $end = (string) stream_get_contents($f);
-        fclose($f);
-
-        return array_slice(array_values(array_filter(explode("\n", $end), fn (string $r): bool => trim($r) !== '')), -$lines);
-    }
-
     /** Restoring the database from a backup; right before it, a safety backup of the current state is created. */
     protected function actionRestoreBackup(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back('', '', ['tab' => 'backups']);
         }
+        $file = $this->request->post('file');
         try {
-            $safetyBackup = Backup::create($this->db, 'before_restore');
-            $statementCount = Backup::restore($this->db, $this->request->post('file'));
+            // the safety backup must not rotate away the file it is about to restore
+            $safetyBackup = Backup::create($this->db, 'before_restore', $file);
+            $statementCount = Backup::restore($this->db, $file);
         } catch (\Throwable $e) {
             $reverted = false;
             if (isset($safetyBackup)) {
@@ -528,7 +513,7 @@ class Settings extends Module
             return $this->back(t('Restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'error');
         }
         \Talea\Front\Cache::clear();
-        ChangeLog::backup($this->app, 'settings', 'backup_restore', $this->request->post('file'));
+        ChangeLog::backup($this->app, 'settings', 'backup_restore', $file);
 
         return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
     }
@@ -769,7 +754,7 @@ class Settings extends Module
             return $this->back();
         }
 
-        return \Talea\Core\ClaudeInstructions::acknowledge($this->app->settings(), $this->request->post('instructions_seen'))
+        return \Talea\Core\ClaudeInstructions::acknowledge($this->app, $this->request->post('instructions_seen'))
             ? $this->back('Thank you. Home no longer points to the instructions until they change again.', '', ['tab' => 'ai'])
             : $this->back('The instructions changed again in the meantime – check them once more.', '', ['tab' => 'ai'], 'error');
     }

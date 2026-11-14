@@ -121,12 +121,52 @@ final class OffSiteCopiesTest extends SiteTestCase
         $age();
         $before = $this->autoBackups();
         $site->admin()->get('/admin.php');
-        $this->assertSame($before + 1, $this->autoBackups(), 'a change since the last backup (older than a day) makes a new automatic one');
+        $this->assertSame($before, $this->autoBackups(), 'an admin page view makes no backup (#337)');
+        $site->runTasks();
+        $this->assertSame($before + 1, $this->autoBackups(), 'a change since the last backup (older than a day) makes a new automatic one in the background job');
 
         $age();
         $site->exec('UPDATE tl_change_log SET created_at = NOW() - INTERVAL 3 DAY WHERE created_at > NOW() - INTERVAL 3 DAY');
         $site->exec('UPDATE tl_enquiries SET created_at = NOW() - INTERVAL 3 DAY WHERE created_at > NOW() - INTERVAL 3 DAY');
-        $site->admin()->get('/admin.php');
+        $site->runTasks();
         $this->assertSame($before + 1, $this->autoBackups(), 'without a change no new backup before the week is over');
+    }
+
+    #[Depends('testAutomaticBackupIsDailyWhenSomethingChangedOtherwiseWeekly')]
+    public function testAFailedCopyIsRecordedWithoutItsSecrets(): void
+    {
+        $site = $this->site();
+        $dir = $site->workDir('s3-denied');
+        file_put_contents($dir . '/router.php', <<<'PHP'
+            <?php
+            http_response_code(403);
+            echo '<Error><Message>Denied for AKIDTEST with tajne-s3 to owner@example.com</Message></Error>';
+            return true;
+            PHP);
+        $port = $site->startPhp($dir, 'router.php');
+        foreach (['remote_backup' => 's3', 'backup_host' => 's3.example.com', 'backup_user' => 'AKIDTEST', 'backup_password' => 'tajne-s3', 'backup_folder' => 'talea-backups',
+            'backup_region' => 'eu-central-1', 'backup_test_url' => 'http://127.0.0.1:' . $port, 'backup_media' => '1', 'remote_media_status' => ''] as $key => $value) {
+            $site->setting($key, $value);
+        }
+        $site->exec("DELETE FROM tl_events WHERE type = 'backup.failed'");
+        $this->backupNow();
+
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_events WHERE type = 'backup.failed' AND data LIKE '%\"offsite\":true%'"), 'a failed manual copy is a backup failure');
+        $row = $site->rows("SELECT message, data FROM tl_events WHERE type = 'backup.failed'")[0];
+        $status = (string) $site->value("SELECT value FROM tl_settings WHERE name = 'remote_backup_status'");
+        foreach (['AKIDTEST', 'tajne-s3', 'owner@example.com'] as $secret) {
+            $this->assertStringNotContainsString($secret, $row['message'] . $row['data'] . $status);
+        }
+
+        // the media copy: one event when it starts failing, none for every retry
+        $site->exec("DELETE FROM tl_events WHERE type = 'backup.failed'");
+        mkdir($site->path('media/2026/10'), 0775, true);
+        file_put_contents($site->path('media/2026/10/denied.txt'), "denied\n");
+        $site->setting('remote_media_status', date('Y-m-d H:i') . '|ok|0');
+        foreach ([1, 2] as $run) {
+            $site->setting('media_sync_check', '0');
+            $site->runTasks();
+        }
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM tl_events WHERE type = 'backup.failed' AND data LIKE '%\"media\":true%'"), 'a failing media copy is recorded once');
     }
 }

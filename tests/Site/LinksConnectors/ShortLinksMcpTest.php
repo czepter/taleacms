@@ -72,7 +72,7 @@ final class ShortLinksMcpTest extends \Talea\Tests\Site\Support\SiteTestCase
         $this->assertNotSame(302, $visitor->get('/gone-link')->status);
         $this->assertSame('https://example.org/new', $visitor->get('/moved-link')->redirect, 'a visitor follows the link after the change: its counter moved');
 
-        $text = $site->mcpText('undo_agent_session', ['id' => (int) $site->value('SELECT MAX(id) FROM tl_agent_sessions'), 'confirm' => true]);
+        $text = $site->mcpConfirmedText('undo_agent_session', ['id' => (int) $site->value('SELECT MAX(id) FROM tl_agent_sessions'), 'confirm' => true]);
         $this->assertStringContainsString('"conflicts":[]', $text, 'a moved counter is no conflict');
         $this->assertSame([302, 'https://example.org/old'], [$visitor->get('/gone-link')->status, $visitor->get('/gone-link')->redirect], 'the deleted link answers again');
         $this->assertSame('https://example.org/old', $visitor->get('/moved-link')->redirect, 'the retarget is taken back');

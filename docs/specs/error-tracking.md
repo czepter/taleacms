@@ -15,9 +15,14 @@ against GlitchTip (self-hostable, the natural fit for a self-hosted product) and
 
 ## Where we are
 
-- `App::installErrorHandler()` turns every PHP warning into an `ErrorException` and writes uncaught throwables as one line to
-  `storage/log/errors.log` (class, message, file, line – no trace); System status counts the lines of the last 24 h
-  (`Core\Health`), the Health tab shows the tail and can empty the file, the fleet heartbeat carries the count.
+- `App::installErrorHandler()` turns every PHP warning into an `ErrorException` and writes uncaught throwables to
+  `storage/log/errors.log` as one entry (`ErrorReport::entry()`): the first line `[date] Class: message in file:line [event id]`, a line with the
+  request (method and path, never the query), the signed-in person's public id and the version, and at most eight frames with relative paths and
+  no arguments; the message is scrubbed and capped at 500 characters. The log is kept under 1 MB with one older `.1` file. A **PHP
+  deprecation** is not an exception: it is written once a day per message and place (`storage/log/deprecations.json` remembers) and
+  System status counts it apart; `TALEA_STRICT_DEPRECATIONS=1` restores the exception (the site tests set it). System status counts the
+  entries of the last 24 h (`Core\Health`), the Health tab shows the last whole entries and can empty the log, the fleet heartbeat
+  carries the count.
 - Fatal errors (out of memory, a timeout, a parse error in an add-on) do not reach the exception handler: no
   `register_shutdown_function` catches them, they end only in the PHP/server log.
 - About 70 `catch (\Throwable)` blocks swallow errors on purpose (a broken element is skipped, a job records `last_error` in
@@ -47,7 +52,7 @@ against GlitchTip (self-hostable, the natural fit for a self-hosted product) and
 | Cron monitor | phase 3: `TALEA_HEARTBEAT_URL` – the background loop GETs it after each successful run (GlitchTip heartbeat monitors, Sentry cron check-ins via their URL form, Uptime Kuma push) | "jobs stopped" is the error that never throws |
 | Where it shows in Talea | System status gets a row "Error reporting": off / on, to `<host>`, last sent, waiting in the outbox; the fleet heartbeat gets `error_reporting: true/false`; the errors.log line gets the event id (`… [event 3f2a…]`) so the log and the tracker can be matched | the operator sees that it works without opening the tracker |
 | Record of processing | when a DSN is set, `Privacy::processingRecord()` adds "Error reports: technical error details without personal data are sent to `<host>`" | the owner's Art. 30 record stays truthful |
-| errors.log | stays, gets the full trace (`(string) $e`) instead of one line, rotated at 5 MB (one `.1` file) | works without a tracker; today the trace is lost unless debug is on |
+| errors.log | stays, gets a short trace (eight frames, no arguments) and the request line instead of one line, kept under 1 MB (one `.1` file) | works without a tracker; today the trace is lost unless debug is on |
 
 ## Pieces to build
 

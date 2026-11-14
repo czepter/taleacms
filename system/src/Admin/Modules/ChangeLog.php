@@ -64,7 +64,10 @@ final class ChangeLog extends Module
         $sessions = [];
         try {
             $sessions = \Talea\Core\AgentJournal::sessions($this->db, 100);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            if (!\Talea\Core\Db::isMissing($e)) {
+                throw $e;
+            }
             // before the migration
         }
         $result = $this->app->session->get('undo_result');

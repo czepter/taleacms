@@ -103,6 +103,15 @@ function format_date(string|\DateTimeInterface|null $value, bool $withTime = fal
     return $dt->format($withTime ? $format . ' H:i' : $format);
 }
 
+/** Whole calendar days from a moment to today in the site's time zone (0 = today, 1 = yesterday); right across summer time, unlike seconds / 86400. */
+function days_ago(int $timestamp, ?int $now = null): int
+{
+    $zone = new \DateTimeZone(date_default_timezone_get());
+    $day = static fn (int $t): \DateTimeImmutable => (new \DateTimeImmutable('@' . $t))->setTimezone($zone)->setTime(0, 0);
+
+    return (int) $day($timestamp)->diff($day($now ?? time()))->format('%r%a');
+}
+
 /** Age for lists: "just now", "45 min ago", "5 h ago", "yesterday", "3 days ago", then format_date() (docs/specs/admin-lists.md). */
 function format_ago(string|\DateTimeInterface|null $value, ?int $now = null): string
 {

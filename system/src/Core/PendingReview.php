@@ -21,6 +21,7 @@ final class PendingReview
         'hidden_items' => ['Hidden collection items changed in the last 30 days', 'collections'],
         'waiting_files' => ['Files from Claude waiting for approval', 'media'],
         'proposed_hours' => ['Proposed exceptions to the opening hours', 'business'],
+        'notebook_proposals' => ['Notebook notes Claude proposed', 'notebook'],
         'part_drafts' => ['Site parts with unpublished changes', 'parts'],
         'look_draft' => ['Unpublished changes of the look', 'appearance'],
         'fleet_expiry' => ['Certificates and domains of the fleet that expire soon', 'fleet'],
@@ -123,6 +124,9 @@ final class PendingReview
                 $proposed = Hours::proposed($db);
 
                 return [count($proposed), 'admin.php?module=business#proposed-hours', array_map(Hours::describe(...), $proposed)];
+            case 'notebook_proposals':
+                return [(int) $db->value('SELECT COUNT(*) FROM {notebook} WHERE proposal = TRUE'), 'admin.php?module=notebook',
+                    $titles($db->all('SELECT title FROM {notebook} WHERE proposal = TRUE ORDER BY updated_at DESC' . $limit), 'title')];
             case 'part_drafts':
                 $rows = $db->all('SELECT type, language, variant, name FROM {site_parts} WHERE build_draft IS NOT NULL ORDER BY updated_at DESC');
 
