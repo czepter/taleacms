@@ -152,7 +152,8 @@ final class SiteRoundTripTest extends DatabaseTestCase
         if (Owners::provisionPending($db, $config) !== ['owner ' . $owner . ': ready']) {
             throw new \RuntimeException('The empty site was not set up.');
         }
-        $target = self::$target = $db->forOwner($owner);
+        // the tables were made as a further owner's (index names with the prefix); the import runs on them as on a site of its own
+        $target = self::$target = Db::fromConfig(['prefix' => $owner] + $config);
         $admin = $target->insert('users', ['username' => 'rt-admin', 'password' => 'x', 'name' => 'Importer', 'email' => 'rt@example.test', 'admin' => 2, 'language' => '', 'confirmed_at' => date('Y-m-d H:i:s')]);
         $file = 'round-trip-' . bin2hex(random_bytes(4)) . '.zip';
         copy(self::$before['zip'], WpFile::dir() . '/' . $file);
