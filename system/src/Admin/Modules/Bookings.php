@@ -27,7 +27,6 @@ final class Bookings extends Module
 
     protected function actionList(): Response
     {
-        Booking::purge($this->app);
         $view = in_array($this->request->get('view'), ['today', 'past', 'all'], true) ? $this->request->get('view') : 'upcoming';
         $filter = match ($view) {
             'today' => ['from' => date('Y-m-d'), 'to' => date('Y-m-d'), 'status' => ''],

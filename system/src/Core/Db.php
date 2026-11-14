@@ -42,6 +42,8 @@ final class Db
 
     private ?PDO $pdo = null;
     private ?Dialect $dialect = null;
+    /** What lock names are scoped by (the database; see lockName()), read on first use. */
+    private ?string $lockScope = null;
     /** @var array<string, ?string> memo of identityColumn() ('' = none, SQLite) */
     private array $identity = [];
     /** @var array<string, array<string, array{primary: bool, columns: list<string>}>> memo of keyRows(): table => key name => columns */
@@ -97,6 +99,7 @@ final class Db
         $db->pdo = $this->pdo();
         $db->dialect = $this->dialect;
         $db->config = $this->config;
+        $db->lockScope = $this->lockScope;
 
         return $db;
     }
@@ -108,6 +111,7 @@ final class Db
         $db->pdo = $this->pdo();
         $db->dialect = $this->dialect;
         $db->config = ($ownerPrefix === $this->installPrefix ? [] : ['owner_prefix' => $ownerPrefix]) + array_diff_key($this->config, ['owner_prefix' => 1]);
+        $db->lockScope = $this->lockScope;
 
         return $db;
     }
@@ -272,15 +276,59 @@ final class Db
         return $this->run($this->dialect()->insertIgnore($table, array_keys($data)), array_values($data))->rowCount() > 0;
     }
 
-    /** Takes a named lock (between processes) for at most $timeout seconds; false = somebody else holds it. Released with unlock() or when the connection ends. */
+    /**
+     * The table or column is not there (a site before its migration): MySQL/MariaDB 42S02 / 42S22, PostgreSQL 42P01 / 42703,
+     * SQLite "no such table / column". Anything else (a lost connection, a refused row, a syntax error) is a real error.
+     */
+    public static function isMissing(\PDOException $e): bool
+    {
+        $state = (string) ($e->errorInfo[0] ?? $e->getCode());
+
+        return in_array($state, ['42S02', '42S22', '42P01', '42703'], true)
+            || ($state === 'HY000' && preg_match('/no such (table|column)/i', $e->getMessage()) === 1);
+    }
+
+    /**
+     * The table refused the row: a duplicate or a broken key (SQLSTATE class 23) or a value it cannot hold (class 22). MySQL / MariaDB
+     * say some of those with the general state HY000 (1364 no default for the column, 1366 incorrect value for the column), and
+     * SQLite says "datatype mismatch" (code 20) the same way.
+     */
+    public static function isRefusedRow(\PDOException $e): bool
+    {
+        $state = (string) ($e->errorInfo[0] ?? $e->getCode());
+        if (in_array(substr($state, 0, 2), ['22', '23'], true)) {
+            return true;
+        }
+
+        return $state === 'HY000' && in_array((int) ($e->errorInfo[1] ?? 0), [1364, 1366, 20], true);
+    }
+
+    /**
+     * Takes a named lock (between processes) for at most $timeout seconds; false = somebody else holds it. Released with unlock() or
+     * when the connection ends. The name is scoped to this database here (two installs on one MySQL server never wait for each other);
+     * a caller adds the table prefix when the lock is per site or per owner.
+     */
     public function lock(string $name, int $timeout = 0): bool
     {
-        return $this->dialect()->lock($this->pdo(), $name, $timeout);
+        return $this->dialect()->lock($this->pdo(), $this->lockName($name), $timeout);
     }
 
     public function unlock(string $name): void
     {
-        $this->dialect()->unlock($this->pdo(), $name);
+        $this->dialect()->unlock($this->pdo(), $this->lockName($name));
+    }
+
+    /** The name a lock really has: the caller's name scoped by the database (MySQL allows 64 characters, so it is a hash). */
+    public function lockName(string $name): string
+    {
+        $this->lockScope ??= (string) $this->value($this->dialect()->lockScopeSql());
+
+        return self::scopedLockName($this->lockScope, $name);
+    }
+
+    public static function scopedLockName(string $scope, string $name): string
+    {
+        return 'talea-' . substr(hash('sha256', $scope . "\0" . $name), 0, 40);
     }
 
     /** Does the table (name without prefix) exist in the current database? */

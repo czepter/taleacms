@@ -62,4 +62,16 @@ final class BackupSqlModeTest extends DatabaseTestCase
         $this->expectExceptionMessage('The backup holds no tables');
         Backup::restore($this->db(), $file);
     }
+
+    public function testAnInterruptedRunLeavesATraceAndItsHalfFileIsRemovedByTheNextBackup(): void
+    {
+        $part = Backup::FOLDER . '/.talea-20260101-000000-interrupted-' . bin2hex(random_bytes(4)) . '.sql.gz.part';
+        file_put_contents($part, 'half');
+        touch($part, time() - 7200);
+
+        $this->made[] = Backup::create($this->db(), 'sweep');
+
+        $this->assertFileDoesNotExist($part);
+        $this->assertSame(1, (int) $this->db()->value("SELECT COUNT(*) FROM {events} WHERE type = 'backup.failed' AND message LIKE '%interrupted%'"));
+    }
 }

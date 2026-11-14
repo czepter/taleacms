@@ -11,7 +11,7 @@
  * @var list<string> $enabledExtensions
  * @var list<array{file:string, size:int, time:int}> $backups
  * @var list<array{categories:string, count:int}> $consents
- * @var list<string> $errorLog  last lines of the error log
+ * @var list<string> $errorLog  the last entries of the error log, newest first
  * @var string $remoteStatus  result of the last backup upload off the server
  * @var string $tasksToken  secret part of the /tasks url for cron
  * @var array<int, string> $pages  pages for choosing the home page (the "General" tab)

@@ -297,6 +297,50 @@
 		});
 	});
 
+	// #338: a table wrapper that scrolls sideways becomes a focusable region named after its heading, so that the keyboard can scroll it;
+	// one that fits is left alone (no extra Tab stop). Only attributes this script set are taken away again.
+	var regionName = function (box) {
+		var caption = box.querySelector('caption');
+		if (caption) { return caption.textContent.trim(); }
+		var titleOf = function (parent, tag) {
+			var head = parent.querySelector(':scope > ' + tag);
+			var strong = head && head.querySelector('strong');
+			return head ? (strong || head).textContent.trim() : '';
+		};
+		for (var el = box; el && el.tagName !== 'MAIN' && el !== document.body; el = el.parentElement) {
+			var parent = el.parentElement;
+			if (parent && parent.tagName === 'FIELDSET' && titleOf(parent, 'legend') !== '') { return titleOf(parent, 'legend'); }
+			if (parent && parent.tagName === 'DETAILS' && titleOf(parent, 'summary') !== '') { return titleOf(parent, 'summary'); }
+			for (var prev = el.previousElementSibling; prev; prev = prev.previousElementSibling) {
+				if (/^(H[1-6]|LEGEND|FIGCAPTION)$/.test(prev.tagName)) { return prev.textContent.trim(); }
+			}
+		}
+		return T('Table');
+	};
+	var markScroller = function (box) {
+		if (box.scrollWidth > box.clientWidth + 1) {
+			if (!box.hasAttribute('tabindex')) {
+				box.setAttribute('tabindex', '0');
+				box.setAttribute('role', 'region');
+				box.setAttribute('aria-label', regionName(box));
+				box.setAttribute('data-scroll-region', '');
+			}
+		} else if (box.hasAttribute('data-scroll-region')) {
+			['tabindex', 'role', 'aria-label', 'data-scroll-region'].forEach(function (name) { box.removeAttribute(name); });
+		}
+	};
+	var scrollers = document.querySelectorAll('.tab-wrap');
+	if (scrollers.length && 'ResizeObserver' in window) {
+		var watchScrollers = new ResizeObserver(function (entries) {
+			entries.forEach(function (entry) { markScroller(entry.target.closest('.tab-wrap')); });
+		});
+		scrollers.forEach(function (box) {
+			markScroller(box);
+			watchScrollers.observe(box);
+			if (box.firstElementChild) { watchScrollers.observe(box.firstElementChild); }
+		});
+	}
+
 	// Warning before leaving a form with unsaved changes (the Website settings sidebar too: its own buttons post other forms)
 	document.querySelectorAll('form.form, form.website-settings-form').forEach(function (form) {
 		var changed = false;

@@ -6,7 +6,7 @@ namespace Talea\Core;
 
 /**
  * "Waiting for you" (3.2): everything on the site that waits for a person – drafts and proposals from Claude and from
- * colleagues. Home shows it (Admin\Kernel::desktop, views/admin/dashboard.php) and
+ * colleagues, and on a fleet console the certificates and domains that end soon. Home shows it (Admin\Kernel::desktop, views/admin/dashboard.php) and
  * Claude reads the same list with the MCP tool list_pending_review. Only the kinds the person may open are listed, and
  * only kinds with something in them.
  */
@@ -21,8 +21,10 @@ final class PendingReview
         'hidden_items' => ['Hidden collection items changed in the last 30 days', 'collections'],
         'waiting_files' => ['Files from Claude waiting for approval', 'media'],
         'proposed_hours' => ['Proposed exceptions to the opening hours', 'business'],
+        'notebook_proposals' => ['Notebook notes Claude proposed', 'notebook'],
         'part_drafts' => ['Site parts with unpublished changes', 'parts'],
         'look_draft' => ['Unpublished changes of the look', 'appearance'],
+        'fleet_expiry' => ['Certificates and domains of the fleet that expire soon', 'fleet'],
     ];
 
     /** How many example titles one kind carries. */
@@ -122,11 +124,18 @@ final class PendingReview
                 $proposed = Hours::proposed($db);
 
                 return [count($proposed), 'admin.php?module=business#proposed-hours', array_map(Hours::describe(...), $proposed)];
+            case 'notebook_proposals':
+                return [(int) $db->value('SELECT COUNT(*) FROM {notebook} WHERE proposal = TRUE'), 'admin.php?module=notebook',
+                    $titles($db->all('SELECT title FROM {notebook} WHERE proposal = TRUE ORDER BY updated_at DESC' . $limit), 'title')];
             case 'part_drafts':
                 $rows = $db->all('SELECT type, language, variant, name FROM {site_parts} WHERE build_draft IS NOT NULL ORDER BY updated_at DESC');
 
                 return [count($rows), 'admin.php?module=parts', array_map(fn (array $r): string => t(\Talea\Builder\SiteParts::TYPES[$r['type']][0] ?? (string) $r['type'])
                     . ($r['variant'] !== '' ? ' – ' . ($r['name'] !== '' ? $r['name'] : $r['variant']) : '') . ($r['language'] !== '' ? ' (' . strtoupper((string) $r['language']) . ')' : ''), $rows)];
+            case 'fleet_expiry':
+                $soon = \Talea\Fleet\Expiry::soon(\Talea\Fleet\Console::overview($db, time()), time());
+
+                return [count($soon), 'admin.php?module=fleet&action=calendar', $soon];
             case 'look_draft':
                 $summary = Look::hasDraft($app->settings()) ? Look::summary($db, $app->settings()) : [];
 

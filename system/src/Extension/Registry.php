@@ -48,7 +48,7 @@ final class Registry
     /** @var array<string, array{slug: string, name: string, title: string, render: callable}> "slug.name" => page */
     private array $pages = [];
 
-    /** @var array<string, array{name: string, description: string, inputSchema: array<string, mixed>, access: string, handler: callable, requires: string}> */
+    /** @var array<string, array{name: string, description: string, inputSchema: array<string, mixed>, access: string, handler: callable, requires: string, open_world: bool}> */
     private array $tools = [];
 
     /** @var array<string, array{0: int, 1: string, 2: string, 3: callable}> name => [interval, runner, label, run] */
@@ -493,9 +493,9 @@ final class Registry
     }
 
     /** @param array<string, mixed> $schema */
-    public function addTool(string $name, string $description, array $schema, string $access, callable $handler, string $requires = 'admin'): void
+    public function addTool(string $name, string $description, array $schema, string $access, callable $handler, string $requires = 'admin', bool $openWorld = false): void
     {
-        $this->tools[$name] = ['name' => $name, 'description' => mb_substr($description, 0, 2000), 'inputSchema' => $schema, 'access' => $access, 'handler' => $handler, 'requires' => $requires];
+        $this->tools[$name] = ['name' => $name, 'description' => mb_substr($description, 0, 2000), 'inputSchema' => $schema, 'access' => $access, 'handler' => $handler, 'requires' => $requires, 'open_world' => $openWorld];
     }
 
     public function addJob(string $name, int $interval, string $label, callable $run, string $runner = 'any'): void
@@ -659,7 +659,7 @@ final class Registry
         return array_values(array_map(fn (array $t): array => ['name' => $t['name'], 'description' => $t['description'], 'inputSchema' => $t['inputSchema']], $this->tools));
     }
 
-    /** @return array{name: string, description: string, inputSchema: array<string, mixed>, access: string, handler: callable, requires: string}|null */
+    /** @return array{name: string, description: string, inputSchema: array<string, mixed>, access: string, handler: callable, requires: string, open_world: bool}|null */
     public function tool(string $name): ?array
     {
         return $this->tools[$name] ?? null;

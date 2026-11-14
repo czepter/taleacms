@@ -22,7 +22,8 @@ trait PendingReviewTools
         $origin = $this->app->request->origin();
 
         return [
-            'waiting' => array_map(fn (array $w): array => ['kind' => $w['kind'], 'label' => $w['label'], 'count' => $w['count'], 'admin_url' => $origin . $this->app->url($w['url']), 'examples' => $w['examples']], $waiting),
+            'waiting' => array_map(fn (array $w): array => ['kind' => $w['kind'], 'label' => $w['label'], 'count' => $w['count'], 'admin_url' => $origin . $this->app->url($w['url']), 'examples' => $w['examples']]
+                + ($w['kind'] === 'hidden_items' ? \Talea\Mcp\Untrusted::mark(['examples']) : []), $waiting), // the names of items that arrived through a form
             'total' => array_sum(array_column($waiting, 'count')),
             'next' => $waiting === [] ? 'Nothing waits for a person.'
                 : 'Tell the user what waits and where (admin_url). Publishing, applying and discarding are the user\'s – do it only when they explicitly ask, with a connection that may.',

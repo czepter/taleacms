@@ -16,6 +16,7 @@
  * @var array{empty: bool, pages: int, news: int, items: int, media: int} $siteContent
  * @var list<array<string, mixed>> $webImports  imports from a website (2.6)
  * @var bool $canDownload  the server can download from other sites and has GD
+ * @var list<array{page_id: int, public_id: string, title: string, slug: string}> $starterPages  the installer's starter pages nobody has touched (the home page excepted)
  * @var list<string> $languages  additional language versions of the site
  * @var list<array<string, mixed>> $reports  migration parity reports (2.7)
  * @var array<string, class-string<Talea\Import\Source>> $sources  structured importers of other systems (3.0)
@@ -103,6 +104,17 @@ $phase = [
 </section>
 <?php endif ?>
 
+<?php if ($starterPages !== []): ?>
+<section class="panel-card">
+<h2><?= e(t('Starter pages of the installation')) ?></h2>
+<p><?= e(t('These starter pages are unchanged since the installation. Move them to the trash in one step (the home page stays).')) ?></p>
+<ul>
+<?php foreach ($starterPages as $p): ?><li><?= e($p['title'] . ' (/' . $p['slug'] . ')') ?></li><?php endforeach ?>
+</ul>
+<form method="post" action="<?= e($module->url('starter_trash')) ?>" data-confirm="<?= e(t('Move the unchanged starter pages to the trash? You can restore them for 30 days.')) ?>"><?= $csrf ?><p><button class="btn" type="submit"><?= e(t('Move the starter pages to the trash')) ?></button></p></form>
+</section>
+<?php endif ?>
+
 <section class="panel-card">
 <h2><?= e(t('Export of the whole site')) ?></h2>
 <p><?= e(t('One archive gives you the whole site in an open format (JSON): pages, news, categories, tags, redirects, menus, collections, pop-ups, site parts, components, shared classes and uploaded files – as a content backup or for moving elsewhere. Enquiries, passwords, keys and accounts are not included.')) ?></p>
@@ -162,7 +174,7 @@ $phase = [
 <?php foreach ($languages as $code): ?><option value="<?= e($code) ?>"><?= e(Talea\Core\Language::AVAILABLE[$code][0] ?? $code) ?></option><?php endforeach ?></select></div></div>
 <?php endif ?>
 <div class="row"><span></span><div>
-	<label><input type="checkbox" name="images" value="1" checked> <?= e(t('Download the images into Media')) ?></label><br>
+	<label><input type="checkbox" name="images" value="1" checked> <?= e(t('Download images and linked documents into Media')) ?></label><br>
 	<label><input type="checkbox" name="redirects" value="1" checked> <?= e(t('Redirect the old addresses to the new pages')) ?></label><br>
 	<label><input type="checkbox" name="news" value="1" checked> <?= e(t('Import blog posts as news (addresses like /blog/…, or with a publication date)')) ?></label>
 </div></div>

@@ -112,7 +112,8 @@ final class CollectionPages
 
         return $this->frame->page($title, $this->frame->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), [
             'description' => $description, 'image' => $image, 'build' => true, 'noindex' => $draft || !empty($item['noindex']),
-            'item' => $item !== null ? ['collection' => $collection, 'item' => $item] : null,
+            // 'form': the build is the one this page renders, so an application form on it means a job posting says directApply
+            'item' => $item !== null ? ['collection' => $collection, 'item' => $item, 'form' => preg_match('/"type":"(form|form_embed)"/', \Talea\Builder\Build::toJson($build)) === 1] : null,
             'markdown' => $item !== null && $collection['detail'] && $item['visible'] && !$this->frame->gated ? $collection['slug'] . '/' . $item['slug'] : null,
         ] + $this->frame->seoMeta('item', $item ?? [], ['category' => (string) $collection['name']]));
     }

@@ -71,7 +71,7 @@ final class BookingConfirmationTest extends SiteTestCase
         self::$proposed = $this->booking('eva-bk@example.cz');
         $this->assertStringContainsString('confirm', $this->bookingRaw('propose_booking_times', ['id' => $this->site()->publicId('bookings', self::$proposed), 'times' => ["$day 12:30"]]), '3.3 booking: propose_booking_times needs an explicit confirmation');
         $this->assertStringContainsString('not free', $this->bookingRaw('propose_booking_times', ['id' => $this->site()->publicId('bookings', self::$proposed), 'times' => ["$day 15:00"], 'confirm' => true]), '3.3 booking: a time that is not free cannot be proposed');
-        $site->mcp('propose_booking_times', ['id' => $site->publicId('bookings', self::$proposed), 'times' => ["$day 12:30", "$day 16:00"], 'message' => 'How about earlier?', 'confirm' => true]);
+        $site->mcpConfirmed('propose_booking_times', ['id' => $site->publicId('bookings', self::$proposed), 'times' => ["$day 12:30", "$day 16:00"], 'message' => 'How about earlier?', 'confirm' => true]);
         $this->assertSame('pending|2', $this->q("SELECT CONCAT(status, '|', (SELECT COUNT(*) FROM tl_booking_proposals WHERE booking_id = " . self::$proposed . ')) FROM tl_bookings WHERE id = ' . self::$proposed), '3.3 booking: two times proposed - the own held time may be among them, the booking stays pending');
         $body = (string) $site->value("SELECT body FROM tl_mail WHERE recipient = 'eva-bk@example.cz' AND body LIKE '%_booking%choose%' ORDER BY mail_id DESC LIMIT 1");
         self::$choose = preg_match('#_booking/choose/([a-f0-9]{32})#', (string) (json_decode($body, true)['text'] ?? ''), $m) === 1 ? $m[1] : '';
@@ -99,7 +99,7 @@ final class BookingConfirmationTest extends SiteTestCase
         $site->runTasks();
         $this->assertSame('1', $this->q("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'jana-bk@example.cz' AND subject LIKE 'Still waiting for your answer%'"), '3.3 booking: the reminder goes out once');
         $this->assertStringContainsString('result=pending', $this->book(['slot' => "$day 16:00", 'name' => 'Iva', 'email' => 'iva-bk@example.cz', 'consent' => '1']), '3.3 booking: after the hold the time can be requested by someone else');
-        $site->mcp('confirm_booking', ['id' => $site->publicId('bookings', $this->booking('iva-bk@example.cz')), 'confirm' => true]);
+        $site->mcpConfirmed('confirm_booking', ['id' => $site->publicId('bookings', $this->booking('iva-bk@example.cz')), 'confirm' => true]);
         $this->assertSame('confirmed', $this->q("SELECT status FROM tl_bookings WHERE email = 'iva-bk@example.cz'"), '3.3 booking: Claude accepts the request that holds the time now');
         $this->assertStringContainsString('taken', $this->bookingRaw('confirm_booking', ['id' => $this->site()->publicId('bookings', $this->booking('hana-bk@example.cz')), 'confirm' => true]), '3.3 booking: a request whose held time ran out and was taken cannot be accepted');
         $this->assertSame('pending', $this->q("SELECT status FROM tl_bookings WHERE email = 'hana-bk@example.cz'"), '3.3 booking: the taken request stays pending');

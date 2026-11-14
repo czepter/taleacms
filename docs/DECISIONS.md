@@ -15,7 +15,10 @@ Goal: a self-hosted website builder for small businesses and freelancers, withou
   and the fleet console's staged updates were removed in October 2026: deployment is the image alone); the Talea name.
 - Upstream changes: nothing is merged. Each Kaleta release after 3.7.0 is read (`gh api repos/phprs-cms/kaletacms/compare/…`),
   what fits is filed as an issue and re-implemented in Talea's style. Ported through Kaleta 3.11.0 (issues #40–#58). Skipped on
-  purpose: the hardening of the update manifest (the updater is off) and Kaleta's support link.
+  purpose: the hardening of the update manifest (the updater is off) and Kaleta's support link. Read through 3.29.1 (#148–#162,
+  #292–#294) and through 3.40.0 (#331–#342). Left out on purpose from 3.12 on: the team layer (tasks, comments, colleagues, My work),
+  customers and CRM, deals and the pipeline, quotes and price lists, the separate Applications section, and the fleet's update rings and
+  maintenance windows (no updater).
 
 ## Product
 

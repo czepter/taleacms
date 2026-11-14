@@ -30,7 +30,7 @@ trait AgentRunTools
     {
         $this->needSchedules();
         $connection = $this->app->auth()->connection();
-        $handed = AgentSchedules::handOut($this->app, (string) ($connection['name'] ?? ''));
+        $handed = AgentSchedules::handOut($this->app, (string) ($connection['name'] ?? ''), (array) $this->app->auth()->user());
         $access = (string) ($connection['access'] ?? 'full');
 
         return [
@@ -62,10 +62,12 @@ trait AgentRunTools
         if ($error !== null) {
             throw new \InvalidArgumentException($error);
         }
-        $run = $this->app->db()->one('SELECT r.schedule_id, s.next_due, s.name FROM {agent_runs} r JOIN {agent_schedules} s ON s.id = r.schedule_id WHERE r.id = ?', [$id]);
+        $run = $this->app->db()->one('SELECT r.schedule_id, r.status, s.next_due, s.name FROM {agent_runs} r JOIN {agent_schedules} s ON s.id = r.schedule_id WHERE r.id = ?', [$id]);
 
-        return ['id' => $id, 'status' => $status, 'links_saved' => count($links), 'schedule' => (string) ($run['name'] ?? ''),
-            'next_due' => substr((string) ($run['next_due'] ?? ''), 0, 16),
-            'next' => 'The run is recorded; the administrator reads the summary and the links under Scheduled runs and publishes what is ready. Nothing is published by itself.'];
+        $stored = (string) ($run['status'] ?? $status);
+
+        return ['id' => $id, 'status' => $stored, 'links_saved' => count($links), 'schedule' => (string) ($run['name'] ?? ''), 'next_due' => substr((string) ($run['next_due'] ?? ''), 0, 16)]
+            + ($stored !== $status ? ['note' => 'Stored as ' . $stored . ': calls that wait for a person were noted in the run.'] : [])
+            + ['next' => 'The run is recorded; the administrator reads the summary and the links under Scheduled runs and publishes what is ready. Nothing is published by itself.'];
     }
 }

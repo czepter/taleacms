@@ -34,8 +34,11 @@ final class Backup
         return Demo::active() && PHP_SAPI !== 'cli';
     }
 
-    /** @return string name of the created file */
-    public static function create(Db $db, string $reason = 'manual'): string
+    /**
+     * @param string|null $keep the backup a restore is about to read: the rotation of this new file never deletes it
+     * @return string name of the created file
+     */
+    public static function create(Db $db, string $reason = 'manual', ?string $keep = null): string
     {
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
@@ -44,15 +47,16 @@ final class Backup
             throw new \RuntimeException($refusal); // the file holds every owner's data
         }
 
-        return self::write(Owners::connections($db), self::FOLDER, $reason);
+        return self::write(Owners::connections($db), self::FOLDER, $reason, [], $keep);
     }
 
     /**
      * A backup of ONE further owner: its owner prefix and its sites' tables, nothing of the install or of another owner. The folder is the owner's own.
      *
+     * @param string|null $keep the backup a restore is about to read: the rotation of this new file never deletes it
      * @return string name of the created file
      */
-    public static function createForOwner(Db $db, string $reason = 'manual'): string
+    public static function createForOwner(Db $db, string $reason = 'manual', ?string $keep = null): string
     {
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
@@ -60,15 +64,16 @@ final class Backup
         $folder = OwnerFiles::folder($db);
         $owner = $db->forOwner($db->ownerPrefix);
 
-        return self::write(array_map(fn (string $prefix): Db => $owner->forSite($prefix), Sites::prefixes($owner)), $folder, $reason, self::OWNER_KEPT);
+        return self::write(array_map(fn (string $prefix): Db => $owner->forSite($prefix), Sites::prefixes($owner)), $folder, $reason, self::OWNER_KEPT, $keep);
     }
 
     /**
      * @param list<Db> $connections the sites to dump, each on its own tables
      * @param list<string> $skip tables (without prefix) that stay out of the file
+     * @param string|null $keep a file name the rotation must not delete (see prune())
      * @return string name of the created file
      */
-    private static function write(array $connections, string $folder, string $reason, array $skip = []): string
+    private static function write(array $connections, string $folder, string $reason, array $skip = [], ?string $keep = null): string
     {
         foreach ($connections as $site) {
             if ($site->tableExists('settings')) {
@@ -78,10 +83,23 @@ final class Backup
         if (!is_dir($folder) && !mkdir($folder, 0775, true)) {
             throw new \RuntimeException('The folder storage/backups cannot be created - check the write permissions.');
         }
+        @set_time_limit(300); // a background run on a visit has the web server's limit otherwise
+        self::sweepParts($folder, $connections[0]);
         $gz = function_exists('gzopen');
         $file = 'talea-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $reason) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');
         $path = $folder . '/' . $file;
-        $f = $gz ? gzopen($path, 'wb6') : fopen($path, 'wb');
+        // written under a hidden name and renamed when complete: a run that is killed never leaves a half file that counts as the newest backup
+        $part = $folder . '/.' . $file . '.part';
+        $f = $gz ? gzopen($part, 'wb6') : fopen($part, 'wb');
+        // a fatal error (time or memory limit) skips the catch below: the same process removes its half file and leaves a trace
+        $db = $connections[0];
+        register_shutdown_function(static function () use ($part, $db): void {
+            if (!is_file($part)) {
+                return; // renamed (done) or already removed
+            }
+            @unlink($part);
+            self::recordInterrupted($db, (string) (error_get_last()['message'] ?? ''));
+        });
         $write = fn (string $s) => $gz ? gzwrite($f, $s) : fwrite($f, $s);
 
         $pdo = $connections[0]->pdo();
@@ -99,46 +117,89 @@ final class Backup
         if ($sites === []) {
             // no table found (a session that reads the table list differently): a file with a header and nothing else must never replace a good backup
             $gz ? gzclose($f) : fclose($f);
-            @unlink($path);
+            @unlink($part);
             throw new \RuntimeException('The backup would be empty – no tables of this site were found in the database.');
         }
-        $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n-- prefixes: " . implode(',', $prefixes) . "\n" . $dialect->dumpPrologue(array_keys($sites)));
-        foreach ($sites as $table => $site) {
-            $name = substr($table, strlen($site->prefix));
-            // temporary data is not backed up
-            $structureOnly = in_array($name, ['stats_visitors', 'ip_checks'], true);
-            $write($dialect->dumpStructure($pdo, $table));
-            if ($structureOnly) {
-                continue;
-            }
-            $columns = $site->columns($name);
-            $booleans = array_keys(array_intersect($columns, $dialect->dumpBooleanColumns($pdo, $table)));
-            $head = $dialect->dumpInsert($table, $columns);
-            $rows = $pdo->query('SELECT ' . implode(', ', array_map($dialect->quote(...), $columns)) . ' FROM ' . $dialect->quote($table), \PDO::FETCH_NUM);
-            $batch = [];
-            foreach ($rows as $row) {
-                foreach ($booleans as $i) {
-                    $row[$i] = $row[$i] === null ? null : (bool) $row[$i];
+        try {
+            $write('-- Talea ' . TALEA_VERSION . ' - database backup ' . date('c') . "\n-- engine: " . $dialect->name() . "\n-- prefixes: " . implode(',', $prefixes) . "\n" . $dialect->dumpPrologue(array_keys($sites)));
+            foreach ($sites as $table => $site) {
+                $name = substr($table, strlen($site->prefix));
+                // temporary data is not backed up
+                $structureOnly = in_array($name, ['stats_visitors', 'ip_checks'], true);
+                $write($dialect->dumpStructure($pdo, $table));
+                if ($structureOnly) {
+                    continue;
                 }
-                $batch[] = '(' . implode(',', array_map(fn ($h): string => $h === null ? 'NULL' : (is_bool($h) ? ($h ? 'TRUE' : 'FALSE') : (is_int($h) || is_float($h) ? (string) $h : $dialect->dumpLiteral($pdo, (string) $h))), $row)) . ')';
-                if (count($batch) >= 200) {
+                $columns = $site->columns($name);
+                $booleans = array_keys(array_intersect($columns, $dialect->dumpBooleanColumns($pdo, $table)));
+                $head = $dialect->dumpInsert($table, $columns);
+                $rows = $pdo->query('SELECT ' . implode(', ', array_map($dialect->quote(...), $columns)) . ' FROM ' . $dialect->quote($table), \PDO::FETCH_NUM);
+                $batch = [];
+                foreach ($rows as $row) {
+                    foreach ($booleans as $i) {
+                        $row[$i] = $row[$i] === null ? null : (bool) $row[$i];
+                    }
+                    $batch[] = '(' . implode(',', array_map(fn ($h): string => $h === null ? 'NULL' : (is_bool($h) ? ($h ? 'TRUE' : 'FALSE') : (is_int($h) || is_float($h) ? (string) $h : $dialect->dumpLiteral($pdo, (string) $h))), $row)) . ')';
+                    if (count($batch) >= 200) {
+                        $write($head . implode(",\n", $batch) . ";\n");
+                        $batch = [];
+                    }
+                }
+                if ($batch !== []) {
                     $write($head . implode(",\n", $batch) . ";\n");
-                    $batch = [];
                 }
+                $write("\n");
             }
-            if ($batch !== []) {
-                $write($head . implode(",\n", $batch) . ";\n");
-            }
-            $write("\n");
+            $write($dialect->dumpEpilogue());
+        } catch (\Throwable $e) {
+            $gz ? gzclose($f) : fclose($f);
+            @unlink($part);
+            throw $e;
         }
-        $write($dialect->dumpEpilogue());
         $gz ? gzclose($f) : fclose($f);
+        rename($part, $path);
 
-        foreach (array_slice(self::listIn($folder), self::KEEP) as $old) {
-            @unlink($folder . '/' . $old['file']);
-        }
+        self::prune($folder, $keep);
 
         return $file;
+    }
+
+    /** A half file older than this cannot belong to a running dump (the time limit is 300 seconds, the scheduler lock covers the automatic run). */
+    private const int PART_MAX_AGE = 3600;
+
+    /**
+     * Removes the half files (.talea-*.part) a killed run left behind (the process died without a chance to clean up, e.g. SIGKILL or a
+     * container restart) and records that a backup did not finish, so the failure is visible. Returns the number removed.
+     */
+    public static function sweepParts(string $folder, ?Db $db = null): int
+    {
+        $removed = 0;
+        foreach (glob($folder . '/.talea-*.part') ?: [] as $part) {
+            if (is_file($part) && time() - (int) filemtime($part) > self::PART_MAX_AGE && @unlink($part)) {
+                $removed++;
+            }
+        }
+        if ($removed > 0 && $db !== null) {
+            self::recordInterrupted($db, '');
+        }
+
+        return $removed;
+    }
+
+    private static function recordInterrupted(Db $db, string $detail): void
+    {
+        Events::record($db, 'backup.failed', 'error', t('A backup did not finish: the run was interrupted.') . ($detail !== '' ? ' ' . $detail : '')); // never throws
+    }
+
+    /**
+     * Keeps the KEEP newest backups of a folder; $keep (a file name) is never deleted and does not count – the file a restore is about to read.
+     */
+    public static function prune(string $folder, ?string $keep = null): void
+    {
+        $others = array_values(array_filter(self::listIn($folder), fn (array $b): bool => $b['file'] !== $keep));
+        foreach (array_slice($others, self::KEEP) as $old) {
+            @unlink($folder . '/' . $old['file']);
+        }
     }
 
     /**
@@ -381,7 +442,8 @@ final class Backup
         foreach (glob($folder . '/talea-*.sql*') ?: [] as $path) {
             $backups[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
         }
-        usort($backups, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
+        // the name starts with the second the file was made, so on a tie the later name is the later file
+        usort($backups, fn (array $a, array $b): int => $b['time'] <=> $a['time'] ?: strcmp($b['file'], $a['file']));
 
         return $backups;
     }
@@ -393,12 +455,12 @@ final class Backup
     }
 
     /**
-     * Automatic backup – called when an administrator works in the administration and from cron. Since 1.8 every day
+     * Automatic backup – called by the background job backup (cron, or a visit after the page was sent). Since 1.8 every day
      * something changed on the site (the change log, a new enquiry), otherwise once a week.
      */
     public static function createAutomatic(Db $db, Settings $settings): void
     {
-        if (!$settings->bool('auto_backups') || Owners::sharedFilesRefusal($db) !== null) {
+        if (!$settings->bool('auto_backups') || self::refusedInDemo() || Owners::sharedFilesRefusal($db) !== null) {
             return;
         }
         $last = self::listAll()[0]['time'] ?? 0;
@@ -415,11 +477,7 @@ final class Backup
 
                 return;
             }
-            try {
-                RemoteBackup::upload($settings, (string) self::path($file)); // the result is shown by the system health page and the Backups tab
-            } catch (\Throwable $e) {
-                Events::record($db, 'backup.failed', 'error', mb_substr(t('The off-site copy of the backup failed: %s', $e->getMessage()), 0, 255), ['file' => $file]);
-            }
+            RemoteBackup::upload($settings, (string) self::path($file)); // records its own failure (backup.failed); the system health page and the Backups tab show it
         }
     }
 }

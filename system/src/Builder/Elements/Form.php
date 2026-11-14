@@ -42,12 +42,41 @@ final class Form extends Element
     /** An option with a price for the estimate (2.12): "Label | 1200" – the visitor sees and sends only the label. */
     private const string PRICED_OPTION = '/^(.*?)\s*\|\s*(-?\d[\d \x{a0}]*(?:[.,]\d+)?)\s*$/u';
 
-    /** Form attachments: allowed types and the maximum size of one file. */
     /** Phone in the pattern attribute (the browser reads it with the v flag – parentheses, slash and hyphen in the class must be escaped). */
     public const string PHONE_PATTERN = '[+\\(\\)\\d\\s\\/.\\-]{6,30}';
 
+    /** Form attachments: allowed types and the maximum size of one file. */
     public const array ATTACHMENT_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'doc', 'docx', 'xls', 'xlsx', 'odt', 'ods', 'txt', 'zip', 'dwg', 'dxf'];
     public const int MAX_ATTACHMENT = 10 * 1024 * 1024;
+
+    /** What a file field takes (#342): anything of the list above, or only what a CV can be – documents and pictures, checked by content. */
+    public const array ACCEPT = ['any' => 'any attachment (PDF, image, document or ZIP)', 'cv' => 'a CV (PDF, Word, OpenDocument or an image)'];
+    public const array CV_EXTENSIONS = ['pdf', 'doc', 'docx', 'odt', 'jpg', 'jpeg', 'png'];
+
+    /** The content types a CV of each extension may have (docx and odt are ZIP containers, which older libmagic reports as such); compared in lower case. */
+    private const array CV_CONTENT_TYPES = [
+        'pdf' => ['application/pdf'],
+        'doc' => ['application/msword', 'application/vnd.ms-office', 'application/cdfv2', 'application/x-ole-storage'],
+        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
+        'odt' => ['application/vnd.oasis.opendocument.text', 'application/zip'],
+        'jpg' => ['image/jpeg'], 'jpeg' => ['image/jpeg'], 'png' => ['image/png'],
+    ];
+
+    /** @return list<string> the extensions a file field takes */
+    public static function attachmentExtensions(array $field): array
+    {
+        return ($field['accept'] ?? 'any') === 'cv' ? self::CV_EXTENSIONS : self::ATTACHMENT_EXTENSIONS;
+    }
+
+    /** May this file go into the field? The extension is on its list and, for a CV, the content type belongs to that extension. */
+    public static function attachmentAllowed(array $field, string $extension, string $mimeType): bool
+    {
+        if (!in_array($extension, self::attachmentExtensions($field), true)) {
+            return false;
+        }
+
+        return ($field['accept'] ?? 'any') !== 'cv' || in_array(strtolower($mimeType), self::CV_CONTENT_TYPES[$extension] ?? [], true);
+    }
 
     public static function properties(): array
     {
@@ -65,6 +94,7 @@ final class Form extends Element
                 'choices' => ['type' => 'lines', 'label' => 'Options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'radio'], 'group' => 'options'],
                 'checkbox_options' => ['type' => 'lines', 'label' => 'Options to tick (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'checkboxes'], 'group' => 'options'],
                 'value' => ['type' => 'text', 'label' => 'Value sent with the form (not shown to the visitor)', 'default' => '', 'max' => 300, 'when' => ['type' => 'hidden'], 'group' => 'options'],
+                'accept' => ['type' => 'choice', 'label' => 'Allowed files', 'default' => 'any', 'options' => self::ACCEPT, 'when' => ['type' => 'file'], 'group' => 'options'],
                 // how the answers look: tiles (one image from Media or one icon key per option, same order) and the slider range of a number
                 'display' => ['type' => 'choice', 'label' => 'Look of the answers', 'default' => 'list', 'options' => self::DISPLAYS, 'when' => ['type' => ['radio', 'checkboxes', 'number']], 'group' => 'options'],
                 'option_media' => ['type' => 'lines', 'label' => 'Image (media/…) or icon name per option, one per line in the order of the options', 'default' => '', 'max' => 4000, 'when' => ['type' => ['radio', 'checkboxes']], 'group' => 'options'],
@@ -688,8 +718,9 @@ final class Form extends Element
             'date' => '<input id="' . $id . '" name="' . $displayName . '" type="date"' . $valueAttribute . $required . $marking . '>',
             'number' => '<input id="' . $id . '" name="' . $displayName . '" type="number" step="any" inputmode="decimal"' . $valueAttribute
                 . ($amounts && self::price($field['unit_price'] ?? '') != 0.0 ? ' data-price-per="' . self::price($field['unit_price']) . '"' : '') . $required . $marking . '>',
-            'file' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::ATTACHMENT_EXTENSIONS) . '"' . $required . $marking . '>'
-                . '<small class="tl-field-help">' . e(t('Up to %d MB: PDF, image, document or ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
+            'file' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::attachmentExtensions($field)) . '"' . $required . $marking . '>'
+                . '<small class="tl-field-help">' . e(($field['accept'] ?? 'any') === 'cv' ? t('Up to %d MB: PDF, Word, OpenDocument or an image.', (int) (self::MAX_ATTACHMENT / 1048576))
+                    : t('Up to %d MB: PDF, image, document or ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
             // phone: the same rule as on the server (Front\Forms), the browser checks it right away; the pattern is valid with the v flag too
             'tel' => '<input id="' . $id . '" name="' . $displayName . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"' . $valueAttribute . $required . $marking . '>',
             default => '<input id="' . $id . '" name="' . $displayName . '" type="' . ($field['type'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($field['label'])) . '" maxlength="300"' . $valueAttribute . $required . $marking . '>',

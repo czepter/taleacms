@@ -44,7 +44,7 @@ final class UndoClaudeSessionTest extends SiteTestCase
 
     public function testUndoRestoresWhatClaudeChangedAndKeepsWhatAPersonEdited(): void
     {
-        $text = $this->mcpText('undo_agent_session', ['id' => self::$session, 'confirm' => true]);
+        $text = $this->site()->mcpConfirmedText('undo_agent_session', ['id' => self::$session, 'confirm' => true]);
 
         $this->assertSame(
             'Undo original|1|0|Edited by a person|1',
@@ -55,7 +55,7 @@ final class UndoClaudeSessionTest extends SiteTestCase
 
     public function testASessionCannotBeUndoneTwiceAndTheChangeLogHasTheButton(): void
     {
-        $this->assertSame('1|1', $this->sq('SELECT undone_at IS NOT NULL FROM tl_agent_sessions WHERE id = ?', [self::$session]) . '|' . $this->lines('already undone', $this->mcpRawText('undo_agent_session', ['id' => self::$session, 'confirm' => true])), 'undo: the session is marked undone and cannot be undone twice');
+        $this->assertSame('1|1', $this->sq('SELECT undone_at IS NOT NULL FROM tl_agent_sessions WHERE id = ?', [self::$session]) . '|' . $this->lines('already undone', (string) json_encode($this->site()->mcpConfirmed('undo_agent_session', ['id' => self::$session, 'confirm' => true]))), 'undo: the session is marked undone and cannot be undone twice');
         $this->assertPage('/admin.php?module=changelog&action=sessions', 200, '/admin/changelog/undo', message: 'undo: the change log lists Claude sessions with the undo button');
     }
 }

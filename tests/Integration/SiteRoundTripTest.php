@@ -83,11 +83,11 @@ final class SiteRoundTripTest extends DatabaseTestCase
             'captcha_provider', 'captcha_site_key', 'captcha_fail_open'],
         'mail, backups, connections, the agency' => ['site_email', 'mail_mode', 'mail_from', 'mail_from_name', 'mail_reply_to', 'mail_reply_to_name', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'smtp_provider',
             'remote_backup', 'backup_host', 'backup_user', 'backup_folder', 'backup_region', 'remote_backup_status', 'auto_backups', 'backup_media', 'remote_media_status', 'media_sync_check',
-            'webhook_url', 'webhook_enquiries', 'indexnow', 'fleet_console_url', 'fleet_console_name', 'fleet_site_id', 'fleet_last_sent', 'fleet_last_error', 'fleet_kit', 'fleet_kit_version', 'fleet_kit_applied_at', 'fleet_kit_error',
+            'webhook_url', 'webhook_enquiries', 'indexnow', 'fleet_console_url', 'fleet_console_name', 'fleet_site_id', 'fleet_last_sent', 'fleet_last_error', 'fleet_kit', 'fleet_kit_version', 'fleet_kit_applied_at', 'fleet_kit_error', 'fleet_web_server',
             'agency_enabled', 'agency_name', 'agency_url', 'agency_email', 'agency_phone', 'agency_logo', 'ai_provider', 'ai_model', 'ai_models', 'trusted_proxy', 'security_contact'],
         'this install and its people' => ['redirect_to_site_url', 'maintenance', 'require_2fa', 'passkey_only', 'auto_suspend', 'page_cache', 'stats', 'stats_counting_since', 'indexing', 'look_draft', 'alerts_enabled', 'alerts_email', 'alerts_kinds',
             'alerts_interval', 'alerts_cursor', 'alerts_last_sent', 'report_monthly', 'report_all_sites', 'report_recipients', 'report_last_month', 'claude_change_limit', 'claude_destructive', 'claude_protected_pages', 'claude_instructions',
-            'claude_instructions_seen', 'first_steps_hidden', 'first_steps_skipped', 'appearance_saved', 'tasks_last_run', 'notification_check', 'imported_recheck', 'seo_audit_score', 'seo_audit_previous', 'lead_attribution'],
+            'claude_instructions_seen', 'first_steps_hidden', 'first_steps_skipped', 'appearance_saved', 'tasks_last_run', 'notification_check', 'imported_recheck', 'seo_audit_score', 'seo_audit_previous', 'lead_attribution', 'starter_pages'],
         'about enquiries, subscribers and data kept (which never travel)' => ['enquiries_months', 'triage_assistant', 'spam_assistant', 'enquiry_kinds', 'job_applications_months', 'enquiries_expiry', 'newsletter_hourly_limit', 'data_cleanup',
             'link_check', 'link_check_time', 'redirect_auto', 'redirect_auto_threshold', 'social_networks'],
     ];

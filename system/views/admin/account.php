@@ -222,9 +222,12 @@ foreach (Talea\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName)
 <?php $accessLabel = array_map(fn (string $label): string => t($label), Talea\Front\OAuth::ACCESS_LABELS); ?>
 <?php
 // the tool set of a connection and the button that switches it ("<set>:token:<public id>" or "<set>:app:<client_id>")
-$toolSetLabel = fn (string $set): string => '<span class="badge">' . e($set === 'essentials' ? t('essentials') : t('all tools')) . '</span>';
-$toolSetSwitch = fn (string $set, string $target): string => '<button class="navigation" type="submit" form="claude-connections" name="tool_set_switch" value="' . e(($set === 'essentials' ? 'all' : 'essentials') . ':' . $target) . '">'
-    . e($set === 'essentials' ? t('Switch to all tools') : t('Switch to essentials')) . '</button>';
+$offeredSets = Talea\Mcp\Catalog::offered($app->settings());
+$toolSetName = fn (string $set): string => match ($set) { 'essentials' => t('essentials'), 'migration' => t('migration'), 'fleet' => t('fleet console'), default => t('all tools') };
+$toolSetLabel = fn (string $set): string => '<span class="badge">' . e($toolSetName($set)) . '</span>';
+$toolSetSwitch = fn (string $set, string $target): string => '<details><summary>' . e(t('Change the tool set')) . '</summary><div class="navigation-row">'
+    . implode('', array_map(fn (string $other): string => '<button class="navigation" type="submit" form="claude-connections" name="tool_set_switch" value="' . e($other . ':' . $target) . '">' . e(t('Use %s', $toolSetName($other))) . '</button>',
+        array_values(array_diff($offeredSets, [$set])))) . '</div></details>';
 ?>
 <?php if ($apps !== []): ?>
 <h2><?= e(t('Connected applications')) ?></h2>
@@ -247,7 +250,7 @@ $toolSetSwitch = fn (string $set, string $target): string => '<button class="nav
 	<option value="<?= $days ?>"<?= $days === 365 ? ' selected' : '' ?>><?= e($days === 0 ? t('no expiry') : ($days === 365 ? t('1 year') : t('%d days', $days))) ?></option>
 <?php endforeach ?>
 </select><span class="help"><?= e(t('An expired token stops working on its own; you then create a new one. A token nobody uses for %d days is reported in System status.', Talea\Core\SecurityHygiene::CONNECTION_DAYS)) ?></span></div></div>
-<?= $app->view->render('admin/connection-access', ['role' => t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? ''), 'selected' => 'drafts', 'toolSet' => 'all']) ?>
+<?= $app->view->render('admin/connection-access', ['role' => t(Talea\Core\Auth::TYPES[(int) $username['admin']] ?? ''), 'selected' => 'drafts', 'toolSet' => 'all', 'offered' => $offeredSets]) ?>
 <p class="buttons"><button class="btn" type="submit" name="op" value="token_new"><?= e(t('Create token')) ?></button></p>
 <?php // the current password is asked for in this dialog when the form is sent (image/admin.js, data-reauth) ?>
 <dialog class="confirmation reauth" id="token-confirm" data-reauth="" aria-labelledby="token-confirm-title" aria-describedby="token-confirm-text">
