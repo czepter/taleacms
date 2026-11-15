@@ -197,6 +197,18 @@ final class SealedSecretsTest extends DatabaseTestCase
         }
     }
 
+    public function testBackupBeforeAnUpdateSealsNothing(): void
+    {
+        // bin/migrate writes this backup on the OLD schema: a sealed seed does not fit the column that a pending migration widens
+        $seed = 'JBSWY3DPEHPK3PXP';
+        $id = $this->db()->insert('users', ['username' => 'seed-user', 'password' => 'x', 'totp_secret' => $seed, 'admin' => 0, 'blocked' => 0]);
+        putenv('TALEA_SECRET_KEY=' . self::SECRET);
+        $file = Backup::create($this->db(), 'before-update', null, false);
+        @unlink((string) Backup::path($file));
+        $this->assertSame($seed, (string) $this->db()->value('SELECT totp_secret FROM {users} WHERE user_id = ?', [$id]), 'the stored seed is left as it was');
+        $this->assertSame(1, Vault::sealStored($this->db()), 'the new code seals it once it runs');
+    }
+
     public function testTotpSeedsAreSealedAndStillVerify(): void
     {
         $seed = 'JBSWY3DPEHPK3PXP';
