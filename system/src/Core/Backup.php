@@ -36,9 +36,11 @@ final class Backup
 
     /**
      * @param string|null $keep the backup a restore is about to read: the rotation of this new file never deletes it
+     * @param bool $seal false = leave the secrets as they are stored: the backup before an update runs on the OLD schema (a sealed seed
+     *                   does not fit the column that a pending migration widens), and the new code seals them when it starts
      * @return string name of the created file
      */
-    public static function create(Db $db, string $reason = 'manual', ?string $keep = null): string
+    public static function create(Db $db, string $reason = 'manual', ?string $keep = null, bool $seal = true): string
     {
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
@@ -47,7 +49,7 @@ final class Backup
             throw new \RuntimeException($refusal); // the file holds every owner's data
         }
 
-        return self::write(Owners::connections($db), self::FOLDER, $reason, [], $keep);
+        return self::write(Owners::connections($db), self::FOLDER, $reason, [], $keep, $seal);
     }
 
     /**
@@ -71,12 +73,13 @@ final class Backup
      * @param list<Db> $connections the sites to dump, each on its own tables
      * @param list<string> $skip tables (without prefix) that stay out of the file
      * @param string|null $keep a file name the rotation must not delete (see prune())
+     * @param bool $seal seal the secrets stored in plain text first (see create())
      * @return string name of the created file
      */
-    private static function write(array $connections, string $folder, string $reason, array $skip = [], ?string $keep = null): string
+    private static function write(array $connections, string $folder, string $reason, array $skip = [], ?string $keep = null, bool $seal = true): string
     {
         foreach ($connections as $site) {
-            if ($site->tableExists('settings')) {
+            if ($seal && $site->tableExists('settings')) {
                 Vault::sealStored($site, null, Vault::SEAL_WAIT); // the file holds only sealed passwords and keys (with TALEA_SECRET_KEY)
             }
         }

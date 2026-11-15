@@ -37,7 +37,7 @@ try {
         $db = \Talea\Core\Db::fromConfig($config['db']);
         if (Migrator::anyPending($db) && $db->tableExists('settings')) {
             echo "Backing up the database (every site) before applying migrations...\n";
-            echo \Talea\Core\Backup::create($db, 'before-update') . "\n";
+            echo \Talea\Core\Backup::create($db, 'before-update', null, false) . "\n";
         }
     }
     $applied = Migrator::migrate($config['db']);
