@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\LinksConnectors;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
@@ -42,6 +43,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
         foreach (['source', 'element', 'as_time', 'as_signature'] as $name) {
             $fields[$name] = $page->field($name);
         }
+        $fields['names'] = (string) json_encode(FormNames::of($page->body, $fields['element'])); // what the fields are posted under
 
         return $fields;
     }
@@ -51,7 +53,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
     {
         $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
 
-        return $this->site()->client('visitor')->post('/form', ['source' => self::$form['source'], 'element' => self::$form['element'], 'back' => '/enquiry-crm', 'as_time' => self::$form['as_time'], 'as_signature' => self::$form['as_signature']] + $fields)->redirect;
+        return $this->site()->client('visitor')->post('/form', ['source' => self::$form['source'], 'element' => self::$form['element'], 'back' => '/enquiry-crm', 'as_time' => self::$form['as_time'], 'as_signature' => self::$form['as_signature']] + FormNames::map($fields, json_decode(self::$form['names'], true)))->redirect;
     }
 
     private function tick(): void
@@ -175,11 +177,12 @@ final class EnquiryConnectorsTest extends SiteTestCase
         file_put_contents($cv, "%PDF-1.4 test CV\n");
         sleep(1);
 
-        $apply = function (string $email) use ($site, $cv): string {
+        $names = json_decode(self::$job['names'], true);
+        $apply = function (string $email) use ($site, $cv, $names): string {
             $site->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
 
             return $site->client('visitor')->upload('/form', ['source' => self::$job['source'], 'element' => self::$job['element'], 'back' => '/job-openings/carpenter', 'as_time' => self::$job['as_time'], 'as_signature' => self::$job['as_signature'],
-                'p0' => 'Petr', 'p1' => $email, 'p2' => '', 'p4' => 'I am applying.', 'p5' => '1', 'p6' => 'Carpenter'], ['p3' => $cv])->redirect;
+                ] + FormNames::map(['p0' => 'Petr', 'p1' => $email, 'p2' => '', 'p4' => 'I am applying.', 'p5' => '1', 'p6' => 'Carpenter'], $names), FormNames::map(['p3' => $cv], $names))->redirect;
         };
 
         $first = $this->queueMax();

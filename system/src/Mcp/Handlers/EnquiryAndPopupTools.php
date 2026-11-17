@@ -63,7 +63,7 @@ trait EnquiryAndPopupTools
         // about (2.12): what the form was about – the collection item, page or pop-up it was on (Front\EnquiryTopic)
         return array_map(fn (array $p): array => ['id' => (int) $p['enquiry_id'], 'date' => substr((string) $p['created_at'], 0, 16), 'form' => $p['form'], 'page' => $p['page'], 'about' => $p['topic'] !== '' ? $p['topic'] : null,
             'campaign' => \Talea\Front\Forms::campaignText((string) $p['campaign']), 'first_page' => $p['landing_page'] !== '' ? $p['landing_page'] : null, 'came_from' => $p['referrer'] !== '' ? $p['referrer'] : null, 'email' => $p['email'], 'status' => $statusNames[(int) $p['status']] ?? '',
-            'fields' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
+            'fields' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1], 'name' => (string) ($d['name'] ?? '')], json_decode((string) $p['data'], true) ?: [])]
             + ($p['category'] !== '' ? ['category' => $p['category'], 'priority' => \Talea\Core\Triage::PRIORITIES[(int) $p['priority']] ?? null,
                 'draft_reply' => $p['suggested_reply'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : [])
             + \Talea\Mcp\Untrusted::mark([...['page', 'campaign', 'first_page', 'came_from', 'email', 'fields'], ...($p['category'] !== '' && $p['suggested_reply'] ? ['draft_reply'] : [])]), // a draft reply was written from the visitor's text

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\MediaMenuMail;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
@@ -60,8 +61,8 @@ PHP);
         [$source, $element] = [$form->field('source'), $form->field('element')];
         $time = time() - 10;
         $signature = hash_hmac('sha256', "form|$source|$element|$time", $this->site()->settingValue('secret_key'));
-        $visitor->post('/form', ['source' => $source, 'element' => $element, 'back' => '/contact', 'as_time' => $time, 'as_signature' => $signature,
-            'p0' => 'Jana', 'p1' => 'jana@example.cz', 'p2' => '', 'p3' => 'I want a custom kitchen.', 'p4' => 1]);
+        $visitor->post('/form', ['source' => $source, 'element' => $element, 'back' => '/contact', 'as_time' => $time, 'as_signature' => $signature]
+            + FormNames::map(['p0' => 'Jana', 'p1' => 'jana@example.cz', 'p2' => '', 'p3' => 'I want a custom kitchen.', 'p4' => 1], FormNames::of($form->body, $element)));
         for ($i = 0; $i < 100 && (int) $this->site()->value('SELECT COUNT(*) FROM tl_webhook_deliveries WHERE delivered IS NOT NULL') === 0; $i++) {
             usleep(100_000);
         }

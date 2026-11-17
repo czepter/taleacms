@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\CollectionsA;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -19,8 +20,8 @@ final class CourseDraftsRefillTest extends SiteTestCase
         $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         $page = $visitor->get('/courses-test/salsa');
         sleep(1); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
-        $visitor->post('/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/salsa',
-            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => $name, 'p1' => $email, 'p3' => '1']);
+        $visitor->post('/form', FormNames::map(['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/salsa',
+            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => $name, 'p1' => $email, 'p3' => '1'], FormNames::of($page->body, $page->field('element'))));
     }
 
     private function state(string $email): string

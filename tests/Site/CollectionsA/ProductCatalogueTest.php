@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\CollectionsA;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -53,8 +54,9 @@ final class ProductCatalogueTest extends SiteTestCase
 
         $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         $fields = ['source' => $page->field('source'), 'element' => $this->lastField($page, 'element'), 'back' => '/products-test', 'as_time' => $this->lastField($page, 'as_time'), 'as_signature' => $this->lastField($page, 'as_signature'), 'p1' => 'Eve', 'p2' => 'eva@example.cz', 'p5' => '1'];
+        $names = FormNames::of($page->body, $fields['element']);
         sleep(1); // the antispam minimum time, as the old script waited
-        $send = static fn (string $basket): string => $visitor->post('/form', $fields + ['p0' => $basket])->redirect;
+        $send = static fn (string $basket): string => $visitor->post('/form', FormNames::map($fields + ['p0' => $basket], $names))->redirect;
 
         $this->assertStringContainsString('result=field', $send('[{"c":"products-test","i":"lounger-pro","v":"Gold","q":1}]'), 'a variant the product does not have is refused');
         $this->assertStringContainsString('result=field', $send('[]'), 'an empty basket is refused');

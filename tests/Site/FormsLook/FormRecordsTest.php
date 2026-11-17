@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\FormsLook;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
@@ -147,6 +148,6 @@ final class FormRecordsTest extends SiteTestCase
         usleep(1_200_000); // the form asks for 1 second (TALEA_ANTISPAM_MIN) between loading and sending
         $base = ['back' => '/contact'] + array_map(fn (string $name): string => $this->formField($html, $name), ['source' => 'source', 'element' => 'element', 'as_time' => 'as_time', 'as_signature' => 'as_signature']);
 
-        return $this->site()->client()->post('/form', $fields + $base)->redirect;
+        return $this->site()->client()->post('/form', FormNames::map($fields, FormNames::of($html, $base['element'])) + $base)->redirect;
     }
 }

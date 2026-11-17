@@ -15,10 +15,18 @@
 	// numbers keep the Western digits the server writes on a right-to-left page
 	var locale = function () { var lang = document.documentElement.lang; return document.documentElement.dir === 'rtl' && lang ? lang + '-u-nu-latn' : lang || undefined; };
 
-	/* the values of the answer fields (p0, p1[] …): a string, or a list for checkboxes and the two times of a time range; a hidden
+	/* the posted names of the form's fields, in field order (data-fields, Form::fieldName): a technical name or the field's key */
+	function fieldNames(form) {
+		if (!form._tlFields) {
+			try { form._tlFields = JSON.parse(form.getAttribute('data-fields') || '[]') || []; } catch (e) { form._tlFields = []; }
+		}
+		return form._tlFields;
+	}
+
+	/* the values of the answer fields (name, name[] …): a string, or a list for checkboxes and the two times of a time range; a hidden
 	   field is the page's own (a collection item's value, the basket) and is never stored or brought back; nor is the consent: the
 	   person ticks it for the send it goes with, never from what the browser remembered (a saved draft reloads the page) */
-	function kept(p) { return /^p\d+(\[\])?$/.test(p.name) && p.type !== 'file' && p.type !== 'hidden' && !p.closest('.tl-field-consent'); }
+	function kept(p) { return !!p.form && fieldNames(p.form).indexOf(p.name.replace(/\[\]$/, '')) !== -1 && p.type !== 'file' && p.type !== 'hidden' && !p.closest('.tl-field-consent'); }
 	function snapshot(f) {
 		var values = {};
 		Array.prototype.forEach.call(f.elements, function (p) {
@@ -119,7 +127,11 @@
 			});
 			return shown;
 		}
-		function elementsOf(form, i) { return Array.prototype.slice.call(form.querySelectorAll('[name="p' + i + '"], [name="p' + i + '[]"]')); }
+		function elementsOf(form, i) {
+			var name = fieldNames(form)[i];
+			if (name === undefined) { return []; }
+			return Array.prototype.slice.call(form.querySelectorAll('[name="' + CSS.escape(name) + '"], [name="' + CSS.escape(name + '[]') + '"]'));
+		}
 		// the answers by question number, as the server reads them
 		function answers(form, logic) {
 			return logic.fields.map(function (f, i) {

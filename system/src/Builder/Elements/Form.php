@@ -78,6 +78,30 @@ final class Form extends Element
         return ($field['accept'] ?? 'any') !== 'cv' || in_array(strtolower($mimeType), self::CV_CONTENT_TYPES[$extension] ?? [], true);
     }
 
+    /**
+     * Names a field may not have, because the form posts something else under them: Front\Forms (source, element, link, back,
+     * save_draft, seats; Form::render), Core\Antispam (website, as_time, as_signature), Forms::ATTRIBUTION_FIELDS (tl_*),
+     * Core\Captcha::PROVIDERS (the response fields), POST /form-step (step) and the redirect after sending (form, result,
+     * field; "result" is also an e-mail placeholder). Every name starting with tl_ or as_ is reserved too (fieldNameError).
+     */
+    public const array RESERVED_NAMES = ['source', 'element', 'link', 'back', 'save_draft', 'seats', 'website', 'as_time', 'as_signature',
+        'tl_landing', 'tl_campaign', 'tl_referrer', 'g-recaptcha-response', 'h-captcha-response', 'cf-turnstile-response', 'step', 'form', 'result', 'field'];
+
+    /** The shape of a technical name: a letter, then letters, digits, _ or - (no . space [ ], PHP rewrites them in $_POST keys), at most 40. */
+    public const string NAME_PATTERN = '/^[a-z][a-z0-9_-]{0,39}$/';
+
+    /** The name a field is posted, stored and delivered under: its technical name, else its key; the position only for a field with neither. */
+    public static function fieldName(array $field, int $i): string
+    {
+        foreach (['name', 'key'] as $property) {
+            if (is_string($field[$property] ?? null) && $field[$property] !== '') {
+                return $field[$property];
+            }
+        }
+
+        return 'p' . $i;
+    }
+
     public static function properties(): array
     {
         return [
@@ -88,6 +112,9 @@ final class Form extends Element
                 // a stable id of the field (rules refer to it, so renaming the label breaks nothing); assigned by sanitizeElement, never shown
                 'key' => ['type' => 'text', 'label' => 'Key', 'default' => '', 'max' => 5, 'hidden' => true],
                 'label' => ['type' => 'text', 'label' => 'Label', 'default' => '', 'max' => 200],
+                // the name the answer is posted, stored and delivered under (checked in sanitizeElement; empty = the key); the limit here is
+                // above the 40 characters it may have, so that a too long name is reported and removed instead of cut short without a word
+                'name' => ['type' => 'text', 'label' => 'Technical name (posted, stored and sent under this name; a–z, 0–9, _ and -; empty = automatic)', 'default' => '', 'max' => 80],
                 'type' => ['type' => 'choice', 'label' => 'Type', 'default' => 'text', 'options' => self::FIELD_TYPES],
                 'required' => ['type' => 'boolean', 'label' => 'Required', 'default' => false],
                 'options' => ['type' => 'lines', 'label' => 'Choice options (one per line)', 'default' => '', 'max' => 2000, 'when' => ['type' => 'select'], 'group' => 'options'],
@@ -124,7 +151,7 @@ final class Form extends Element
             ]],
             // rules and result variants (Builder\FormLogic); edited in its own overlay, not as a field
             'calculation' => ['type' => 'choice', 'label' => 'Show the estimate', 'default' => 'live', 'options' => ['live' => 'while answering', 'after_contact' => 'after the visitor sent their contact details']],
-            'logic' => ['type' => 'form_logic', 'label' => 'Logic for a quiz or quote calculator. Options of radio, select and checkboxes fields may carry an amount ("Label | 1200"), a number field a unit_price, an estimate field adds them up to a total with an optional range (range_below/range_above in percent), rounding (round_to) and a minimum. "logic" holds rules and result variants: {"rules":[{"label":"…","match":"all|any","when":[{"field":"<field key>","op":"is|is_not|contains|not_contains|gt|lt|between|weekday|month|empty|not_empty","value":"…","to":"… (between)"}],"then":[{"do":"add|quantity|multiply|skip|show_when|result", …}]}],"results":[{"key":"…","heading":"…","text":"…","show_amount":true,"button_text":"","button_link":""}]} – add: {"do":"add","amount":100}, quantity (amount × the number in a field): {"do":"quantity","field":"<key>","amount":10}, multiply: {"do":"multiply","by":1.3}, skip: {"do":"skip","field":"<key>"} (the field is hidden when the rule holds), show_when: {"do":"show_when","field":"<key>"} (the field shows only when the rule holds), result: {"do":"result","variant":"<result key>"}. Fields are named by their key (get_build shows it), never by label. calculation "after_contact" shows the estimate only after the visitor sent their contact details (no amount is then in the page). Run it with try_form.', 'default' => ['rules' => [], 'results' => []]],
+            'logic' => ['type' => 'form_logic', 'label' => 'Logic for a quiz or quote calculator. Options of radio, select and checkboxes fields may carry an amount ("Label | 1200"), a number field a unit_price, an estimate field adds them up to a total with an optional range (range_below/range_above in percent), rounding (round_to) and a minimum. "logic" holds rules and result variants: {"rules":[{"label":"…","match":"all|any","when":[{"field":"<field key>","op":"is|is_not|contains|not_contains|gt|lt|between|weekday|month|empty|not_empty","value":"…","to":"… (between)"}],"then":[{"do":"add|quantity|multiply|skip|show_when|result", …}]}],"results":[{"key":"…","heading":"…","text":"…","show_amount":true,"button_text":"","button_link":""}]} – add: {"do":"add","amount":100}, quantity (amount × the number in a field): {"do":"quantity","field":"<key>","amount":10}, multiply: {"do":"multiply","by":1.3}, skip: {"do":"skip","field":"<key>"} (the field is hidden when the rule holds), show_when: {"do":"show_when","field":"<key>"} (the field shows only when the rule holds), result: {"do":"result","variant":"<result key>"}. Fields are named by their key (get_build shows it), never by label. The "name" of a field is its technical name: the name the answer is posted, stored in Enquiries and delivered (webhook, list_enquiries, CSV) under, and the {name} placeholder of the e-mails – unique in the form, a–z, 0–9, _ and -, starting with a letter; empty means a name made from the label when the form is published, kept from then on; renaming it changes what outside systems receive. calculation "after_contact" shows the estimate only after the visitor sent their contact details (no amount is then in the page). Run it with try_form.', 'default' => ['rules' => [], 'results' => []]],
             // who may send: anyone who sees the form, or only a person with a personal link (Core\FormLinks, /_f/<token>)
             'access' => ['type' => 'choice', 'label' => 'Who can send it', 'default' => 'open', 'options' => ['open' => 'Anyone who sees the form', 'link' => 'Only people with a personal link']],
             'link_days' => ['type' => 'number', 'label' => 'A personal link works for (days)', 'default' => 30, 'min' => 1, 'max' => 365, 'when' => ['access' => 'link']],
@@ -150,14 +177,14 @@ final class Form extends Element
             'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
             'recipient' => ['type' => 'text', 'label' => 'Notification e-mails (several separated by commas; empty = site e-mail from Settings)', 'default' => '', 'max' => 190],
             'bcc' => ['type' => 'text', 'label' => 'Hidden copy (Bcc): e-mails separated by commas that the other recipients do not see', 'default' => '', 'max' => 190],
-            'notification_subject' => ['type' => 'text', 'label' => 'Subject of the notification to you (empty = “form name: site name”); {Field label} puts in an answer', 'default' => '', 'max' => 200],
+            'notification_subject' => ['type' => 'text', 'label' => 'Subject of the notification to you (empty = “form name: site name”); {Field label} or {technical name} puts in an answer', 'default' => '', 'max' => 200],
             // when: the inspector offers it only in live mode; note: what it says in its place otherwise (the server ignores a stored value then)
             'thank_you_page' => ['type' => 'link', 'label' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'default' => '', 'when' => ['calculation' => 'live'],
                 'note' => 'With the estimate after the contact details, the result shows at the form: no other page is opened after sending.'],
             'confirmation' => ['type' => 'boolean', 'label' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'default' => false],
             // the thank-you e-mail in the owner's words (Front\FormMail): empty = the thank-you message, the result and the next steps
             'confirmation_subject' => ['type' => 'text', 'label' => 'Subject of the thank-you e-mail (empty = “Confirmation: site name”)', 'default' => '', 'max' => 200, 'when' => ['confirmation' => true]],
-            'confirmation_text' => ['type' => 'lines', 'label' => 'Text of the thank-you e-mail (empty = the thank-you message). {Field label} puts in an answer, {Field label|text} says what stands when it is empty; also {site name}, {next steps} and {result}. Only names, dates, numbers and chosen options are put in – never text the visitor wrote freely.', 'default' => '', 'max' => 4000, 'when' => ['confirmation' => true]],
+            'confirmation_text' => ['type' => 'lines', 'label' => 'Text of the thank-you e-mail (empty = the thank-you message). {Field label} or {technical name} puts in an answer, {Field label|text} says what stands when it is empty; also {site name}, {next steps} and {result}. Only names, dates, numbers and chosen options are put in – never text the visitor wrote freely.', 'default' => '', 'max' => 4000, 'when' => ['confirmation' => true]],
             'confirmation_sender' => ['type' => 'text', 'label' => 'Sender name of the thank-you e-mail (empty = the site’s; the address stays the site’s)', 'default' => '', 'max' => 120, 'when' => ['confirmation' => true]],
             'confirmation_reply_to' => ['type' => 'text', 'label' => 'Replies to the thank-you e-mail go to (empty = as in Settings → Mail)', 'default' => '', 'max' => 190, 'when' => ['confirmation' => true]],
             // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week
@@ -206,12 +233,17 @@ final class Form extends Element
     public static function sanitizeElement(array $content, string $place, array &$errors): array
     {
         $used = [];
+        // the technical names asked for: a key that is drawn never takes one of them
+        $asked = [];
+        foreach ($content['fields'] ?? [] as $i => $field) {
+            $asked[$i] = strtolower(trim((string) ($field['name'] ?? '')));
+        }
         foreach ($content['fields'] ?? [] as $i => $field) {
             $key = (string) ($field['key'] ?? '');
             if (preg_match('/^k[a-z0-9]{4}$/', $key) !== 1 || isset($used[$key])) {
                 do {
                     $key = 'k' . substr(bin2hex(random_bytes(3)), 0, 4);
-                } while (isset($used[$key]));
+                } while (isset($used[$key]) || in_array($key, $asked, true));
             }
             $used[$key] = true;
             $content['fields'][$i]['key'] = $key;
@@ -226,6 +258,23 @@ final class Form extends Element
                 $lines[] = $line;
             }
             $content['fields'][$i]['option_media'] = rtrim(implode("\n", $lines));
+        }
+        // the technical names: a bad one is cleared (the field then uses its key) and reported, the field is kept
+        $taken = [];
+        foreach ($content['fields'] ?? [] as $i => $field) {
+            $name = $asked[$i];
+            $content['fields'][$i]['name'] = '';
+            if ($name === '') {
+                continue;
+            }
+            $problem = \Talea\Builder\FormFieldNames::problem($name, (string) $content['fields'][$i]['key'], $i, array_column($content['fields'], 'key'), $taken);
+            if ($problem !== null) {
+                $label = trim((string) ($field['label'] ?? ''));
+                $errors[$place . '.fields.' . $i . '.name'] = ($label !== '' ? $label : t('Field %d', $i + 1)) . ': ' . t($problem); // the sentences are literals of FormFieldNames::problem(), translated here (admin dictionary)
+                continue;
+            }
+            $taken[$name] = true;
+            $content['fields'][$i]['name'] = $name;
         }
         if (($content['calculation'] ?? 'live') === 'after_contact' && !in_array('estimate', array_column($content['fields'] ?? [], 'type'), true)) {
             $errors[$place . '.calculation'] = 'Showing the estimate after the contact details needs an estimate field; it was set to "while answering".';
@@ -454,7 +503,7 @@ final class Form extends Element
                 // the value is the form's own (Front\Forms) and the visitor normally neither sees nor sends it; on a collection item
                 // page it may have been filled from the item ({{nazev}} in a job's template, 2.11), so there it travels with the form –
                 // the server takes it only when its own value is a placeholder, and only as short plain text
-                $current .= $k->item !== null && (string) ($field['value'] ?? '') !== '' ? '<input type="hidden" name="p' . $i . '" value="' . e((string) $field['value']) . '">' : '';
+                $current .= $k->item !== null && (string) ($field['value'] ?? '') !== '' ? '<input type="hidden" name="' . e(self::fieldName($field, $i)) . '" value="' . e((string) $field['value']) . '">' : '';
                 continue;
             }
             if ($field['type'] === 'step') {
@@ -496,6 +545,7 @@ final class Form extends Element
         $files = in_array('file', array_column($o['fields'], 'type'), true) ? ' enctype="multipart/form-data"' : '';
 
         return '<form' . Text::withClass($a, $widths !== [] ? 'tl-form tl-form-layout' : 'tl-form') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-form="' . e($p['id']) . '"'
+            . ' data-fields="' . e((string) json_encode(array_map(static fn (array $f, int $n): string => self::fieldName($f, $n), $o['fields'], array_keys($o['fields'])), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '"'
             . ($logic !== [] ? ' data-logic="' . e((string) json_encode($logic, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION)) . '"' : '') . '>'
             . '<input type="hidden" name="source" value="' . e($k->source) . '"><input type="hidden" name="element" value="' . e($p['id']) . '">'
             . ($forLink ? '<input type="hidden" name="link" value="' . e($k->linkToken) . '">' : '')
@@ -625,7 +675,7 @@ final class Form extends Element
         return '<div class="tl-field tl-basket-field" id="poptavka"><span class="tl-caption" id="' . $id . '">' . e($field['label']) . $star . '</span>'
             . '<ul class="tl-basket" data-basket-list aria-labelledby="' . $id . '">' . $list . '</ul>'
             . '<p class="tl-basket-empty"' . ($list !== '' ? ' hidden' : '') . '>' . e(t('The enquiry is empty – add products with Add to enquiry.')) . '</p>'
-            . '<input type="hidden" name="p' . $i . '" value="' . e($prefill) . '" data-basket-field' . ($field['required'] ? ' data-required' : '') . '>' . $message . '</div>';
+            . '<input type="hidden" name="' . e(self::fieldName($field, $i)) . '" value="' . e($prefill) . '" data-basket-field' . ($field['required'] ? ' data-required' : '') . '>' . $message . '</div>';
     }
 
     private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = '', ?Context $k = null, bool $amounts = true, string|array|null $value = null): string
@@ -634,7 +684,7 @@ final class Form extends Element
         $given = is_array($value) ? array_map('strval', $value) : ($value !== null && $value !== '' ? [(string) $value] : []);
         $valueAttribute = $given !== [] && !is_array($value) ? ' value="' . e((string) $value) . '"' : '';
         $id = 'f-' . $element . '-' . $i;
-        $displayName = 'p' . $i;
+        $displayName = e(self::fieldName($field, $i));
         $required = $field['required'] ? ' required' : '';
         $star = $field['required'] ? ' <span class="tl-required" aria-hidden="true">*</span>' : '';
         $labelText = e($field['label']);

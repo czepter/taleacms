@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\FormsLook;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
@@ -59,8 +60,7 @@ final class EnquiryFormsTest extends SiteTestCase
         $signature = hash_hmac('sha256', 'form|' . self::$source . '|' . self::$element . '|' . $now, $secret);
         $response = $this->site()->client()->post('/form', [
             'source' => self::$source, 'element' => self::$element, 'back' => '/contact', 'as_time' => (string) $now, 'as_signature' => $signature,
-            'p0' => 'A', 'p1' => 'a@example.org', 'p3' => 'x', 'p4' => '1',
-        ]);
+        ] + FormNames::map(['p0' => 'A', 'p1' => 'a@example.org', 'p3' => 'x', 'p4' => '1'], FormNames::of(self::$html, self::$element)));
         $this->assertStringContainsString('result=too_fast', $response->redirect, 'too fast a submit has its own result');
         $this->assertPage('/contact?form=' . self::$element . '&result=too_fast', 200, 'Please wait a moment and send it again', message: 'the message tells to wait');
     }
@@ -106,8 +106,7 @@ final class EnquiryFormsTest extends SiteTestCase
 
         $forged = $this->site()->client()->post('/form', [
             'source' => self::$source, 'element' => self::$element, 'back' => '/contact', 'as_time' => self::$time, 'as_signature' => 'forged',
-            'p0' => 'A', 'p1' => 'a@example.org', 'p3' => 'x', 'p4' => '1',
-        ]);
+        ] + FormNames::map(['p0' => 'A', 'p1' => 'a@example.org', 'p3' => 'x', 'p4' => '1'], FormNames::of(self::$html, self::$element)));
         $this->assertStringContainsString('result=verification', $forged->redirect, 'forged signature rejected');
 
         $this->assertStringNotContainsString('form=', $this->submit(['source' => 'page:999', 'p0' => 'A']), 'a form that does not exist is not accepted');
@@ -180,7 +179,7 @@ final class EnquiryFormsTest extends SiteTestCase
     {
         $base = ['source' => self::$source, 'element' => self::$element, 'back' => '/contact', 'as_time' => self::$time, 'as_signature' => self::$signature];
 
-        return $this->site()->client()->post('/form', $fields + $base, $headers)->redirect;
+        return $this->site()->client()->post('/form', FormNames::map($fields, FormNames::of($this->site()->client()->get('/contact')->body, self::$element)) + $base, $headers)->redirect;
     }
 
     /** The old hook_check: event|signed|uri of the n-th logged call, "signed" when the signature matches the site's secret. */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Tests\Site\CollectionsB;
 
 use PHPUnit\Framework\Attributes\Group;
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\Http;
 use Talea\Tests\Site\Support\SiteTestCase;
 
@@ -16,6 +17,8 @@ final class QuizFormTest extends SiteTestCase
 
     /** @var array<string, string> the hidden fields of the form page */
     private array $fields = [];
+    /** @var list<string> what the fields are posted under */
+    private array $names = [];
     private Http $visitor;
     private static int $pages = 0;
     private string $path = '';
@@ -50,6 +53,7 @@ final class QuizFormTest extends SiteTestCase
         $this->visitor = $site->client();
         $form = $this->visitor->get($this->path);
         $this->fields = ['source' => $form->field('source'), 'element' => $form->field('element'), 'back' => $this->path, 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature')];
+        $this->names = FormNames::of($form->body, $form->field('element'));
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         sleep(1); // the anti-spam signature has a minimum age
     }
@@ -58,7 +62,7 @@ final class QuizFormTest extends SiteTestCase
     private function send(array $answers): string
     {
         // the redirect as a path with its query (the test client wants no host)
-        return (string) preg_replace('#^https?://[^/]+#', '', $this->visitor->post('/form', $this->fields + $answers)->redirect);
+        return (string) preg_replace('#^https?://[^/]+#', '', $this->visitor->post('/form', $this->fields + FormNames::map($answers, $this->names))->redirect);
     }
 
     private const LOCAL = ['p0' => 'Local', 'p1' => ['10:00', '12:00'], 'p3' => ['Album'], 'p6' => 'o@example.com'];

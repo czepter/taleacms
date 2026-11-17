@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\CollectionsB;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -41,12 +42,13 @@ final class CalculatorFormTest extends SiteTestCase
 
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         $fields = ['source' => $form->field('source'), 'element' => $form->field('element'), 'back' => '/calculator-212', 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature')];
+        $names = FormNames::of($form->body, $form->field('element'));
         sleep(1); // the anti-spam signature has a minimum age
 
-        $redirect = $visitor->post('/form', $fields + ['p0' => 'Doors', 'p4' => 'd@example.com', 'p5' => 1])->redirect;
+        $redirect = $visitor->post('/form', $fields + FormNames::map(['p0' => 'Doors', 'p4' => 'd@example.com', 'p5' => 1], $names))->redirect;
         $this->assertMatchesRegularExpression('/result=field.*field=3/', $redirect, 'conditions: a required field shown by the answer is checked on the server');
 
-        $redirect = $visitor->post('/form', $fields + ['p0' => 'Windows', 'p1' => 4, 'p4' => 'o@example.com', 'p3' => 'Oak', 'p5' => 1])->redirect;
+        $redirect = $visitor->post('/form', $fields + FormNames::map(['p0' => 'Windows', 'p1' => 4, 'p4' => 'o@example.com', 'p3' => 'Oak', 'p5' => 1], $names))->redirect;
         $this->assertStringContainsString('result=ok', $redirect, 'conditions: a hidden required field does not block the form');
 
         $stored = json_decode((string) $site->value('SELECT data FROM tl_enquiries ORDER BY enquiry_id DESC LIMIT 1'), true);

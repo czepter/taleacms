@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\CollectionsA;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -21,6 +22,8 @@ final class JobOpeningsTest extends SiteTestCase
     private static string $element = '';
     private static string $time = '';
     private static string $signature = '';
+    /** @var list<string> what the fields of the application form are posted under */
+    private static array $names = [];
     private static string $cvPath = '';
     private static string $applicationId = '';
 
@@ -50,10 +53,11 @@ final class JobOpeningsTest extends SiteTestCase
         $this->assertStringContainsString('"directApply":true', $job->body, 'the job page with an application form says direct apply');
         $this->assertStringContainsString('"jobLocationType":"TELECOMMUTE"', $job->body, '... remote work when the workplace says remote');
 
-        $this->assertStringContainsString('name="p3" type="file"', $job->body, 'the application form has a CV field');
-        $this->assertStringContainsString('type="hidden" name="p6" value="Carpenter"', $job->body, '... carries the job name in a hidden field');
+        $this->assertStringContainsString('name="' . FormNames::of($job->body, $job->field('element'))[3] . '" type="file"', $job->body, 'the application form has a CV field');
+        $this->assertStringContainsString('type="hidden" name="' . FormNames::of($job->body, $job->field('element'))[6] . '" value="Carpenter"', $job->body, '... carries the job name in a hidden field');
         $this->assertStringContainsString('enctype="multipart/form-data"', $job->body);
         self::$source = $job->field('source');
+        self::$names = FormNames::of($job->body, $job->field('element'));
         self::$element = $job->field('element');
         self::$time = $job->field('as_time');
         self::$signature = $job->field('as_signature');
@@ -94,10 +98,10 @@ final class JobOpeningsTest extends SiteTestCase
         foreach (['cv.zip', 'fake.pdf'] as $name) {
             $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
             sleep(1); // the antispam minimum time
-            $response = $this->visitor()->upload('/form', [
+            $response = $this->visitor()->upload('/form', FormNames::map([
                 'source' => self::$source, 'element' => self::$element, 'back' => '/job-openings/carpenter', 'as_time' => self::$time, 'as_signature' => self::$signature,
                 'p0' => 'John', 'p1' => 'jan@example.cz', 'p2' => '', 'p4' => 'I am applying.', 'p5' => '1', 'p6' => 'Carpenter',
-            ], ['p3' => $dir . '/' . $name]);
+            ], self::$names), FormNames::map(['p3' => $dir . '/' . $name], self::$names));
             $this->assertStringContainsString('result=field&field=3', (string) $response->redirect, "$name is not accepted as a CV");
         }
         $this->assertSame($before, $this->sq("SELECT COUNT(*) FROM tl_enquiries WHERE source = 'collection:" . self::$idk . "'"), 'no enquiry was added');
@@ -118,17 +122,19 @@ final class JobOpeningsTest extends SiteTestCase
         $cv = $this->site()->workDir('cv') . '/cv.pdf';
         file_put_contents($cv, "%PDF-1.4 test CV\n");
         sleep(1); // the antispam minimum time, as the old script waited
-        $response = $this->visitor()->upload('/form', [
+        $response = $this->visitor()->upload('/form', FormNames::map([
             'source' => self::$source, 'element' => self::$element, 'back' => '/job-openings/carpenter', 'as_time' => self::$time, 'as_signature' => self::$signature,
             'p0' => 'John', 'p1' => 'jan@example.cz', 'p2' => '', 'p4' => 'I am applying.', 'p5' => '1', 'p6' => '<b>Carpenter</b>',
-        ], ['p3' => $cv]);
+        ], self::$names), FormNames::map(['p3' => $cv], self::$names));
         $this->assertStringContainsString('/job-openings/carpenter?form=' . self::$element . '&result=ok#', $response->redirect, 'an application with a CV was sent');
         $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM tl_mail WHERE recipient = 'jan@example.cz'"), 'the applicant gets the received confirmation');
 
         self::$applicationId = $this->sq("SELECT MAX(enquiry_id) FROM tl_enquiries WHERE source = 'collection:" . self::$idk . "'");
-        $this->assertSame('/job-openings/carpenter|jan@example.cz|Carpenter', $this->sq("SELECT CONCAT(page, '|', email, '|', JSON_UNQUOTE(JSON_EXTRACT(data, '\$[6][1]'))) FROM tl_enquiries WHERE enquiry_id = " . self::$applicationId),
+        $application = $this->site()->rows('SELECT page, email, data FROM tl_enquiries WHERE enquiry_id = ' . self::$applicationId)[0];
+        $answers = json_decode((string) $application['data'], true); // an answer is an object: 0 label, 1 value, 2 attachment path, name = the technical name
+        $this->assertSame('/job-openings/carpenter|jan@example.cz|Carpenter', $application['page'] . '|' . $application['email'] . '|' . $answers[6][1],
             "the application is an enquiry from the job's page with the job name as plain text");
-        self::$cvPath = $this->sq("SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '\$[3][2]')) FROM tl_enquiries WHERE enquiry_id = " . self::$applicationId);
+        self::$cvPath = (string) $answers[3][2];
         $this->assertMatchesRegularExpression('~^[0-9]{4}/[0-9]{2}/[a-f0-9]{24}[.]pdf$~', self::$cvPath, 'the CV is outside the web root'); // PHP, not REGEXP: the engines differ
         $this->assertNotSame('', self::$cvPath);
         $this->assertFileExists($this->site()->path('storage/attachments/' . self::$cvPath), 'the CV is stored in storage/attachments');

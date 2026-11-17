@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Talea\Front;
 
 /**
- * The owner's own text of a form's e-mails (docs/specs/form-builder.md): {Field label} and {Field label|text when empty} are
+ * The owner's own text of a form's e-mails (docs/specs/form-builder.md): {Field label} (or the field's technical name, {name}) and {Field label|text when empty} are
  * filled with the answers, {site name}, {next steps} and {result} with what the site knows. An e-mail to the VISITOR only takes
  * answers that cannot carry someone else's words – a choice from the form's options, a date, a number, a time range, and a
  * short name – so the form cannot be used to send anyone's text to any address. The owner's notification takes every answer.
@@ -18,21 +18,31 @@ final class FormMail
     public const string TOKEN = '/\{([^{}|\r\n]{1,200})(?:\|([^{}\r\n]{0,200}))?\}/u';
 
     /**
-     * @param list<array{0: string, 1: string}> $data   the answers as the enquiry stores them: [label, value]
+     * @param list<array{0: string, 1: string, name?: string}> $data the answers as the enquiry stores them: [label, value, name: technical name]
      * @param list<string>                      $types  the field type of each answer (Front\Forms)
      * @param array<string, string>             $extra  more placeholders by their lower-case name (site name, next steps, result)
      */
     public static function fill(string $template, array $data, array $types, bool $toVisitor, array $extra = []): string
     {
         $values = [];
+        // the technical name first: it is unique per form and stable, so on a clash with a label (which may repeat or change) it wins
+        $visible = static function (int $i, string $value) use ($types, $toVisitor): string {
+            $type = $types[$i] ?? '';
+
+            return !$toVisitor || in_array($type, self::SAFE_TYPES, true) || ($type === 'text' && self::isName($value)) ? $value : '';
+        };
+        foreach ($data as $i => $answer) {
+            $technical = mb_strtolower(trim((string) ($answer['name'] ?? '')));
+            if ($technical !== '' && !isset($values[$technical])) {
+                $values[$technical] = $visible($i, trim($answer[1]));
+            }
+        }
         foreach ($data as $i => $answer) {
             $label = mb_strtolower(trim($answer[0]));
             if ($label === '' || isset($values[$label])) {
                 continue;
             }
-            $type = $types[$i] ?? '';
-            $value = trim($answer[1]);
-            $values[$label] = !$toVisitor || in_array($type, self::SAFE_TYPES, true) || ($type === 'text' && self::isName($value)) ? $value : '';
+            $values[$label] = $visible($i, trim($answer[1]));
         }
         foreach ($extra as $name => $value) {
             $values[mb_strtolower($name)] = $value;

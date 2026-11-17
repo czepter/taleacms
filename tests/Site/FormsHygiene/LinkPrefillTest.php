@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\FormsHygiene;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -49,19 +50,20 @@ final class LinkPrefillTest extends SiteTestCase
         $this->assertStringContainsString('value="Eva"', $opened->body, 'prefill: the text field shows the suggestion');
         $this->assertStringContainsString('name="save_draft"', $opened->body, 'prefill: the person can save a draft');
         $signed = ['source' => $opened->field('source'), 'element' => $opened->field('element'), 'as_time' => $opened->field('as_time'), 'as_signature' => $opened->field('as_signature'), 'back' => '/_f/' . $token, 'link' => $token];
+        $names = FormNames::of($opened->body, $opened->field('element'));
 
         // the consent ticked while saving a draft is not kept: it counts only with the final send
-        $draft = $visitor->post('/form', $signed + ['save_draft' => '1', 'p0' => 'Eva', 'p1' => 'Draft words', 'p2' => '1']);
+        $draft = $visitor->post('/form', $signed + ['save_draft' => '1'] + FormNames::map(['p0' => 'Eva', 'p1' => 'Draft words', 'p2' => '1'], $names));
         $this->assertStringContainsString('result=saved', $draft->redirect, 'prefill: a draft is saved without sending');
         $drafts = json_decode((string) $site->value('SELECT drafts FROM tl_form_links WHERE used_at IS NULL'), true);
         $this->assertCount(2, end($drafts)['values'], 'prefill: a saved draft keeps the answers, never the consent');
-        $this->assertStringNotContainsString('name="p2" value="1" checked', $visitor->get('/_f/' . $token)->body, 'prefill: the consent box is not ticked after a draft');
+        $this->assertStringNotContainsString('name="' . $names[2] . '" value="1" checked', $visitor->get('/_f/' . $token)->body, 'prefill: the consent box is not ticked after a draft');
         // a draft that holds a consent anyway (written before this rule) still shows the box empty
         $consentKey = (string) (json_decode((string) $site->value('SELECT build FROM tl_forms WHERE form_id = ?', [$form]), true)['children'][0]['content']['fields'][2]['key'] ?? '');
         $drafts[count($drafts) - 1]['values'][$consentKey] = '1';
         $site->exec('UPDATE tl_form_links SET drafts = ? WHERE used_at IS NULL', [json_encode($drafts)]);
-        $this->assertStringNotContainsString('name="p2" value="1" checked', $visitor->get('/_f/' . $token)->body, 'prefill: a consent in an older draft is not shown ticked');
-        $visitor->post('/form', $signed + ['save_draft' => '1', 'p0' => 'Eva', 'p1' => 'Second draft']);
+        $this->assertStringNotContainsString('name="' . $names[2] . '" value="1" checked', $visitor->get('/_f/' . $token)->body, 'prefill: a consent in an older draft is not shown ticked');
+        $visitor->post('/form', $signed + ['save_draft' => '1'] + FormNames::map(['p0' => 'Eva', 'p1' => 'Second draft'], $names));
         $again = $visitor->get('/_f/' . $token);
         $this->assertStringContainsString('>Second draft</textarea>', $again->body, 'prefill: the latest draft is shown');
         $this->assertStringContainsString('Saved versions (3)', $again->body, 'prefill: the history lists our suggestion and both drafts');
@@ -70,7 +72,7 @@ final class LinkPrefillTest extends SiteTestCase
         $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM tl_form_links WHERE used_at IS NOT NULL'), 'prefill: saving a draft does not use the link');
 
         sleep(1);
-        $sent = $visitor->post('/form', $signed + ['p0' => 'Eva', 'p1' => 'New words', 'p2' => '1']);
+        $sent = $visitor->post('/form', $signed + FormNames::map(['p0' => 'Eva', 'p1' => 'New words', 'p2' => '1'], $names));
         $this->assertStringContainsString('result=ok', $sent->redirect, 'prefill: the answer is sent');
         $this->assertNotSame('', (string) $site->value('SELECT consent FROM tl_form_links WHERE used_at IS NOT NULL'), 'prefill: the final send records the consent');
         $links = $site->mcpResult('list_form_links', ['item' => $item]);

@@ -37,7 +37,7 @@ final class Webhook
             'about' => $about !== '' ? $about : null, // what the form was about (2.12, Front\EnquiryTopic): the item or page it was on
             // 2.3: which form (to route one form elsewhere in Make or Zapier) and where the visit started (with consent)
             'form_id' => $formId, 'first_page' => $landing !== '' ? $app->request->origin() . $landing : null, 'came_from' => $referrer !== '' ? $referrer : null,
-            'fields' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1]], $data),
+            'fields' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1], 'name' => (string) ($d['name'] ?? '')], $data),
         ] + ($campaign !== '' ? ['utm' => self::utm($campaign)] : []));
     }
 

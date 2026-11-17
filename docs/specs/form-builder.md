@@ -45,10 +45,59 @@ with widths gets the grid (`tl-form-layout`, a `tl-span-*` class on each field);
 entry is full width. The order is the form's: it drives the steps, the conditions, the e-mails and the order of answers in
 Enquiries, so a page cannot change it.
 
+## Field names
+
+A field is posted, stored and delivered under a **technical name** that does not move. `Form::fieldName($field, $i)` is the one rule:
+the field's `name` if it has one, else its stable `key` (`k` + 4 characters, assigned by `Form::sanitizeElement`), and only for a
+field with neither (never in a stored build) `p<i>`. A draft that was never published has fields without a name (they render under
+their key); **publishing names them**, see below. The position is never a name, so inserting, reordering or deleting fields
+renames no other field. The element ids (`f-<element>-<i>`), `data-field` of a condition and the `field=<index>` of the error
+redirect stay index-based: they live inside one request. The form prints the posted names in field order as `data-fields`
+(JSON); `image/forms.js` uses that list for the remembered answers and for the live logic and estimate.
+
+**Validation** (`Form::sanitizeElement`, shown by the builder at the field and returned in `errors` by MCP `save_build`/`edit_build`).
+The name is trimmed and lower-cased and must match `/^[a-z][a-z0-9_-]{0,39}$/` (no `.`, space, `[` or `]`: PHP rewrites them in
+`$_POST` keys). It may not be one of `Form::RESERVED_NAMES` (what the form posts itself: `source`, `element`, `link`, `back`,
+`save_draft`, `seats`, the antispam fields, the attribution fields, the captcha responses, `step`, `form`, `result`, `field`) or start
+with `tl_` or `as_`. A name shaped like a key (`k` + 4 characters) is accepted only as the field's own key, and a name may not be
+another field's name or key; the first field keeps a duplicated name. A bad name is cleared (the field then uses its key) and
+reported at `<place>.fields.<i>.name`; the field itself is never dropped and the save never fails. A newly drawn key avoids every
+name asked for in the same save. The property accepts up to 80 characters, so that a name longer than 40 is reported and not cut short.
+
+**Names from labels, on publishing.** `FormFieldNames::fromLabels()` runs where a form is published (`FormRecords::store` for every build that
+holds a form: pages, parts, pop-ups, templates, components and imports once they are adopted; `Publisher::form` for a form record; `Core\Testimonials` for its own record, which is born published),
+never on a draft save (a field just added still has its default label). For each field without a name: (a) the name of the field with
+the same key in the form as published now (so a draft that carries no names renames nothing, whatever its labels say); (b) else the
+slug of its label (`slugify()`: umlauts, Czech and Arabic transliterated; a leading digit gets `f-`; cut to 40 characters without a
+trailing separator; reserved, `tl_`/`as_` and key-shaped results and clashes get `-2`, `-3` …; names that exist are assigned first,
+so a new field never takes a published one's name; a name the draft itself carries always wins, and a field whose published name an explicit name of another field has taken falls through to the label); (c) else (no usable label) its key, written out. The name is stored, so a later
+label change, an insertion or a reorder changes none. The editor needs no change: publishing empties the draft, and a field the
+editor still holds without a name takes the published one by key at the next publish (rule a). Frozen `p<i>` names and names the owner
+set are never touched. A form that is still written inside a page, part or template and is not published or adopted yet renders
+under keys until it is.
+
+**What carries the name.** Each stored answer in `enquiries.data` that comes from a field is `[label, value, (attachment path), 'name' => …]`
+(a string key, so the list positions and `isset($d[2])` stay as they were; the breakdown and the "file sent by e-mail" rows have none).
+The webhook `fields[]`, MCP `list_enquiries` `fields[]` carry `name` (`''` for older enquiries), and the CSV has a last column of
+the answers as `{name: value}` JSON. Anonymising keeps the name. In the e-mails `{technical name}` and `{technical name|fallback}`
+work like `{Field label}`; when a name and a label clash, the name wins (it is unique and stable). The visitor-safety rule applies to
+the value whichever placeholder reaches it. Connectors, rules, widths, personal-link prefill and the collection mapping still address
+fields by label or key.
+
+**Existing forms keep `p<i>`.** The migration `20261122100000_freeze_form_field_names.php` runs once and writes `name = "p<i>"`
+(the index in the whole list, steps and estimates included, as `Form::fields()` counted them) into every published Form element of
+`forms`, `pages` (also in the trash), `site_parts`, `popups`, `collections`, `collection_templates`, `components` (once per owner, not in
+a further site's run) and `build_revisions`. A revision was published, so it keeps the names it rendered and restoring it brings them
+back. A draft takes the name of the published field **with the same key** (a draft may already hold an unpublished insertion; freezing
+it by its own positions would rename a published field); draft-only fields stay unnamed and use their key. After the migration there
+is no flag and no legacy path: a field without a name uses its key until its form is published, which names it. The migration is idempotent, and a form the owner renames
+(`p1` to `email`) simply posts the new name from then on. Not frozen: saved sections, page templates, blueprints, looks, starters,
+archives exported before this change and WordPress or web imports; they create new forms, which are named from their labels when they are published.
+
 ## The thank-you e-mail
 
 The Form element's confirmation e-mail gets its own subject, text, sender name and reply-to address. Text and subject take
-`{Field label}` and `{Field label|text when empty}`, plus `{site name}` and `{next steps}`. **Only answers that cannot carry
+`{Field label}` (or the field's technical name, `{name}`) and `{Field label|text when empty}`, plus `{site name}` and `{next steps}`. **Only answers that cannot carry
 someone else's words are inserted**: a choice from the form's options, a date, a number, a time range, and a short text field
 (a name) when it is at most 60 characters with no address, link or `@` in it. A longer text, an e-mail, a phone number, an
 attachment or a field the visitor wrote freely is never put into an e-mail to the visitor: the form must not become a relay that

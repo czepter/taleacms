@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\CollectionsA;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -30,8 +31,8 @@ final class CourseMailLinksTest extends SiteTestCase
         $visitor = $this->visitor();
         $page = $visitor->get('/courses-test/salsa');
         sleep(1); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
-        $visitor->post('/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/salsa',
-            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Anna', 'p1' => 'anna@example.com', 'p3' => '1']);
+        $visitor->post('/form', FormNames::map(['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/salsa',
+            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Anna', 'p1' => 'anna@example.com', 'p3' => '1'], FormNames::of($page->body, $page->field('element'))));
 
         $this->site()->setting('site_url', '');
         $this->site()->mcpConfirmedText('cancel_course', ['item' => $this->site()->publicId('collection_items', (int) $this->sq("SELECT item_id FROM tl_collection_items WHERE slug = 'salsa'")),

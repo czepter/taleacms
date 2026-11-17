@@ -35,4 +35,24 @@ final class FormMailTest extends TestCase
             'a short text counts as a name only without an address, @, angle brackets and at most 60 characters');
         $this->assertSame([true, true, false, false], [FormMail::isName('Zoë O’Brien-Müller'), FormMail::isName('J. Smith'), FormMail::isName('www.example.com'), FormMail::isName('')]);
     }
+
+    public function testTechnicalNamesFillPlaceholdersToo(): void
+    {
+        $data = [['Your name', 'Jane', 'name' => 'vorname'], ['Email', 'jane@example.org', 'name' => 'email'], ['Package', 'Full day', 'name' => 'package_choice'], ['Tell us', 'Visit https://spam.example', 'name' => 'message']];
+        $types = ['text', 'email', 'radio', 'textarea'];
+        $this->assertSame('Hi Jane / Jane, Full day', FormMail::fill('Hi {vorname} / {Your name}, {Package_Choice}', $data, $types, true), 'a technical name works as well as a label, in any case');
+        $this->assertSame('[jane@example.org] [{missing|x}]', FormMail::fill('[{email}] [{missing|x}]', $data, $types, false));
+        $this->assertSame('[] [fallback]', FormMail::fill('[{email}] [{message|fallback}]', $data, $types, true), 'the safety rule for a visitor applies to a name as it does to a label');
+        $this->assertSame('Studio 42', FormMail::fill('{site name} {result}', $data, $types, true, ['site name' => 'Studio', 'result' => '42']), 'the extra placeholders are unchanged');
+    }
+
+    public function testTheTechnicalNameWinsOverALabelThatClashes(): void
+    {
+        // the first field is named "email", the second one is labelled "Email": {email} is the first field
+        $data = [['Your address', 'a@example.org', 'name' => 'email'], ['Email', 'b@example.org', 'name' => 'kaaaa']];
+        $this->assertSame('a@example.org', FormMail::fill('{email}', $data, ['email', 'email'], false));
+        $this->assertSame('b@example.org', FormMail::fill('{kaaaa}', $data, ['email', 'email'], false));
+        // a label that repeats keeps the first, as before
+        $this->assertSame('1', FormMail::fill('{Same}', [['Same', '1', 'name' => 'a'], ['Same', '2', 'name' => 'b']], ['number', 'number'], false));
+    }
 }

@@ -377,12 +377,20 @@ final class Enquiries extends Module
     {
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
-        fputcsv($f, [t('Number'), t('Date'), t('Form'), t('Status'), t('Email'), t('Page'), t('Campaign'), t('Content')], ';', '"', '');
+        fputcsv($f, [t('Number'), t('Date'), t('Form'), t('Status'), t('Email'), t('Page'), t('Campaign'), t('Content'), t('Answers by technical name')], ';', '"', '');
         foreach ($this->db->all('SELECT * FROM {enquiries} WHERE deleted_at IS NULL ORDER BY enquiry_id') as $p) {
-            $content = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], json_decode((string) $p['data'], true) ?: []));
+            $answers = json_decode((string) $p['data'], true) ?: [];
+            $content = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], $answers));
+            $byName = []; // the technical name of a field and its answer, for a machine reading the file
+            foreach ($answers as $d) {
+                if ((string) ($d['name'] ?? '') !== '') {
+                    $byName[(string) $d['name']] = (string) $d[1];
+                }
+            }
             // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $p['enquiry_id'], (string) $p['created_at'], (string) $p['form'], t(self::STATUSES[(int) $p['status']] ?? ''), (string) $p['email'], (string) $p['page'], \Talea\Front\Forms::campaignText((string) ($p['campaign'] ?? '')), $content]);
+                [(string) $p['enquiry_id'], (string) $p['created_at'], (string) $p['form'], t(self::STATUSES[(int) $p['status']] ?? ''), (string) $p['email'], (string) $p['page'], \Talea\Front\Forms::campaignText((string) ($p['campaign'] ?? '')), $content,
+                    $byName === [] ? '' : (string) json_encode($byName, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);

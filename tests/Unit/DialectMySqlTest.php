@@ -143,7 +143,7 @@ final class DialectMySqlTest extends TestCase
             {
             }
         };
-        $this->assertSame("'a\\\\b\\'c\\nd\\re\\0f\\Zé'", $this->d->dumpLiteral($pdo, "a\\b'c\nd\re\0f\x1aé"), 'backslash, quote, line breaks, NUL and Ctrl-Z are escaped, UTF-8 stays');
+        $this->assertSame("'a\\\\b\\'c\\nd\\re\\0f\\Zé'", $this->d->dumpLiteral($pdo, "a\\b'c\nd\re\0f\x1aé"), 'backslash, quote, line breaks, NUL and Ctrl-Z are escaped, UTF-8 stays'); // check-english: allow
     }
 
     public function testAHostThatRefusesSqlModeKeepsRunning(): void

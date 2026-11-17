@@ -67,6 +67,8 @@ final class Testimonials
 
             return $build;
         });
+        // published right away: the fields get their technical names now, as when a form is published (FormFieldNames::fromLabels)
+        $build['children'][0]['content'] = \Talea\Builder\FormFieldNames::fromLabels((array) $build['children'][0]['content'], []);
         $json = Build::toJson($build);
         $now = date('Y-m-d H:i:s');
         $id = $db->insert('forms', ['name' => (string) ($build['children'][0]['content']['name'] ?? 'Share your experience'), 'origin' => self::ORIGIN, 'build' => $json, 'created_at' => $now, 'updated_at' => $now]);
