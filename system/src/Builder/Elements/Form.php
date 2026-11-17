@@ -295,7 +295,7 @@ final class Form extends Element
             $problem = self::nameProblem($name, (string) $content['fields'][$i]['key'], $i, array_column($content['fields'], 'key'), $taken);
             if ($problem !== null) {
                 $label = trim((string) ($field['label'] ?? ''));
-                $errors[$place . '.fields.' . $i . '.name'] = ($label !== '' ? $label : 'Field ' . ($i + 1)) . ': ' . $problem;
+                $errors[$place . '.fields.' . $i . '.name'] = ($label !== '' ? $label : t('Field %d', $i + 1)) . ': ' . t($problem); // the sentences are literals of nameProblem(), translated here (admin dictionary)
                 continue;
             }
             $taken[$name] = true;
