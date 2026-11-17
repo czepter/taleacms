@@ -631,7 +631,7 @@ return [
     'Start from one of your own pages – its layout and texts, to change.' => 'Von einer deiner eigenen Seiten ausgehen – mit ihrem Aufbau und ihren Texten, zum Anpassen.',
     'Static Webflow pages are not in a collection export. Import them from the live site with Import and export → From a live website.' => 'Statische Webflow-Seiten sind nicht im Export einer Collection. Importiere sie von der laufenden Website über Import und Export → Von einer laufenden Website.',
     'Stays on your site; Claude cannot read it.' => 'Bleibt auf deiner Website; Claude kann ihn nicht lesen.',
-    'Subject of the notification to you (empty = “form name: site name”); {Field label} puts in an answer' => 'Betreff der Benachrichtigung an dich (leer = „Formularname: Name der Website“); {Feldbeschriftung} setzt eine Antwort ein',
+    'Subject of the notification to you (empty = “form name: site name”); {Field label} or {technical name} puts in an answer' => 'Betreff der Benachrichtigung an dich (leer = „Formularname: Name der Website“); {Feldbeschriftung} oder {technischer Name} setzt eine Antwort ein',
     'Suggest three news topics from what people search for on Google.' => 'Schlage drei News-Themen vor, je nachdem, wonach Menschen bei Google suchen.',
     'Switch the Claude connection on in Features.' => 'Schalte die Claude-Anbindung unter Funktionen ein.',
     'System fonts download nothing. A custom font is stored on your own server – it does not need visitor consent either.' => 'Systemschriften laden nichts herunter. Eine eigene Schriftart wird auf deinem eigenen Server gespeichert – auch dafür ist keine Einwilligung der Besucher nötig.',

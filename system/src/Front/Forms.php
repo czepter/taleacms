@@ -83,9 +83,9 @@ final class Forms
                 foreach ($element['content']['fields'] as $i => $f) {
                     if ((string) ($f['key'] ?? '') !== '' && in_array($f['type'], \Talea\Core\FormLinks::PREFILLABLE, true)) {
                         $answers[(string) $f['key']] = match ($f['type']) {
-                            'checkboxes' => $r->postList('p' . $i),
-                            'timerange' => implode('', $times = array_map('trim', $r->postList('p' . $i))) === '' ? '' : implode('-', $times),
-                            default => mb_substr($r->post('p' . $i), 0, 5000),
+                            'checkboxes' => $r->postList(Form::fieldName($f, $i)),
+                            'timerange' => implode('', $times = array_map('trim', $r->postList(Form::fieldName($f, $i)))) === '' ? '' : implode('-', $times),
+                            default => mb_substr($r->post(Form::fieldName($f, $i)), 0, 5000),
                         };
                     }
                 }
@@ -134,10 +134,10 @@ final class Forms
         $answers = [];
         foreach ($fields as $i => $f) {
             $answers[$i] = match ($f['type']) {
-                'checkboxes' => array_values(array_intersect(Form::options($f), $r->postList('p' . $i))),
+                'checkboxes' => array_values(array_intersect(Form::options($f), $r->postList(Form::fieldName($f, $i)))),
                 // a time range arrives as two times; both empty = no answer, anything else is checked in the loop below
-                'timerange' => ($times = array_map('trim', $r->postList('p' . $i))) === [] || implode('', $times) === '' ? '' : implode('-', $times),
-                default => trim($r->post('p' . $i)),
+                'timerange' => ($times = array_map('trim', $r->postList(Form::fieldName($f, $i)))) === [] || implode('', $times) === '' ? '' : implode('-', $times),
+                default => trim($r->post(Form::fieldName($f, $i))),
             };
         }
         $calculation = FormLogic::evaluate($element['content'], $answers);
@@ -151,9 +151,10 @@ final class Forms
                 continue;
             }
             $types[] = $field['type'];
+            $name = Form::fieldName($field, $i);
             if ($field['type'] === 'estimate') {
                 $variant = FormResult::variant($element['content'], $calculation['variant']);
-                $data[] = [$field['label'], $variant === null ? $calculation['shown'] : $variant['heading'] . ($variant['show_amount'] ? "\n" . $calculation['shown'] : '')];
+                $data[] = [$field['label'], $variant === null ? $calculation['shown'] : $variant['heading'] . ($variant['show_amount'] ? "\n" . $calculation['shown'] : ''), 'name' => $name];
                 if ($calculation['lines'] !== []) {
                     $data[] = [t('Breakdown'), implode("\n", FormResult::lines($element['content'], $calculation['lines']))];
                     $types[] = 'info';
@@ -165,11 +166,11 @@ final class Forms
                 if (($range !== '' && FormLogic::value($field, $range) === null) || ($field['required'] && $range === '')) {
                     return $redirectUri('field', $i);
                 }
-                $data[] = [$field['label'], str_replace('-', ' – ', $range)];
+                $data[] = [$field['label'], str_replace('-', ' – ', $range), 'name' => $name];
                 continue;
             }
             if ($field['type'] === 'file') {
-                $file = $_FILES['p' . $i] ?? null;
+                $file = $_FILES[$name] ?? null;
                 $uploaded = is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $file['tmp_name']);
                 $extension = $uploaded ? strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) : '';
                 // the content counts, not the name: a CV must be what its extension says, and no attachment may be HTML, a script or a program
@@ -180,7 +181,7 @@ final class Forms
                 if (!$uploaded && $field['required']) {
                     return $redirectUri('field', $i);
                 }
-                $data[] = [$field['label'], $uploaded ? mb_substr(basename((string) $file['name']), 0, 120) . ' (' . \Talea\Core\Files::size((int) $file['size']) . ')' : ''];
+                $data[] = [$field['label'], $uploaded ? mb_substr(basename((string) $file['name']), 0, 120) . ' (' . \Talea\Core\Files::size((int) $file['size']) . ')' : '', 'name' => $name];
                 if ($uploaded) {
                     $attachments[count($data) - 1] = [(string) $file['tmp_name'], $extension];
                     $uploads[(string) $field['label']] = [(string) $file['tmp_name'], (string) $file['name']];
@@ -189,11 +190,11 @@ final class Forms
             }
             if ($field['type'] === 'basket') {
                 // the enquiry basket (2.11): every line is rebuilt from the products in the database, nothing the visitor typed
-                $lines = \Talea\Builder\Products::basketLines($this->app->db(), mb_substr($r->post('p' . $i), 0, 20000));
+                $lines = \Talea\Builder\Products::basketLines($this->app->db(), mb_substr($r->post($name), 0, 20000));
                 if ($lines === null || ($field['required'] && $lines === [])) {
                     return $redirectUri('field', $i);
                 }
-                $data[] = [$field['label'], implode("\n", $lines)];
+                $data[] = [$field['label'], implode("\n", $lines), 'name' => $name];
                 continue;
             }
             if ($field['type'] === 'hidden') {
@@ -202,18 +203,18 @@ final class Forms
                 // but only as short plain text (tags and control characters removed) and only in that case
                 $own = mb_substr(trim((string) ($field['value'] ?? '')), 0, 300);
                 $data[] = [$field['label'], preg_match(\Talea\Builder\Collections::PLACEHOLDER_PATTERN, $own) === 1
-                    ? mb_substr(trim(strip_tags((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $r->post('p' . $i)))), 0, 300) : $own];
+                    ? mb_substr(trim(strip_tags((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $r->post($name)))), 0, 300) : $own, 'name' => $name];
                 continue;
             }
             if ($field['type'] === 'checkboxes') {
-                $ticked = array_values(array_intersect(Form::options($field), $r->postList('p' . $i)));
+                $ticked = array_values(array_intersect(Form::options($field), $r->postList($name)));
                 if ($field['required'] && $ticked === []) {
                     return $redirectUri('field', $i);
                 }
-                $data[] = [$field['label'], implode(', ', $ticked)];
+                $data[] = [$field['label'], implode(', ', $ticked), 'name' => $name];
                 continue;
             }
-            $value = trim(str_replace("\r\n", "\n", $r->post('p' . $i)));
+            $value = trim(str_replace("\r\n", "\n", $r->post($name)));
             $value = match ($field['type']) {
                 'textarea' => mb_substr($value, 0, 5000),
                 'email' => filter_var($value, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($value, 0, 190) : ($value === '' ? '' : null),
@@ -230,7 +231,7 @@ final class Forms
             if ($field['type'] === 'email' && $email === '') {
                 $email = $value;
             }
-            $data[] = [$field['label'], $value];
+            $data[] = [$field['label'], $value, 'name' => $name];
         }
         $antispam->write($r->ip(), 'form', 0);
         // the link is taken now, so two submissions with the same link cannot both go through; a failed one gives it back

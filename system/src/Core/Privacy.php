@@ -318,15 +318,15 @@ final class Privacy
     /* ---------- anonymisation ---------- */
 
     /**
-     * The form data of an enquiry without the person: labels stay, values go, attachments are left out (their files are
-     * deleted by the caller). Pure – the unit test checks a sample.
+     * The form data of an enquiry without the person: labels and technical names stay, values go, attachments are left out (their
+     * files are deleted by the caller). Pure – the unit test checks a sample.
      *
-     * @param list<array{0: string, 1: string, 2?: string}> $data
-     * @return list<array{0: string, 1: string}>
+     * @param list<array{0: string, 1: string, 2?: string, name?: string}> $data
+     * @return list<array{0: string, 1: string, name?: string}>
      */
     public static function anonymiseData(array $data): array
     {
-        return array_values(array_map(fn (array $d): array => [$d[0], ''], array_filter($data, fn (array $d): bool => !isset($d[2]))));
+        return array_values(array_map(fn (array $d): array => [$d[0], ''] + (isset($d['name']) ? ['name' => $d['name']] : []), array_filter($data, fn (array $d): bool => !isset($d[2]))));
     }
 
     /**
