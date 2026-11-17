@@ -49,7 +49,8 @@ Enquiries, so a page cannot change it.
 
 A field is posted, stored and delivered under a **technical name** that does not move. `Form::fieldName($field, $i)` is the one rule:
 the field's `name` if it has one, else its stable `key` (`k` + 4 characters, assigned by `Form::sanitizeElement`), and only for a
-field with neither (never in a stored build) `p<i>`. The position is never a name, so inserting, reordering or deleting fields
+field with neither (never in a stored build) `p<i>`. A draft that was never published has fields without a name (they render under
+their key); **publishing names them**, see below. The position is never a name, so inserting, reordering or deleting fields
 renames no other field. The element ids (`f-<element>-<i>`), `data-field` of a condition and the `field=<index>` of the error
 redirect stay index-based: they live inside one request. The form prints the posted names in field order as `data-fields`
 (JSON); `image/forms.js` uses that list for the remembered answers and for the live logic and estimate.
@@ -62,6 +63,18 @@ with `tl_` or `as_`. A name shaped like a key (`k` + 4 characters) is accepted o
 another field's name or key; the first field keeps a duplicated name. A bad name is cleared (the field then uses its key) and
 reported at `<place>.fields.<i>.name`; the field itself is never dropped and the save never fails. A newly drawn key avoids every
 name asked for in the same save. The property accepts up to 80 characters, so that a name longer than 40 is reported and not cut short.
+
+**Names from labels, on publishing.** `FormFieldNames::fromLabels()` runs where a form is published (`FormRecords::store` for every build that
+holds a form: pages, parts, pop-ups, templates, components and imports once they are adopted; `Publisher::form` for a form record),
+never on a draft save (a field just added still has its default label). For each field without a name: (a) the name of the field with
+the same key in the form as published now (so a draft that carries no names renames nothing, whatever its labels say); (b) else the
+slug of its label (`slugify()`: umlauts, Czech and Arabic transliterated; a leading digit gets `f-`; cut to 40 characters without a
+trailing separator; reserved, `tl_`/`as_` and key-shaped results and clashes get `-2`, `-3` …; names that exist are assigned first,
+so a new field never takes a published one's name); (c) else (no usable label) its key, written out. The name is stored, so a later
+label change, an insertion or a reorder changes none. The editor needs no change: publishing empties the draft, and a field the
+editor still holds without a name takes the published one by key at the next publish (rule a). Frozen `p<i>` names and names the owner
+set are never touched. A form that is still written inside a page, part or template and is not published or adopted yet renders
+under keys until it is.
 
 **What carries the name.** Each stored answer in `enquiries.data` that comes from a field is `[label, value, (attachment path), 'name' => …]`
 (a string key, so the list positions and `isset($d[2])` stay as they were; the breakdown and the "file sent by e-mail" rows have none).
@@ -77,9 +90,9 @@ fields by label or key.
 a further site's run) and `build_revisions`. A revision was published, so it keeps the names it rendered and restoring it brings them
 back. A draft takes the name of the published field **with the same key** (a draft may already hold an unpublished insertion; freezing
 it by its own positions would rename a published field); draft-only fields stay unnamed and use their key. After the migration there
-is no flag and no legacy path: unnamed fields use their key. The migration is idempotent, and a form the owner renames
+is no flag and no legacy path: a field without a name uses its key until its form is published, which names it. The migration is idempotent, and a form the owner renames
 (`p1` to `email`) simply posts the new name from then on. Not frozen: saved sections, page templates, blueprints, looks, starters,
-archives exported before this change and WordPress or web imports; they create new forms, which use their keys.
+archives exported before this change and WordPress or web imports; they create new forms, which are named from their labels when they are published.
 
 ## The thank-you e-mail
 

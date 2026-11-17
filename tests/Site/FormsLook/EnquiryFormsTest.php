@@ -179,7 +179,7 @@ final class EnquiryFormsTest extends SiteTestCase
     {
         $base = ['source' => self::$source, 'element' => self::$element, 'back' => '/contact', 'as_time' => self::$time, 'as_signature' => self::$signature];
 
-        return $this->site()->client()->post('/form', FormNames::map($fields, FormNames::of(self::$html, self::$element)) + $base, $headers)->redirect;
+        return $this->site()->client()->post('/form', FormNames::map($fields, FormNames::of($this->site()->client()->get('/contact')->body, self::$element)) + $base, $headers)->redirect;
     }
 
     /** The old hook_check: event|signed|uri of the n-th logged call, "signed" when the signature matches the site's secret. */

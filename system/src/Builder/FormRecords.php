@@ -384,10 +384,14 @@ final class FormRecords
     private static function store(App $app, string $origin, array $node, bool $published): array
     {
         $db = $app->db();
+        $row = $db->one('SELECT * FROM {forms} WHERE origin = ?', [mb_substr($origin, 0, 80)]);
         $element = ['id' => (string) $node['id'], 'type' => Form::TYPE, 'tag' => 'form', 'content' => (array) ($node['content'] ?? [])];
+        if ($published) {
+            // published now: the fields without a technical name get one, stored for good (FormFieldNames::fromLabels)
+            $element['content'] = FormFieldNames::fromLabels($element['content'], (array) (self::definition(Build::fromJson($row['build'] ?? null))['content'] ?? []));
+        }
         $json = Build::toJson(['v' => Build::VERSION, 'children' => [$element]]);
         $name = mb_substr(trim((string) ($node['content']['name'] ?? '')), 0, 120) ?: t('Form');
-        $row = $db->one('SELECT * FROM {forms} WHERE origin = ?', [mb_substr($origin, 0, 80)]);
         $now = date('Y-m-d H:i:s');
         if ($row === null) {
             $id = $db->insert('forms', ['name' => $name, 'origin' => mb_substr($origin, 0, 80), 'created_at' => $now, 'updated_at' => $now] + ($published ? ['build' => $json] : ['build_draft' => $json]));

@@ -151,7 +151,7 @@ final class Form extends Element
             ]],
             // rules and result variants (Builder\FormLogic); edited in its own overlay, not as a field
             'calculation' => ['type' => 'choice', 'label' => 'Show the estimate', 'default' => 'live', 'options' => ['live' => 'while answering', 'after_contact' => 'after the visitor sent their contact details']],
-            'logic' => ['type' => 'form_logic', 'label' => 'Logic for a quiz or quote calculator. Options of radio, select and checkboxes fields may carry an amount ("Label | 1200"), a number field a unit_price, an estimate field adds them up to a total with an optional range (range_below/range_above in percent), rounding (round_to) and a minimum. "logic" holds rules and result variants: {"rules":[{"label":"…","match":"all|any","when":[{"field":"<field key>","op":"is|is_not|contains|not_contains|gt|lt|between|weekday|month|empty|not_empty","value":"…","to":"… (between)"}],"then":[{"do":"add|quantity|multiply|skip|show_when|result", …}]}],"results":[{"key":"…","heading":"…","text":"…","show_amount":true,"button_text":"","button_link":""}]} – add: {"do":"add","amount":100}, quantity (amount × the number in a field): {"do":"quantity","field":"<key>","amount":10}, multiply: {"do":"multiply","by":1.3}, skip: {"do":"skip","field":"<key>"} (the field is hidden when the rule holds), show_when: {"do":"show_when","field":"<key>"} (the field shows only when the rule holds), result: {"do":"result","variant":"<result key>"}. Fields are named by their key (get_build shows it), never by label. The "name" of a field is its technical name: the name the answer is posted, stored in Enquiries and delivered (webhook, list_enquiries, CSV) under, and the {name} placeholder of the e-mails – unique in the form, a–z, 0–9, _ and -, starting with a letter; empty means the key; renaming it changes what outside systems receive. calculation "after_contact" shows the estimate only after the visitor sent their contact details (no amount is then in the page). Run it with try_form.', 'default' => ['rules' => [], 'results' => []]],
+            'logic' => ['type' => 'form_logic', 'label' => 'Logic for a quiz or quote calculator. Options of radio, select and checkboxes fields may carry an amount ("Label | 1200"), a number field a unit_price, an estimate field adds them up to a total with an optional range (range_below/range_above in percent), rounding (round_to) and a minimum. "logic" holds rules and result variants: {"rules":[{"label":"…","match":"all|any","when":[{"field":"<field key>","op":"is|is_not|contains|not_contains|gt|lt|between|weekday|month|empty|not_empty","value":"…","to":"… (between)"}],"then":[{"do":"add|quantity|multiply|skip|show_when|result", …}]}],"results":[{"key":"…","heading":"…","text":"…","show_amount":true,"button_text":"","button_link":""}]} – add: {"do":"add","amount":100}, quantity (amount × the number in a field): {"do":"quantity","field":"<key>","amount":10}, multiply: {"do":"multiply","by":1.3}, skip: {"do":"skip","field":"<key>"} (the field is hidden when the rule holds), show_when: {"do":"show_when","field":"<key>"} (the field shows only when the rule holds), result: {"do":"result","variant":"<result key>"}. Fields are named by their key (get_build shows it), never by label. The "name" of a field is its technical name: the name the answer is posted, stored in Enquiries and delivered (webhook, list_enquiries, CSV) under, and the {name} placeholder of the e-mails – unique in the form, a–z, 0–9, _ and -, starting with a letter; empty means a name made from the label when the form is published, kept from then on; renaming it changes what outside systems receive. calculation "after_contact" shows the estimate only after the visitor sent their contact details (no amount is then in the page). Run it with try_form.', 'default' => ['rules' => [], 'results' => []]],
             // who may send: anyone who sees the form, or only a person with a personal link (Core\FormLinks, /_f/<token>)
             'access' => ['type' => 'choice', 'label' => 'Who can send it', 'default' => 'open', 'options' => ['open' => 'Anyone who sees the form', 'link' => 'Only people with a personal link']],
             'link_days' => ['type' => 'number', 'label' => 'A personal link works for (days)', 'default' => 30, 'min' => 1, 'max' => 365, 'when' => ['access' => 'link']],
@@ -229,31 +229,6 @@ final class Form extends Element
         ];
     }
 
-    /**
-     * Why a technical name cannot be used, or null when it can. The first field that has a name keeps it, so $taken holds the names of the earlier ones.
-     *
-     * @param list<string>       $keys  the key of every field of the form
-     * @param array<string, true> $taken the technical names of the fields before this one
-     */
-    private static function nameProblem(string $name, string $ownKey, int $i, array $keys, array $taken): ?string
-    {
-        if (preg_match(self::NAME_PATTERN, $name) !== 1) {
-            return 'The technical name may use a–z, 0–9, _ and -, start with a letter and be at most 40 characters; it was removed.';
-        }
-        if (in_array($name, self::RESERVED_NAMES, true) || str_starts_with($name, 'tl_') || str_starts_with($name, 'as_')) {
-            return 'This technical name is used by the form itself; it was removed.';
-        }
-        // a name shaped like a key would take the key of a field added later; it is only the field's own
-        if ($name === $ownKey) {
-            return null;
-        }
-        if (preg_match('/^k[a-z0-9]{4}$/', $name) === 1 || isset($taken[$name]) || in_array($name, array_diff_key($keys, [$i => true]), true)) {
-            return 'Another field of this form already has this technical name; it was removed.';
-        }
-
-        return null;
-    }
-
     /** Every field gets a unique key /^k[a-z0-9]{4}$/: a valid unused one is kept, otherwise a new one is drawn. */
     public static function sanitizeElement(array $content, string $place, array &$errors): array
     {
@@ -292,10 +267,10 @@ final class Form extends Element
             if ($name === '') {
                 continue;
             }
-            $problem = self::nameProblem($name, (string) $content['fields'][$i]['key'], $i, array_column($content['fields'], 'key'), $taken);
+            $problem = \Talea\Builder\FormFieldNames::problem($name, (string) $content['fields'][$i]['key'], $i, array_column($content['fields'], 'key'), $taken);
             if ($problem !== null) {
                 $label = trim((string) ($field['label'] ?? ''));
-                $errors[$place . '.fields.' . $i . '.name'] = ($label !== '' ? $label : t('Field %d', $i + 1)) . ': ' . t($problem); // the sentences are literals of nameProblem(), translated here (admin dictionary)
+                $errors[$place . '.fields.' . $i . '.name'] = ($label !== '' ? $label : t('Field %d', $i + 1)) . ': ' . t($problem); // the sentences are literals of FormFieldNames::problem(), translated here (admin dictionary)
                 continue;
             }
             $taken[$name] = true;

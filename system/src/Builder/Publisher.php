@@ -76,7 +76,12 @@ final class Publisher
     /** Form (versions under the key „form:<id>“, docs/specs/form-builder.md) – the change shows wherever the form is placed. */
     public static function form(App $app, array $form): void
     {
-        $new = Build::toJson(FormRecords::definitionBuild(Build::fromJson($form['build_draft'] ?? $form['build'])));
+        $definition = FormRecords::definitionBuild(Build::fromJson($form['build_draft'] ?? $form['build']));
+        if (isset($definition['children'][0]['content'])) {
+            // the fields without a technical name get one now and keep it (FormFieldNames::fromLabels)
+            $definition['children'][0]['content'] = FormFieldNames::fromLabels($definition['children'][0]['content'], (array) (FormRecords::definition(Build::fromJson($form['build'] ?? null))['content'] ?? []));
+        }
+        $new = Build::toJson($definition);
         if (($refusal = FormRecords::destinationRefusal($app, $new)) !== null) {
             throw new \DomainException($refusal);
         }

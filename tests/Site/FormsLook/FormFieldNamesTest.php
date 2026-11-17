@@ -78,13 +78,12 @@ final class FormFieldNamesTest extends SiteTestCase
         self::$form = $this->sql('SELECT public_id FROM tl_forms');
         $definition = $this->call('get_build', ['form' => self::$form])['build']['children'][0] ?? [];
         self::$definition = (string) ($definition['id'] ?? '');
-        $this->assertSame(['vorname', 'email', 'datum', 'tags', '', 'consent'], array_column($definition['content']['fields'], 'name'), 'get_build shows the technical names');
+        $this->assertSame(['vorname', 'email', 'datum', 'tags', 'note', 'consent'], array_column($definition['content']['fields'], 'name'), 'get_build shows the technical names, the one without was made from its label when the form was published');
 
         $html = $site->client()->get('/named-form')->body;
         $names = FormNames::of($html);
         $this->assertSame(['vorname', 'email', 'datum', 'tags'], array_slice($names, 0, 4));
-        $this->assertMatchesRegularExpression('/^k[a-z0-9]{4}$/', $names[4], 'a field without a name is posted under its key');
-        $this->assertSame($definition['content']['fields'][4]['key'], $names[4]);
+        $this->assertSame('note', $names[4], 'a field without a name got one from its label when the form was published');
         $this->assertSame('consent', $names[5]);
         $this->assertStringContainsString('name="vorname"', $html);
         $this->assertStringContainsString('type="date"', $html);
@@ -145,7 +144,7 @@ final class FormFieldNamesTest extends SiteTestCase
         $after = $this->posted();
         $this->assertCount(7, $after);
         $this->assertSame([...array_slice($before, 0, 1), $after[1], ...array_slice($before, 1)], $after, 'inserted between the first and the second: the others keep their names');
-        $this->assertMatchesRegularExpression('/^k[a-z0-9]{4}$/', $after[1], 'the new field has its key');
+        $this->assertSame('phone', $after[1], 'the new field is named from its label when it is published');
 
         $stored = $this->call('get_build', ['form' => self::$form])['build']['children'][0]['content']['fields'];
         $this->setFields(array_reverse($stored));
@@ -209,7 +208,7 @@ final class FormFieldNamesTest extends SiteTestCase
         $names = $this->posted();
         $this->assertCount($count + 1, $names);
         $this->assertSame('p' . $position, $names[$position + 1], 'an inserted field does not move the e-mail: it stays p' . $position);
-        $this->assertMatchesRegularExpression('/^k[a-z0-9]{4}$/', $names[1]);
+        $this->assertSame('phone', $names[1]);
 
         // and an answer posted under that name is still read as the e-mail
         $site = $this->site();

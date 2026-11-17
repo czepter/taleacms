@@ -251,4 +251,52 @@ final class FormFieldNamesTest extends TestCase
         $this->assertArrayNotHasKey('hidden', $row);
         $this->assertArrayNotHasKey('group', $row, 'a field of the main group of the inspector');
     }
+
+    /** @param list<array<string, mixed>> $fields @param list<array<string, mixed>> $published @return list<string> */
+    private function published(array $fields, array $published = []): array
+    {
+        $content = \Talea\Builder\FormFieldNames::fromLabels(['fields' => $fields], ['fields' => $published]);
+
+        return array_column($content['fields'], 'name');
+    }
+
+    public function testPublishingNamesFieldsFromTheirLabels(): void
+    {
+        $this->assertSame(['e-mail', 'vorname', 'grosse', 'cena', 'f-3-guests', 'phone'], $this->published([
+            ['key' => 'ka001', 'label' => 'E-Mail'], ['key' => 'ka002', 'label' => 'Vorname'], ['key' => 'ka003', 'label' => 'Größe'],
+            ['key' => 'ka004', 'label' => 'Čena'], ['key' => 'ka005', 'label' => '3 guests'], ['key' => 'ka006', 'label' => 'Phone'], // check-english: allow
+        ]), 'readable names; a digit first gets f-');
+        $this->assertSame(['strasse'], $this->published([['key' => 'ka001', 'label' => 'Straße']]), 'ß is transliterated');
+    }
+
+    public function testNamesFromLabelsAreUniqueValidAndCapped(): void
+    {
+        $names = $this->published([
+            ['key' => 'ka001', 'label' => 'Email'], ['key' => 'ka002', 'label' => 'Email'], ['key' => 'ka003', 'label' => 'E mail'], ['key' => 'ka004', 'label' => 'Source'],
+            ['key' => 'ka005', 'label' => 'Result'], ['key' => 'ka006', 'label' => 'tl_x'], ['key' => 'ka007', 'label' => str_repeat('long ', 20)], ['key' => 'ka008', 'label' => 'kabcd'],
+        ]);
+        $this->assertSame(['email', 'email-2', 'e-mail', 'source-2', 'result-2', 'tl-x', 'long-long-long-long-long-long-long-long'], array_slice($names, 0, 7));
+        $this->assertLessThanOrEqual(40, strlen($names[6]));
+        $this->assertSame('kabcd-2', $names[7], 'a key-shaped name is not drawn from a label');
+        foreach ($names as $name) {
+            $this->assertMatchesRegularExpression(Form::NAME_PATTERN, $name);
+        }
+        $this->assertCount(count($names), array_unique($names));
+        $capped = $this->published([['key' => 'ka001', 'label' => str_repeat('a', 39) . ' b'], ['key' => 'ka002', 'label' => str_repeat('a', 39) . ' c']]);
+        $this->assertSame([str_repeat('a', 39), str_repeat('a', 38) . '-2'], $capped, 'a cut name leaves room for the suffix and ends in no separator');
+    }
+
+    public function testNoLabelGivesTheKeyWrittenOut(): void
+    {
+        $this->assertSame(['ka001', 'ka002'], $this->published([['key' => 'ka001', 'label' => ''], ['key' => 'ka002', 'label' => '???']]), 'no usable label: the key, stored so that a later label does not rename the field');
+    }
+
+    public function testSetNamesAndPublishedNamesAreNeverChanged(): void
+    {
+        $published = [['key' => 'ka001', 'label' => 'Old label', 'name' => 'p0'], ['key' => 'ka002', 'label' => 'Mail', 'name' => 'email']];
+        $this->assertSame(['p0', 'email', 'mine', 'new-label'], $this->published([
+            ['key' => 'ka001', 'label' => 'Totally new label'], ['key' => 'ka002', 'label' => 'Renamed'], ['key' => 'ka003', 'label' => 'x', 'name' => 'mine'], ['key' => 'ka004', 'label' => 'New label'],
+        ], $published), 'a draft that carries no names takes the published ones by key; the owner’s name stays; a new field is named from its label');
+        $this->assertSame(['email-2', 'email'], $this->published([['key' => 'ka009', 'label' => 'Email'], ['key' => 'ka002', 'label' => 'Mail']], $published), 'a new field never takes the name of a published one');
+    }
 }
