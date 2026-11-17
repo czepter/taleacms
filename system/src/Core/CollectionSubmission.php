@@ -44,7 +44,7 @@ final class CollectionSubmission
     /**
      * A template with {Field label} placeholders filled from the answers (a label that is not in the form gives nothing).
      *
-     * @param list<array<int, string>> $data [label, answer, …] per field as the form collected them
+     * @param list<array<int|string, mixed>> $data [label, answer, …] per field as the form collected them
      */
     public static function fill(string $template, array $data): string
     {
@@ -62,7 +62,7 @@ final class CollectionSubmission
      * 'field:<n>' – the answer of the form's field n (or 'field' when no single field made it) does not fit its collection field (a
      * number, a date, an option the collection does not have). Nothing is dropped silently: an answer that does not fit is refused.
      *
-     * @param list<array<int, string>> $data the answers as [label, answer, …]
+     * @param list<array<int|string, mixed>> $data the answers as [label, answer, …]
      * @param array<string, array{0: string, 1: string}> $uploads field label => [temporary file, file name] of what the visitor uploaded
      * @param array<string, mixed> $fixed collection field key => value set by the personal link (Core\FormLinks), checked when it was made
      */
@@ -108,7 +108,7 @@ final class CollectionSubmission
      * What the answers make of the item's fields: the mapped values by field key, and the uploads by field key.
      *
      * @param array<string, array<string, mixed>> $byKey the collection's fields by key
-     * @param list<array<int, string>> $data
+     * @param list<array<int|string, mixed>> $data
      * @param array<string, array{0: string, 1: string}> $uploads
      * @return array{0: array<string, string>, 1: array<string, array{0: string, 1: string}>}
      */

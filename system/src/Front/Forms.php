@@ -369,7 +369,7 @@ final class Forms
      * A form that adds to a collection (Core\CollectionSubmission): after the same checks as an enquiry, the answers become a hidden
      * draft item; nothing is stored as an enquiry. A person publishes it; the form's recipients are told it is waiting.
      *
-     * @param list<array<int, string>> $data
+     * @param list<array<int|string, mixed>> $data
      * @param array<string, array{0: string, 1: string}> $uploads
      */
     private function addToCollection(array $element, array $data, array $uploads, \Closure $redirectUri, ?array $link = null, string $consent = ''): Response
@@ -409,7 +409,7 @@ final class Forms
      * keeps only what a link can fill in).
      *
      * @param list<array<string, mixed>> $fields
-     * @param list<array<int, string>> $data
+     * @param list<array<int|string, mixed>> $data
      * @return array<string, string>
      */
     private static function answersByKey(array $fields, array $data): array
