@@ -36,16 +36,22 @@ final class FormFieldNames
             }
         }
         $taken = [];
-        // the names that exist come first, so a new field never takes the name of a published one
+        // 1. a name the draft carries is the owner's (or frozen) and wins
+        foreach ($fields as $field) {
+            if (trim((string) ($field['name'] ?? '')) !== '') {
+                $taken[trim((string) $field['name'])] = true;
+            }
+        }
+        // 2. the published name of a field with the same key comes back, so a new field never takes it; when the owner gave another
+        //    field of the draft that very name, the owner's name stays and this field falls through to 3
         foreach ($fields as $i => $field) {
             $key = (string) ($field['key'] ?? '');
             if (trim((string) ($field['name'] ?? '')) === '' && isset($before[$key]) && !isset($taken[$before[$key]])) {
                 $fields[$i]['name'] = $before[$key];
                 $taken[$before[$key]] = true;
-            } elseif (trim((string) ($field['name'] ?? '')) !== '') {
-                $taken[trim((string) $field['name'])] = true;
             }
         }
+        // 3. the rest: from the label, else the key
         foreach ($fields as $i => $field) {
             if (trim((string) ($field['name'] ?? '')) !== '') {
                 continue;

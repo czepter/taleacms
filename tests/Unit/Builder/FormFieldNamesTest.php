@@ -299,4 +299,11 @@ final class FormFieldNamesTest extends TestCase
         ], $published), 'a draft that carries no names takes the published ones by key; the owner’s name stays; a new field is named from its label');
         $this->assertSame(['email-2', 'email'], $this->published([['key' => 'ka009', 'label' => 'Email'], ['key' => 'ka002', 'label' => 'Mail']], $published), 'a new field never takes the name of a published one');
     }
+
+    public function testAnExplicitNameInTheDraftWinsOverARestoredPublishedName(): void
+    {
+        $published = [['key' => 'ka001', 'label' => 'Mail', 'name' => 'email']];
+        $names = $this->published([['key' => 'ka001', 'label' => 'Mail'], ['key' => 'ka002', 'label' => 'Other', 'name' => 'email']], $published);
+        $this->assertSame(['mail', 'email'], $names, 'the owner’s explicit name stays; the restored field is named from its label, never a duplicate');
+    }
 }

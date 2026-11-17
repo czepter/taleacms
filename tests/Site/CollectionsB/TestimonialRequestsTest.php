@@ -41,6 +41,7 @@ final class TestimonialRequestsTest extends SiteTestCase
         $this->assertStringContainsString('noindex', $page->body, 'testimonials: the customer page is noindex');
         $signed = ['source' => $page->field('source'), 'element' => $page->field('element'), 'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'back' => "/$link", 'link' => $token];
         $names = FormNames::of($page->body, $page->field('element'));
+        $this->assertSame([], array_filter($names, static fn (string $n): bool => preg_match('/^k[a-z0-9]{4}$/', $n) === 1), 'testimonials: the form made for the requests is named from its labels, not by keys');
         sleep(1); // the anti-spam signature has a minimum age
 
         $refused = $customer->post('/form', $signed + FormNames::map(['p0' => 'Excellent cooperation, all on time.', 'p1' => 'Eve Novak'], $names));

@@ -65,12 +65,12 @@ reported at `<place>.fields.<i>.name`; the field itself is never dropped and the
 name asked for in the same save. The property accepts up to 80 characters, so that a name longer than 40 is reported and not cut short.
 
 **Names from labels, on publishing.** `FormFieldNames::fromLabels()` runs where a form is published (`FormRecords::store` for every build that
-holds a form: pages, parts, pop-ups, templates, components and imports once they are adopted; `Publisher::form` for a form record),
+holds a form: pages, parts, pop-ups, templates, components and imports once they are adopted; `Publisher::form` for a form record; `Core\Testimonials` for its own record, which is born published),
 never on a draft save (a field just added still has its default label). For each field without a name: (a) the name of the field with
 the same key in the form as published now (so a draft that carries no names renames nothing, whatever its labels say); (b) else the
 slug of its label (`slugify()`: umlauts, Czech and Arabic transliterated; a leading digit gets `f-`; cut to 40 characters without a
 trailing separator; reserved, `tl_`/`as_` and key-shaped results and clashes get `-2`, `-3` …; names that exist are assigned first,
-so a new field never takes a published one's name); (c) else (no usable label) its key, written out. The name is stored, so a later
+so a new field never takes a published one's name; a name the draft itself carries always wins, and a field whose published name an explicit name of another field has taken falls through to the label); (c) else (no usable label) its key, written out. The name is stored, so a later
 label change, an insertion or a reorder changes none. The editor needs no change: publishing empties the draft, and a field the
 editor still holds without a name takes the published one by key at the next publish (rule a). Frozen `p<i>` names and names the owner
 set are never touched. A form that is still written inside a page, part or template and is not published or adopted yet renders
