@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\FormsHygiene;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -28,13 +29,14 @@ final class CollectionFormTest extends SiteTestCase
         $visitor = $this->site()->client();
         $form = $visitor->get('/say-it');
         $signed = ['source' => $form->field('source'), 'element' => $form->field('element'), 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature'), 'back' => '/say-it'];
+        $names = FormNames::of($form->body, $form->field('element'));
         sleep(1);
 
-        $refused = $visitor->post('/form', $signed + ['p0' => 'Anna', 'p1' => '', 'p2' => '']);
+        $refused = $visitor->post('/form', $signed + FormNames::map(['p0' => 'Anna', 'p1' => '', 'p2' => ''], $names));
         $this->assertStringContainsString('result=field', $refused->redirect, 'collection form: a required answer is still required');
         $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM tl_collection_items WHERE collection_id = (SELECT collection_id FROM tl_collections WHERE slug = ?)', ['voices']), 'collection form: nothing is stored without it');
 
-        $sent = $visitor->post('/form', $signed + ['p0' => 'Anna', 'p1' => 'Designer', 'p2' => 'Lovely work <b>indeed</b>']);
+        $sent = $visitor->post('/form', $signed + FormNames::map(['p0' => 'Anna', 'p1' => 'Designer', 'p2' => 'Lovely work <b>indeed</b>'], $names));
         $this->assertStringContainsString('result=ok', $sent->redirect, 'collection form: the submission is accepted');
         $item = ($this->site()->rows('SELECT name, visible, data FROM tl_collection_items WHERE collection_id = (SELECT collection_id FROM tl_collections WHERE slug = ?)', ['voices']))[0];
         $this->assertSame('Anna|0', $item['name'] . '|' . $item['visible'], 'collection form: a hidden draft named after the answer');

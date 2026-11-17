@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\FormsLook;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
@@ -113,9 +114,9 @@ final class PopupsTest extends SiteTestCase
         $this->assertSame("popup:{$this->publicPopup()}|ab12cd3", "$source|$element", 'the form in the window has the window as its source');
 
         sleep(1); // the form asks for TALEA_ANTISPAM_MIN seconds between loading and sending
-        $location = $this->site()->client()->post('/form', [
+        $location = $this->site()->client()->post('/form', FormNames::map([
             'source' => $source, 'element' => $element, 'back' => '/', 'as_time' => $time, 'as_signature' => $this->formField($html, 'as_signature'), 'p0' => 'okno@example.cz',
-        ])->redirect;
+        ], FormNames::of($html, $element)))->redirect;
         $this->assertStringContainsString('result=ok', $location, 'the form in the window is submitted');
         $this->assertSame("Z okna|popup:$id", $this->sql("SELECT CONCAT(form, '|', source) FROM tl_enquiries WHERE email = 'okno@example.cz'"), 'the enquiry from the window is stored');
 

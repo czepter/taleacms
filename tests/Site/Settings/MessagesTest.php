@@ -6,6 +6,7 @@ namespace Talea\Tests\Site\Settings;
 
 use PHPUnit\Framework\Attributes\Group;
 use Talea\Tests\Site\ImportersBooking\BookingFixture;
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 
 /** Settings → Messages: the owner's own texts for courses and bookings, over the admin and over MCP. The methods build on each other. */
@@ -28,8 +29,8 @@ final class MessagesTest extends SiteTestCase
         $page = $visitor->get('/courses-test/salsa');
         sleep(1); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
 
-        return $visitor->post('/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/salsa',
-            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Anna', 'p1' => $email, 'p3' => '1'])->redirect;
+        return $visitor->post('/form', FormNames::map(['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/salsa',
+            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Anna', 'p1' => $email, 'p3' => '1'], FormNames::of($page->body, $page->field('element'))))->redirect;
     }
 
     /** Saves the Messages form of the courses group in the default language. @param array<string, string> $fields */

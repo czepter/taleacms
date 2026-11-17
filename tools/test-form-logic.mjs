@@ -18,6 +18,8 @@ await context.addInitScript(() => {
 });
 const page = await context.newPage();
 const failures = [];
+// the posted name of field i of the form on the page (data-fields: a technical name or the field's key)
+const nameOf = (i) => page.evaluate((n) => JSON.parse(document.querySelector('form[data-fields]').dataset.fields)[n], i);
 page.on('pageerror', (e) => failures.push(`script error: ${e.message}`));
 const check = (ok, message) => { if (!ok) { failures.push(message); } };
 
@@ -27,7 +29,8 @@ async function answer(fields, answers) {
     const field = fields[Number(index)];
     await page.evaluate(([i, f, v]) => {
       const fire = (el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
-      const named = [...document.querySelectorAll(`[name="p${i}"], [name="p${i}[]"]`)];
+      const name = JSON.parse(document.querySelector('form[data-fields]').dataset.fields)[i]; // the posted name: technical name or key
+      const named = [...document.querySelectorAll(`[name="${CSS.escape(name)}"], [name="${CSS.escape(name)}[]"]`)];
       if (f.type === 'radio') { const el = named.find((n) => n.value === v); if (el) { el.checked = true; fire(el); } }
       else if (f.type === 'checkboxes') { named.forEach((n) => { n.checked = v.includes(n.value); fire(n); }); }
       else if (f.type === 'timerange') { const [a, b] = v.split('-'); named[0].value = a; named[1].value = b; fire(named[1]); }
@@ -65,7 +68,8 @@ check(JSON.stringify(await stepShown()) === '[true,false,false]', 'quiz: starts 
 check(await page.locator('progress.tl-form-progress').count() === 1, 'quiz: progress is shown');
 await page.click('label:has-text("Pitched")');
 check(JSON.stringify(await stepShown()) === '[false,true,false]', `quiz: a tile moves on to step 2, got ${JSON.stringify(await stepShown())}`);
-await page.fill('input[name="p2"]', 'abc');
+const quizNames = [await nameOf(0), await nameOf(1), await nameOf(2)];
+await page.fill(`input[name="${quizNames[2]}"]`, 'abc');
 await page.goBack();
 check(JSON.stringify(await stepShown()) === '[true,false,false]', 'quiz: the browser Back returns one step');
 const focusIn = (n) => page.evaluate((i) => document.activeElement?.closest('fieldset.tl-step') === document.querySelectorAll('fieldset.tl-step')[i], n);
@@ -80,23 +84,24 @@ await page.click('.tl-steps-navigation button:has-text("Back")');
 check(JSON.stringify(await stepShown()) === '[true,false,false]', 'quiz: the Back button returns to step 1');
 check(await focusIn(0), 'quiz: the Back button leaves focus in step 1');
 await page.reload({ waitUntil: 'networkidle' });
-check(await page.locator('input[name="p0"][value="Flat"]').isChecked(), 'quiz: a reload keeps the tile');
-check(await page.locator('input[name="p2"]').inputValue() === 'abc', 'quiz: a reload keeps the text');
+check(await page.locator(`input[name="${quizNames[0]}"][value="Flat"]`).isChecked(), 'quiz: a reload keeps the tile');
+check(await page.locator(`input[name="${quizNames[2]}"]`).inputValue() === 'abc', 'quiz: a reload keeps the text');
 console.log(`  ${failures.length ? 'FAIL' : 'ok  '}  quiz flow`);
 
 // a hidden field is the page's own (a collection item's value, the basket): answers kept for the same form element never restore it
 await page.goto(`${BASE}/${basket.slug}`, { waitUntil: 'networkidle' });
-await page.evaluate(() => {
+const basketNames = [await nameOf(0), await nameOf(1)];
+await page.evaluate(([basketName, textName]) => {
   const id = document.querySelector('form[data-form]').dataset.form;
-  sessionStorage.setItem(`tl-form-${id}`, JSON.stringify({ p0: '[{"c":"ghost","i":"ghost","n":"Ghost product","v":"","q":1}]', p1: 'kept' }));
-});
+  sessionStorage.setItem(`tl-form-${id}`, JSON.stringify({ [basketName]: '[{"c":"ghost","i":"ghost","n":"Ghost product","v":"","q":1}]', [textName]: 'kept' }));
+}, basketNames);
 await page.reload({ waitUntil: 'networkidle' });
-check(await page.locator('input[name="p1"]').inputValue() === 'kept', 'basket: a reload keeps the text');
-check(await page.locator('input[name="p0"]').inputValue() === '[]', `basket: the hidden field keeps its own value, got ${await page.locator('input[name="p0"]').inputValue()}`);
+check(await page.locator(`input[name="${basketNames[1]}"]`).inputValue() === 'kept', 'basket: a reload keeps the text');
+check(await page.locator(`input[name="${basketNames[0]}"]`).inputValue() === '[]', `basket: the hidden field keeps its own value, got ${await page.locator(`input[name="${basketNames[0]}"]`).inputValue()}`);
 check(!(await page.locator('[data-basket-list]').textContent()).includes('Ghost'), 'basket: a stored hidden value does not bring a product back');
-await page.fill('input[name="p1"]', 'typed');
+await page.fill(`input[name="${basketNames[1]}"]`, 'typed');
 const stored = await page.evaluate(() => JSON.parse(sessionStorage.getItem(`tl-form-${document.querySelector('form[data-form]').dataset.form}`)));
-check(stored.p1 === 'typed' && !('p0' in stored), `basket: the hidden field is not stored, got ${JSON.stringify(stored)}`);
+check(stored[basketNames[1]] === 'typed' && !(basketNames[0] in stored), `basket: the hidden field is not stored, got ${JSON.stringify(stored)}`);
 console.log(`  ${failures.length ? 'FAIL' : 'ok  '}  hidden field not stored or restored`);
 
 await browser.close();

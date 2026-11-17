@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\FormsHygiene;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -37,16 +38,16 @@ final class LinkFormTest extends SiteTestCase
         $signed = ['source' => $opened->field('source'), 'element' => $opened->field('element'), 'as_time' => $opened->field('as_time'), 'as_signature' => $opened->field('as_signature'), 'back' => '/_f/' . $token];
         sleep(1);
 
-        $without = $visitor->post('/form', $signed + ['p0' => 'Eva', 'p1' => 'Great.', 'p2' => '1']);
+        $without = $visitor->post('/form', $signed + FormNames::map(['p0' => 'Eva', 'p1' => 'Great.', 'p2' => '1'], FormNames::of($opened->body, $opened->field('element'))));
         $this->assertStringContainsString('result=verification', $without->redirect, 'link form: no token, no submission');
         $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM tl_collection_items'), 'link form: nothing stored without the token');
 
-        $sent = $visitor->post('/form', $signed + ['link' => $token, 'p0' => 'Eva', 'p1' => 'Great.', 'p2' => '1']);
+        $sent = $visitor->post('/form', $signed + FormNames::map(['link' => $token, 'p0' => 'Eva', 'p1' => 'Great.', 'p2' => '1'], FormNames::of($opened->body, $opened->field('element'))));
         $this->assertStringContainsString('result=ok', $sent->redirect, 'link form: the token is accepted');
         $this->assertSame('1|OK to publish', $this->site()->value('SELECT CONCAT(COUNT(*), \'|\', MAX(consent)) FROM tl_form_links WHERE used_at IS NOT NULL AND item_id IS NOT NULL'), 'link form: the link is used and keeps the consent as worded');
         $used = $visitor->get('/_f/' . $token);
         $this->assertSame([410, true], [$used->status, str_contains($used->body, 'You already sent this form')], 'link form: a used link says so kindly instead of an error page');
-        $again = $visitor->post('/form', $signed + ['link' => $token, 'p0' => 'Eva', 'p1' => 'Twice', 'p2' => '1']);
+        $again = $visitor->post('/form', $signed + FormNames::map(['link' => $token, 'p0' => 'Eva', 'p1' => 'Twice', 'p2' => '1'], FormNames::of($opened->body, $opened->field('element'))));
         $this->assertStringContainsString('result=verification', $again->redirect, 'link form: a link works once');
         $this->assertSame('1', (string) $this->site()->value('SELECT COUNT(*) FROM tl_collection_items'), 'link form: only one item');
     }

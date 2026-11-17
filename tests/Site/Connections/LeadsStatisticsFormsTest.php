@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\Connections;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
@@ -21,6 +22,8 @@ final class LeadsStatisticsFormsTest extends SiteTestCase
 
     /** @var array<string, string> hidden fields of the lead form (zdroj, prvek, as_cas, as_podpis) */
     private static array $form = [];
+    /** @var list<string> what the fields of the lead form are posted under */
+    private static array $names = [];
     /** @var resource|null */
     private static $captchaServer = null;
 
@@ -46,6 +49,7 @@ final class LeadsStatisticsFormsTest extends SiteTestCase
         foreach (['source', 'element', 'as_time', 'as_signature'] as $name) {
             self::$form[$name] = $response->field($name);
         }
+        self::$names = FormNames::of($response->body, self::$form['element']);
 
         return $response;
     }
@@ -53,7 +57,7 @@ final class LeadsStatisticsFormsTest extends SiteTestCase
     /** Posts the lead form; returns the redirect address (old submit_form / captcha_post). @param array<string, mixed> $fields */
     private function submitForm(array $fields): string
     {
-        return $this->site()->client()->post('/form', self::$form + ['back' => '/leads-23'] + $fields)->redirect;
+        return $this->site()->client()->post('/form', self::$form + ['back' => '/leads-23'] + FormNames::map($fields, self::$names))->redirect;
     }
 
     private function captchaPost(string $email, array $extra = []): string
@@ -151,7 +155,7 @@ PHP);
         $site->exec('UPDATE tl_pages SET head_code = ? WHERE page_id = ?', ['<meta name="talea-test" content="23">', $page]);
 
         $form = $this->loadForm();
-        $this->assertStringContainsString('type="checkbox" name="p0[]" value="Kitchen"', $form->body, 'ticked options on the page');
+        $this->assertStringContainsString('type="checkbox" name="' . FormNames::of($form->body)[0] . '[]" value="Kitchen"', $form->body, 'ticked options on the page');
         $this->assertStringNotContainsString('Oak chair', $form->body, 'the hidden value is not on the page');
         $this->assertStringContainsString('data-insert="https://calendly.com/acme/consultation?embed_type=Inline&amp;hide_gdpr_banner=1"', $form->body, 'Embed: a known service after a click');
         $this->assertStringNotContainsString('evil.example', $form->body, 'Embed: anything else not at all');
@@ -243,8 +247,10 @@ PHP);
         $site = $this->site();
         $this->assertMatchesRegularExpression('#result=field&field=0#', $this->submitForm(['p2' => 'tick@example.cz']), 'a required group needs at least one ticked option');
         $this->submitForm(['p0' => ['Kitchen', 'Forged'], 'p1' => 'Hacked', 'p2' => 'tick@example.cz']);
-        $this->assertSame('[["Services","Kitchen"],["Product","Oak chair"],["Email","tick@example.cz"]]', $site->value("SELECT data FROM tl_enquiries WHERE email = 'tick@example.cz'"),
+        $stored = json_decode((string) $site->value("SELECT data FROM tl_enquiries WHERE email = 'tick@example.cz'"), true);
+        $this->assertSame([['Services', 'Kitchen'], ['Product', 'Oak chair'], ['Email', 'tick@example.cz']], array_map(static fn (array $d): array => [$d[0], $d[1]], $stored),
             "ticked options (only offered ones) and the form's own hidden value are saved");
+        $this->assertSame(self::$names, array_column($stored, 'name'), 'each answer carries the name it was posted under');
     }
 
     #[Depends('testRequiredGroupAndOfferedOptionsOnly')]

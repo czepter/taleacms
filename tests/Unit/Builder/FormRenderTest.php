@@ -103,8 +103,8 @@ final class FormRenderTest extends TestCase
 
     public function testTimeRangeHasTwoTimeInputs(): void
     {
-        $html = $this->renderForm(['fields' => [['label' => 'When', 'type' => 'timerange', 'required' => true]]]);
-        $this->assertSame(2, substr_count($html, 'type="time" name="p0[]"'));
+        $html = $this->renderForm(['fields' => [['label' => 'When', 'type' => 'timerange', 'required' => true]]], ['kaaaa']);
+        $this->assertSame(2, substr_count($html, 'type="time" name="kaaaa[]"'));
     }
 
     public function testLiveFormCarriesLogicForTheScript(): void

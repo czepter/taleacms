@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Tests\Site\FormsHygiene;
 
 use PHPUnit\Framework\Attributes\Group;
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 
 /** Starting a form from a collection, personal links made in the admin, the Collections right, and uploads that wait for approval. */
@@ -109,9 +110,10 @@ final class CollectionStarterTest extends SiteTestCase
         $visitor = $this->site()->client();
         $form = $visitor->get('/photo-voice');
         $signed = ['source' => $form->field('source'), 'element' => $form->field('element'), 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature'), 'back' => '/photo-voice'];
+        $names = FormNames::of($form->body, $form->field('element'));
         sleep(1);
 
-        $sent = $visitor->upload('/form', $signed + ['p0' => 'Anna'], ['p1' => [$path, 'image/png', 'voice.png']]);
+        $sent = $visitor->upload('/form', $signed + FormNames::map(['p0' => 'Anna'], $names), [$names[1] => [$path, 'image/png', 'voice.png']]);
         $this->assertStringContainsString('result=ok', (string) $sent->redirect, 'upload: the answer is accepted (' . $sent->status . ' ' . substr($sent->body, 0, 300) . ')');
         $item = $this->site()->rows('SELECT data, submitted_via FROM tl_collection_items WHERE collection_id = (SELECT collection_id FROM tl_collections WHERE slug = ?)', ['voices'])[0];
         $photo = (string) (json_decode((string) $item['data'], true)['image'] ?? '');

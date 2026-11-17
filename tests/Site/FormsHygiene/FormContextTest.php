@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\FormsHygiene;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -20,6 +21,10 @@ final class FormContextTest extends SiteTestCase
     private static array $eventForm = [];
     /** @var array<string, string> */
     private static array $pageForm = [];
+    /** @var list<string> */
+    private static array $eventFormNames = [];
+    /** @var list<string> */
+    private static array $pageFormNames = [];
 
     public function testARegistrationFromAnEventPageRecordsTheCalendarAndTheEvent(): void
     {
@@ -43,10 +48,11 @@ final class FormContextTest extends SiteTestCase
         foreach (['eventForm' => '/events-test/yoga', 'pageForm' => '/bathrooms-f7'] as $property => $path) {
             $form = $visitor->get($path);
             self::${$property} = ['source' => $form->field('source'), 'element' => $form->field('element'), 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature')];
+            self::${$property . 'Names'} = FormNames::of($form->body, $form->field('element'));
         }
         sleep(1); // the antispam does not accept a form sent sooner than TALEA_ANTISPAM_MIN seconds (one in the harness)
 
-        $registration = $visitor->post('/form', self::$eventForm + ['back' => '/events-test/yoga', 'p0' => 'Eva', 'p1' => 'eva@example.com', 'p4' => '1']);
+        $registration = $visitor->post('/form', self::$eventForm + ['back' => '/events-test/yoga'] + FormNames::map(['p0' => 'Eva', 'p1' => 'eva@example.com', 'p4' => '1'], self::$eventFormNames));
         $this->assertStringContainsString('result=registered', $registration->redirect, 'the registration was accepted (a single event takes seats like a course)');
         $this->assertSame('Events test – Yoga, for beginners', (string) $this->site()->value('SELECT topic FROM tl_enquiries WHERE source = ? ORDER BY enquiry_id LIMIT 1', ['collection:' . self::$eventsCollection]),
             "topic: a registration from an event's page records the calendar and the event");
@@ -61,7 +67,7 @@ final class FormContextTest extends SiteTestCase
     public function testTheTopicOnAPageIsThePageTitleWhateverWasPosted(): void
     {
         $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
-        $result = $this->site()->client()->post('/form', self::$pageForm + ['back' => '/bathrooms-f7', 'p0' => 'f7@example.com', 'topic' => 'Forged', 'about' => 'Forged']);
+        $result = $this->site()->client()->post('/form', self::$pageForm + ['back' => '/bathrooms-f7', 'topic' => 'Forged', 'about' => 'Forged'] + FormNames::map(['p0' => 'f7@example.com'], self::$pageFormNames));
         $this->assertStringContainsString('result=ok', $result->redirect, 'topic: the form on the page was sent');
 
         self::$enquiry = (int) $this->site()->value("SELECT MAX(enquiry_id) FROM tl_enquiries WHERE source = ?", ['page:' . self::$page]);

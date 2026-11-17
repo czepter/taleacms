@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\FormsHygiene;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -37,7 +38,7 @@ final class LinkReviewJourneyTest extends SiteTestCase
         $signed = ['source' => $opened->field('source'), 'element' => $opened->field('element'), 'as_time' => $opened->field('as_time'), 'as_signature' => $opened->field('as_signature'), 'back' => '/_f/' . $token, 'link' => $token];
         sleep(1);
         // the person keeps the words, clears the role and uploads no photo
-        $this->assertStringContainsString('result=ok', $visitor->post('/form', $signed + ['p0' => 'Great work.', 'p1' => 'Eva Novak', 'p2' => '', 'p4' => '1'])->redirect);
+        $this->assertStringContainsString('result=ok', $visitor->post('/form', $signed + FormNames::map(['p0' => 'Great work.', 'p1' => 'Eva Novak', 'p2' => '', 'p4' => '1'], FormNames::of($opened->body, $opened->field('element'))))->redirect);
         $id = $site->mcpResult('list_form_links', ['item' => $item])['links'][0]['id'];
         $rows = array_column($site->mcpResult('review_form_answer', ['id' => $id])['fields'] ?? [], null, 'label');
         $this->assertSame(['media/eva.webp', true, false], [$rows['Image']['after'] ?? null, $rows['Image']['kept'] ?? null, $rows['Image']['changed'] ?? null], 'review: the comparison says the photo stays');
@@ -71,21 +72,21 @@ final class LinkReviewJourneyTest extends SiteTestCase
         $site->clearPageCache();
         $visitor = $site->client();
         $opened = $visitor->get('/_f/' . $token);
-        $this->assertStringContainsString('name="p3[]" value="10:00"', $opened->body, 'review: the time range shows its start');
-        $this->assertStringContainsString('name="p3[]" value="12:00"', $opened->body, 'review: the time range shows its end');
+        $this->assertStringContainsString('name="' . FormNames::of($opened->body, $opened->field('element'))[3] . '[]" value="10:00"', $opened->body, 'review: the time range shows its start');
+        $this->assertStringContainsString('name="' . FormNames::of($opened->body, $opened->field('element'))[3] . '[]" value="12:00"', $opened->body, 'review: the time range shows its end');
         $signed = ['source' => $opened->field('source'), 'element' => $opened->field('element'), 'as_time' => $opened->field('as_time'), 'as_signature' => $opened->field('as_signature'), 'back' => '/_f/' . $token, 'link' => $token];
         sleep(1);
 
         // "5 stars" is no number: the field is marked, nothing is stored, and the link shows what the person wrote
-        $refused = $visitor->post('/form', $signed + ['p0' => 'Lisa', 'p1' => 'wedding', 'p2' => '2026-06-20', 'p3' => ['10:00', '12:00'], 'p4' => '5 stars', 'p5' => '1']);
+        $refused = $visitor->post('/form', $signed + FormNames::map(['p0' => 'Lisa', 'p1' => 'wedding', 'p2' => '2026-06-20', 'p3' => ['10:00', '12:00'], 'p4' => '5 stars', 'p5' => '1'], FormNames::of($opened->body, $opened->field('element'))));
         $this->assertStringContainsString('result=field&field=4', $refused->redirect, 'review: an answer that does not fit its item field is asked again');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM tl_collection_items i JOIN tl_collections k ON k.collection_id = i.collection_id WHERE k.slug = 'shoots' AND i.visible = FALSE"), 'review: nothing half-filled is stored');
         $this->assertStringContainsString('value="5 stars"', $visitor->get('/_f/' . $token)->body, 'review: the person finds their answer again');
-        $this->assertStringContainsString('result=field&field=1', $visitor->post('/form', $signed + ['p0' => 'Lisa', 'p1' => 'Family', 'p2' => '2026-06-20', 'p3' => ['10:00', '12:00'], 'p4' => '5', 'p5' => '1'])->redirect,
+        $this->assertStringContainsString('result=field&field=1', $visitor->post('/form', $signed + FormNames::map(['p0' => 'Lisa', 'p1' => 'Family', 'p2' => '2026-06-20', 'p3' => ['10:00', '12:00'], 'p4' => '5', 'p5' => '1'], FormNames::of($opened->body, $opened->field('element'))))->redirect,
             'review: an option the collection does not have is asked again');
 
         $site->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
-        $this->assertStringContainsString('result=ok', $visitor->post('/form', $signed + ['p0' => 'Lisa', 'p1' => 'wedding', 'p2' => '2026-06-20', 'p3' => ['10:00', '12:00'], 'p4' => '5', 'p5' => '1'])->redirect);
+        $this->assertStringContainsString('result=ok', $visitor->post('/form', $signed + FormNames::map(['p0' => 'Lisa', 'p1' => 'wedding', 'p2' => '2026-06-20', 'p3' => ['10:00', '12:00'], 'p4' => '5', 'p5' => '1'], FormNames::of($opened->body, $opened->field('element'))))->redirect);
         $id = $site->mcpResult('list_form_links', ['item' => $item])['links'][0]['id'];
         $changed = array_values(array_filter($site->mcpResult('review_form_answer', ['id' => $id])['fields'] ?? [], fn (array $r): bool => $r['changed']));
         $this->assertSame([['Rating', '4', '5']], array_map(fn (array $r): array => [$r['label'], $r['before'], $r['after']], $changed), 'review: only the rating changed – the same day keeps its time, the choice its case');

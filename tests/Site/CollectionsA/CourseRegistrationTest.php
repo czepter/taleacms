@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\CollectionsA;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -21,8 +22,8 @@ final class CourseRegistrationTest extends SiteTestCase
         $page = $drawn ?? $visitor->get('/courses-test/' . $slug);
         sleep($drawn === null ? 1 : 0); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam)
 
-        return $visitor->post('/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/' . $slug,
-            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Anna', 'p1' => $email, 'p3' => '1'] + $extra)->redirect;
+        return $visitor->post('/form', FormNames::map(['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/courses-test/' . $slug,
+            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Anna', 'p1' => $email, 'p3' => '1'] + $extra, FormNames::of($page->body, $page->field('element'))))->redirect;
     }
 
     private function state(string $email): string
@@ -279,8 +280,8 @@ final class CourseRegistrationTest extends SiteTestCase
         $page = $visitor->get('/de/courses-test/rumba');
         $this->assertSame(200, $page->status);
         sleep(1);
-        $redirect = $visitor->post('/de/form', ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/de/courses-test/rumba',
-            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Gerda', 'p1' => 'gerda@example.com', 'p3' => '1'])->redirect;
+        $redirect = $visitor->post('/de/form', FormNames::map(['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/de/courses-test/rumba',
+            'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Gerda', 'p1' => 'gerda@example.com', 'p3' => '1'], FormNames::of($page->body, $page->field('element'))))->redirect;
         $this->assertStringContainsString('result=', $redirect);
         $this->assertSame('de|waiting', $this->sq("SELECT CONCAT(language, '|', seat_state) FROM tl_enquiries WHERE email = 'gerda@example.com'"));
         $this->assertSame('Wir haben deine Anfrage erhalten: Rumba DE', $this->sq("SELECT subject FROM tl_mail WHERE recipient = 'gerda@example.com' ORDER BY mail_id DESC LIMIT 1"), 'the welcome mail is German');

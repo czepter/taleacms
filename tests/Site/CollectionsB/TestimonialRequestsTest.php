@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\CollectionsB;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -39,12 +40,13 @@ final class TestimonialRequestsTest extends SiteTestCase
         $this->assertStringContainsString('I agree that', $page->body, 'testimonials: the customer page asks for the consent');
         $this->assertStringContainsString('noindex', $page->body, 'testimonials: the customer page is noindex');
         $signed = ['source' => $page->field('source'), 'element' => $page->field('element'), 'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'back' => "/$link", 'link' => $token];
+        $names = FormNames::of($page->body, $page->field('element'));
         sleep(1); // the anti-spam signature has a minimum age
 
-        $refused = $customer->post('/form', $signed + ['p0' => 'Excellent cooperation, all on time.', 'p1' => 'Eve Novak']);
+        $refused = $customer->post('/form', $signed + FormNames::map(['p0' => 'Excellent cooperation, all on time.', 'p1' => 'Eve Novak'], $names));
         $this->assertStringContainsString('result=field', $refused->redirect, 'testimonials: nothing is saved without the consent');
 
-        $answered = $customer->post('/form', $signed + ['p0' => 'Excellent cooperation, all <b>on time</b>.', 'p1' => 'Eve Novak', 'p2' => 'director, ACME', 'p4' => '1']);
+        $answered = $customer->post('/form', $signed + FormNames::map(['p0' => 'Excellent cooperation, all <b>on time</b>.', 'p1' => 'Eve Novak', 'p2' => 'director, ACME', 'p4' => '1'], $names));
         $item = $site->value('SELECT item_id FROM tl_form_links WHERE enquiry_id = ? AND used_at IS NOT NULL', [$enquiry]);
         $this->assertNotNull($item, 'testimonials: the answer was saved: ' . $answered->redirect);
         $this->assertSame('0|Eve Novak|Excellent cooperation, all on time.|Eve Novak, director, ACME|references', $site->value("SELECT CONCAT(p.visible, '|', p.name, '|', p.data->>'\$.quote', '|', p.data->>'\$.client', '|', k.preset) FROM tl_collection_items p JOIN tl_collections k ON k.collection_id = p.collection_id WHERE p.item_id = ?", [$item]),

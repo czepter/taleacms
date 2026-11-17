@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Talea\Tests\Site\SiteMoveSecurity;
 
 use Talea\Core\Uuid;
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -101,8 +102,8 @@ final class PublicIdsPublicTest extends SiteTestCase
         $html = $site->client()->get('/contact')->body;
         $field = fn (string $name): string => preg_match('/name="' . $name . '" value="([^"]*)"/', $html, $m) === 1 ? html_entity_decode($m[1]) : '';
         sleep(1); // the form asks for a moment between loading and sending
-        $site->client()->post('/form', ['source' => $field('source'), 'element' => $field('element'), 'back' => '/contact', 'as_time' => $field('as_time'), 'as_signature' => $field('as_signature'),
-            'p0' => 'Jane', 'p1' => 'jane@example.org', 'p2' => '', 'p3' => 'Hello', 'p4' => '1']);
+        $site->client()->post('/form', ['source' => $field('source'), 'element' => $field('element'), 'back' => '/contact', 'as_time' => $field('as_time'), 'as_signature' => $field('as_signature')]
+            + FormNames::map(['p0' => 'Jane', 'p1' => 'jane@example.org', 'p2' => '', 'p3' => 'Hello', 'p4' => '1'], FormNames::of($html, $field('element'))));
         $body = (string) $site->value("SELECT body FROM tl_webhook_deliveries WHERE event = 'enquiry_received' ORDER BY id DESC LIMIT 1");
         $this->assertNotSame('', $body, 'the enquiry call is in the delivery log');
         $payload = json_decode($body, true);

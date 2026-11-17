@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\CollectionsA;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -85,8 +86,9 @@ final class EventsCalendarTest extends SiteTestCase
         $this->site()->exec("DELETE FROM tl_ip_checks WHERE type = 'form'");
         $page = $visitor->get('/events-test/yoga');
         $fields = ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/events-test/yoga', 'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Eva', 'p4' => '1'];
+        $names = FormNames::of($page->body, $page->field('element'));
         sleep(1); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam), as the old script waited
-        $register = static fn (string $email): string => $visitor->post('/form', $fields + ['p1' => $email])->redirect;
+        $register = static fn (string $email): string => $visitor->post('/form', FormNames::map($fields + ['p1' => $email], $names))->redirect;
 
         $this->assertStringContainsString('result=ok', $register('eva@example.cz'), 'a registration is accepted');
         $this->assertSame('collection:' . self::$idk . '|/events-test/yoga', $this->sq('SELECT CONCAT(source, \'|\', page) FROM tl_enquiries ORDER BY enquiry_id DESC LIMIT 1'), "the registration is an enquiry from the event's page");

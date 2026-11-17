@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\FormsHygiene;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -55,7 +56,7 @@ final class LinkFormattedTextTest extends SiteTestCase
         $this->assertStringContainsString(">We loved it.\n\nThanks!</textarea>", $opened->body, 'formatted text: the text area shows the item\'s text');
         $signed = ['source' => $opened->field('source'), 'element' => $opened->field('element'), 'as_time' => $opened->field('as_time'), 'as_signature' => $opened->field('as_signature'), 'back' => '/_f/' . $token, 'link' => $token];
         sleep(1);
-        $this->assertStringContainsString('result=ok', $visitor->post('/form', $signed + ['p0' => 'Lisa + Mike', 'p1' => "We loved it.\n\nThanks!", 'p2' => '5', 'p3' => '1'])->redirect, 'formatted text: the answer is sent');
+        $this->assertStringContainsString('result=ok', $visitor->post('/form', $signed + FormNames::map(['p0' => 'Lisa + Mike', 'p1' => "We loved it.\n\nThanks!", 'p2' => '5', 'p3' => '1'], FormNames::of($opened->body, $opened->field('element'))))->redirect, 'formatted text: the answer is sent');
         $answer = json_decode((string) $site->value('SELECT data FROM tl_collection_items WHERE visible = FALSE AND deleted_at IS NULL'), true);
         $this->assertSame("<p>We loved it.</p>\n<p>Thanks!</p>", $answer['text'] ?? null, 'formatted text: the answer keeps the text (it arrived empty before)');
         $id = $site->mcpResult('list_form_links', ['item' => $item])['links'][0]['id'];
@@ -72,7 +73,7 @@ final class LinkFormattedTextTest extends SiteTestCase
         $opened = $visitor->get('/_f/' . $token);
         $signed = ['source' => $opened->field('source'), 'element' => $opened->field('element'), 'as_time' => $opened->field('as_time'), 'as_signature' => $opened->field('as_signature'), 'back' => '/_f/' . $token, 'link' => $token];
         sleep(1);
-        $visitor->post('/form', $signed + ['p0' => 'Lisa + Mike', 'p1' => 'A day to remember.', 'p2' => '5', 'p3' => '1']);
+        $visitor->post('/form', $signed + FormNames::map(['p0' => 'Lisa + Mike', 'p1' => 'A day to remember.', 'p2' => '5', 'p3' => '1'], FormNames::of($opened->body, $opened->field('element'))));
         $id = $site->mcpResult('list_form_links', ['item' => $item])['links'][0]['id'];
         $rows = array_column($site->mcpResult('review_form_answer', ['id' => $id])['fields'] ?? [], null, 'label');
         $this->assertSame(["We loved it.\n\nThanks!", 'A day to remember.', true], [$rows['Text']['before'] ?? null, $rows['Text']['after'] ?? null, $rows['Text']['changed'] ?? null], 'formatted text: the comparison reads as text');

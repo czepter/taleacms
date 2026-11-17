@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Talea\Tests\Site\JobsFleetFacts;
 
+use Talea\Tests\Site\Support\FormNames;
 use Talea\Tests\Site\Support\SiteTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -26,8 +27,7 @@ final class JobsTest extends SiteTestCase
         $signature = hash_hmac('sha256', "form|$source|$element|$time", $site->settingValue('secret_key'));
         $location = $site->client()->post('/form', [
             'source' => $source, 'element' => $element, 'back' => '/contact', 'as_time' => $time, 'as_signature' => $signature,
-            'p0' => 'Jane', 'p1' => 'jane@example.com', 'p2' => '', 'p3' => 'I want a custom kitchen.', 'p4' => '1',
-        ])->redirect;
+        ] + FormNames::map(['p0' => 'Jane', 'p1' => 'jane@example.com', 'p2' => '', 'p3' => 'I want a custom kitchen.', 'p4' => '1'], FormNames::of($form->body, $element)))->redirect;
         $this->assertStringContainsString('result=ok', $location, 'the enquiry was accepted');
 
         $this->mcpText('create_page', ['title' => 'Jobs page', 'slug' => 'jobs-page', 'visible' => true, 'content' => '<p>x</p>']);
